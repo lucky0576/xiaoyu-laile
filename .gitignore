@@ -1,0 +1,41 @@
+# ==========================================================================
+# 小鱼来了 — 不纳入版本控制的内容
+# ==========================================================================
+
+# 运行时数据：信息、用户、上传文件、日志
+# 这些是「这台机器上的数据」，不是代码，绝不能提交
+data/
+data-*/
+!src/data/
+
+# 本机配置：包含 PUBLIC_BASE_URL、密钥等，每台机器不同
+# 新机器从 .env.example 复制一份即可，config.js 会自动生成 SESSION_SECRET
+.env
+.env.local
+.env.*.local
+
+# 依赖与工具（本项目零依赖，正常不会有 node_modules）
+node_modules/
+.tools/
+*.exe
+
+# 日志与临时文件
+*.log
+*.tmp
+tmp/
+temp/
+
+# 运行时生成的静态资源
+public/static/share-default.png
+public/_boot/
+
+# 发布包
+xiaoyu-laile-release-*.tar.gz
+*.bundle
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

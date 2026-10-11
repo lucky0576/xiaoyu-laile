@@ -1,0 +1,27 @@
+{
+  "name": "xiaoyu-laile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "小鱼来了 — AI 信息发布平台（项目 / 活动 / 贸易）+ 群聊会议 + AI 解析",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed.js",
+    "test": "node tests/run-all.mjs"
+  },
+  "keywords": [
+    "ai",
+    "信息发布",
+    "项目对接",
+    "新能源",
+    "投融资"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {},
+  "devDependencies": {}
+}

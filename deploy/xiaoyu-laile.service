@@ -1,0 +1,41 @@
+# ==========================================================================
+# 小鱼来了 —— 裸机部署 systemd 单元（不用 Docker 时使用）
+#
+# 安装：
+#   sudo useradd -r -s /bin/false xiaoyu
+#   sudo mkdir -p /opt/xiaoyu-laile && sudo chown xiaoyu:xiaoyu /opt/xiaoyu-laile
+#   # 上传代码到 /opt/xiaoyu-laile，并创建 /opt/xiaoyu-laile/.env
+#   sudo cp deploy/xiaoyu-laile.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now xiaoyu-laile
+#   sudo systemctl status xiaoyu-laile
+# ==========================================================================
+
+[Unit]
+Description=小鱼来了 · AI 信息发布平台
+Documentation=https://github.com/your-org/xiaoyu-laile
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=xiaoyu
+Group=xiaoyu
+WorkingDirectory=/opt/xiaoyu-laile
+EnvironmentFile=/opt/xiaoyu-laile/.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+StandardOutput=append:/var/log/xiaoyu-laile.log
+StandardError=append:/var/log/xiaoyu-laile.log
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/xiaoyu-laile/data
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

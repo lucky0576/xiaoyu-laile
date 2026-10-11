@@ -1,0 +1,15 @@
+.git
+.gitignore
+data
+data-test
+data-debug
+node_modules
+npm-debug.log
+*.log
+.env
+.tools
+tests
+qr-smoke.png
+手机访问二维码.png
+外网访问二维码.png
+deploy/data

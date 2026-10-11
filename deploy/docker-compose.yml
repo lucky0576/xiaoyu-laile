@@ -1,0 +1,59 @@
+# ==========================================================================
+# 小鱼来了 —— 一键部署（应用 + Caddy 自动 HTTPS）
+#
+# 用法：
+#   1. 把域名 A 记录解析到本服务器公网 IP
+#   2. 在 deploy 目录创建 .env 文件（参考 .env.production.example）
+#   3. docker compose up -d
+#
+# Caddy 会自动申请并续期 Let's Encrypt 证书，无需手工配置 HTTPS。
+# ==========================================================================
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: xiaoyu-laile:latest
+    container_name: xiaoyu-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8787"
+      DATA_DIR: /app/data
+      NODE_ENV: production
+    volumes:
+      - ./data:/app/data
+    expose:
+      - "8787"
+    networks:
+      - xiaoyu
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: xiaoyu-caddy
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - xiaoyu
+
+networks:
+  xiaoyu:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

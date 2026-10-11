@@ -1,0 +1,472 @@
+/**
+ * 小鱼来了 — 极简 HTTP 应用框架
+ *
+ * 用 node:http 实现，零第三方依赖：路由、参数、Cookie、Body 解析、
+ * 静态资源（含 SPA 回退）、SSE。目标是把"能跑起来"的确定性拉到最高。
+ */
+import http from 'node:http';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import { URL } from 'node:url';
+import { config, TMP_DIR } from '../config.js';
+import { parseMultipartStream } from './multipart.js';
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/plain; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+  '.zip': 'application/zip',
+  '.webmanifest': 'application/manifest+json',
+};
+
+export function httpError(status, message, code = 'error') {
+  const err = new Error(message);
+  err.status = status;
+  err.code = code;
+  return err;
+}
+
+export function parseCookies(header) {
+  const out = {};
+  if (!header) return out;
+  for (const part of String(header).split(';')) {
+    const eq = part.indexOf('=');
+    if (eq < 0) continue;
+    const k = part.slice(0, eq).trim();
+    if (!k) continue;
+    out[k] = decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return out;
+}
+
+export function serializeCookie(name, value, opts = {}) {
+  const enc = encodeURIComponent(value ?? '');
+  let s = `${name}=${enc}`;
+  if (opts.maxAge !== undefined) s += `; Max-Age=${Math.floor(opts.maxAge)}`;
+  s += `; Path=${opts.path || '/'}`;
+  if (opts.httpOnly !== false) s += '; HttpOnly';
+  if (opts.secure) s += '; Secure';
+  s += `; SameSite=${opts.sameSite || 'Lax'}`;
+  return s;
+}
+
+function compilePath(pattern) {
+  const keys = [];
+  const PLACEHOLDER = '\u0000WILD\u0000';
+  let src = String(pattern)
+    .replace(/\*/g, PLACEHOLDER)
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  src = src.replace(new RegExp(PLACEHOLDER, 'g'), '(.*)');
+  src = src.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_, k) => {
+    keys.push(k);
+    return '([^/]+)';
+  });
+  return { re: new RegExp(`^${src}/?$`), keys };
+}
+
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limit) {
+        reject(httpError(413, `请求体超过限制（${Math.round(limit / 1048576)}MB）`, 'payload_too_large'));
+        try {
+          req.destroy();
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function parseBody(req) {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return;
+  const ct = String(req.headers['content-type'] || '');
+  if (ct.startsWith('multipart/form-data')) {
+    const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(ct);
+    if (!m) throw httpError(400, 'multipart 请求缺少 boundary');
+    const boundary = (m[1] || m[2]).trim();
+    const result = await parseMultipartStream(req, {
+      boundary,
+      tmpDir: TMP_DIR,
+      maxTotalBytes: config.maxUploadBytes,
+    });
+    req.body = result.fields;
+    req.files = result.files;
+    return;
+  }
+  const limit = config.maxJsonBytes;
+  const raw = await readRaw(req, limit);
+  req.rawBody = raw;
+  if (!raw.length) {
+    req.body = {};
+    return;
+  }
+  if (ct.includes('application/json') || ct.includes('+json')) {
+    try {
+      req.body = JSON.parse(raw.toString('utf8'));
+    } catch {
+      throw httpError(400, 'JSON 解析失败');
+    }
+  } else if (ct.includes('application/x-www-form-urlencoded')) {
+    req.body = Object.fromEntries(new URLSearchParams(raw.toString('utf8')));
+  } else {
+    req.body = {};
+  }
+}
+
+/** 清理本次请求落盘的临时上传文件 */
+function cleanupUploads(req) {
+  for (const f of req.files || []) {
+    try {
+      if (f.tmpPath && !f.moved) fs.unlinkSync(f.tmpPath);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function createApp() {
+  const preStack = [];
+  const routes = [];
+  const app = {};
+
+  const add = (method, pattern, ...handlers) => {
+    const { re, keys } = compilePath(pattern);
+    routes.push({ method, pattern, re, keys, handlers: handlers.flat() });
+    return app;
+  };
+
+  app.get = (p, ...h) => add('GET', p, ...h);
+  app.post = (p, ...h) => add('POST', p, ...h);
+  app.put = (p, ...h) => add('PUT', p, ...h);
+  app.patch = (p, ...h) => add('PATCH', p, ...h);
+  app.del = (p, ...h) => add('DELETE', p, ...h);
+  app.delete = app.del;
+  app.use = (mw) => {
+    preStack.push(mw);
+    return app;
+  };
+
+  /**
+   * 静态资源。opts.spa = true 时未知路径回退到 index.html（前端路由）。
+   */
+  app.static = (prefix, dir, opts = {}) => {
+    const cleanPrefix = prefix.replace(/\/+$/, '');
+    const exclude = (opts.exclude || []).map((p) => (p instanceof RegExp ? p : new RegExp(p)));
+    preStack.push(async (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return;
+      if (exclude.some((re) => re.test(req.path))) return;
+      if (!req.path.startsWith(cleanPrefix + '/') && req.path !== cleanPrefix) return;
+
+      let rel = req.path.slice(cleanPrefix.length) || '/';
+      if (rel === '/' || rel.endsWith('/')) rel += 'index.html';
+      rel = decodeURIComponent(rel).replace(/\\/g, '/');
+      const target = path.join(dir, rel);
+
+      // 防止目录穿越
+      if (!path.resolve(target).startsWith(path.resolve(dir))) {
+        return res.json({ error: '非法路径' }, 403);
+      }
+
+      try {
+        const st = await fsp.stat(target);
+        if (st.isFile()) {
+          res.set('Content-Type', MIME[path.extname(target).toLowerCase()] || 'application/octet-stream');
+          res.set('Cache-Control', opts.cache || 'public, max-age=300');
+          res.set('Last-Modified', st.mtime.toUTCString());
+          if (req.method === 'HEAD') {
+            res.statusCode = 200;
+            res.__handled = true;
+            return res.end();
+          }
+          return res.sendFile(target, 'stream');
+        }
+      } catch {
+        /* 落到 SPA 回退 */
+      }
+
+      if (opts.spa) {
+        const indexFile = path.join(dir, 'index.html');
+        try {
+          await fsp.access(indexFile);
+          res.set('Content-Type', MIME['.html']);
+          res.set('Cache-Control', 'no-cache');
+          if (req.method === 'HEAD') {
+            res.statusCode = 200;
+            res.__handled = true;
+            return res.end();
+          }
+          return res.sendFile(indexFile, 'stream');
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+    return app;
+  };
+
+  const handle = async (req, res) => {
+    const started = Date.now();
+    const parsed = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    req.path = decodeURIComponent(parsed.pathname);
+    req.query = Object.fromEntries(parsed.searchParams);
+    req.cookies = parseCookies(req.headers.cookie);
+    req.body = {};
+    req.files = [];
+    req.origin = `${parsed.protocol}//${req.headers.host || 'localhost'}`;
+
+    /* ---------------- 响应助手 ---------------- */
+    res.set = (k, v) => {
+      if (!res.headersSent) res.setHeader(k, v);
+      return res;
+    };
+    res.status = (n) => {
+      res.statusCode = n;
+      return res;
+    };
+    /**
+     * 判断本次响应是否已经被某一层接管。
+     * 不能用 headersSent 单独判断：流式 pipe 是异步的，pipe 返回时 headers 还没发出去，
+     * 会被后面的 404 兜底抢先 end()。所以显式标记 __handled。
+     */
+    res.done = () => Boolean(res.writableEnded || res.headersSent || res.__handled);
+    res.json = (obj, status) => {
+      if (res.done() || res.__handled) return res;
+      const body = Buffer.from(JSON.stringify(obj ?? null), 'utf8');
+      res.statusCode = status || res.statusCode || 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Length', body.length);
+      res.end(body);
+      return res;
+    };
+    res.text = (s, status) => {
+      if (res.done() || res.__handled) return res;
+      const body = Buffer.from(String(s ?? ''), 'utf8');
+      res.statusCode = status || res.statusCode || 200;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Length', body.length);
+      res.end(body);
+      return res;
+    };
+    res.redirect = (loc, status = 302) => {
+      if (res.done()) return res;
+      res.statusCode = status;
+      res.setHeader('Location', loc);
+      res.__handled = true;
+      res.end();
+      return res;
+    };
+    res.sendFile = (file, mode = 'buffer') => {
+      if (mode === 'stream') {
+        const st = fs.statSync(file);
+        res.setHeader('Content-Length', st.size);
+        const stream = fs.createReadStream(file);
+        stream.on('error', () => {
+          try { res.destroy(); } catch { /* ignore */ }
+        });
+        res.__handled = true;
+        stream.pipe(res);
+        return res;
+      }
+      res.__handled = true;
+      res.end(fs.readFileSync(file));
+      return res;
+    };
+    /** Server-Sent Events */
+    res.sse = () => {
+      res.__handled = true;
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+      if (typeof res.flushHeaders === 'function') res.flushHeaders();
+      res.write(': connected\n\n');
+      const ping = setInterval(() => {
+        try {
+          res.write(': ping\n\n');
+        } catch {
+          /* ignore */
+        }
+      }, 25000);
+      if (ping.unref) ping.unref();
+      res.on('close', () => clearInterval(ping));
+      return {
+        send: (event, data) => {
+          try {
+            res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+          } catch {
+            /* ignore */
+          }
+        },
+        close: () => {
+          clearInterval(ping);
+          try {
+            res.end();
+          } catch {
+            /* ignore */
+          }
+        },
+      };
+    };
+
+    // CORS：允许前端独立部署或手机浏览器直连
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    const finish = () => {
+      cleanupUploads(req);
+      const ms = Date.now() - started;
+      if (!app.quiet && !req.path.startsWith('/api/events')) {
+        const flag = res.statusCode >= 400 ? '!' : ' ';
+        console.log(`${flag} ${res.statusCode} ${req.method} ${req.path} ${ms}ms`);
+      }
+    };
+    res.on('close', finish);
+
+    try {
+      await parseBody(req);
+    } catch (err) {
+      return errorHandler(err, req, res);
+    }
+
+    // 1) 前置中间件与静态资源
+    for (const mw of preStack) {
+      try {
+        await mw(req, res, () => {});
+      } catch (err) {
+        return errorHandler(err, req, res);
+      }
+      if (res.done()) return;
+    }
+
+    // 2) 路由匹配
+    const method = req.method === 'HEAD' ? 'GET' : req.method;
+    let pathMatched = false;
+    for (const route of routes) {
+      if (route.method !== 'ALL' && route.method !== method) continue;
+      const m = route.re.exec(req.path);
+      if (!m) continue;
+      pathMatched = true;
+      req.params = {};
+      route.keys.forEach((k, i) => {
+        req.params[k] = decodeURIComponent(m[i + 1] ?? '');
+      });
+      req.route = route.pattern;
+      for (const handler of route.handlers) {
+        try {
+          await handler(req, res);
+        } catch (err) {
+          return errorHandler(err, req, res);
+        }
+        if (res.done()) return;
+      }
+      return;
+    }
+
+    return notFoundHandler(req, res, pathMatched);
+  };
+
+  app.handler = (req, res) => {
+    handle(req, res).catch((err) => errorHandler(err, req, res));
+  };
+
+  app.listen = (port = config.port, host = config.host) =>
+    new Promise((resolve) => {
+      const server = http.createServer(app.handler);
+      server.keepAliveTimeout = 65000;
+      server.requestTimeout = 0; // 大文件上传不设总超时
+      server.headersTimeout = 70000;
+      server.listen(port, host, () => resolve(server));
+      app.server = server;
+    });
+
+  app.close = () =>
+    new Promise((resolve) => {
+      if (!app.server) return resolve();
+      app.server.close(() => resolve());
+    });
+
+  return app;
+}
+
+function notFoundHandler(req, res, pathMatched) {
+  if (req.path.startsWith('/api/')) {
+    return res.json({ error: '接口不存在', code: 'not_found', path: req.path }, 404);
+  }
+  if (pathMatched) {
+    return res.json({ error: '请求方法不允许', code: 'method_not_allowed' }, 405);
+  }
+  return res.json({ error: '资源不存在', code: 'not_found' }, 404);
+}
+
+export function errorHandler(err, req, res) {
+  const status = err && err.status ? err.status : 500;
+  if (status >= 500) {
+    console.error(`[error] ${req.method} ${req.path}`, err && err.stack ? err.stack : err);
+  }
+  if (res.writableEnded || res.headersSent || res.__handled) return;
+  try {
+    res.json(
+      {
+        error: (err && err.message) || '服务器内部错误',
+        code: (err && err.code) || 'internal_error',
+      },
+      status,
+    );
+  } catch {
+    try {
+      res.end();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export const mime = MIME;
+export default createApp;

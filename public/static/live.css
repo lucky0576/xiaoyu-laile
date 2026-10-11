@@ -1,0 +1,248 @@
+/* ==========================================================================
+   小鱼来了 — 短视频与直播
+   ========================================================================== */
+
+/* ---------------- 列表 ---------------- */
+.fd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.fd-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(24, 60, 120, .07);
+  display: flex;
+  flex-direction: column;
+}
+.fd-cover {
+  position: relative;
+  height: 116px;
+  background: linear-gradient(135deg, #dbeafe, #c7d2fe) center/cover no-repeat;
+  display: grid;
+  place-items: center;
+}
+.fd-cover .fd-play {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .45);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  padding-left: 3px;
+  backdrop-filter: blur(3px);
+}
+.fd-cover .fd-dur {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.fd-cover .fd-live {
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  background: linear-gradient(120deg, #ff3b3b, #ff6b3d);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  animation: livePulse 1.6s infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .62; }
+}
+.fd-body { padding: 9px 10px 11px; flex: 1; display: flex; flex-direction: column; }
+.fd-t {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #16202e;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fd-m { margin-top: auto; padding-top: 8px; font-size: 11px; color: #8a9bb5; display: flex; justify-content: space-between; gap: 6px; }
+.fd-m span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------- 短视频播放页 ---------------- */
+.fd-page { padding: 0 0 16px; }
+.fd-player { background: #000; border-radius: 0 0 16px 16px; overflow: hidden; }
+.fd-player video { width: 100%; max-height: 72vh; display: block; background: #000; }
+.fd-noplay { height: 220px; display: grid; place-items: center; color: #93a3ba; text-align: center; }
+.fd-page .card,
+.fd-page > a.card { margin-left: 12px; margin-right: 12px; }
+
+/* ---------------- 直播间 ---------------- */
+.live-page { padding: 0 0 16px; }
+.live-stage {
+  position: relative;
+  background: #0b0e14;
+  aspect-ratio: 9 / 13;
+  max-height: 66vh;
+  overflow: hidden;
+}
+.live-stage video { width: 100%; height: 100%; object-fit: cover; background: #0b0e14; }
+.live-cover {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, #1c2434, #0d1220) center/cover no-repeat;
+  display: grid;
+  place-items: center;
+  transition: opacity .3s;
+}
+.live-cover.hide { opacity: 0; pointer-events: none; }
+.live-cover-txt { color: #cbd6e6; font-size: 14px; background: rgba(0, 0, 0, .35); padding: 8px 18px; border-radius: 999px; }
+.live-top {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.live-badge {
+  background: rgba(0, 0, 0, .55);
+  color: #cbd6e6;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
+.live-badge.on { background: linear-gradient(120deg, #ff3b3b, #ff6b3d); color: #fff; animation: livePulse 1.6s infinite; }
+.live-stat {
+  margin-left: auto;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: 11.5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
+.live-host {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(to top, rgba(0, 0, 0, .72), rgba(0, 0, 0, 0));
+  border-radius: 12px;
+  padding: 22px 10px 8px;
+  margin: -14px -6px -6px;
+}
+.live-host .avatar { flex: none; }
+.live-host-name { color: #fff; font-size: 13.5px; font-weight: 700; text-shadow: 0 1px 6px rgba(0, 0, 0, .5); }
+.live-host-sub { color: rgba(255, 255, 255, .75); font-size: 11px; }
+
+.live-chat { height: 190px; overflow-y: auto; padding: 10px 14px; background: #fafcff; }
+.live-msg { font-size: 13px; color: #24303f; margin-bottom: 7px; line-height: 1.5; word-break: break-word; }
+.live-msg b { color: #0b74ff; font-weight: 600; }
+.live-msg.sys { color: #93a3ba; font-size: 12px; }
+.live-input {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+.live-input input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  outline: none;
+}
+.live-input input:focus { border-color: var(--brand); }
+
+/* ---------------- 首页轮播里的视频位 ---------------- */
+.home-banner .slide.video { padding: 0; }
+.home-banner .slide.video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.home-banner .slide.video .veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, .78) 12%, rgba(0, 0, 0, .12) 62%);
+}
+.home-banner .slide.video .cap {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 30px;
+  color: #fff;
+  z-index: 2;
+}
+.home-banner .slide.video .cap .t {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .5);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.home-banner .slide.video .cap .s { font-size: 12px; opacity: .85; margin-top: 5px; }
+.home-banner .slide.video .live-tag {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 3;
+  background: linear-gradient(120deg, #ff3b3b, #ff6b3d);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  animation: livePulse 1.6s infinite;
+}
+.home-banner .slide.video .short-tag {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 3;
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
+.home-banner .slide.video .mute-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 32px;
+  z-index: 4;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+@media (min-width: 768px) {
+  .fd-grid { grid-template-columns: repeat(4, 1fr); }
+  .fd-cover { height: 150px; }
+  .live-stage { aspect-ratio: 16 / 9; max-height: 62vh; }
+  .live-chat { height: 260px; }
+}

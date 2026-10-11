@@ -1,0 +1,38 @@
+# ==========================================================================
+# Caddy 配置 —— 自动 HTTPS（Let's Encrypt）
+#
+# DOMAIN 来自 docker-compose 的环境变量（deploy/.env 里的 DOMAIN=...）。
+# 前提：域名 A 记录已解析到本服务器公网 IP，且 80/443 端口已放行。
+# ==========================================================================
+
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	# 上传可到 512MB（视频等大文件）
+	reverse_proxy app:8787 {
+		transport http {
+			read_timeout 600s
+			write_timeout 600s
+		}
+	}
+
+	header {
+		# 基础安全响应头（无第三方中间页，直接返回应用内容）
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+	}
+}
