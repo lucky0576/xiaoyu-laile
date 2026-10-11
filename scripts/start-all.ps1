@@ -98,33 +98,56 @@ if ($cfRunning.Count -gt 0) {
 }
 
 # ---------------------------------------------------------------- 3. sync URL
+# IMPORTANT: match the tunnel domain but NOT the Cloudflare API host.
+# A naive 'https://[a-z0-9-]+\.trycloudflare\.com' also matches
+# https://api.trycloudflare.com, which appears in the log on API failures,
+# and would get written into .env as if it were the public site.
+$UrlPattern = 'https://(?!api\.)[a-z0-9-]+\.trycloudflare\.com'
+
+function Get-TunnelUrlFromLog {
+  if (-not (Test-Path $TunnelLog)) { return $null }
+  $m = Select-String -Path $TunnelLog -Pattern $UrlPattern -AllMatches
+  if (-not $m) { return $null }
+  return ($m.Matches | Select-Object -Last 1).Value
+}
+
+# Only accept a URL that actually serves our app. A domain can appear in the
+# log while the tunnel is still broken (or already recycled by Cloudflare).
+function Test-PublicUrl([string]$u) {
+  if (-not $u) { return $false }
+  try {
+    $r = Invoke-WebRequest "$u/api/health" -UseBasicParsing -TimeoutSec 15
+    return ($r.StatusCode -eq 200 -and $r.Content -match '"ok"')
+  } catch { return $false }
+}
+
 $PublicUrl = $null
 for ($i = 0; $i -lt 20; $i++) {
-  if (Test-Path $TunnelLog) {
-    $m = Select-String -Path $TunnelLog -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -AllMatches
-    if ($m) { $PublicUrl = ($m.Matches | Select-Object -Last 1).Value; break }
-  }
+  $cand = Get-TunnelUrlFromLog
+  if ($cand -and (Test-PublicUrl $cand)) { $PublicUrl = $cand; break }
   Start-Sleep -Seconds 2
 }
 
 if (-not $PublicUrl) {
-  Write-Log 'public tunnel URL not available yet; leaving .env unchanged'
+  Write-Log 'public tunnel URL not available/healthy; leaving .env unchanged'
 } else {
-  $envText = if (Test-Path $EnvFile) { Get-Content $EnvFile -Raw } else { '' }
-  $current = $null
-  $mm = [regex]::Match($envText, '(?m)^\s*PUBLIC_BASE_URL\s*=\s*(\S+)\s*$')
-  if ($mm.Success) { $current = $mm.Groups[1].Value }
+  # Read/write as explicit UTF-8. Get-Content -Raw would use the ANSI codepage
+  # on Windows PowerShell 5.1 and turn the Chinese comments into mojibake.
+  $Utf8 = New-Object System.Text.UTF8Encoding($false)
+  $envText = if (Test-Path $EnvFile) { [System.IO.File]::ReadAllText($EnvFile, $Utf8) } else { '' }
+  $mm = [regex]::Match($envText, '(?m)^[ \t]*PUBLIC_BASE_URL[ \t]*=[ \t]*(\S*)[ \t]*$')
+  $current = if ($mm.Success) { $mm.Groups[1].Value } else { $null }
 
   if ($current -eq $PublicUrl) {
     Write-Log "PUBLIC_BASE_URL already in sync: $PublicUrl"
   } else {
     Write-Log "PUBLIC_BASE_URL changed from '$current' to '$PublicUrl'"
     if ($mm.Success) {
-      $envText = $envText -replace '(?m)^\s*PUBLIC_BASE_URL\s*=\s*\S+\s*$', "PUBLIC_BASE_URL=$PublicUrl"
+      $envText = [regex]::Replace($envText, '(?m)^[ \t]*PUBLIC_BASE_URL[ \t]*=[ \t]*\S*[ \t]*$', "PUBLIC_BASE_URL=$PublicUrl")
     } else {
-      $envText = $envText.TrimEnd() + "`r`nPUBLIC_BASE_URL=$PublicUrl`r`n"
+      $envText = $envText.TrimEnd() + "`nPUBLIC_BASE_URL=$PublicUrl`n"
     }
-    [System.IO.File]::WriteAllText($EnvFile, $envText, (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText($EnvFile, $envText, $Utf8)
 
     Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
       $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue

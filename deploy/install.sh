@@ -3,7 +3,8 @@
 # 小鱼来了 —— 服务器一键安装（不需要 npm / docker / git）
 #
 # 用法（在服务器的终端里粘贴）：
-#   curl -fsSL https://effort-gage-uni-loose.trycloudflare.com/_boot/install.sh -o /tmp/xyl.sh
+#   curl -fsSL -H "ngrok-skip-browser-warning: 1" \
+#     https://unsneaky-electroballistic-rickie.ngrok-free.dev/_boot/install.sh -o /tmp/xyl.sh
 #   sudo DOMAIN=你的域名 ACME_EMAIL=你的邮箱 bash /tmp/xyl.sh
 #
 # 暂时没有域名，只想先用 IP 访问：
@@ -14,13 +15,20 @@
 #   ACME_EMAIL   申请 HTTPS 证书的邮箱
 #   PORT         监听端口，默认 8787
 #   NO_SEED      默认 1（正式上线不写演示数据）
+#
+# 说明：下载地址经 ngrok 转发。ngrok 免费版会给「浏览器」注入警告页，
+# 但脚本请求只要带上 ngrok-skip-browser-warning 头就会被直接放行，
+# 所以下面所有 curl 都带了这个头（对普通服务器无副作用）。
 # ==========================================================================
 set -euo pipefail
 
-BASE="${BASE:-https://effort-gage-uni-loose.trycloudflare.com}"
+BASE="${BASE:-https://unsneaky-electroballistic-rickie.ngrok-free.dev}"
 WORK="/tmp/xyl-install"
 PORT="${PORT:-8787}"
 NO_SEED="${NO_SEED:-1}"
+
+# ngrok 免费版需要这个头才会放行脚本请求；其他服务器会忽略它
+SKIP_HEADER="ngrok-skip-browser-warning: 1"
 
 say() { printf '\033[36m==> %s\033[0m\n' "$*"; }
 ok()  { printf '\033[32m  ok %s\033[0m\n' "$*"; }
@@ -41,8 +49,16 @@ say "下载发布包 ($BASE)"
 rm -rf "$WORK"
 mkdir -p "$WORK"
 cd "$WORK"
-curl -fsSL "$BASE/_boot/xiaoyu-laile-release.tar.gz" -o rel.tar.gz || die "下载失败，检查网络或地址"
+curl -fsSL -H "$SKIP_HEADER" --retry 3 --retry-delay 2 "$BASE/_boot/xiaoyu-laile-release.tar.gz" -o rel.tar.gz \
+  || die "下载失败，检查网络或地址"
 ok "已下载 $(du -h rel.tar.gz | cut -f1)"
+
+# 下载到的可能是 ngrok 警告页而不是压缩包，必须校验魔数
+if ! head -c 2 rel.tar.gz | od -An -tx1 | grep -q '1f 8b'; then
+  head -c 300 rel.tar.gz || true
+  die "下载到的不是 gzip 包（上面是内容开头）。请确认下载地址与跳过提示页的头是否正确。"
+fi
+ok "压缩包格式校验通过"
 
 say "解压"
 tar -xzf rel.tar.gz
