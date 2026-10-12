@@ -9,7 +9,7 @@ import ai from './ai.js';
 import notifySvc from './notify.js';
 import hub from './hub.js';
 import { aggregateText, pickCover, filePublic } from './files.js';
-import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES } from '../data/taxonomy.js';
+import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 
 const listings = () => db.collection('listings');
 const comments = () => db.collection('comments');
@@ -68,15 +68,18 @@ export function listingPublic(l, viewer = null, opts = {}) {
   if (!l) return null;
   const isOwner = viewer && viewer.id === l.ownerId;
   const contact = l.contact || {};
-  const hideContact = l.hideContact && !isOwner && !opts.unlocked;
+  // 平台规则：信息一旦发布，联系方式对所有人隐藏。
+  // 仅两种人可以看：发布方本人，以及已发起项目对接、被登记为项目成员的人。
+  const canSeeContact = Boolean(isOwner || opts.unlocked);
   return {
     ...l,
     categoryName: categoryName(l.category),
     typeName: l.typeName || typeNameOf(l.category, l.type),
     fileList: (l.files || []).map(filePublic).filter(Boolean),
-    contact: hideContact
-      ? { hidden: true, tip: '发起项目对接后可查看完整联系方式' }
-      : contact,
+    contact: canSeeContact
+      ? contact
+      : { hidden: true, tip: '平台保护隐私：发起项目对接成为项目成员后，才能查看完整联系方式' },
+    contactVisible: canSeeContact,
     isOwner: Boolean(isOwner),
     following: viewer ? notifySvc.isFollowing(viewer.id, 'listing', l.id) : false,
     ownerFollowing: viewer && l.ownerId ? notifySvc.isFollowing(viewer.id, 'user', l.ownerId) : false,
@@ -128,6 +131,162 @@ export function listingBrief(l) {
 function nums(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* 项目资质要求 与 商务条件 的规范化                                     */
+/* ------------------------------------------------------------------ */
+
+/** 兼容 multipart 传上来的 JSON 字符串 与 真正的数组/对象 */
+function parseMaybeJson(v) {
+  if (typeof v !== 'string') return v;
+  const s = v.trim();
+  if (!s) return undefined;
+  if (s[0] !== '[' && s[0] !== '{') return v;
+  try { return JSON.parse(s); } catch { return undefined; }
+}
+
+/** 兼容 '1' / '0' / 'true' / 'false' / '' 等表单值 */
+function truthy(v, fallback = false) {
+  if (v === undefined || v === null || v === '') return fallback;
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v !== 0;
+  const s = String(v).trim().toLowerCase();
+  if (['0', 'false', 'no', 'off', 'null', 'undefined'].includes(s)) return false;
+  return true;
+}
+
+/**
+ * 发布方勾选/填写的「对方需要具备哪些资质」。
+ * 支持多项，每项含名称、等级、是否必需、备注。
+ */
+export function normalizeQualifications(input) {
+  const arr = parseMaybeJson(input);
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .slice(0, 40)
+    .map((q) => ({
+      name: String(q?.name || '').trim().slice(0, 80),
+      level: String(q?.level || '').trim().slice(0, 20),
+      required: truthy(q?.required, true),
+      note: String(q?.note || '').trim().slice(0, 200),
+    }))
+    .filter((q) => q.name);
+}
+
+/** 商务条件：只保留 taxonomy 里定义过的字段，避免脏数据 */
+export function normalizeBusinessTerms(input) {
+  const src = parseMaybeJson(input);
+  if (!src || typeof src !== 'object') return {};
+  const plain = {};
+  try {
+    for (const k of Object.keys(src)) {
+      const v = src[k];
+      if (typeof v === 'string' || typeof v === 'number') plain[k] = String(v).trim().slice(0, 500);
+    }
+  } catch {
+    return {};
+  }
+  const out = {};
+  for (const f of BUSINESS_TERM_FIELDS) {
+    const v = plain[f.key];
+    if (v) out[f.key] = v;
+  }
+  return out;
+}
+
+/** 合并项目字段：编辑时保留旧值，只覆盖提交上来的部分 */
+export function normalizeProject(body = {}, prev = null) {
+  const base = prev || {};
+  const project = {
+    investAmount: String(body.investAmount ?? base.investAmount ?? '').trim().slice(0, 80),
+    stage: String(body.stage ?? base.stage ?? '').trim().slice(0, 80),
+    cooperation: String(body.cooperation ?? base.cooperation ?? '').trim().slice(0, 120),
+    period: String(body.period ?? base.period ?? '').trim().slice(0, 80),
+    target: String(body.target ?? base.target ?? '').trim().slice(0, 500),
+
+    // 是否需要资质 + 具体资质清单
+    needQualification: truthy(body.needQualification, Boolean(base.needQualification)),
+    qualifications:
+      body.qualifications === undefined
+        ? normalizeQualifications(base.qualifications)
+        : normalizeQualifications(body.qualifications),
+
+    // 商务条件
+    businessTerms:
+      body.businessTerms === undefined
+        ? normalizeBusinessTerms(base.businessTerms)
+        : normalizeBusinessTerms(body.businessTerms),
+  };
+  return project;
+}
+
+/* ------------------------------------------------------------------ */
+/* 资质审核：AI 初审 + 发布方确认                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * AI 按项目资质要求逐项核对意向方提交的材料。
+ * 本地引擎也能给出结论（关键词匹配 + 覆盖度评分）。
+ */
+export function evaluateQualification(listing, submitted = {}) {
+  const required = (listing?.project?.qualifications || []).filter((q) => q.required);
+  const optional = (listing?.project?.qualifications || []).filter((q) => !q.required);
+  const have = (submitted.items || []).map((x) => ({
+    name: String(x?.name || '').trim(),
+    level: String(x?.level || '').trim(),
+    fileIds: Array.isArray(x?.fileIds) ? x.fileIds : [],
+    note: String(x?.note || '').trim(),
+  })).filter((x) => x.name);
+
+  const norm = (s) => String(s || '').replace(/[\s（）()·、,，-]/g, '').toLowerCase();
+  const matched = [];
+  const missing = [];
+  for (const q of required) {
+    const hit = have.find((h) => {
+      const a = norm(h.name);
+      const b = norm(q.name);
+      return a && b && (a.includes(b) || b.includes(a));
+    });
+    if (hit) matched.push({ ...q, submittedAs: hit.name, level: hit.level || q.level, fileIds: hit.fileIds });
+    else missing.push(q);
+  }
+  const optionalHit = optional.filter((q) => have.some((h) => {
+    const a = norm(h.name);
+    const b = norm(q.name);
+    return a && b && (a.includes(b) || b.includes(a));
+  }));
+
+  const noFiles = matched.filter((m) => !m.fileIds.length);
+  const score = required.length === 0
+    ? 100
+    : Math.round((matched.length / required.length) * 100);
+
+  const findings = [];
+  if (!listing?.project?.needQualification) {
+    findings.push({ level: 'info', text: '发布方未要求资质，本环节可直接确认通过。' });
+  }
+  if (required.length) {
+    findings.push({ level: 'ok', text: `必需资质 ${required.length} 项，已提交并匹配 ${matched.length} 项。` });
+  }
+  for (const m of missing) findings.push({ level: 'risk', text: `缺少必需资质：${m.name}${m.level && m.level !== '不要求' ? `（要求 ${m.level}）` : ''}` });
+  for (const n of noFiles) findings.push({ level: 'warn', text: `${n.name} 未上传证明文件，仅有文字声明。` });
+  if (optionalHit.length) findings.push({ level: 'ok', text: `额外提供了 ${optionalHit.length} 项加分资质。` });
+  if (have.length === 0 && required.length) findings.push({ level: 'risk', text: '尚未提交任何资质材料。' });
+
+  const pass = missing.length === 0 && have.length > 0 && noFiles.length === 0;
+  return {
+    score,
+    pass,
+    matchedCount: matched.length,
+    requiredCount: required.length,
+    missing: missing.map((m) => m.name),
+    matched,
+    noFiles: noFiles.map((m) => m.name),
+    optionalCount: optionalHit.length,
+    findings,
+    evaluatedAt: new Date().toISOString(),
+  };
 }
 
 /**
@@ -199,7 +358,9 @@ export async function createListing({ user, body = {}, files = [] }) {
       email: clean(body.email || user.email || ''),
       company: clean(body.company || user.company || ''),
     },
-    hideContact: Boolean(body.hideContact),
+    // 平台规则：联系方式一律不对公众展示，发布方也无法关闭这个保护。
+    // 提交上来的 hideContact 忽略，强制为 true。
+    hideContact: true,
 
     status: 'draft',
     publishedAt: null,
@@ -253,16 +414,7 @@ export async function createListing({ user, body = {}, files = [] }) {
           }
         : null,
 
-    project:
-      category === 'project'
-        ? {
-            investAmount: clean(body.investAmount || ''),
-            stage: clean(body.stage || ''),
-            cooperation: clean(body.cooperation || ''),
-            period: clean(body.period || ''),
-            target: clean(body.target || ''),
-          }
-        : null,
+    project: category === 'project' ? normalizeProject(body) : null,
 
     pipeline: {
       stageIndex: 0,
@@ -299,7 +451,7 @@ export async function updateListing(id, user, patch = {}) {
     'tags',
     'keywords',
     'contact',
-    'hideContact',
+    // hideContact 不开放修改：平台强制隐藏联系方式
     'company',
     'coverId',
     'event',
@@ -309,6 +461,8 @@ export async function updateListing(id, user, patch = {}) {
   ];
   const next = {};
   for (const k of allowed) if (patch[k] !== undefined) next[k] = patch[k];
+  // 项目字段要与原值合并，避免编辑时把未提交的资质/商务条件清空
+  if (next.project && l.category === 'project') next.project = normalizeProject(next.project, l.project);
   if (next.type) next.typeName = typeNameOf(l.category, next.type);
   if (next.durationDays && l.status === 'published') {
     next.expiresAt = computeExpiry(next.durationDays, new Date(l.publishedAt || Date.now()).getTime());
@@ -714,6 +868,146 @@ export function confirmStage(listingId, user, { stageId, agree = true, note = ''
 }
 
 /* ------------------------------------------------------------------ */
+/* 阶段 2：上传资质审核                                                 */
+/*   意向方提交资质  ->  AI 逐项核对  ->  发布方确认是否通过              */
+/* ------------------------------------------------------------------ */
+
+function requireProject(l) {
+  if (!l) throw httpError(404, '信息不存在');
+  if (l.category !== 'project') throw httpError(400, '只有项目类信息需要资质审核');
+}
+
+/** 意向方提交企业资质（多项），提交后立即跑一次 AI 初审 */
+export function submitQualification(listingId, user, { items = [], note = '' } = {}) {
+  const l = listings().get(listingId);
+  requireProject(l);
+  if (l.ownerId === user.id) throw httpError(400, '发布方无需提交资质，请等待意向方提交');
+
+  const cleanItems = (Array.isArray(items) ? items : [])
+    .slice(0, 40)
+    .map((x) => ({
+      name: String(x?.name || '').trim().slice(0, 80),
+      level: String(x?.level || '').trim().slice(0, 20),
+      fileIds: (Array.isArray(x?.fileIds) ? x.fileIds : []).slice(0, 20).map(String),
+      note: String(x?.note || '').trim().slice(0, 300),
+    }))
+    .filter((x) => x.name);
+  if (!cleanItems.length) throw httpError(400, '请至少填写一项资质');
+
+  const submission = {
+    userId: user.id,
+    userName: user.nickname,
+    company: user.company || '',
+    items: cleanItems,
+    note: String(note || '').slice(0, 1000),
+    submittedAt: new Date().toISOString(),
+    aiReview: evaluateQualification(l, { items: cleanItems }),
+    status: 'pending',
+    decidedAt: '',
+    decidedBy: '',
+    decisionNote: '',
+  };
+
+  const subs = [...(l.qualificationSubmissions || []).filter((s) => s.userId !== user.id), submission];
+  const updated = listings().update(listingId, { qualificationSubmissions: subs });
+  hub.toRoom(`listing:${listingId}`, 'qualification', { listingId, submission });
+  notifySvc.notify({
+    userId: l.ownerId,
+    type: 'pipeline',
+    title: `收到资质提交：${user.nickname}`,
+    body: `AI 初审${submission.aiReview.pass ? '通过' : '有缺项'}，评分 ${submission.aiReview.score} 分，请确认`,
+    link: `/#/detail/${listingId}`,
+    meta: { listingId, stage: 'qualification-review' },
+  });
+  return { submission, listing: updated, aiReview: submission.aiReview };
+}
+
+/** 发布方对某份资质提交做确认（同意 / 驳回） */
+export function reviewQualification(listingId, user, { userId, agree = true, note = '' } = {}) {
+  const l = listings().get(listingId);
+  requireProject(l);
+  if (l.ownerId !== user.id && !user.isAdmin) throw httpError(403, '只有发布方可以确认资质');
+
+  const subs = [...(l.qualificationSubmissions || [])];
+  const idx = subs.findIndex((s) => s.userId === userId);
+  if (idx < 0) throw httpError(404, '没有找到该用户的资质提交');
+
+  subs[idx] = {
+    ...subs[idx],
+    status: agree ? 'approved' : 'rejected',
+    decidedAt: new Date().toISOString(),
+    decidedBy: user.id,
+    decidedByName: user.nickname,
+    decisionNote: String(note || '').slice(0, 500),
+  };
+  const updated = listings().update(listingId, { qualificationSubmissions: subs });
+
+  const history = [
+    ...(l.pipeline?.history || []),
+    {
+      stage: 'qualification-review',
+      name: `资质审核：${subs[idx].userName}`,
+      at: new Date().toISOString(),
+      by: user.id,
+      byName: user.nickname,
+      note: `${agree ? '通过' : '驳回'}${note ? ` · ${note}` : ''}`,
+      kind: 'qualification',
+    },
+  ];
+  const final = listings().update(listingId, {
+    pipeline: { ...updated.pipeline, history },
+    awaitingConfirm: false,
+  });
+
+  notifySvc.notify({
+    userId,
+    type: 'pipeline',
+    title: agree ? '资质审核已通过' : '资质审核未通过',
+    body: note || (agree ? '发布方已确认你的资质，可以进入下一步' : '请补充材料后重新提交'),
+    link: `/#/detail/${listingId}`,
+    meta: { listingId, stage: 'qualification-review' },
+  });
+  return { listing: final, submission: subs[idx], stages: pipelineOf(final) };
+}
+
+/** 当前用户在该项目里的资质提交（没有则 null） */
+export function myQualification(l, userId) {
+  return (l?.qualificationSubmissions || []).find((s) => s.userId === userId) || null;
+}
+
+/** 项目当前的资质审核概况（前端展示用） */
+export function qualificationSummary(l, userId) {
+  const need = Boolean(l?.project?.needQualification);
+  const required = (l?.project?.qualifications || []).filter((q) => q.required);
+  const subs = l?.qualificationSubmissions || [];
+  const mine = myQualification(l, userId);
+  const approved = subs.filter((s) => s.status === 'approved');
+  return {
+    needQualification: need,
+    requirements: l?.project?.qualifications || [],
+    requiredCount: required.length,
+    submissions: subs.map((s) => ({
+      userId: s.userId,
+      userName: s.userName,
+      company: s.company,
+      itemCount: s.items.length,
+      status: s.status,
+      score: s.aiReview?.score || 0,
+      pass: Boolean(s.aiReview?.pass),
+      missing: s.aiReview?.missing || [],
+      submittedAt: s.submittedAt,
+      decidedAt: s.decidedAt,
+      decisionNote: s.decisionNote,
+      isMine: s.userId === userId,
+    })),
+    mine,
+    approvedCount: approved.length,
+    canSubmit: Boolean(userId) && l?.ownerId !== userId,
+    canReview: Boolean(userId) && (l?.ownerId === userId || false),
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* 活动报名                                                            */
 /* ------------------------------------------------------------------ */
 export function registerForEvent(listingId, user, { name, phone, remark = '', payMethod = '' } = {}) {
@@ -928,6 +1222,14 @@ export default {
   pipelineOf,
   advancePipeline,
   confirmStage,
+  submitQualification,
+  reviewQualification,
+  myQualification,
+  qualificationSummary,
+  evaluateQualification,
+  normalizeQualifications,
+  normalizeBusinessTerms,
+  normalizeProject,
   registerForEvent,
   listRegistrations,
   myRegistrations,

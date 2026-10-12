@@ -10,6 +10,7 @@ import { saveUploads, filePublic, getFile } from '../services/files.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
 import db from '../store/db.js';
+import { buildDocument } from '../services/documents.js';
 
 const listings = () => db.collection('listings');
 
@@ -323,6 +324,80 @@ export default function registerListingRoutes(app) {
       note: str(req.body?.note, 500),
     });
     return data(res, { listing: listingsSvc.listingPublic(updated, user) });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* 阶段 2：上传资质审核                                              */
+  /*   意向方提交资质 -> AI 逐项核对 -> 发布方确认                       */
+  /* ---------------------------------------------------------------- */
+  app.get('/api/listings/:id/qualification', (req, res) => {
+    const user = authUser(req);
+    const listing = listingsSvc.getListing(req.params.id);
+    if (!listing) throw httpError(404, '信息不存在');
+    return data(res, {
+      qualification: listingsSvc.qualificationSummary(listing, user?.id || ''),
+      isOwner: user ? listing.ownerId === user.id : false,
+    });
+  });
+
+  app.post('/api/listings/:id/qualification', async (req, res) => {
+    const user = mustAuth(req);
+    const files = await saveUploads(req, { ownerId: user.id, listingId: req.params.id, role: 'qualification' });
+
+    let items = req.body?.items;
+    if (typeof items === 'string') {
+      try { items = JSON.parse(items); } catch { items = []; }
+    }
+    if (!Array.isArray(items)) items = [];
+
+    let indexes = req.body?.itemIndexes;
+    if (typeof indexes === 'string') {
+      try { indexes = JSON.parse(indexes); } catch { indexes = []; }
+    }
+    if (!Array.isArray(indexes)) indexes = [];
+
+    const uploadedIds = files.map((f) => f.id);
+    if (uploadedIds.length) {
+      if (items.length) {
+        // 每个上传文件按 itemIndexes 归到对应的资质条目上
+        items = items.map((it) => ({ ...it, fileIds: Array.isArray(it?.fileIds) ? [...it.fileIds] : [] }));
+        uploadedIds.forEach((fid, i) => {
+          const target = Number(indexes[i]);
+          const idx = Number.isInteger(target) && target >= 0 && target < items.length ? target : 0;
+          items[idx].fileIds.push(fid);
+        });
+      } else {
+        items = [{ name: str(req.body?.name, 80) || '资质文件', fileIds: uploadedIds }];
+      }
+    }
+
+    const result = listingsSvc.submitQualification(req.params.id, user, {
+      items,
+      note: str(req.body?.note, 1000),
+    });
+    return data(res, { ...result, files: files.map(filePublic) }, 201);
+  });
+
+  app.post('/api/listings/:id/qualification/review', (req, res) => {
+    const user = mustAuth(req);
+    const result = listingsSvc.reviewQualification(req.params.id, user, {
+      userId: str(req.body?.userId, 60),
+      agree: req.body?.agree === undefined ? true : bool(req.body.agree),
+      note: str(req.body?.note, 500),
+    });
+    return data(res, { listing: listingsSvc.listingPublic(result.listing, user), submission: result.submission });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* 阶段 4/5/7：邀请函、居间协议、正式合约（文档生成）                  */
+  /* ---------------------------------------------------------------- */
+  app.get('/api/listings/:id/document/:kind', (req, res) => {
+    const user = authUser(req);
+    const listing = listingsSvc.getListing(req.params.id);
+    if (!listing) throw httpError(404, '信息不存在');
+    const kind = str(req.params.kind, 30);
+    if (!['invitation', 'brokerage', 'contract'].includes(kind)) throw httpError(400, '未知的文书类型');
+    return data(res, { doc: buildDocument(kind, listing, user, baseUrl(req), queryOf(req)) });
   });
 
   /* ---------------------------------------------------------------- */

@@ -12,7 +12,7 @@ import wechat from '../services/wechat.js';
 import hub from '../services/hub.js';
 import ai from '../services/ai.js';
 import { httpError } from '../http/app.js';
-import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, QUALIFICATION_TYPES, HELPER } from '../data/taxonomy.js';
+import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, QUALIFICATION_TYPES, HELPER, PROJECT_QUALIFICATION_PRESETS, QUALIFICATION_LEVELS, COOPERATION_MODES, PRICE_TYPES, PAYMENT_TERMS, SETTLEMENT_MODES, INVOICE_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 
 let qrModule = null;
 let qrTried = false;
@@ -62,6 +62,14 @@ export default function registerCoreRoutes(app) {
       eventTypes: EVENT_TYPES,
       pipelineStages: PIPELINE_STAGES,
       qualificationTypes: QUALIFICATION_TYPES,
+      projectQualificationPresets: PROJECT_QUALIFICATION_PRESETS,
+      qualificationLevels: QUALIFICATION_LEVELS,
+      cooperationModes: COOPERATION_MODES,
+      priceTypes: PRICE_TYPES,
+      paymentTerms: PAYMENT_TERMS,
+      settlementModes: SETTLEMENT_MODES,
+      invoiceTypes: INVOICE_TYPES,
+      businessTermFields: BUSINESS_TERM_FIELDS,
       durations: listingsSvc.DURATION_OPTIONS,
       fileKinds: KIND_LABEL,
       extensions: Object.keys(EXT_KIND),

@@ -1815,114 +1815,72 @@ export const PIPELINE_STAGES = [
   {
     id: 'publish',
     order: 1,
-    name: '发布项目',
-    desc: '发布方提交项目信息，支持文字录入或导入文件',
+    name: '项目发布',
+    icon: '📢',
+    desc: '发布方提交项目信息：项目内容、需要对方具备的资质、商务条件',
     actor: '发布方',
-    requires: ['file']
+    requires: [],
+    actions: []
   },
   {
-    id: 'ai-title',
+    id: 'qualification-review',
     order: 2,
-    name: 'AI 生成主标题与副标题',
-    desc: '平台基于项目内容自动生成主标题与副标题，供发布方确认',
-    actor: '平台',
-    requires: ['confirm']
-  },
-  {
-    id: 'ai-review',
-    order: 3,
-    name: 'AI 分析项目可靠性及问题',
-    desc: 'AI 对项目资料进行可靠性评估，提示风险点与缺失材料',
-    actor: '平台',
-    requires: []
-  },
-  {
-    id: 'message',
-    order: 4,
-    name: '留言与回复',
-    desc: '发布方与对接方就项目细节留言沟通并互相回复',
-    actor: '双方',
-    requires: []
-  },
-  {
-    id: 'follow-up',
-    order: 5,
-    name: '新增后续',
-    desc: '补充项目后续进展，支持文字录入与导入文件',
-    actor: '发布方',
-    requires: ['file']
-  },
-  {
-    id: 'matchmaking',
-    order: 6,
-    name: '项目对接',
-    desc: '平台撮合发布方与对接方建立对接关系',
-    actor: '双方',
-    requires: ['confirm']
-  },
-  {
-    id: 'qualification',
-    order: 7,
-    name: '导入资质',
-    desc: '双方上传企业资质证明文件，供对方与平台核验',
-    actor: '双方',
-    requires: ['file']
-  },
-  {
-    id: 'confirm-match',
-    order: 8,
-    name: '发布方确认项目是否契合/匹配',
-    desc: '发布方确认对接方与项目需求是否契合、是否继续推进',
-    actor: '发布方',
-    requires: ['confirm']
+    name: '上传资质审核',
+    icon: '📑',
+    desc: '意向方上传企业资质证明，AI 按项目要求逐项核对后，由发布方确认是否通过',
+    actor: '意向方提交 · AI 审核 · 发布方确认',
+    requires: ['file', 'confirm'],
+    actions: ['upload-qualification', 'ai-review', 'confirm-qualification']
   },
   {
     id: 'group-meeting',
-    order: 9,
-    name: '建立项目聊天群与会议',
-    desc: '建立项目聊天群并召开线上会议，AI 实时记录与录音，生成双方后续跟进内容并发送确认',
+    order: 3,
+    name: '群聊天室和会议',
+    icon: '💬',
+    desc: '建立项目专属群聊与线上会议，AI 实时记录、生成纪要并推送双方后续跟进',
     actor: '双方',
-    requires: ['file', 'confirm']
+    requires: ['confirm'],
+    actions: ['open-chat', 'create-meeting']
   },
   {
-    id: 'offline-invitation',
-    order: 10,
-    name: '确认是否线下会面',
-    desc: '双方确认是否线下会面，上传邀请函并完成确认',
+    id: 'invitation',
+    order: 4,
+    name: '发邀请函',
+    icon: '✉️',
+    desc: '向对方发出正式邀请函，写明项目、事由、时间地点与随行要求',
+    actor: '发布方',
+    requires: ['file', 'confirm'],
+    actions: ['generate-invitation', 'send-invitation']
+  },
+  {
+    id: 'brokerage',
+    order: 5,
+    name: '签订居间',
+    icon: '🤝',
+    desc: '签订居间协议，明确居间服务内容、居间费比例与支付节点',
     actor: '双方',
-    requires: ['file', 'confirm']
+    requires: ['file', 'confirm'],
+    actions: ['generate-brokerage', 'sign-brokerage']
   },
   {
-    id: 'preliminary-agreement',
-    order: 11,
-    name: '上传初步协议及居间协议并确认',
-    desc: '上传初步协议与居间协议，双方在线确认',
+    id: 'offline-meeting',
+    order: 6,
+    name: '线下面谈',
+    icon: '🏢',
+    desc: '线下会面洽谈细节，上传会谈记录与现场材料',
     actor: '双方',
-    requires: ['file', 'confirm']
+    requires: ['file', 'confirm'],
+    actions: ['schedule-offline', 'upload-record']
   },
   {
-    id: 'offline-signing',
-    order: 12,
-    name: '线下会面并上传合作协议',
-    desc: '线下会面洽谈，上传合作协议并完成确认',
+    id: 'contract',
+    order: 7,
+    name: '签订正式合约',
+    icon: '📜',
+    desc: '签订正式合同并支付居间费，项目落地归档',
     actor: '双方',
-    requires: ['file', 'confirm']
-  },
-  {
-    id: 'contract-payment',
-    order: 13,
-    name: '上传合同并支付款项',
-    desc: '上传正式合同并支付居间费等相关款项',
-    actor: '对接方',
-    requires: ['file', 'payment']
-  },
-  {
-    id: 'closed',
-    order: 14,
-    name: '项目结束',
-    desc: '项目完成交割，结项归档并沉淀评价',
-    actor: '平台',
-    requires: ['confirm']
+    requires: ['file', 'payment', 'confirm'],
+    actions: ['generate-contract', 'upload-contract', 'pay-brokerage']
   }
 ]
 
@@ -1952,6 +1910,83 @@ export const QUALIFICATION_TYPES = [
   { id: 'social-insurance', name: '社保缴纳证明', required: false },
   { id: 'performance-certificate', name: '业绩证明材料', required: false },
   { id: 'other', name: '其他', required: false }
+]
+
+/* ------------------------------------------------------------------ *
+ * 8.5 项目资质要求 —— 发布时勾选「需要对方具备哪些资质」
+ * ------------------------------------------------------------------ */
+
+/** 常用工程/服务类资质，供发布方快速勾选（仍可自由填写） */
+export const PROJECT_QUALIFICATION_PRESETS = [
+  { id: 'power-eng-1', name: '电力工程施工总承包一级', group: '施工总承包' },
+  { id: 'power-eng-2', name: '电力工程施工总承包二级', group: '施工总承包' },
+  { id: 'municipal-1', name: '市政公用工程施工总承包一级', group: '施工总承包' },
+  { id: 'construction-1', name: '建筑工程施工总承包一级', group: '施工总承包' },
+  { id: 'mechanical-1', name: '建筑机电安装工程专业承包一级', group: '专业承包' },
+  { id: 'electrical-install-1', name: '电子与智能化工程专业承包一级', group: '专业承包' },
+  { id: 'steel-structure-1', name: '钢结构工程专业承包一级', group: '专业承包' },
+  { id: 'power-facility', name: '承装（修、试）电力设施许可证', group: '专项许可' },
+  { id: 'power-business', name: '电力业务许可证', group: '专项许可' },
+  { id: 'safety-production', name: '安全生产许可证', group: '专项许可' },
+  { id: 'design-power-1', name: '电力行业（新能源发电）设计甲级', group: '设计' },
+  { id: 'design-comprehensive', name: '工程设计综合甲级', group: '设计' },
+  { id: 'survey-1', name: '工程勘察综合甲级', group: '勘察' },
+  { id: 'supervision-1', name: '工程监理综合资质', group: '监理' },
+  { id: 'iso9001', name: 'ISO9001 质量管理体系', group: '体系认证' },
+  { id: 'iso14001', name: 'ISO14001 环境管理体系', group: '体系认证' },
+  { id: 'iso45001', name: 'ISO45001 职业健康安全体系', group: '体系认证' },
+  { id: 'high-tech', name: '高新技术企业证书', group: '企业证书' },
+  { id: 'credit-aaa', name: 'AAA 信用等级证书', group: '企业证书' },
+  { id: 'performance', name: '同类项目业绩证明', group: '业绩' },
+  { id: 'bank-credit', name: '银行资信证明', group: '财务' },
+  { id: 'audit-report', name: '近三年审计报告', group: '财务' },
+  { id: 'patent', name: '相关专利证书', group: '知识产权' },
+  { id: 'other', name: '其他（自填）', group: '其他' }
+]
+
+/** 资质等级（可留空） */
+export const QUALIFICATION_LEVELS = ['不要求', '一级', '二级', '三级', '甲级', '乙级', '丙级', 'AAA', 'AA', 'A', '其他']
+
+/* ------------------------------------------------------------------ *
+ * 8.6 商务条件 —— 项目发布时填写的商务条款
+ * ------------------------------------------------------------------ */
+
+export const COOPERATION_MODES = [
+  'EPC 总承包', '设计+施工', '设备供货', '材料供应', '施工分包', '劳务分包',
+  '联合体投标', '股权投资', '产业投资', '财务顾问', '居间撮合', '运营维护', '其他'
+]
+
+export const PRICE_TYPES = ['总价包干', '单价合同', '费率报价', '成本加酬金', '面议', '其他']
+
+export const PRICE_INCLUDE_TAX = ['含税', '不含税', '待商定']
+
+export const PAYMENT_TERMS = [
+  '预付款+进度款+验收款', '月结', '季度结算', '验收后一次结清', '按节点付款', '其他'
+]
+
+export const SETTLEMENT_MODES = ['银行转账', '承兑汇票', '现金', '信用证', '其他']
+
+export const INVOICE_TYPES = ['增值税专用发票 13%', '增值税专用发票 9%', '增值税专用发票 6%', '增值税普通发票', '不开票', '待商定']
+
+export const BROKERAGE_BASES = ['合同总额百分比', '固定金额', '差额分成', '待商定']
+
+/** 商务条件字段定义（后端存对象，前端按此渲染） */
+export const BUSINESS_TERM_FIELDS = [
+  { key: 'cooperationMode', label: '合作方式', options: COOPERATION_MODES },
+  { key: 'priceType', label: '报价方式', options: PRICE_TYPES },
+  { key: 'priceRange', label: '报价区间 / 预算', placeholder: '如 8.6 亿元 / 0.45 元每瓦' },
+  { key: 'taxInfo', label: '含税情况', options: PRICE_INCLUDE_TAX },
+  { key: 'paymentTerms', label: '付款方式', options: PAYMENT_TERMS },
+  { key: 'advanceRatio', label: '预付款比例', placeholder: '如 30%' },
+  { key: 'retentionRatio', label: '质保金比例', placeholder: '如 5%，质保期 2 年' },
+  { key: 'settlement', label: '结算方式', options: SETTLEMENT_MODES },
+  { key: 'invoiceType', label: '发票要求', options: INVOICE_TYPES },
+  { key: 'period', label: '工期 / 交付期', placeholder: '如 14 个月 / 合同签订后 60 天' },
+  { key: 'deposit', label: '保证金 / 履约担保', placeholder: '如 合同额 10% 履约保函' },
+  { key: 'brokerageRatio', label: '居间费比例', placeholder: '如 合同额 2%' },
+  { key: 'brokerageBase', label: '居间费计算方式', options: BROKERAGE_BASES },
+  { key: 'brokeragePayNode', label: '居间费支付节点', placeholder: '如 合同签订后 7 日内支付 50%' },
+  { key: 'otherTerms', label: '其他商务条件', placeholder: '如 甲供材范围、验收标准等', multiline: true }
 ]
 
 /* ------------------------------------------------------------------ *
@@ -2144,6 +2179,22 @@ export default {
   CATEGORIES,
   CITIES,
   PIPELINE_STAGES,
+
+  PROJECT_QUALIFICATION_PRESETS,
+
+  QUALIFICATION_LEVELS,
+
+  COOPERATION_MODES,
+
+  PRICE_TYPES,
+
+  PAYMENT_TERMS,
+
+  SETTLEMENT_MODES,
+
+  INVOICE_TYPES,
+
+  BUSINESS_TERM_FIELDS,
   QUALIFICATION_TYPES,
   HELPER,
   HELPERS,

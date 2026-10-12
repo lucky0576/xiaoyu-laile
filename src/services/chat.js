@@ -261,19 +261,28 @@ export function startDocking(listingId, user, { note = '' } = {}) {
     dockingCount: (listing.dockingCount || 0) + 1,
   });
 
-  // 推进到「项目对接」阶段
+  // 对接本身不再直接推进流程：7 步流程里没有「项目对接」这一步，
+  // 对接只是建立群聊 + 登记成员（成员才能在详情页看到联系方式）。
+  // 流程推进交给详情页的「当前环节」面板按真实进度走。
   let updated = listingsCol().get(listingId);
+
+  // 把对接动作记进流程历史，便于追溯，但不改变当前阶段
   try {
-    const stages = listings.pipelineOf(updated);
-    const target = stages.find((s) => s.name.includes('项目对接')) || stages[Math.min(1, stages.length - 1)];
-    if (target && (updated.pipeline?.stageIndex || 0) < target.index) {
-      updated = listings.advancePipeline(listingId, user, {
-        stageId: target.id,
-        note: note || `${user.nickname} 发起对接`,
-      }).listing;
-    }
+    const history = [
+      ...(updated.pipeline?.history || []),
+      {
+        stage: updated.pipeline?.stage || 'publish',
+        name: `项目对接：${user.nickname}`,
+        at: new Date().toISOString(),
+        by: user.id,
+        byName: user.nickname,
+        note: note || '发起项目对接',
+        kind: 'dock',
+      },
+    ];
+    updated = listingsCol().update(listingId, { pipeline: { ...updated.pipeline, history } });
   } catch (err) {
-    console.warn('[chat] 推进对接阶段失败:', err.message);
+    console.warn('[chat] 记录对接历史失败:', err.message);
   }
 
   notifySvc.notify({

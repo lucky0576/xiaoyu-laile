@@ -86,7 +86,9 @@ export async function renderPublish(ctx, params) {
         <label>企业名称</label>
         <input class="input" id="pub-company" placeholder="发布主体（选填）" value="${ui.esc(editing?.company || ctx.state.user?.company || '')}">
       </div>
-      <label class="checkbox mb12"><input type="checkbox" id="pub-hide-contact" ${editing?.hideContact ? 'checked' : ''}> <span>隐藏联系方式（仅对接后的用户可见）</span></label>
+      <div class="privacy-note mb12">
+        🔒 <b>联系方式不会公开显示。</b>发布后，只有你自己和已发起项目对接、成为项目成员的人，才能看到电话与微信。
+      </div>
       <label class="checkbox"><input type="checkbox" id="pub-ai-reply" checked> <span>允许 AI 助理代表我回复留言</span></label>
     </div>
 
@@ -138,6 +140,97 @@ export async function renderPublish(ctx, params) {
         $('#pub-upload-status').textContent = uploaded.length ? `已导入 ${uploaded.length} 个文件` : '';
       };
 
+      /* ---------------- 资质要求 / 商务条件 渲染辅助 ---------------- */
+      const taxData = () => ctx.state.taxonomy || {};
+      const qualLevels = () => taxData().qualificationLevels || ['不要求'];
+      const termFields = () => taxData().businessTermFields || [];
+      const qualPresets = () => taxData().projectQualificationPresets || [];
+
+      const qualRowHtml = (q = {}) => `<div class="qual-row">
+        <input class="input qual-name" list="qual-preset-list" placeholder="资质名称，如 电力工程施工总承包一级" value="${ui.esc(q.name || '')}">
+        <div class="qual-meta">
+          <select class="select qual-level">${qualLevels().map((l) => `<option ${q.level === l ? 'selected' : ''}>${ui.esc(l)}</option>`).join('')}</select>
+          <label class="qual-req-wrap"><input type="checkbox" class="qual-req" ${q.required === false ? '' : 'checked'}> 必需</label>
+          <button type="button" class="icon-btn qual-del" title="删除此项">✕</button>
+        </div>
+        <input class="input qual-note" placeholder="备注（选填），如 需提供证书扫描件" value="${ui.esc(q.note || '')}">
+      </div>`;
+
+      const termsHtml = (bt = {}) => termFields().map((f) => {
+        const val = ui.esc(bt[f.key] || '');
+        if (f.options) {
+          return `<div class="field"><label>${ui.esc(f.label)}</label>
+            <select class="select" data-term="${f.key}">
+              <option value="">— 请选择 —</option>
+              ${f.options.map((o) => `<option ${bt[f.key] === o ? 'selected' : ''}>${ui.esc(o)}</option>`).join('')}
+            </select></div>`;
+        }
+        if (f.multiline) {
+          return `<div class="field"><label>${ui.esc(f.label)}</label><textarea class="input" rows="2" data-term="${f.key}" placeholder="${ui.esc(f.placeholder || '')}">${val}</textarea></div>`;
+        }
+        return `<div class="field"><label>${ui.esc(f.label)}</label><input class="input" data-term="${f.key}" placeholder="${ui.esc(f.placeholder || '')}" value="${val}"></div>`;
+      }).join('');
+
+      const collectQualifications = (scope) => {
+        const out = [];
+        scope.querySelectorAll('#f-qual-list .qual-row').forEach((row) => {
+          const name = row.querySelector('.qual-name')?.value?.trim();
+          if (!name) return;
+          out.push({
+            name,
+            level: row.querySelector('.qual-level')?.value || '',
+            required: Boolean(row.querySelector('.qual-req')?.checked),
+            note: row.querySelector('.qual-note')?.value?.trim() || '',
+          });
+        });
+        return out;
+      };
+
+      const collectTerms = (scope) => {
+        const out = {};
+        scope.querySelectorAll('#f-terms [data-term]').forEach((el) => {
+          const v = (el.value || '').trim();
+          if (v) out[el.dataset.term] = v;
+        });
+        return out;
+      };
+
+      const bindQualBox = (scope) => {
+        const box = scope.querySelector('#f-qual-box');
+        if (!box) return;
+        const list = box.querySelector('#f-qual-list');
+        const needEl = scope.querySelector('#f-needQual');
+
+        needEl?.addEventListener('change', () => box.classList.toggle('hide', !needEl.checked));
+
+        box.querySelector('#f-qual-add')?.addEventListener('click', () => {
+          list.insertAdjacentHTML('beforeend', qualRowHtml({}));
+          list.lastElementChild?.querySelector('.qual-name')?.focus();
+        });
+
+        box.querySelector('#f-qual-preset')?.addEventListener('click', () => {
+          ui.pickSheet({
+            title: '选择常用资质（可多选）',
+            options: qualPresets().map((p) => ({ value: p.id, label: p.name, desc: p.group })),
+            multiple: true,
+            onPick(ids) {
+              if (!ids.length) return;
+              const chosen = qualPresets().filter((p) => ids.includes(p.id));
+              const existing = new Set([...list.querySelectorAll('.qual-name')].map((el) => el.value.trim()));
+              for (const p of chosen) {
+                if (existing.has(p.name)) continue;
+                list.insertAdjacentHTML('beforeend', qualRowHtml({ name: p.name, required: true }));
+                existing.add(p.name);
+              }
+            },
+          });
+        });
+
+        list.addEventListener('click', (e) => {
+          if (e.target.closest('.qual-del')) e.target.closest('.qual-row')?.remove();
+        });
+      };
+
       const renderCatFields = () => {
         const box = $('#pub-cat-fields');
         if (category === 'event') {
@@ -165,12 +258,36 @@ export async function renderPublish(ctx, params) {
             <div class="field"><label>交付方式 / 地点</label><input class="input" id="f-delivery" value="${ui.esc(editing?.trade?.delivery || '')}"></div>
             <div class="field"><label>报价截止</label><input class="input" type="date" id="f-deadline" value="${ui.esc((editing?.trade?.deadline || '').slice(0, 10))}"></div>`;
         } else {
+          const qs = editing?.project?.qualifications || [];
+          const bt = editing?.project?.businessTerms || {};
+          const needQ = editing?.project?.needQualification === true;
           box.innerHTML = `
             <div class="field"><label>金额 / 投资额</label><input class="input" id="f-investAmount" placeholder="如 8.6 亿元" value="${ui.esc(editing?.project?.investAmount || '')}"></div>
             <div class="field"><label>项目阶段</label><input class="input" id="f-stage" placeholder="如 已备案 / 已核准 / 施工中" value="${ui.esc(editing?.project?.stage || '')}"></div>
-            <div class="field"><label>合作方式</label><input class="input" id="f-cooperation" placeholder="如 联合体投标 / 股权合作" value="${ui.esc(editing?.project?.cooperation || '')}"></div>
-            <div class="field"><label>周期</label><input class="input" id="f-period" placeholder="如 14 个月" value="${ui.esc(editing?.project?.period || '')}"></div>
-            <div class="field"><label>对接对象要求</label><input class="input" id="f-target" placeholder="如 具备电力工程总承包一级资质" value="${ui.esc(editing?.project?.target || '')}"></div>`;
+            <div class="field"><label>合作方式</label><input class="input" id="f-cooperation" placeholder="如 EPC 总承包 / 联合体投标" value="${ui.esc(editing?.project?.cooperation || '')}"></div>
+            <div class="field"><label>工期 / 周期</label><input class="input" id="f-period" placeholder="如 14 个月" value="${ui.esc(editing?.project?.period || '')}"></div>
+            <div class="field"><label>对接对象要求（概述）</label><textarea class="input" rows="2" id="f-target" placeholder="一句话说明希望和什么样的企业合作">${ui.esc(editing?.project?.target || '')}</textarea></div>
+
+            <div class="form-section-title">是否需要对方具备资质</div>
+            <label class="row gap8 mb12" style="cursor:pointer">
+              <input type="checkbox" id="f-needQual" ${needQ ? 'checked' : ''}>
+              <span class="small">需要对方提供企业资质证书（发布后将进入「上传资质审核」环节）</span>
+            </label>
+            <div id="f-qual-box" class="${needQ ? '' : 'hide'}">
+              <datalist id="qual-preset-list">
+                ${qualPresets().map((p) => `<option value="${ui.esc(p.name)}"></option>`).join('')}
+              </datalist>
+              <div id="f-qual-list">${qs.map(qualRowHtml).join('')}</div>
+              <div class="row gap8 mb16">
+                <button class="btn btn-sm" id="f-qual-add" type="button">＋ 添加资质</button>
+                <button class="btn btn-sm" id="f-qual-preset" type="button">从常用资质选</button>
+              </div>
+            </div>
+
+            <div class="form-section-title">商务条件</div>
+            <div id="f-terms">${termsHtml(bt)}</div>`;
+          bindQualBox(box);
+          return;
         }
       };
 
@@ -193,6 +310,9 @@ export async function renderPublish(ctx, params) {
         return {
           investAmount: v('#f-investAmount'), stage: v('#f-stage'), cooperation: v('#f-cooperation'),
           period: v('#f-period'), target: v('#f-target'),
+          needQualification: c('#f-needQual') ? '1' : '0',
+          qualifications: collectQualifications(box),
+          businessTerms: collectTerms(box),
         };
       };
 
@@ -326,7 +446,6 @@ export async function renderPublish(ctx, params) {
           phone: $('#pub-phone')?.value || '',
           wechat: $('#pub-wechat')?.value || '',
           company: $('#pub-company')?.value || '',
-          hideContact: $('#pub-hide-contact')?.checked ? '1' : '0',
           aiAutoReply: $('#pub-ai-reply')?.checked ? '1' : '0',
           publish: publishNow ? '1' : '0',
           ...collectCategoryFields(),
@@ -335,7 +454,7 @@ export async function renderPublish(ctx, params) {
         try {
           const fd = api.form(fields);
           if (editing) {
-            await service.updateListing(editing.id, { ...fields, hideContact: Boolean(fields.hideContact) });
+            await service.updateListing(editing.id, { ...fields });
             if (publishNow && editing.status !== 'published') await service.publishListing(editing.id, durationDays);
             ui.toast('已保存', 'ok');
             ctx.nav(`#/detail/${editing.id}`);

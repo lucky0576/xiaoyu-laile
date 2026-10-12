@@ -16,6 +16,7 @@ const SUITES = [
   ['meeting      群聊邀请与会议（仿腾讯会议）', 'meeting-smoke.mjs'],
   ['home-render  首页服务端渲染', 'home-render.mjs'],
   ['feeds        短视频与直播', 'feeds-smoke.mjs'],
+  ['pipeline     资质审核与 7 步流程', 'pipeline-smoke.mjs'],
 ];
 
 let failedSuites = 0;

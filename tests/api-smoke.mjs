@@ -101,7 +101,9 @@ async function main() {
   check('省份数 == 34', (tax.data?.cities || []).length === 34, `实际 ${(tax.data?.cities || []).length}`);
   const cityTotal = (tax.data?.cities || []).reduce((n, p) => n + (p.cities?.length || 0), 0);
   check('城市数 >= 300', cityTotal >= 300, `实际 ${cityTotal}`);
-  check('项目流程 14 步', (tax.data?.pipelineStages || []).length === 14, `实际 ${(tax.data?.pipelineStages || []).length}`);
+  check('项目流程 7 步', (tax.data?.pipelineStages || []).length === 7, `实际 ${(tax.data?.pipelineStages || []).length}`);
+  check('流程阶段带图标与动作定义', (tax.data?.pipelineStages || []).every((s) => s.icon && Array.isArray(s.actions)),
+    JSON.stringify((tax.data?.pipelineStages || []).map((s) => s.id)));
   const typeNames = (tax.data?.projectTypes || []).map((t) => t.name);
   for (const need of ['股权投资', '融资', 'EPC', 'EMC', '转让', '融资租赁', '采购', '招投标']) {
     check(`项目类型包含「${need}」`, typeNames.some((t) => t.includes(need)), typeNames.join(','));
@@ -240,7 +242,7 @@ async function main() {
 
   const detail = await call('GET', `/api/listings/${listingId}`, { token: tokenA });
   check('信息详情', detail.status === 200 && detail.data?.listing?.id === listingId);
-  check('详情含 14 步流程', (detail.data?.pipeline || []).length === 14, `实际 ${(detail.data?.pipeline || []).length}`);
+  check('详情含 7 步流程', (detail.data?.pipeline || []).length === 7, `实际 ${(detail.data?.pipeline || []).length}`);
   check('详情附件正文可见', (detail.data?.listing?.text || '').includes('渔光互补'));
 
   // 活动（需要报名/付费）
@@ -341,7 +343,12 @@ async function main() {
   const dock = await call('POST', `/api/listings/${listingId}/dock`, { token: tokenB, body: { note: '我方具备电力工程施工总承包一级资质，希望参与投标' } });
   check('发起项目对接并建群', dock.status === 201 && Boolean(dock.data?.room?.id), JSON.stringify(dock.json).slice(0, 300));
   const roomId = dock.data?.room?.id;
-  check('对接后进入项目对接阶段', dock.data?.listing?.pipeline?.stageIndex >= 1, JSON.stringify(dock.data?.listing?.pipeline));
+  // 7 步流程里没有独立的「项目对接」阶段，对接只建群 + 登记成员 + 记历史
+  check('对接不改变当前阶段', dock.data?.listing?.pipeline?.stage === 'publish',
+    JSON.stringify(dock.data?.listing?.pipeline?.stage));
+  check('对接写入流程历史', (dock.data?.listing?.pipeline?.history || []).some((h) => h.kind === 'dock'));
+  check('对接方成为项目成员', (dock.data?.listing?.memberIds || []).length >= 2,
+    JSON.stringify(dock.data?.listing?.memberIds));
 
   const rooms = await call('GET', '/api/chat/rooms', { token: tokenB });
   check('我的群聊列表', (rooms.data?.items || []).some((r) => r.id === roomId));
@@ -398,7 +405,7 @@ async function main() {
   check('WebRTC 信令转发', signal.status === 200 && Boolean(signal.data?.signal));
 
   console.log('\n=== 10. 流程推进 / 活动报名 / 分享 ===');
-  // 用真实流水线 id 依次推进（覆盖全部 14 步）
+  // 用真实流水线 id 依次推进（覆盖全部 7 步）
   const stageIds = (tax.data?.pipelineStages || []).map((s) => s.id);
   let advancedAll = true;
   for (const stage of stageIds.slice(1)) {
@@ -409,9 +416,9 @@ async function main() {
       break;
     }
   }
-  if (advancedAll) check('推进完整 14 步流程', true, `共 ${stageIds.length} 步`);
+  if (advancedAll) check('推进完整 7 步流程', true, `共 ${stageIds.length} 步`);
   const pipeNow = await call('GET', `/api/listings/${listingId}/pipeline`, { token: tokenA });
-  check('流程历史已记录', (pipeNow.data?.history || []).length >= 13, `实际 ${(pipeNow.data?.history || []).length}`);
+  check('流程历史已记录', (pipeNow.data?.history || []).length >= stageIds.length, `实际 ${(pipeNow.data?.history || []).length}`);
   check('当前阶段为最后一步', pipeNow.data?.stages?.filter((s) => s.done).length === stageIds.length - 1,
     JSON.stringify((pipeNow.data?.stages || []).map((s) => `${s.id}:${s.done ? 1 : 0}`)));
 

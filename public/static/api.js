@@ -198,6 +198,14 @@ export const service = {
   pipeline: (id) => api.get(`/api/listings/${id}/pipeline`),
   advancePipeline: (id, fd, opts) => api.upload(`/api/listings/${id}/pipeline`, fd, opts),
   confirmStage: (id, body) => api.post(`/api/listings/${id}/pipeline/confirm`, body),
+
+  // 阶段 2：上传资质审核
+  qualification: (id) => api.get(`/api/listings/${id}/qualification`),
+  submitQualification: (id, fd, opts) => api.upload(`/api/listings/${id}/qualification`, fd, opts),
+  reviewQualification: (id, body) => api.post(`/api/listings/${id}/qualification/review`, body),
+
+  // 阶段 4/5/7：邀请函 / 居间协议 / 合同要点
+  document: (id, kind, query) => api.get(`/api/listings/${id}/document/${kind}`, query),
   dock: (id, note) => api.post(`/api/listings/${id}/dock`, { note }),
   registerEvent: (id, body) => api.post(`/api/listings/${id}/register`, body),
   registrations: (id) => api.get(`/api/listings/${id}/registrations`),

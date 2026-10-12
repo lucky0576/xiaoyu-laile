@@ -1,7 +1,7 @@
 /**
  * 小鱼来了 — 首页 / 列表 / 详情 / 案例 / 用户主页
  */
-import { service, isLoggedIn } from './api.js';
+import { api, service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import {
   itemHtml, aiCardHtml, filesHtml, pipelineHtml, commentHtml, userCardHtml,
@@ -471,10 +471,132 @@ export async function renderDetail(ctx, params) {
   const id = params.id;
   if (!id) return { title: '信息不存在', content: ui.emptyState('🧭', '信息不存在'), showBack: true };
 
-  const [{ listing, pipeline, isOwner }, comments] = await Promise.all([
+  const [{ listing, pipeline, isOwner }, comments, qualRes] = await Promise.all([
     service.listing(id),
     service.comments(id).catch(() => ({ tree: [] })),
+    service.qualification(id).catch(() => null),
   ]);
+
+  const qual = qualRes?.qualification || null;
+  const proj = listing.project || {};
+  const terms = proj.businessTerms || {};
+  const termDefs = ctx.state.taxonomy?.businessTermFields || [];
+  const termRows = termDefs
+    .map((f) => ({ label: f.label, value: terms[f.key] }))
+    .filter((r) => r.value);
+  const currentStage = (pipeline || []).find((s) => s.current) || (pipeline || [])[0] || null;
+
+  /* ---------------- 商务条件卡片 ---------------- */
+  const termsCard = termRows.length ? `<div class="card card-pad mb12">
+    <div class="strong mb8">💰 商务条件</div>
+    <div class="kv-table">
+      ${termRows.map((r) => `<div class="kv"><span class="k">${ui.esc(r.label)}</span><span class="v">${ui.esc(r.value)}</span></div>`).join('')}
+    </div>
+  </div>` : '';
+
+  /* ---------------- 资质要求卡片 ---------------- */
+  const reqQuals = proj.qualifications || [];
+  const qualCard = (proj.needQualification || reqQuals.length) ? `<div class="card card-pad mb12">
+    <div class="row between mb8">
+      <div class="strong">📑 需要的资质</div>
+      ${qual ? `<span class="badge ${qual.approvedCount ? 'ok' : 'warn'}">${qual.approvedCount ? `已通过 ${qual.approvedCount} 家` : '待提交'}</span>` : ''}
+    </div>
+    ${reqQuals.length ? `<div class="qual-list">${reqQuals.map((q) => `<div class="qual-item">
+      <div class="row between">
+        <span class="qual-item-name">${ui.esc(q.name)}</span>
+        <span class="row gap8">
+          ${q.level && q.level !== '不要求' ? `<span class="badge gray">${ui.esc(q.level)}</span>` : ''}
+          ${q.required ? '<span class="badge danger">必需</span>' : '<span class="badge gray">加分</span>'}
+        </span>
+      </div>
+      ${q.note ? `<div class="tiny dim mt4">${ui.esc(q.note)}</div>` : ''}
+    </div>`).join('')}</div>` : '<div class="small muted">未列明具体资质，以双方确认为准。</div>'}
+  </div>` : '';
+
+  /* ---------------- 当前环节操作面板 ---------------- */
+  const stageStatusBadge = (s) => {
+    if (s === 'approved') return '<span class="badge ok">已通过</span>';
+    if (s === 'rejected') return '<span class="badge danger">已驳回</span>';
+    return '<span class="badge warn">待确认</span>';
+  };
+
+  const stagePanel = (() => {
+    if (!currentStage || listing.category !== 'project') return '';
+    const sid = currentStage.id;
+    const total = (pipeline || []).length;
+    const docBtns = `<div class="row gap8" style="flex-wrap:wrap">
+      <button class="btn btn-sm btn-primary" id="btn-doc-invitation">✉️ 邀请函</button>
+      <button class="btn btn-sm" id="btn-doc-brokerage">🤝 居间协议</button>
+      <button class="btn btn-sm" id="btn-doc-contract">📜 合同要点</button>
+    </div>`;
+    let body = '';
+
+    if (sid === 'publish') {
+      body = `<div class="small muted">项目已发布，等待意向方查看并提交资质。你也可以主动邀请对方。</div>
+        <div class="row gap8 mt12">
+          <button class="btn btn-sm" id="btn-stage-share">🔗 分享项目</button>
+        </div>`;
+    } else if (sid === 'qualification-review') {
+      const mine = qual?.mine;
+      const subs = qual?.submissions || [];
+      body = `
+        ${mine ? `<div class="stage-note">
+          <div class="row between">
+            <span class="small">我的资质提交</span>${stageStatusBadge(mine.status)}
+          </div>
+          <div class="tiny dim mt4">共 ${mine.itemCount} 项 · AI 初审 ${mine.score} 分${mine.pass ? ' · 无缺项' : ' · 有缺项'}</div>
+          ${(mine.missing || []).length ? `<div class="tiny mt4" style="color:var(--danger)">缺少：${mine.missing.map(ui.esc).join('、')}</div>` : ''}
+          ${mine.decisionNote ? `<div class="tiny dim mt4">发布方意见：${ui.esc(mine.decisionNote)}</div>` : ''}
+        </div>` : ''}
+        ${isOwner && subs.length ? `<div class="mt8">${subs.map((s) => `<div class="stage-note">
+          <div class="row between"><span class="small">${ui.esc(s.userName)}${s.company ? ` · ${ui.esc(s.company)}` : ''}</span>${stageStatusBadge(s.status)}</div>
+          <div class="tiny dim mt4">共 ${s.itemCount} 项 · AI 初审 ${s.score} 分${s.pass ? ' · 无缺项' : ' · 有缺项'}</div>
+          ${(s.missing || []).length ? `<div class="tiny mt4" style="color:var(--danger)">缺少：${s.missing.map(ui.esc).join('、')}</div>` : ''}
+          ${s.status === 'pending' ? `<div class="row gap8 mt8">
+            <button class="btn btn-sm btn-primary" data-qual-approve="${ui.esc(s.userId)}">确认通过</button>
+            <button class="btn btn-sm" data-qual-reject="${ui.esc(s.userId)}" style="color:var(--danger)">驳回</button>
+          </div>` : ''}
+          ${s.decisionNote ? `<div class="tiny dim mt4">意见：${ui.esc(s.decisionNote)}</div>` : ''}
+        </div>`).join('')}</div>` : ''}
+        ${!isOwner && !subs.length ? '<div class="small muted">还没有人提交资质。如果你有意向，可以直接上传。</div>' : ''}
+        ${qual?.canSubmit ? `<button class="btn btn-primary btn-block mt12" id="btn-qual-submit">${mine ? '重新提交资质' : '📤 上传企业资质'}</button>` : ''}
+        ${isOwner && !subs.length ? '<div class="small muted mt8">等待意向方提交资质。</div>' : ''}`;
+    } else if (sid === 'group-meeting') {
+      body = `<div class="small muted">建立项目专属群聊并召开线上会议，AI 会实时记录并生成双方后续跟进。</div>
+        <div class="row gap8 mt12">
+          <button class="btn btn-primary" id="btn-stage-chat">💬 打开项目群聊</button>
+          <button class="btn" id="btn-stage-meeting">📹 发起线上会议</button>
+        </div>`;
+    } else if (sid === 'invitation') {
+      body = `<div class="small muted">生成正式邀请函，可打印成 PDF 或复制文案发给对方。</div>
+        <div class="mt12">${docBtns}</div>`;
+    } else if (sid === 'brokerage') {
+      body = `<div class="small muted">签订居间协议，明确居间费比例与支付节点。协议内容会自动带入本项目已填写的商务条件。</div>
+        <div class="mt12">${docBtns}</div>`;
+    } else if (sid === 'offline-meeting') {
+      body = `<div class="small muted">线下会面洽谈细节，上传会谈记录、现场照片或会议签到表。</div>
+        <div class="row gap8 mt12">
+          <button class="btn btn-sm" id="btn-stage-upload">📎 上传会谈记录</button>
+        </div>`;
+    } else if (sid === 'contract') {
+      body = `<div class="small muted">核对合同要点、上传正式合同并支付居间费。</div>
+        <div class="mt12">${docBtns}</div>
+        <div class="row gap8 mt8">
+          <button class="btn btn-sm" id="btn-stage-upload">📎 上传正式合同</button>
+        </div>`;
+    }
+
+    const canAdvance = isOwner && currentStage.order < total;
+    return `<div class="card card-pad mb12 stage-panel">
+      <div class="row between mb8">
+        <div class="strong">${currentStage.icon || '▶'} 当前环节：${ui.esc(currentStage.name)}</div>
+        <span class="badge">第 ${currentStage.order} / ${total} 步</span>
+      </div>
+      <div class="small muted mb12">${ui.esc(currentStage.desc)}</div>
+      ${body}
+      ${canAdvance ? `<button class="btn btn-primary btn-block mt12" id="btn-stage-advance">完成本环节，进入下一步</button>` : ''}
+    </div>`;
+  })();
 
   const files = listing.fileList || [];
   const images = files.filter((f) => f.kind === 'image');
@@ -608,7 +730,10 @@ export async function renderDetail(ctx, params) {
             <button class="btn btn-sm btn-outline mt8" id="btn-add-followup">+ 新增后续</button>
           </div>` : ''}
 
+          ${termsCard}
+          ${qualCard}
           ${pipeline && pipeline.length ? pipelineHtml(pipeline, listing.pipeline?.history || []) : ''}
+          ${stagePanel}
 
           <div class="card card-pad">
             <div class="row between mb8">
@@ -852,6 +977,222 @@ export async function renderDetail(ctx, params) {
           ui.toast(err.message, 'err');
         }
       });
+
+      /* ---------------- 当前环节操作面板 ---------------- */
+      if (listing.category === 'project' && currentStage) {
+        const reload = () => ctx.nav(`#/detail/${listing.id}`);
+
+        const printDoc = (doc) => {
+          const w = window.open('', '_blank');
+          if (!w) return ui.toast('请允许弹出窗口后再打印', 'err');
+          const e = ui.esc;
+          const rows = (doc.sections || []).map((s) => `
+            <h3>${e(s.heading)}</h3>
+            ${(s.rows || []).map((r) => `<div class="row"><b>${e(r[0])}</b>：${e(r[1])}</div>`).join('')}
+            ${(s.bullets || []).map((b) => `<div class="row">· ${e(b)}</div>`).join('')}
+            ${(s.paragraphs || []).map((p) => `<p>${e(p)}</p>`).join('')}`).join('');
+          w.document.write(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${e(doc.title)}</title>
+<style>
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;padding:48px;color:#111;line-height:1.9;max-width:760px;margin:0 auto}
+h2{text-align:center;letter-spacing:8px;font-size:24px;margin:0 0 4px}
+.sub{text-align:center;color:#666;margin-bottom:24px}
+.meta{border:1px solid #ddd;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:14px}
+h3{font-size:16px;margin:22px 0 8px}
+.row,p{font-size:14px;margin:4px 0}
+.foot{margin-top:28px;color:#888;font-size:12px;border-top:1px solid #eee;padding-top:12px}
+@media print{body{padding:0}}
+</style></head><body>
+<h2>${e(doc.title)}</h2>
+<div class="sub">${e(doc.subtitle || '')}</div>
+<div class="meta">${(doc.meta || []).map((m) => `<div><b>${e(m.label)}</b>：${e(m.value)}</div>`).join('')}</div>
+${(doc.body || []).map((p) => `<p>${e(p)}</p>`).join('')}
+${rows}
+<div class="foot">${e(doc.footer || '')}</div>
+<script>setTimeout(function(){window.print()},350)<\/script>
+</body></html>`);
+          w.document.close();
+        };
+
+        const showDocSheet = (doc) => {
+          ui.openSheet({
+            title: doc.title,
+            content: `<div class="doc-view">
+              <h2 class="doc-h2">${ui.esc(doc.title)}</h2>
+              <div class="doc-sub">${ui.esc(doc.subtitle || '')}</div>
+              <div class="doc-meta">${(doc.meta || []).map((m) => `<div><b>${ui.esc(m.label)}</b>：${ui.esc(m.value)}</div>`).join('')}</div>
+              ${(doc.body || []).map((p) => `<p>${ui.esc(p)}</p>`).join('')}
+              ${(doc.sections || []).map((s) => `
+                <h3 class="doc-h3">${ui.esc(s.heading)}</h3>
+                ${(s.rows || []).map((r) => `<div class="doc-row"><b>${ui.esc(r[0])}</b>：${ui.esc(r[1])}</div>`).join('')}
+                ${(s.bullets || []).map((b) => `<div class="doc-row">· ${ui.esc(b)}</div>`).join('')}
+                ${(s.paragraphs || []).map((p) => `<p>${ui.esc(p)}</p>`).join('')}`).join('')}
+              <div class="doc-foot">${ui.esc(doc.footer || '')}</div>
+            </div>
+            <div class="row gap8 mt12">
+              <button class="btn btn-primary grow" id="doc-copy">复制文案</button>
+              <button class="btn grow" id="doc-print">打印 / 存 PDF</button>
+            </div>
+            <div class="tiny dim mt8">复制后可直接粘贴到微信发给对方；打印时选「另存为 PDF」即可归档。</div>`,
+            onMount(sheet) {
+              sheet.querySelector('#doc-copy').addEventListener('click', async () => {
+                const ok = await ui.copyText(doc.plain);
+                ui.toast(ok ? '文案已复制' : '复制失败', ok ? 'ok' : 'err');
+              });
+              sheet.querySelector('#doc-print').addEventListener('click', () => printDoc(doc));
+            },
+          });
+        };
+
+        const openDoc = async (kind) => {
+          const query = {};
+          if (kind === 'invitation') {
+            const to = await ui.promptDialog({ title: '生成邀请函', label: '收件单位 / 联系人', placeholder: '如 山东电力建设集团 李经理', okText: '下一步' });
+            if (to === null || to === undefined) return;
+            const date = await ui.promptDialog({ title: '洽谈时间', label: '时间（选填）', placeholder: '如 2026-11-01 14:00', okText: '下一步' });
+            if (date === null || date === undefined) return;
+            const place = await ui.promptDialog({ title: '洽谈地点', label: '地点（选填）', placeholder: '如 山东省东营市广饶县项目现场', okText: '下一步' });
+            if (place === null || place === undefined) return;
+            const agenda = await ui.promptDialog({ title: '洽谈议题', label: '议题（选填）', multiline: true, okText: '生成' });
+            Object.assign(query, { to: to || '', date: date || '', place: place || '', agenda: agenda || '' });
+          }
+          ui.showLoading('生成中…');
+          try {
+            const res = await service.document(listing.id, kind, query);
+            ui.hideLoading();
+            showDocSheet(res.doc);
+          } catch (err) {
+            ui.hideLoading();
+            ui.toast(err.message, 'err');
+          }
+        };
+
+        const openQualificationForm = () => {
+          const reqs = (proj.qualifications || []);
+          const mine = qual?.mine;
+          const rows = reqs.length ? reqs : [{ name: '', level: '', required: true }];
+          const levels = ctx.state.taxonomy?.qualificationLevels || ['不要求'];
+          ui.openSheet({
+            title: '上传企业资质',
+            content: `<div class="tiny dim mb12">按发布方的要求逐项填写并上传证书扫描件。提交后 AI 会先核对一遍，再由发布方确认。</div>
+              ${rows.map((q, i) => `<div class="qual-upload-row" data-i="${i}">
+                <div class="row between mb4">
+                  <span class="small strong">${ui.esc(q.name || '自定义资质')}</span>
+                  ${q.required ? '<span class="badge danger">必需</span>' : '<span class="badge gray">加分</span>'}
+                </div>
+                <input class="input" data-q-name value="${ui.esc(q.name || '')}" placeholder="资质名称" ${q.name ? 'readonly' : ''}>
+                <div class="row gap8 mt4">
+                  <select class="select" data-q-level>${levels.map((l) => `<option ${q.level === l ? 'selected' : ''}>${ui.esc(l)}</option>`).join('')}</select>
+                  <input class="input" data-q-note placeholder="证书编号 / 备注（选填）">
+                </div>
+                <input type="file" class="input mt4" data-q-file multiple>
+              </div>`).join('')}
+              <div class="field mt12"><label>补充说明（选填）</label><textarea class="input" id="q-note" rows="2" placeholder="如：某证书正在办理中"></textarea></div>
+              <button class="btn btn-primary btn-block" id="q-submit">提交并送 AI 审核</button>`,
+            onMount(sheet, close) {
+              sheet.querySelector('#q-submit').addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                const rowEls = [...sheet.querySelectorAll('.qual-upload-row')];
+                const items = [];
+                const fileList = [];
+                const itemIndexes = [];
+                rowEls.forEach((row, i) => {
+                  const name = row.querySelector('[data-q-name]').value.trim();
+                  if (!name) return;
+                  const idx = items.length;
+                  items.push({
+                    name,
+                    level: row.querySelector('[data-q-level]').value,
+                    note: row.querySelector('[data-q-note]').value.trim(),
+                    fileIds: [],
+                  });
+                  for (const f of (row.querySelector('[data-q-file]').files || [])) {
+                    fileList.push(f);
+                    itemIndexes.push(idx);
+                  }
+                });
+                if (!items.length) return ui.toast('请至少填写一项资质名称', 'err');
+
+                btn.disabled = true;
+                btn.textContent = '提交中…';
+                try {
+                  const fd = new FormData();
+                  fd.append('items', JSON.stringify(items));
+                  fd.append('itemIndexes', JSON.stringify(itemIndexes));
+                  fd.append('note', sheet.querySelector('#q-note').value.trim());
+                  for (const f of fileList) fd.append('file', f, f.name);
+                  const res = await service.submitQualification(listing.id, fd);
+                  close();
+                  const rev = res.aiReview || {};
+                  ui.toast(rev.pass ? `AI 初审通过（${rev.score} 分），等待发布方确认` : `已提交，AI 初审发现 ${(rev.missing || []).length} 项缺项`, rev.pass ? 'ok' : '');
+                  reload();
+                } catch (err) {
+                  btn.disabled = false;
+                  btn.textContent = '提交并送 AI 审核';
+                  ui.toast(err.message, 'err');
+                }
+              });
+            },
+          });
+          void mine;
+        };
+
+        const decideQual = async (userId, agree) => {
+          let note = '';
+          if (!agree) {
+            note = await ui.promptDialog({ title: '驳回资质', label: '说明原因（会通知对方）', multiline: true, okText: '确认驳回' });
+            if (note === null || note === undefined) return;
+          } else {
+            const ok = await ui.confirmDialog({ title: '确认资质通过？', message: '通过后对方可进入下一环节。', okText: '确认通过' });
+            if (!ok) return;
+          }
+          try {
+            await service.reviewQualification(listing.id, { userId, agree, note: note || '' });
+            ui.toast(agree ? '已确认通过' : '已驳回', 'ok');
+            reload();
+          } catch (err) {
+            ui.toast(err.message, 'err');
+          }
+        };
+
+        root.querySelector('#btn-stage-advance')?.addEventListener('click', async () => {
+          const ok = await ui.confirmDialog({
+            title: `完成「${currentStage.name}」`,
+            message: '确认后项目将进入下一环节。',
+            okText: '进入下一步',
+          });
+          if (!ok) return;
+          ui.showLoading('推进中…');
+          try {
+            const fd = api.form({ stage: 'next', note: '' });
+            await service.advancePipeline(listing.id, fd);
+            ui.hideLoading();
+            ui.toast('已进入下一环节', 'ok');
+            reload();
+          } catch (err) {
+            ui.hideLoading();
+            ui.toast(err.message, 'err');
+          }
+        });
+
+        root.querySelector('#btn-stage-share')?.addEventListener('click', () => root.querySelector('#btn-share')?.click());
+        root.querySelector('#btn-stage-chat')?.addEventListener('click', () => root.querySelector('#btn-chat')?.click());
+        root.querySelector('#btn-stage-meeting')?.addEventListener('click', () => root.querySelector('#btn-meeting')?.click());
+        root.querySelector('#btn-stage-upload')?.addEventListener('click', () => root.querySelector('#btn-share')?.scrollIntoView({ block: 'center' }));
+
+        root.querySelector('#btn-qual-submit')?.addEventListener('click', () => {
+          if (!ctx.requireLogin()) return;
+          openQualificationForm();
+        });
+        root.querySelectorAll('[data-qual-approve]').forEach((b) => {
+          b.addEventListener('click', () => decideQual(b.dataset.qualApprove, true));
+        });
+        root.querySelectorAll('[data-qual-reject]').forEach((b) => {
+          b.addEventListener('click', () => decideQual(b.dataset.qualReject, false));
+        });
+        for (const kind of ['invitation', 'brokerage', 'contract']) {
+          root.querySelector(`#btn-doc-${kind}`)?.addEventListener('click', () => openDoc(kind));
+        }
+      }
 
       /* 留言 */
       let replyTo = '';
