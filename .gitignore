@@ -39,3 +39,7 @@ xiaoyu-laile-release-*.tar.gz
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 数据备份（含真实数据与 .secret，绝不能提交）
+backup-data-*/
+backup-*/

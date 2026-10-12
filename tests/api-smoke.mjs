@@ -838,6 +838,39 @@ async function main() {
     || typeof listingShare.data?.jsSdk !== 'undefined',
     JSON.stringify(Object.keys(listingShare.data || {})));
 
+  console.log('\n=== 12d. 下架 / 隐藏后必须真的不可见 ===');
+  const hideTest = await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({
+      category: 'project',
+      text: '下架可见性测试项目，用于验证信息下架后分享出去的链接无法再打开。',
+      publish: '1', durationDays: '30',
+    }),
+  });
+  const hideId = hideTest.data.listing.id;
+  const beforeClose = await call('GET', `/api/listings/${hideId}`);
+  check('下架前链接可访问', beforeClose.status === 200, String(beforeClose.status));
+
+  const closed = await call('POST', `/api/listings/${hideId}/close`, { token: tokenA, body: { reason: '测试下架' } });
+  check('可下架自己的信息', closed.status === 200, JSON.stringify(closed.json).slice(0, 150));
+
+  const afterClose = await call('GET', `/api/listings/${hideId}`);
+  check('下架后分享链接打不开', afterClose.status === 410, String(afterClose.status));
+
+  const ownerStill = await call('GET', `/api/listings/${hideId}`, { token: tokenA });
+  check('发布方自己仍可查看已下架信息', ownerStill.status === 200, String(ownerStill.status));
+  const adminStill = await call('GET', `/api/listings/${hideId}`, { token: adminToken });
+  check('管理员仍可查看已下架信息', adminStill.status === 200, String(adminStill.status));
+
+  const listAfterClose = await call('GET', '/api/listings?pageSize=50');
+  check('已下架信息不在公开列表里', !(listAfterClose.data.items || []).some((l) => l.id === hideId),
+    String((listAfterClose.data.items || []).length));
+
+  const searchAfterClose = await call('GET', '/api/search/suggest?q=下架可见性');
+  check('已下架信息不出现在搜索建议里',
+    !(searchAfterClose.data.items || []).some((i) => i.type === 'listing' && i.id === hideId),
+    JSON.stringify(searchAfterClose.data.items || []));
+
   console.log('\n=== 13. 权限与边界 ===');
   const noAuth = await call('POST', '/api/listings', { form: jsonForm({ text: 'x' }) });
   check('未登录不能发布', noAuth.status === 401);

@@ -158,6 +158,12 @@ export default function registerListingRoutes(app) {
     if (listing.status === 'draft' && !isOwner && !viewer?.isAdmin) {
       throw httpError(403, '该信息尚未发布');
     }
+    // 已下架 / 已隐藏的信息必须真的不可见：
+    // 列表接口默认只查 published，但分享出去的链接能直接打开详情，
+    // 这里补上，否则"隐藏"形同虚设。
+    if (['closed', 'hidden', 'removed'].includes(listing.status) && !isOwner && !viewer?.isAdmin) {
+      throw httpError(410, '该信息已下架');
+    }
     const unlocked =
       isOwner ||
       Boolean(viewer && ((listing.memberIds || []).includes(viewer.id) || viewer.isAdmin));
