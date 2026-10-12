@@ -127,12 +127,18 @@ if ($SetBaseUrl -and $publicUrl) {
   Step "writing PUBLIC_BASE_URL into .env"
   $envFile = Join-Path $Root '.env'
   $lines = @()
-  if (Test-Path $envFile) { $lines = Get-Content $envFile }
+  if (Test-Path $envFile) {
+    # explicit UTF-8: Get-Content would use the ANSI codepage and corrupt the
+    # Chinese comments in .env (same bug class as start-all.ps1)
+    $lines = [System.IO.File]::ReadAllLines($envFile, (New-Object System.Text.UTF8Encoding($false)))
+  }
   $done = $false
   $lines = $lines | ForEach-Object {
     if ($_ -match '^\s*PUBLIC_BASE_URL\s*=') { $done = $true; "PUBLIC_BASE_URL=$publicUrl" } else { $_ }
   }
   if (-not $done) { $lines += "PUBLIC_BASE_URL=$publicUrl" }
-  Set-Content -Path $envFile -Value $lines -Encoding UTF8
+  # UTF8Encoding($false) => no BOM. Set-Content -Encoding UTF8 adds a BOM on
+  # Windows PowerShell 5.1, which the .env loader does not expect.
+  [System.IO.File]::WriteAllLines($envFile, $lines, (New-Object System.Text.UTF8Encoding($false)))
   Write-Host "    wrote PUBLIC_BASE_URL=$publicUrl (restart the app to apply)" -ForegroundColor Green
 }

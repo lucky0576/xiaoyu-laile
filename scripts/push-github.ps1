@@ -35,7 +35,7 @@ for ($i = 1; $i -le $Tries; $i++) {
   if ($txt -match 'Permission denied \(publickey\)') {
     Write-Host 'SSH key is not registered on GitHub.' -ForegroundColor Red
     Write-Host 'Add this public key at https://github.com/settings/keys :' -ForegroundColor Red
-    Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub" | ForEach-Object { Write-Host "  $_" }
+    [System.IO.File]::ReadAllLines("$env:USERPROFILE\.ssh\id_ed25519.pub") | ForEach-Object { Write-Host "  $_" }
     exit 2
   }
   if ($txt -match 'Repository not found|does not exist') {

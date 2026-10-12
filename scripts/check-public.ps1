@@ -44,8 +44,15 @@ function Info($m) { Write-Host ("         " + $m) -ForegroundColor DarkGray }
 function Get-EnvValue([string]$key) {
   $f = Join-Path $Root '.env'
   if (-not (Test-Path $f)) { return $null }
-  $m = [regex]::Match((Get-Content $f -Raw), "(?m)^\s*$key\s*=\s*(\S+)\s*$")
-  if ($m.Success) { return $m.Groups[1].Value }
+  # Read as explicit UTF-8. On Windows PowerShell 5.1, Get-Content -Raw uses
+  # the ANSI codepage, so the UTF-8 Chinese comments in .env turn into
+  # mojibake whose trailing bytes eat the line break, and the regex below
+  # then fails to match at all (false "PUBLIC_BASE_URL missing").
+  # NOTE: keep this file ASCII-only. A non-ASCII comment here would be
+  # decoded as ANSI and corrupt the surrounding code.
+  $text = [System.IO.File]::ReadAllText($f, (New-Object System.Text.UTF8Encoding($false)))
+  $m = [regex]::Match($text, "(?m)^[ \t]*$key[ \t]*=[ \t]*(\S*)[ \t]*$")
+  if ($m.Success -and $m.Groups[1].Value) { return $m.Groups[1].Value }
   return $null
 }
 
