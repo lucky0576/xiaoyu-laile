@@ -83,25 +83,12 @@ if (Test-AppUp) {
 }
 
 # ---------------------------------------------------------------- 2. tunnel
-$cfRunning = @(Get-Process cloudflared -ErrorAction SilentlyContinue)
-if ($cfRunning.Count -gt 0) {
-  Write-Log "cloudflared already running (PID $($cfRunning[0].Id)), skipping"
-} elseif ($CfExe) {
-  Remove-Item $TunnelLog -Force
-  Remove-Item $TunnelOut -Force
-  Start-Process -FilePath $CfExe `
-    -ArgumentList @('tunnel', '--url', "http://localhost:$Port", '--no-autoupdate') `
-    -RedirectStandardError $TunnelLog -RedirectStandardOutput $TunnelOut -WindowStyle Hidden
-  Write-Log "started cloudflared quick tunnel -> http://localhost:$Port"
-} else {
-  Write-Log 'cloudflared not found, skipping tunnel'
-}
+# ---------------------------------------------------------------- 2. tunnel
+# A cloudflared process can be alive while its tunnel is already dead:
+# Cloudflare recycles quick tunnels ("Unauthorized: Tunnel not found") and
+# the agent just retries forever. So "process exists" is NOT a health check.
+# We test the URL from .env and, when it is dead, replace the tunnel.
 
-# ---------------------------------------------------------------- 3. sync URL
-# IMPORTANT: match the tunnel domain but NOT the Cloudflare API host.
-# A naive 'https://[a-z0-9-]+\.trycloudflare\.com' also matches
-# https://api.trycloudflare.com, which appears in the log on API failures,
-# and would get written into .env as if it were the public site.
 $UrlPattern = 'https://(?!api\.)[a-z0-9-]+\.trycloudflare\.com'
 
 function Get-TunnelUrlFromLog {
@@ -111,8 +98,7 @@ function Get-TunnelUrlFromLog {
   return ($m.Matches | Select-Object -Last 1).Value
 }
 
-# Only accept a URL that actually serves our app. A domain can appear in the
-# log while the tunnel is still broken (or already recycled by Cloudflare).
+# Only accept a URL that actually serves our app.
 function Test-PublicUrl([string]$u) {
   if (-not $u) { return $false }
   try {
@@ -121,6 +107,51 @@ function Test-PublicUrl([string]$u) {
   } catch { return $false }
 }
 
+function Get-EnvBaseUrl {
+  if (-not (Test-Path $EnvFile)) { return $null }
+  $txt = [System.IO.File]::ReadAllText($EnvFile, (New-Object System.Text.UTF8Encoding($false)))
+  $mm = [regex]::Match($txt, '(?m)^[ \t]*PUBLIC_BASE_URL[ \t]*=[ \t]*(\S*)[ \t]*$')
+  if ($mm.Success -and $mm.Groups[1].Value) { return $mm.Groups[1].Value }
+  return $null
+}
+
+function Start-QuickTunnel {
+  if (-not $CfExe) { return $false }
+  Get-Process cloudflared -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.Id -Force }
+  Start-Sleep -Seconds 2
+  Remove-Item $TunnelLog -Force -ErrorAction SilentlyContinue
+  Remove-Item $TunnelOut -Force -ErrorAction SilentlyContinue
+  Start-Process -FilePath $CfExe `
+    -ArgumentList @('tunnel', '--url', "http://localhost:$Port", '--no-autoupdate') `
+    -RedirectStandardError $TunnelLog -RedirectStandardOutput $TunnelOut -WindowStyle Hidden
+  Write-Log "started cloudflared quick tunnel -> http://localhost:$Port"
+  return $true
+}
+
+$knownUrl = Get-EnvBaseUrl
+$cfRunning = @(Get-Process cloudflared -ErrorAction SilentlyContinue)
+
+if ($knownUrl -and (Test-PublicUrl $knownUrl)) {
+  Write-Log "tunnel healthy, keeping it: $knownUrl"
+} else {
+  if ($knownUrl) { Write-Log "tunnel at $knownUrl is DEAD, replacing it" }
+  elseif ($cfRunning.Count -gt 0) { Write-Log 'cloudflared running but no URL recorded, restarting' }
+  else { Write-Log 'no tunnel running, starting one' }
+
+  if (Start-QuickTunnel) {
+    # wait for a URL that actually answers
+    for ($i = 0; $i -lt 30; $i++) {
+      $cand = Get-TunnelUrlFromLog
+      if ($cand -and (Test-PublicUrl $cand)) { break }
+      Start-Sleep -Seconds 2
+    }
+  } else {
+    Write-Log 'cloudflared not found, skipping tunnel'
+  }
+}
+
+# ---------------------------------------------------------------- 3. sync URL
+# ($UrlPattern / Get-TunnelUrlFromLog / Test-PublicUrl are defined in step 2.)
 $PublicUrl = $null
 for ($i = 0; $i -lt 20; $i++) {
   $cand = Get-TunnelUrlFromLog
