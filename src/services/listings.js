@@ -524,7 +524,40 @@ export async function updateListing(id, user, patch = {}) {
     next.expiresAt = computeExpiry(next.durationDays, new Date(l.publishedAt || Date.now()).getTime());
     next.expiryReminded = false;
   }
-  return listings().update(id, next);
+
+  // 先做一份深拷贝快照：db 更新可能是原地修改，不先拷贝就比不出差异
+  const before = JSON.parse(
+    JSON.stringify({
+      title: l.title,
+      subtitle: l.subtitle,
+      text: l.text,
+      type: l.type,
+      company: l.company,
+      durationDays: l.durationDays,
+      industries: l.industries || [],
+      cities: l.cities || [],
+      project: l.project || null,
+      event: l.event || null,
+      trade: l.trade || null,
+    }),
+  );
+
+  const updated = listings().update(id, next);
+
+  // 已发布的信息内容有变 → 及时通知关注人与项目成员
+  if (updated.status === 'published') {
+    try {
+      const changes = notifySvc.diffListing(before, updated);
+      if (changes.length) {
+        notifySvc.notifyListingUpdate(updated, changes, { exclude: [user.id] });
+        hub.broadcast('listing_update', { id, changes });
+      }
+    } catch (err) {
+      console.warn('[listings] 信息变更通知失败:', err.message);
+    }
+  }
+
+  return updated;
 }
 
 export async function regenerateAI(id, user, { text, files } = {}) {

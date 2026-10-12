@@ -170,7 +170,7 @@ export default function registerListingRoutes(app) {
     });
   });
 
-  app.put('/api/listings/:id', (req, res) => {
+  app.put('/api/listings/:id', async (req, res) => {
     const user = mustAuth(req);
     const b = req.body || {};
     const l = listingsSvc.getListing(req.params.id);
@@ -185,7 +185,9 @@ export default function registerListingRoutes(app) {
     if (l.category === 'project' && (b.investAmount !== undefined || b.stage !== undefined)) {
       patch.project = { ...l.project, ...buildProject(b) };
     }
-    const updated = listingsSvc.updateListing(req.params.id, user, patch);
+    // updateListing 是 async 的：必须 await，否则拿到的是 Promise，
+    // listingPublic 会把 Promise 当对象展开，响应里返回一个空壳
+    const updated = await listingsSvc.updateListing(req.params.id, user, patch);
     return data(res, { listing: listingsSvc.listingPublic(updated, user) });
   });
 

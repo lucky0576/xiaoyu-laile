@@ -610,7 +610,8 @@ export async function renderProfile(ctx) {
     <div class="card card-pad mt12">
       <div class="strong mb12">通知偏好</div>
       ${[
-        ['notifyFollow', '关注的项目 / 行业有新动态时通知我'],
+        ['notifyNewProjects', '平台有新项目上线时通知我'],
+        ['notifyFollow', '我关注的项目 / 行业 / 发布者有新动态或信息变更时通知我'],
         ['notifyComment', '我的信息收到留言时通知我'],
         ['notifyChat', '群聊收到新消息时通知我'],
         ['emailNotify', '同时发送邮件通知'],

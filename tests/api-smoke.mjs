@@ -370,6 +370,91 @@ async function main() {
   const follows = await call('GET', '/api/follows', { token: tokenB });
   check('我的关注列表', (follows.data?.items || []).length >= 2);
 
+  console.log('\n=== 8b. 新项目上线通知全体会员 / 信息变更通知关注人 ===');
+  // tokenWx 是微信演示用户，没有关注任何内容 —— 用它验证「全体会员」推送
+  const wxBefore = await call('GET', '/api/notifications', { token: tokenWx });
+  const wxBeforeCount = (wxBefore.data?.items || []).length;
+
+  const newProj = await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({
+      category: 'project', type: 'epc',
+      text: '山东济南 300MW 农光互补光伏电站 EPC 总承包项目，总投资 12 亿元，工期 18 个月，需要电力工程施工总承包一级资质。',
+      publish: '1', durationDays: '30',
+    }),
+  });
+  check('新项目已发布', newProj.status === 201, JSON.stringify(newProj.json).slice(0, 150));
+  const newId = newProj.data.listing.id;
+
+  const wxAfter = await call('GET', '/api/notifications', { token: tokenWx });
+  const wxItems = wxAfter.data?.items || [];
+  check('未关注任何内容的会员也收到新项目上线通知', wxItems.length > wxBeforeCount,
+    `before=${wxBeforeCount} after=${wxItems.length}`);
+  const memberNotif = wxItems.find((n) => n.type === 'listing_new' && n.meta?.listingId === newId);
+  check('会员通知类型为「新项目上线」', Boolean(memberNotif),
+    JSON.stringify(wxItems.slice(0, 5).map((n) => [n.type, n.title])));
+  check('会员通知标题写明新项目上线', String(memberNotif?.title || '').includes('新项目上线'), String(memberNotif?.title));
+  check('会员通知标记来源为会员推送', memberNotif?.meta?.via === 'member', JSON.stringify(memberNotif?.meta));
+  console.log(`    → 会员收到：${memberNotif?.title}`);
+
+  const bAfter = await call('GET', '/api/notifications', { token: tokenB });
+  const bForNew = (bAfter.data?.items || []).filter((n) => n.meta?.listingId === newId);
+  check('同一条信息对同一个人只推一条（关注者不重复收会员推送）', bForNew.length === 1, `实际 ${bForNew.length} 条`);
+  check('关注者收到的是「关注动态」类型', bForNew[0]?.type === 'follow_new', String(bForNew[0]?.type));
+  console.log(`    → 关注者收到：${bForNew[0]?.title}`);
+
+  const aAfter = await call('GET', '/api/notifications', { token: tokenA });
+  check('发布方自己不收到新项目通知',
+    !(aAfter.data?.items || []).some((n) => n.meta?.listingId === newId && n.type === 'listing_new'),
+    JSON.stringify((aAfter.data?.items || []).filter((n) => n.meta?.listingId === newId).map((n) => n.type)));
+
+  /* ---- 信息变更 → 通知关注人 ---- */
+  // 先让 tokenB 关注这条新信息（tokenB 之前关注的是另一条）
+  await call('POST', '/api/follow', { token: tokenB, body: { targetType: 'listing', targetId: newId, meta: { name: '济南光伏' } } });
+
+  const beforeUpd = (await call('GET', '/api/notifications', { token: tokenB })).data?.items || [];
+  const upd = await call('PUT', `/api/listings/${newId}`, {
+    token: tokenA,
+    body: {
+      subtitle: '总投资上调至 13.5 亿元 · 工期调整为 20 个月',
+      text: '山东济南 300MW 农光互补光伏电站 EPC 总承包项目，总投资调整为 13.5 亿元，工期调整为 20 个月。',
+    },
+  });
+  check('信息更新成功', upd.status === 200, JSON.stringify(upd.json).slice(0, 150));
+  check('更新接口返回真实信息', upd.data?.listing?.id === newId && Boolean(upd.data?.listing?.title),
+    JSON.stringify(upd.data?.listing).slice(0, 160));
+
+  const afterUpd = (await call('GET', '/api/notifications', { token: tokenB })).data?.items || [];
+  const updItems = afterUpd.filter((n) => n.type === 'listing_update' && n.meta?.listingId === newId);
+  check('信息变更后关注者收到通知', updItems.length >= 1, `实际 ${updItems.length} 条`);
+  check('变更通知标题写明有更新', String(updItems[0]?.title || '').includes('有更新'), String(updItems[0]?.title));
+  check('变更通知列出具体变更字段', /副标题|正文/.test(String(updItems[0]?.body || '')), String(updItems[0]?.body));
+  check('变更通知携带变更清单', Array.isArray(updItems[0]?.meta?.changes) && updItems[0].meta.changes.length > 0,
+    JSON.stringify(updItems[0]?.meta));
+  console.log(`    → 关注者收到：${updItems[0]?.title}｜${updItems[0]?.body}`);
+
+  const ownerUpdated = (await call('GET', '/api/notifications', { token: tokenA })).data?.items || [];
+  check('发布方自己不收到变更通知',
+    !ownerUpdated.some((n) => n.type === 'listing_update' && n.meta?.listingId === newId));
+
+  // 内容没变时不该重复打扰
+  await call('PUT', `/api/listings/${newId}`, {
+    token: tokenA, body: { subtitle: '总投资上调至 13.5 亿元 · 工期调整为 20 个月' },
+  });
+  const repeated = ((await call('GET', '/api/notifications', { token: tokenB })).data?.items || [])
+    .filter((n) => n.type === 'listing_update' && n.meta?.listingId === newId);
+  check('重复提交相同内容不重复通知', repeated.length === updItems.length, `实际 ${repeated.length} 条`);
+
+  /* ---- 开关生效 ---- */
+  await call('PUT', '/api/users/me', { token: tokenWx, body: { settings: { notifyNewProjects: false } } });
+  const wxOffBefore = ((await call('GET', '/api/notifications', { token: tokenWx })).data?.items || []).length;
+  await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({ category: 'project', text: '浙江宁波 150MW 海上风电运维服务采购项目，年度预算 6800 万元。', publish: '1', durationDays: '30' }),
+  });
+  const wxOffAfter = ((await call('GET', '/api/notifications', { token: tokenWx })).data?.items || []).length;
+  check('关闭「新项目上线」开关后不再收到', wxOffAfter === wxOffBefore, `before=${wxOffBefore} after=${wxOffAfter}`);
+
   console.log('\n=== 9. 项目对接 / 群聊 / 会议 ===');
   const dock = await call('POST', `/api/listings/${listingId}/dock`, { token: tokenB, body: { note: '我方具备电力工程施工总承包一级资质，希望参与投标' } });
   check('发起项目对接并建群', dock.status === 201 && Boolean(dock.data?.room?.id), JSON.stringify(dock.json).slice(0, 300));
