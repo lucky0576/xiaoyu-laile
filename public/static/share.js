@@ -281,20 +281,55 @@ export async function openShareSheet(listing) {
   hideLoading();
 
   const coverUrl = safeUrl(payload.imgUrl) || '';
-  const modes = payload.modes || [];
+
+  /* 纯文字文案：不带图片、不带链接，可直接粘贴到任何地方 */
+  const plainShareText = () => {
+    const lines = [];
+    lines.push(`【${payload.title || ''}】`);
+    if (payload.desc) lines.push(payload.desc);
+
+    const bits = [];
+    const city = listing.cities?.[0]?.name;
+    if (city) bits.push(`📍 ${city}`);
+    const amount = listing.project?.investAmount;
+    if (amount) bits.push(`💰 ${amount}`);
+    const typeName = listing.typeName;
+    if (typeName) bits.push(`🤝 ${typeName}`);
+    if (bits.length) {
+      lines.push('');
+      lines.push(bits.join('　'));
+    }
+
+    const qs = listing.project?.qualifications || [];
+    if (qs.length) {
+      lines.push('');
+      lines.push(`需要具备：${qs.map((q) => q.name).slice(0, 4).join('、')}`);
+    }
+
+    lines.push('');
+    lines.push('—— 小鱼来了｜让每一条好项目，都被对的人看见');
+    return lines.join('\n');
+  };
 
   const content = `
-    <div class="share-mode active" data-mode="poster">
+    <div class="share-mode active" data-mode="text">
+      <div class="ico">📝</div>
+      <div class="grow">
+        <div class="strong">纯文字</div>
+        <div class="tiny dim">只给一段文案，不带图片和链接，可粘贴到任何地方</div>
+      </div>
+    </div>
+    <div class="share-mode" data-mode="poster">
       <div class="ico">🖼️</div>
       <div class="grow">
-        <div class="strong">图片 + 文字 + 二维码</div>
+        <div class="strong">文字 + 图片</div>
         <div class="tiny dim">生成海报，适合发朋友圈、微信群；对方扫码即可查看</div>
       </div>
     </div>
     <div class="share-mode" data-mode="link">
       <div class="ico">🔗</div>
       <div class="grow">
-        <div class="strong">链接 + 标题文字</div>
+        <div class="strong">文字 + 链接</div>
         <div class="tiny dim">直接转发网页，微信内自动显示标题、摘要与封面</div>
       </div>
     </div>
@@ -305,11 +340,21 @@ export async function openShareSheet(listing) {
     content,
     async onMount(sheet, close) {
       const panel = sheet.querySelector('#share-panel');
-      let mode = 'poster';
+      let mode = 'text';
       let posterCanvas = null;
 
       const renderPanel = async () => {
-        if (mode === 'poster') {
+        if (mode === 'text') {
+          panel.innerHTML = `<div class="field">
+              <label>纯文字文案（可自由复制粘贴）</label>
+              <textarea class="input" id="share-plain" rows="10" readonly>${esc(plainShareText())}</textarea>
+            </div>
+            <div class="row gap8 mt8">
+              <button class="btn btn-primary grow" id="btn-copy-plain">复制文字</button>
+              <button class="btn grow" id="btn-native-plain">系统分享</button>
+            </div>
+            <div class="tiny dim center mt8">不含图片与链接，适合发朋友圈纯文字、微信群、短信或其他平台</div>`;
+        } else if (mode === 'poster') {
           panel.innerHTML = `<div class="poster-wrap"><canvas id="poster-canvas"></canvas></div>
             <div class="row gap8 mt8"><button class="btn btn-primary grow" id="btn-save">保存海报</button>
             <button class="btn grow" id="btn-copy-text">复制文案</button></div>
@@ -341,6 +386,22 @@ export async function openShareSheet(listing) {
       };
 
       const bind = () => {
+        panel.querySelector('#btn-copy-plain')?.addEventListener('click', async () => {
+          const ok = await copyText(plainShareText());
+          service.recordShare(listing.id, 'text').catch(() => {});
+          toast(ok ? '文字已复制，可粘贴到任意位置' : '复制失败，请手动选择文字', ok ? 'ok' : 'err');
+        });
+        panel.querySelector('#btn-native-plain')?.addEventListener('click', async () => {
+          const txt = plainShareText();
+          if (navigator.share) {
+            try {
+              await navigator.share({ title: payload.title, text: txt });
+            } catch { /* 用户取消 */ }
+          } else {
+            const ok = await copyText(txt);
+            toast(ok ? '已复制文字' : '当前浏览器不支持系统分享', ok ? 'ok' : 'err');
+          }
+        });
         panel.querySelector('#btn-save')?.addEventListener('click', async () => {
           if (!posterCanvas) return toast('海报未就绪', 'err');
           await downloadCanvas(posterCanvas, `${(payload.title || '小鱼来了').slice(0, 20)}.png`);

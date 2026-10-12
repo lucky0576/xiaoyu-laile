@@ -196,14 +196,20 @@ export function buildSharePayload({ listing, baseUrl }) {
     qr: `${baseUrl}/api/share/qrcode?text=${encodeURIComponent(url)}`,
     modes: [
       {
+        id: 'text',
+        name: '纯文字',
+        desc: '只给一段文案，不带图片和链接，可粘贴到任何地方',
+        text: `${title}\n${desc}\n—— 小鱼来了`,
+      },
+      {
         id: 'image',
-        name: '图片 + 文字 + 二维码',
+        name: '文字 + 图片',
         desc: '生成带二维码的海报图，适合发朋友圈、微信群',
         text: `${title}\n${desc}\n长按识别二维码查看详情 →`,
       },
       {
         id: 'link',
-        name: '链接 + 标题文字',
+        name: '文字 + 链接',
         desc: '直接分享网页链接，微信内自动展示标题、摘要与封面图',
         text: `${title}\n${desc}\n${url}`,
       },

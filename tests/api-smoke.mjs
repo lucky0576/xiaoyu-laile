@@ -460,7 +460,15 @@ async function main() {
   check('主办方查看报名名单', (regs.data?.items || []).length === 1);
 
   const share = await call('GET', `/api/listings/${listingId}/share`);
-  check('分享信息接口（两种方式）', share.status === 200 && (share.data?.modes || []).length === 2, JSON.stringify(share.json).slice(0, 200));
+  check('分享信息接口', share.status === 200, JSON.stringify(share.json).slice(0, 200));
+  const shareModes = share.data?.modes || [];
+  check('分享提供三种形态', shareModes.length === 3, JSON.stringify(shareModes.map((m) => m.id)));
+  check('含纯文字形态', shareModes.some((m) => m.id === 'text' && m.text?.includes(share.data.title)), JSON.stringify(shareModes.map((m) => m.id)));
+  check('含文字+图片形态', shareModes.some((m) => m.id === 'image'), JSON.stringify(shareModes.map((m) => m.id)));
+  check('含文字+链接形态', shareModes.some((m) => m.id === 'link' && m.text?.includes(share.data.url)), JSON.stringify(shareModes.map((m) => m.id)));
+  check('纯文字形态不含链接', !(shareModes.find((m) => m.id === 'text')?.text || '').includes(share.data.url));
+  check('分享带二维码地址', Boolean(share.data?.qr), String(share.data?.qr).slice(0, 60));
+  check('分享带封面图', Boolean(share.data?.imgUrl), String(share.data?.imgUrl).slice(0, 60));
   check('分享包含二维码地址', Boolean(share.data?.qr));
   check('分享包含图片模式', (share.data?.modes || []).some((m) => m.id === 'image' && m.text.includes('二维码')));
   check('分享包含链接模式', (share.data?.modes || []).some((m) => m.id === 'link' && m.text.includes(share.data?.url)));
