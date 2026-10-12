@@ -1,0 +1,29 @@
+修复项目文件始终显示不出来的问题
+
+现象
+  信息发布后，详情页看不到发布方上传的项目文件。
+
+根因
+  listing.files 存的是文件 ID 数组，但 listingPublic 里写成了
+      (l.files || []).map(filePublic)
+  filePublic 会对入参做对象解构 { path, ...rest }，
+  传字符串进去时得到的是按字符索引的垃圾对象（键名 0、1、2 … 值是该字符）。
+  前端拿到的 fileList[0].name 全是 undefined，附件区渲染不出来。
+
+同类问题一共 4 处，都是把文件 ID 当对象用：
+  1. listings.js  listingPublic  附件列表（用户看到的问题）
+  2. listings.js  listingBrief   封面图查找
+  3. wechat.js    JS-SDK 分享封面图
+  4. ai.js        「有哪些文件」自动回复里的附件类型
+
+修复
+- 统一改用 files.js 里现成的 listFiles(ids)，先把 ID 解析成文件记录
+- wechat.js / ai.js 做兼容：优先用已解析的 fileList，否则再解析 files
+
+顺带改进详情页
+- 新增明确的「项目文件」区，列出全部上传文件（图片与文档都列），
+  点击即可在线查看或下载，并区分发布方自己与其他登录用户的可见性说明
+- 去掉原来那句一直显示、容易误解的「登录后可下载完整资料」
+- 未登录访客改为显示带登录按钮的文件占位卡
+
+新增 9 项文件可见性测试（pipeline-smoke 共 152 项）。

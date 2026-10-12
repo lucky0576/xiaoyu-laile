@@ -8,7 +8,7 @@ import { httpError } from '../http/app.js';
 import ai from './ai.js';
 import notifySvc from './notify.js';
 import hub from './hub.js';
-import { aggregateText, pickCover, filePublic } from './files.js';
+import { aggregateText, pickCover, filePublic, listFiles } from './files.js';
 import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 
 const listings = () => db.collection('listings');
@@ -96,7 +96,9 @@ export function listingPublic(l, viewer = null, opts = {}) {
     typeName: l.typeName || typeNameOf(l.category, l.type),
 
     // 未登录访客拿不到任何附件
-    fileList: signedIn ? (l.files || []).map(filePublic).filter(Boolean) : [],
+    // l.files 存的是文件 ID 数组，必须解析成记录，否则 filePublic(字符串)
+    // 会对字符串做解构，产出 {"0":"f","1":"_",...} 这种垃圾对象，前端渲染不出来
+    fileList: signedIn ? listFiles(l.files || []).map(filePublic) : [],
 
     // 未登录只下发摘要级别的正文
     text: signedIn ? l.text : summary.slice(0, 80),
@@ -140,7 +142,9 @@ export function listingPublic(l, viewer = null, opts = {}) {
 
 export function listingBrief(l) {
   if (!l) return null;
-  const cover = (l.files || []).find((f) => f.id === l.coverId) || (l.files || []).find((f) => f.kind === 'image');
+  // l.files 存的是文件 ID 数组，必须先解析成文件记录再判断
+  const fileRecords = listFiles(l.files || []);
+  const cover = fileRecords.find((f) => f.id === l.coverId) || fileRecords.find((f) => f.kind === 'image');
   return {
     id: l.id,
     category: l.category,

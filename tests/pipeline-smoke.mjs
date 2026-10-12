@@ -516,6 +516,47 @@ async function main() {
   });
   check('发布方确认通过', appr2.status === 200 && appr2.data.submission.status === 'approved');
 
+  console.log('\n=== 13. 发布后可查看上传的项目文件 ===');
+  const fileFd = new FormData();
+  fileFd.append('file', new Blob([Buffer.from('项目技术方案与报价说明。\n包含设备清单与施工组织设计。', 'utf8')], { type: 'text/plain' }), '项目资料.txt');
+  const upFile = await fetch(`${BASE}/api/files`, { method: 'POST', headers: { Authorization: `Bearer ${owner.token}` }, body: fileFd });
+  const upJson = await upFile.json();
+  check('上传文件成功', upFile.status < 300, JSON.stringify(upJson).slice(0, 200));
+  const newFileId = upJson.data?.files?.[0]?.id;
+  const newFileUrl = upJson.data?.files?.[0]?.url;
+  check('返回文件 id 与下载地址', Boolean(newFileId && newFileUrl), JSON.stringify({ newFileId, newFileUrl }));
+
+  const withFile = await call('POST', '/api/listings', {
+    token: owner.token,
+    form: jsonForm({
+      category: 'project', type: 'epc',
+      text: '带项目文件的测试项目，用于验证信息发布后，登录用户可以查看并下载发布方上传的项目资料文件。',
+      durationDays: '30', title: '带项目文件的测试项目',
+      fileIds: JSON.stringify([newFileId]),
+    }),
+  });
+  const fid2 = withFile.data.listing.id;
+  await call('POST', `/api/listings/${fid2}/publish`, { token: owner.token, body: { days: 30 } });
+
+  const ownerFiles = await call('GET', `/api/listings/${fid2}`, { token: owner.token });
+  check('发布方能看到项目文件', (ownerFiles.data.listing.fileList || []).length === 1,
+    `实际 ${(ownerFiles.data.listing.fileList || []).length}`);
+  check('文件带名称与下载地址', Boolean(ownerFiles.data.listing.fileList[0]?.name && ownerFiles.data.listing.fileList[0]?.url),
+    JSON.stringify(ownerFiles.data.listing.fileList[0]));
+
+  const viewerFiles = await call('GET', `/api/listings/${fid2}`, { token: bidder.token });
+  check('其他登录用户也能看到项目文件', (viewerFiles.data.listing.fileList || []).length === 1,
+    `实际 ${(viewerFiles.data.listing.fileList || []).length}`);
+
+  const guestFiles = await call('GET', `/api/listings/${fid2}`);
+  check('未登录看不到项目文件', (guestFiles.data.listing.fileList || []).length === 0);
+  check('未登录标记为需登录', guestFiles.data.listing.gated === true);
+
+  const dl = await fetch(BASE + newFileUrl);
+  check('文件可直接下载', dl.status === 200, String(dl.status));
+  const dlText = await dl.text();
+  check('下载内容与上传一致', dlText.includes('技术方案'), dlText.slice(0, 40));
+
   db.flush();
   await app.close();
 

@@ -10,7 +10,7 @@
  * 所有对外函数都会在返回值里带上 `source` 字段：'ai' 或 'local'。
  */
 import { config, aiConfigured } from '../config.js';
-import { kindOf } from './files.js';
+import { kindOf, listFiles } from './files.js';
 
 /* ------------------------------------------------------------------ */
 /* 行业/城市/类型 词表（延迟加载，缺失时降级）                            */
@@ -534,11 +534,16 @@ async function localReply({ listing, comment, history }) {
     };
   }
   if (has('文件', '资料', '附件', '方案', '图纸', 'PPT')) {
-    const n = (listing?.files || []).length;
+    // listing.files 是文件 ID 数组，必须解析后才知道 kind
+    const fileRecords = Array.isArray(listing?.fileList) && listing.fileList.length
+      ? listing.fileList
+      : listFiles(listing?.files || []);
+    const n = fileRecords.length;
+    const kinds = uniq(fileRecords.map((f) => f.kind).filter(Boolean)).slice(0, 4).join('、');
     return {
       reply: n
-        ? `该项目共有 ${n} 个附件（含 ${uniq((listing.files || []).map((f) => f.kind)).slice(0, 4).join('、')} 等）。登录并完成对接后，可查看/下载完整资料。`
-        : `发布方暂未上传附件资料，可留言请其补充，或发起对接后索取。`,
+        ? `该项目共有 ${n} 个附件${kinds ? `（含 ${kinds} 等）` : ''}。登录并完成对接后，可查看/下载完整资料。`
+        : '发布方暂未上传附件资料，可留言请其补充，或发起对接后索取。',
       source: 'local',
     };
   }

@@ -14,6 +14,7 @@
 import crypto from 'node:crypto';
 import { config, wechatConfigured } from '../config.js';
 import { httpError } from '../http/app.js';
+import { listFiles } from './files.js';
 
 const API = 'https://api.weixin.qq.com';
 
@@ -178,8 +179,13 @@ export function buildSharePayload({ listing, baseUrl }) {
     listing?.ai?.summary?.slice(0, 60) ||
     '项目 / 活动 / 贸易信息，尽在小鱼来了';
 
-  const coverFile = (listing.files || []).find((f) => f.id === listing.coverId) ||
-    (listing.files || []).find((f) => f.kind === 'image');
+  // listing.files 是文件 ID 数组；listing.fileList（已解析）优先。
+  // 直接把 ID 当对象用会拿不到封面图。
+  const fileRecords = Array.isArray(listing.fileList) && listing.fileList.length
+    ? listing.fileList
+    : listFiles(listing.files || []);
+  const coverFile = fileRecords.find((f) => f.id === listing.coverId)
+    || fileRecords.find((f) => f.kind === 'image');
   const imgUrl = coverFile ? `${baseUrl}${coverFile.url}` : `${baseUrl}/static/share-default.png`;
 
   return {

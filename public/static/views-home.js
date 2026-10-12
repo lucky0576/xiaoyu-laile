@@ -4,7 +4,7 @@
 import { api, service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import {
-  itemHtml, aiCardHtml, filesHtml, pipelineHtml, commentHtml, userCardHtml,
+  itemHtml, aiCardHtml, filesHtml, fileCardHtml, pipelineHtml, commentHtml, userCardHtml,
   sortBarHtml, categoryIcon, categoryName,
 } from './components.js';
 import { openShareSheet, setupWechatShare } from './share.js';
@@ -731,8 +731,20 @@ export async function renderDetail(ctx, params) {
             <div class="small" style="white-space:pre-wrap;word-break:break-word;color:var(--text-2)">${ui.esc(listing.text || '（发布方未填写正文）')}</div>
           </div>
 
-          ${others.length ? filesHtml(others, { title: '附件资料' }) : ''}
-          ${dec.length ? `<div class="tiny dim center mt8">登录后可下载完整资料</div>` : ''}
+          ${files.length ? `<div class="card card-pad" id="project-files">
+            <div class="row between mb8">
+              <div class="strong">📁 项目文件（${files.length}）</div>
+              <span class="tiny dim">点击文件即可在线查看或下载</span>
+            </div>
+            <div class="row wrap gap8">
+              ${files.map((f) => fileCardHtml(f)).join('')}
+            </div>
+            <div class="tiny dim mt8">发布方上传的项目资料，${listing.isOwner ? '其他人需登录后才能看到。' : '已登录用户均可查看。'}</div>
+          </div>` : (listing.gated ? `<div class="card card-pad center">
+            <div class="strong">📁 项目文件</div>
+            <div class="small muted mt4">发布方上传了项目资料，登录后可查看与下载。</div>
+            <a class="btn btn-primary btn-sm mt12" href="#/login?redirect=${encodeURIComponent(`#/detail/${listing.id}`)}">登录后查看</a>
+          </div>` : '')}
 
           ${listing.followUps?.length ? `<div class="card card-pad">
             <div class="strong mb8">📌 后续跟进（${listing.followUps.length}）</div>
