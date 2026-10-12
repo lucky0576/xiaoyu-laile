@@ -49,6 +49,56 @@ function issueLogin(res, user, extra = {}) {
   return data(res, { token, user: selfUser(fresh), ...extra });
 }
 
+/* ------------------------------------------------------------------ */
+/* 绑定微信                                                            */
+/* ------------------------------------------------------------------ */
+
+/** 用授权 code 换取微信身份信息 */
+async function resolveWechatInfo(code, mode) {
+  const tokenInfo = mode === 'open' ? await wechat.exchangeOpenCode(code) : await wechat.exchangeMpCode(code);
+  const profile = await wechat.fetchWechatUser(tokenInfo.accessToken, tokenInfo.openid).catch(() => null);
+  return { ...tokenInfo, ...(profile || {}) };
+}
+
+/**
+ * 把微信身份写到用户上。
+ * 返回错误文案，成功返回空字符串。
+ *
+ * 冲突规则：同一个 openid / unionid 已经属于别的账号 → 拒绝。
+ * 否则会出现「一个微信控制多个账号」，后患很大。
+ * 用户自己换绑（原来绑了 A 微信，现在绑 B 微信）是允许的。
+ */
+function applyWechatBind(userId, info) {
+  if (!info?.openid) return '未获取到微信身份标识';
+
+  const clash = users().findOne(
+    (u) => u.id !== userId && (u.wechatOpenId === info.openid || (info.unionid && u.wechatUnionId === info.unionid)),
+  );
+  if (clash) return `该微信已绑定到账号「${clash.nickname}」，请先在那个账号解绑，或换一个微信`;
+
+  const target = users().get(userId);
+  if (!target) return '用户不存在';
+
+  const patch = {
+    wechatOpenId: info.openid,
+    wechatUnionId: info.unionid || '',
+    wechatBoundAt: new Date().toISOString(),
+    settings: { ...target.settings, wechatBind: true },
+  };
+  if (info.nickname) patch.wechatNickname = String(info.nickname).slice(0, 40);
+  if (info.avatar && !target.avatar) patch.avatar = info.avatar;
+
+  users().update(userId, patch);
+  return '';
+}
+
+/** 脱敏展示 openid：bind_demo_xxx → bind_d****demo */
+function maskOpenId(openid) {
+  const s = String(openid || '');
+  if (s.length <= 10) return s ? `${s.slice(0, 3)}****` : '';
+  return `${s.slice(0, 6)}****${s.slice(-4)}`;
+}
+
 export default function registerAuthUserRoutes(app) {
   /* ================================================================ */
   /* 注册 / 登录：手机号验证码                                          */
@@ -273,6 +323,130 @@ export default function registerAuthUserRoutes(app) {
     });
     users().update(user.id, { settings: { ...user.settings, wechatBind: true } });
     return issueLogin(res, users().get(user.id), { created: true, demo: true });
+  });
+
+  /* ================================================================ */
+  /* 绑定微信（已有账号点一下就把微信挂上去，不用重新注册）               */
+  /* ================================================================ */
+
+  /** 当前账号的微信绑定状态 */
+  app.get('/api/users/me/wechat', (req, res) => {
+    const user = mustAuth(req);
+    return data(res, {
+      bound: Boolean(user.wechatOpenId || user.wechatUnionId),
+      nickname: user.wechatNickname || '',
+      openidMasked: maskOpenId(user.wechatOpenId),
+      hasUnionId: Boolean(user.wechatUnionId),
+      boundAt: user.wechatBoundAt || null,
+      wechatId: user.wechatId || '',
+      // 解绑后必须还能登录，否则等于把用户锁在门外
+      canUnbind: Boolean(user.phone || (user.email && user.passwordHash)),
+      canLoginByPhone: Boolean(user.phone),
+      canLoginByPassword: Boolean(user.email && user.passwordHash),
+      status: wechat.status(),
+      demoAvailable: config.wechat.demoMode,
+    });
+  });
+
+  /** 生成绑定用的微信授权地址（需登录，state 走一次性票据） */
+  app.get('/api/auth/wechat/bind/url', (req, res) => {
+    const user = mustAuth(req);
+    const mode = String(req.query.mode || 'mp');
+    const state = wechat.issueBindTicket(user.id, mode);
+    const redirect = String(req.query.redirect || `${baseUrl(req)}/api/wechat/bind/callback`);
+    const url = mode === 'open' ? wechat.qrConnectUrl(redirect, state) : wechat.mpOAuthUrl(redirect, state);
+    return data(res, {
+      mode,
+      url,
+      state,
+      ready: Boolean(url),
+      status: wechat.status(),
+      demoAvailable: config.wechat.demoMode,
+      hint: url
+        ? ''
+        : '未配置微信公众号 / 开放平台 AppID，可先用「模拟绑定」体验完整流程',
+    });
+  });
+
+  /** 微信 OAuth 回跳：绑定完成后跳回前端页面 */
+  app.get('/api/wechat/bind/callback', async (req, res) => {
+    const ticket = wechat.takeBindTicket(req.query.state);
+    if (!ticket) return res.redirect(`/#/bind-wechat?err=${encodeURIComponent('绑定链接已失效，请重新发起')}`);
+    const code = String(req.query.code || '');
+    if (!code) return res.redirect(`/#/bind-wechat?err=${encodeURIComponent('微信未返回授权码')}`);
+    try {
+      const info = await resolveWechatInfo(code, ticket.mode);
+      const err = applyWechatBind(ticket.userId, info);
+      if (err) return res.redirect(`/#/bind-wechat?err=${encodeURIComponent(err)}`);
+      return res.redirect('/#/bind-wechat?ok=1');
+    } catch (e) {
+      return res.redirect(`/#/bind-wechat?err=${encodeURIComponent(e.message || '绑定失败')}`);
+    }
+  });
+
+  /** 微信内网页授权拿到 code 后直接提交绑定 */
+  app.post('/api/auth/wechat/bind', async (req, res) => {
+    const user = mustAuth(req);
+    const code = String(req.body?.code || '');
+    const mode = String(req.body?.mode || 'mp');
+    if (!code) return fail(res, '缺少微信授权 code');
+    try {
+      const info = await resolveWechatInfo(code, mode);
+      const err = applyWechatBind(user.id, info);
+      if (err) return fail(res, err, 409, 'conflict');
+      return data(res, {
+        user: selfUser(users().get(user.id)),
+        bound: true,
+        openidMasked: maskOpenId(info.openid),
+      });
+    } catch (e) {
+      return fail(res, e.message || '微信授权失败', 400, 'wechat_failed');
+    }
+  });
+
+  /** 模拟绑定：未配置公众号时用于体验完整流程 */
+  app.post('/api/auth/wechat/bind/demo', (req, res) => {
+    const user = mustAuth(req);
+    if (!config.wechat.demoMode) return fail(res, '演示模式已关闭', 403, 'disabled');
+
+    // 允许指定 openid 以便复现「同一个微信绑两个账号」的冲突场景。
+    // 只接受 demo_ 前缀，真实微信 openid 无法借此伪造。
+    const wanted = String(req.body?.openid || '').trim();
+    const openid = wanted.startsWith('demo_')
+      ? wanted.slice(0, 60)
+      : `demo_bind_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+    const info = {
+      openid,
+      unionid: '',
+      nickname: String(req.body?.nickname || '微信用户').trim().slice(0, 40) || '微信用户',
+      avatar: '',
+    };
+    const err = applyWechatBind(user.id, info);
+    if (err) return fail(res, err, 409, 'conflict');
+    return data(res, {
+      user: selfUser(users().get(user.id)),
+      bound: true,
+      demo: true,
+      openid,
+      openidMasked: maskOpenId(openid),
+    });
+  });
+
+  /** 解绑微信 */
+  app.post('/api/auth/wechat/unbind', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.wechatOpenId && !user.wechatUnionId) return fail(res, '尚未绑定微信');
+    if (!user.phone && !(user.email && user.passwordHash)) {
+      return fail(res, '解绑后你将无法登录，请先绑定手机号或设置邮箱密码');
+    }
+    const updated = users().update(user.id, {
+      wechatOpenId: '',
+      wechatUnionId: '',
+      wechatBoundAt: null,
+      settings: { ...user.settings, wechatBind: false },
+    });
+    return data(res, { user: selfUser(updated), bound: false });
   });
 
   /* ================================================================ */

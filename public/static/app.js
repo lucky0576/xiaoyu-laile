@@ -217,6 +217,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderRegister(ctx, query);
     case 'verify':
       return viewsAccount.renderVerify(ctx, query);
+    case 'bind-wechat':
+      return viewsAccount.renderBindWechat(ctx, query);
     case 'me':
       return viewsAccount.renderMe(ctx, query);
     case 'my-listings':

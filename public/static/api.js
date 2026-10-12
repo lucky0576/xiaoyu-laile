@@ -180,6 +180,13 @@ export const service = {
   wechatUrl: (mode) => api.get('/api/auth/wechat/url', { mode }),
   wechatLogin: (body) => api.post('/api/auth/wechat/login', body),
   wechatDemo: (body) => api.post('/api/auth/wechat/demo', body),
+
+  // 绑定微信（已有账号挂上微信，不用重新注册）
+  wechatBindStatus: () => api.get('/api/users/me/wechat'),
+  wechatBindUrl: (mode, redirect) => api.get('/api/auth/wechat/bind/url', { mode, redirect }),
+  wechatBind: (body) => api.post('/api/auth/wechat/bind', body),
+  wechatBindDemo: (body) => api.post('/api/auth/wechat/bind/demo', body),
+  wechatUnbind: () => api.post('/api/auth/wechat/unbind', {}),
   logout: () => api.post('/api/auth/logout', {}),
 
   listings: (query) => api.get('/api/listings', query),

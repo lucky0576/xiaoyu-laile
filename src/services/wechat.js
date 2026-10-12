@@ -241,6 +241,39 @@ export async function buildWechatShare({ listing, baseUrl, pageUrl }) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* 绑定微信：一次性 state 票据                                          */
+/*   微信 OAuth 的 state 会在地址栏来回传，不能直接把 userId 放进去，     */
+/*   否则任何人改一下 state 就能把微信绑到别人账号上。                    */
+/*   这里签发随机票据，服务端记住「哪个用户发起的绑定」，10 分钟过期、     */
+/*   用过即作废。                                                       */
+/* ------------------------------------------------------------------ */
+const BIND_TTL_MS = 10 * 60 * 1000;
+const bindTickets = new Map();
+
+function sweepBindTickets() {
+  const now = Date.now();
+  for (const [k, v] of bindTickets) if (now - v.at > BIND_TTL_MS) bindTickets.delete(k);
+}
+
+export function issueBindTicket(userId, mode = 'mp') {
+  sweepBindTickets();
+  const state = crypto.randomBytes(16).toString('hex');
+  bindTickets.set(state, { userId, mode, at: Date.now() });
+  return state;
+}
+
+/** 取出并作废票据；过期或不存在都返回 null */
+export function takeBindTicket(state) {
+  const key = String(state || '');
+  if (!key) return null;
+  const t = bindTickets.get(key);
+  if (!t) return null;
+  bindTickets.delete(key);
+  if (Date.now() - t.at > BIND_TTL_MS) return null;
+  return t;
+}
+
 export function status() {
   return {
     mp: wechatConfigured(),
@@ -262,4 +295,6 @@ export default {
   buildWechatShare,
   status,
   isWechatReady,
+  issueBindTicket,
+  takeBindTicket,
 };

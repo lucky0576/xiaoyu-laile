@@ -312,6 +312,7 @@ export async function openShareSheet(listing) {
   };
 
   const content = `
+    ${isWechatBrowser() ? `<div class="wx-tip">💚 <b>你在微信里</b>：选好形态后，点右上角「···」即可<b>发送给朋友</b>或<b>分享到朋友圈</b>，链接会自动带上标题、摘要和封面图。</div>` : ''}
     <div class="share-mode active" data-mode="text">
       <div class="ico">📝</div>
       <div class="grow">

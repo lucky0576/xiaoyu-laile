@@ -769,6 +769,75 @@ async function main() {
   check('管理员可查看认证列表', adminList.status === 200 && Array.isArray(adminList.data?.items),
     JSON.stringify(adminList.json).slice(0, 150));
 
+  console.log('\n=== 12c. 绑定微信 + 转发微信 / 朋友圈 ===');
+  const wxStatus0 = await call('GET', '/api/users/me/wechat', { token: tokenP });
+  check('可查询微信绑定状态', wxStatus0.status === 200, JSON.stringify(wxStatus0.json).slice(0, 150));
+  check('初始未绑定', wxStatus0.data?.bound === false, JSON.stringify(wxStatus0.data?.bound));
+  check('有邮箱密码的账号可解绑', wxStatus0.data?.canUnbind === true);
+
+  const bindUrl = await call('GET', '/api/auth/wechat/bind/url?mode=mp', { token: tokenP });
+  check('可获取绑定授权地址', bindUrl.status === 200, JSON.stringify(bindUrl.json).slice(0, 150));
+  check('签发了一次性 state 票据', typeof bindUrl.data?.state === 'string' && bindUrl.data.state.length >= 16,
+    String(bindUrl.data?.state));
+  check('state 里不含用户 ID（防篡改）', !String(bindUrl.data?.state || '').includes(pReg.data?.user?.id),
+    String(bindUrl.data?.state));
+
+  const demoOpenId = `demo_bind_${Date.now().toString(36)}`;
+  const bind1 = await call('POST', '/api/auth/wechat/bind/demo', {
+    token: tokenP, body: { nickname: '个人用户甲的微信', openid: demoOpenId },
+  });
+  check('模拟绑定成功', bind1.status === 200 && bind1.data?.bound === true, JSON.stringify(bind1.json).slice(0, 150));
+  check('绑定结果做脱敏', /^\w{6}\*{4}\w{4}$/.test(String(bind1.data?.openidMasked || '')),
+    String(bind1.data?.openidMasked));
+
+  const wxStatus1 = await call('GET', '/api/users/me/wechat', { token: tokenP });
+  check('绑定后状态为已绑定', wxStatus1.data?.bound === true);
+  check('返回微信昵称', wxStatus1.data?.nickname === '个人用户甲的微信', String(wxStatus1.data?.nickname));
+  check('记录了绑定时间', Boolean(wxStatus1.data?.boundAt), String(wxStatus1.data?.boundAt));
+  check('openid 脱敏后返回', !JSON.stringify(wxStatus1.data || {}).includes(demoOpenId),
+    JSON.stringify(wxStatus1.data || {}).slice(0, 200));
+
+  // 同一个微信不能绑到第二个账号
+  const bind2 = await call('POST', '/api/auth/wechat/bind/demo', {
+    token: tokenCmp, body: { nickname: '企业用户甲的微信', openid: demoOpenId },
+  });
+  check('同一个微信不能绑到第二个账号', bind2.status === 409, String(bind2.status));
+  check('冲突提示说明已绑到哪个账号', /已绑定到账号/.test(JSON.stringify(bind2.json)),
+    JSON.stringify(bind2.json).slice(0, 200));
+
+  // 换绑到自己的另一个微信是允许的
+  const rebind = await call('POST', '/api/auth/wechat/bind/demo', {
+    token: tokenP, body: { nickname: '换绑后的微信', openid: `demo_bind_new_${Date.now().toString(36)}` },
+  });
+  check('允许换绑到自己的另一个微信', rebind.status === 200 && rebind.data?.user?.wechatNickname === '换绑后的微信',
+    String(rebind.data?.user?.wechatNickname));
+
+  // 解绑
+  const unbind = await call('POST', '/api/auth/wechat/unbind', { token: tokenP });
+  check('解除绑定成功', unbind.status === 200 && unbind.data?.bound === false, JSON.stringify(unbind.json).slice(0, 150));
+  const wxStatus2 = await call('GET', '/api/users/me/wechat', { token: tokenP });
+  check('解绑后状态为未绑定', wxStatus2.data?.bound === false);
+
+  // 解绑后原 openid 释放，可以再绑到别的账号
+  const reclaim = await call('POST', '/api/auth/wechat/bind/demo', {
+    token: tokenCmp, body: { nickname: '企业用户甲的微信', openid: demoOpenId },
+  });
+  check('解绑后该微信可绑到其他账号', reclaim.status === 200, String(reclaim.status));
+
+  // 未登录不能绑定
+  const anonBind = await call('POST', '/api/auth/wechat/bind/demo', { body: { nickname: '匿名' } });
+  check('未登录不能绑定微信', anonBind.status === 401 || anonBind.status === 403, String(anonBind.status));
+
+  // 分享配置：微信内分享标题 / 摘要 / 封面 + JS-SDK 签名位
+  const listingShare = await call('GET', `/api/wechat/share-config?id=${listingId}&url=${encodeURIComponent('https://example.com/#/detail/x')}`, { token: tokenP });
+  check('分享配置接口可用', listingShare.status === 200, JSON.stringify(listingShare.json).slice(0, 150));
+  check('分享配置带标题与链接', Boolean(listingShare.data?.title && listingShare.data?.url),
+    JSON.stringify({ title: listingShare.data?.title, url: listingShare.data?.url }));
+  check('分享配置带封面图', Boolean(listingShare.data?.imgUrl), String(listingShare.data?.imgUrl).slice(0, 60));
+  check('提供微信好友与朋友圈两种分享位', Array.isArray(listingShare.data?.modes)
+    || typeof listingShare.data?.jsSdk !== 'undefined',
+    JSON.stringify(Object.keys(listingShare.data || {})));
+
   console.log('\n=== 13. 权限与边界 ===');
   const noAuth = await call('POST', '/api/listings', { form: jsonForm({ text: 'x' }) });
   check('未登录不能发布', noAuth.status === 401);

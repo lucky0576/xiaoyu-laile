@@ -4,6 +4,7 @@
 import { api, service, store, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import { itemHtml, userCardHtml, fileCardHtml, categoryName } from './components.js';
+import { isWechatBrowser } from './share.js';
 
 /* ================================================================== */
 /* 登录                                                                */
@@ -621,6 +622,52 @@ export async function renderVerify(ctx, query) {
 }
 
 /* ================================================================== */
+/* 绑定微信回跳（微信授权后会带 code / ok / err 回到这里）                 */
+/* ================================================================== */
+export async function renderBindWechat(ctx, query) {
+  if (!ctx.requireLogin()) {
+    return { title: '绑定微信', content: ui.emptyState('🔒', '请先登录后再绑定微信'), showBack: true };
+  }
+
+  let ok = false;
+  let msg = '';
+
+  if (query.err) {
+    msg = String(query.err);
+  } else if (query.code) {
+    try {
+      await service.wechatBind({ code: query.code, mode: query.mode || 'mp' });
+      await ctx.refreshMe();
+      ok = true;
+    } catch (e) {
+      msg = e.message || '绑定失败';
+    }
+  } else {
+    ok = Boolean(query.ok);
+  }
+
+  if (ok) ui.toast('微信绑定成功', 'ok');
+  else if (msg) ui.toast(msg, 'err');
+
+  return {
+    title: '微信绑定',
+    content: `<div class="page"><div class="card card-pad center">
+      <div style="font-size:38px">${ok ? '✅' : '⚠️'}</div>
+      <div class="strong mt8" style="font-size:16px">${ok ? '微信绑定成功' : '绑定未完成'}</div>
+      <div class="small muted mt8" style="line-height:1.8">${ui.esc(
+        msg || (ok ? '现在分享项目时可以一键转发到微信好友和朋友圈。' : '可以回到「资料与设置」重新发起绑定。'),
+      )}</div>
+      <div class="row gap8 mt16">
+        <a class="btn btn-primary grow" href="#/profile">回到资料与设置</a>
+        <a class="btn grow" href="#/me">返回我的</a>
+      </div>
+    </div></div>`,
+    showBack: true,
+    noTab: true,
+  };
+}
+
+/* ================================================================== */
 /* 我的                                                                */
 /* ================================================================== */
 export async function renderMe(ctx, query) {
@@ -883,6 +930,12 @@ export async function renderProfile(ctx) {
     </div>
 
     <div class="card card-pad mt12">
+      <div class="strong mb8">微信绑定</div>
+      <div class="tiny dim mb12">绑定后可一键转发到微信好友与朋友圈，也能接收微信通知</div>
+      <div id="wx-bind-box"><div class="tiny dim">加载中…</div></div>
+    </div>
+
+    <div class="card card-pad mt12">
       <div class="strong mb12">通知偏好</div>
       ${[
         ['notifyNewProjects', '平台有新项目上线时通知我'],
@@ -905,6 +958,99 @@ export async function renderProfile(ctx) {
     activeTab: 'me',
     async mount(root) {
       const $ = (s) => root.querySelector(s);
+
+      /* ---------------- 微信绑定 ---------------- */
+      const renderWechatBind = async () => {
+        const box = $('#wx-bind-box');
+        if (!box) return;
+        let st = null;
+        try {
+          st = await service.wechatBindStatus();
+        } catch {
+          box.innerHTML = '<div class="tiny dim">绑定状态获取失败</div>';
+          return;
+        }
+
+        if (st.bound) {
+          box.innerHTML = `
+            <div class="wx-bound">
+              <div class="row between">
+                <span class="row gap8"><span style="font-size:20px">✅</span><b>已绑定微信</b></span>
+                <span class="badge ok">已绑定</span>
+              </div>
+              <div class="tiny dim mt8">
+                ${st.nickname ? `微信昵称：${ui.esc(st.nickname)}<br>` : ''}
+                标识：${ui.esc(st.openidMasked)}${st.boundAt ? `<br>绑定时间：${ui.esc(ui.fmtDate(st.boundAt, true))}` : ''}
+              </div>
+            </div>
+            <div class="tiny dim mt8">现在分享项目时可以一键转发到微信好友和朋友圈。</div>
+            <button class="btn btn-outline btn-block mt12" id="wx-unbind">解除绑定</button>
+            ${st.canUnbind ? '' : '<div class="warn-note mt8">你的账号还没有手机号或密码，解绑后将无法登录，所以暂不支持解绑。</div>'}`;
+          $('#wx-unbind')?.addEventListener('click', async () => {
+            const ok = await ui.confirmDialog({ title: '解除微信绑定？', message: '解绑后需要重新绑定才能用微信转发与登录。', okText: '确认解绑' });
+            if (!ok) return;
+            try {
+              await service.wechatUnbind();
+              ui.toast('已解除绑定', 'ok');
+              await ctx.refreshMe();
+              renderWechatBind();
+            } catch (err) {
+              ui.toast(err.message, 'err');
+            }
+          });
+          return;
+        }
+
+        const demoHint = st.demoAvailable
+          ? '<div class="tiny dim mt8">当前未配置微信公众号，可用「模拟绑定」体验完整流程；配置后会自动走真实的微信授权。</div>'
+          : '';
+        box.innerHTML = `
+          <div class="wx-unbound">
+            <div class="small muted">绑定微信后，分享项目可一键转发到<b>微信好友</b>和<b>朋友圈</b>，重要消息也能通过微信提醒你。</div>
+          </div>
+          <button class="btn btn-primary btn-block mt12" id="wx-bind">绑定微信</button>
+          ${st.demoAvailable ? '<button class="btn btn-outline btn-block mt8" id="wx-bind-demo">模拟绑定（体验用）</button>' : ''}
+          ${demoHint}`;
+
+        $('#wx-bind')?.addEventListener('click', async () => {
+          if (!isWechatBrowser()) {
+            // 不在微信里：提示用手机微信扫码或直接在微信中打开
+            const ok = await ui.confirmDialog({
+              title: '请在微信中打开',
+              message: '绑定微信需要微信授权。可以先「复制链接」，然后在微信里打开本站完成绑定；或直接用「模拟绑定」体验。',
+              okText: '复制链接',
+              cancelText: '取消',
+            });
+            if (ok) {
+              const copied = await ui.copyText(location.href.split('#')[0] + '#/profile');
+              ui.toast(copied ? '链接已复制，请在微信中打开' : '复制失败', copied ? 'ok' : 'err');
+            }
+            return;
+          }
+          ui.showLoading('正在跳转微信授权…');
+          try {
+            const res = await service.wechatBindUrl('mp');
+            ui.hideLoading();
+            if (res.url) location.href = res.url;
+            else ui.toast(res.hint || '暂时无法发起微信授权', 'err');
+          } catch (err) {
+            ui.hideLoading();
+            ui.toast(err.message, 'err');
+          }
+        });
+
+        $('#wx-bind-demo')?.addEventListener('click', async () => {
+          try {
+            await service.wechatBindDemo({ nickname: ctx.state.user?.nickname || '微信用户' });
+            ui.toast('已模拟绑定微信', 'ok');
+            await ctx.refreshMe();
+            renderWechatBind();
+          } catch (err) {
+            ui.toast(err.message, 'err');
+          }
+        });
+      };
+      await renderWechatBind();
 
       const uploadAsset = async (file, field) => {
         if (!file) return;
