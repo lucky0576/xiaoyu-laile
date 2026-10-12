@@ -585,6 +585,153 @@ const SYSTEM_PROMPT = `你是"小鱼来了"产业信息发布平台的资深产�
 /* ------------------------------------------------------------------ */
 /* 对外：标题生成                                                      */
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* 第一步：AI 汇总                                                     */
+/*   把用户填写的文字 + 导入文件的解析文本，先汇总成一份结构化摘要，      */
+/*   再拿摘要去生成主副标题与可靠性分析。                               */
+/*   好处：长文档、多附件、口语化描述混杂时，生成结果更稳定、更少遗漏。   */
+/* ------------------------------------------------------------------ */
+
+export function localSummary(input) {
+  const raw = cleanText(`${input.text || ''}\n${input.fileText || ''}`);
+  const amounts = sortAmountsDesc(extractAmounts(raw));
+  const scales = extractScales(raw);
+  const all = sentences(raw);
+
+  // 按「信息量」给句子打分，优先保留含金额 / 规模 / 资质 / 工期 / 地点的句子
+  const scored = all
+    .map((s) => {
+      let score = 0;
+      if (/\d[\d,]*(?:\.\d+)?\s*(亿|万|千)?\s*(元|人民币)/.test(s)) score += 4;
+      if (/(GW|MW|MWh|GWp|MWp|万吨|吨|万台|台|万套|套|平方米|亩)/i.test(s)) score += 3;
+      if (/资质|许可|总承包|认证|业绩/.test(s)) score += 3;
+      if (/工期|周期|交付|个月|日历天/.test(s)) score += 2;
+      if (/位于|地点|地址|省|市|县|区/.test(s)) score += 2;
+      if (/招标|采购|投资|融资|转让|合作|EPC|EMC|居间/.test(s)) score += 2;
+      if (s.length > 140) score -= 1;
+      return { s, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const picked = uniq(scored.filter((x) => x.score > 0).map((x) => x.s));
+  const ranked = picked.length ? picked : all;
+
+  // 按信息量排出来的第一名常常是「项目位于……」这种叙述句，
+  // 拿去做摘要开头、或被本地标题引擎当核心都很别扭。
+  // 所以只要原文里有一句「像标题」（含项目/工程/采购等关键词且长度合适），
+  // 就把它提到最前面，其余按分数排。
+  const lead = all.find(
+    (s) =>
+      s.length >= 8 &&
+      s.length <= 60 &&
+      /项目|工程|采购|招标|交易|融资|转让|建设|服务/.test(s) &&
+      !/^(项目)?位于|^地址|^地点/.test(s),
+  );
+  const usePoints = (lead ? [lead, ...ranked.filter((s) => s !== lead)] : ranked).slice(0, 10);
+
+  const digest = usePoints
+    .slice(0, 6)
+    .map((s) => s.replace(/[。；;，,]+$/, ''))
+    .join('。') + (usePoints.length ? '。' : '');
+
+  const missing = [];
+  if (!amounts.length) missing.push('金额 / 投资额');
+  if (!scales.length) missing.push('项目规模');
+  if (!/资质|许可|总承包/.test(raw)) missing.push('对承接方的资质要求');
+  if (!/工期|周期|交付|个月/.test(raw)) missing.push('工期 / 交付期');
+  if (!/付款|预付|结算|月结/.test(raw)) missing.push('付款方式');
+
+  return {
+    digest: digest.slice(0, 800),
+    points: usePoints.map((s) => s.slice(0, 200)),
+    facts: {
+      projectName: '',
+      owner: String(input.company || ''),
+      location: '',
+      industry: '',
+      amount: amounts[0] || '',
+      scale: scales[0] || '',
+      period: '',
+      scope: '',
+      cooperation: '',
+      requirements: '',
+      payment: '',
+      contact: '',
+    },
+    missing,
+    charCount: raw.length,
+    source: 'local',
+  };
+}
+
+export async function summarizeProject(input) {
+  const local = localSummary(input);
+  if (!aiConfigured()) return local;
+
+  const fileText = String(input.fileText || '').slice(0, 12000);
+  const fileList = (input.files || []).map((f) => `${f.name}（${f.kind}）`).join('、');
+  const user = `请先把下面这些原始资料汇总成一份结构化摘要，供后续生成【${input.categoryName || '项目'}】发布信息使用。
+
+汇总要求：
+1. digest：用 150-300 字客观概述这个项目——是什么、在哪、多大规模、要做什么、有什么条件。只陈述资料里有的内容，不要评价、不要营销词、不要编造；
+2. points：6-10 条要点，每条一句话，尽量覆盖：项目主体、地点、规模与金额、建设或交易内容、工期、资质要求、合作方式、付款条件、关键风险或待确认项；
+3. facts：把能确定的字段抽出来，资料里没有的留空字符串，不要猜：
+   项目名称 projectName / 发布主体 owner / 地点 location / 行业 industry
+   金额 amount / 规模 scale / 周期 period / 范围 scope
+   合作方式 cooperation / 资质与资格要求 requirements / 付款条件 payment / 联系方式 contact
+4. missing：列出原始资料里缺失、但发布时建议补上的信息。
+
+用户填写的原始正文：
+"""${String(input.text || '').slice(0, 8000)}"""
+${fileText ? `\n从附件里提取的内容：\n"""${fileText}"""` : ''}
+${fileList ? `\n附件清单：${fileList}` : ''}
+${input.filename ? `\n主要附件：${input.filename}` : ''}
+
+请只输出如下 JSON：
+{"digest":"","points":[""],"facts":{"projectName":"","owner":"","location":"","industry":"","amount":"","scale":"","period":"","scope":"","cooperation":"","requirements":"","payment":"","contact":""},"missing":[""]}`;
+
+  try {
+    const raw = await chat(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: user },
+      ],
+      { json: true, temperature: 0.3 },
+    );
+    const parsed = extractJson(raw);
+    if (!parsed || (!parsed.digest && !parsed.points)) return local;
+
+    const points = Array.isArray(parsed.points)
+      ? parsed.points.map((p) => String(p || '').trim().slice(0, 200)).filter(Boolean).slice(0, 12)
+      : local.points;
+    const factsSrc = parsed.facts && typeof parsed.facts === 'object' ? parsed.facts : {};
+    const facts = { ...local.facts };
+    for (const k of Object.keys(local.facts)) {
+      if (factsSrc[k] !== undefined && factsSrc[k] !== null) {
+        facts[k] = String(factsSrc[k]).trim().slice(0, 200);
+      }
+    }
+    const missing = Array.isArray(parsed.missing)
+      ? parsed.missing.map((m) => String(m || '').trim().slice(0, 80)).filter(Boolean).slice(0, 12)
+      : local.missing;
+
+    return {
+      digest: String(parsed.digest || local.digest).trim().slice(0, 800),
+      points: points.length ? points : local.points,
+      facts,
+      missing,
+      charCount: local.charCount,
+      source: 'ai',
+    };
+  } catch (err) {
+    console.warn('[ai] 资料汇总失败，回退本地引擎:', err.message);
+    return { ...local, note: `AI 调用失败：${err.message}` };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 对外：生成主副标题                                                    */
+/* ------------------------------------------------------------------ */
 export async function generateTitles(input) {
   const local = await localTitles(input);
   if (!aiConfigured()) return local;
@@ -598,6 +745,7 @@ export async function generateTitles(input) {
 3. 再给出 2 个备选主标题；
 4. 提炼 5-10 个关键词（用于行业/城市分类与检索）。
 
+${input.digest ? `资料汇总（第一步已完成，优先以此为准）：\n"""${String(input.digest).slice(0, 2000)}"""\n` : ''}
 用户填写/导入的原始内容：
 """${String(input.text || '').slice(0, 5000)}"""
 ${fileText ? `\n从附件中提取的内容：\n"""${fileText}"""` : ''}
@@ -645,6 +793,7 @@ export async function analyzeProject(input) {
   const fileList = (input.files || []).map((f) => `${f.name}（${f.kind}）`).join('、');
   const user = `请对下面这条【${input.categoryName || '项目'}】信息做结构化解析与可靠性评估。
 
+${input.digest ? `资料汇总（第一步已完成，优先以此为准）：\n"""${String(input.digest).slice(0, 3000)}"""\n` : ''}
 原始正文：
 """${String(input.text || '').slice(0, 6000)}"""
 ${fileText ? `\n附件提取内容：\n"""${fileText}"""` : ''}
@@ -920,6 +1069,8 @@ export function aiStatus() {
 }
 
 export default {
+  summarizeProject,
+  localSummary,
   generateTitles,
   analyzeProject,
   replyComment,

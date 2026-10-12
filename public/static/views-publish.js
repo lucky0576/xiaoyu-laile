@@ -51,9 +51,21 @@ export async function renderPublish(ctx, params) {
     <div class="card card-pad mt12">
       <div class="row between mb8">
         <div class="strong">3. AI 智能生成</div>
-        <span class="tiny dim">可反复生成，直到满意</span>
+        <span class="tiny dim">先汇总、再生成，可反复重来</span>
       </div>
-      <button class="btn btn-primary btn-block" id="pub-ai">🤖 AI 生成主标题、副标题并解析项目</button>
+
+      <div class="step-hint mb12">
+        <b>第一步：AI 汇总资料</b> —— 把你填的文字和导入的文件先读一遍，汇总成一份结构化摘要。
+        <br><b>第二步：生成项目信息</b> —— 基于汇总结果生成主副标题、关键词与可靠性分析。
+      </div>
+
+      <button class="btn btn-primary btn-block" id="pub-summarize">📋 第一步：AI 汇总资料</button>
+
+      <div id="pub-summary" class="mt12"></div>
+
+      <button class="btn btn-primary btn-block mt12" id="pub-ai" disabled>🤖 第二步：生成项目信息（主副标题 + 解析）</button>
+      <div class="tiny dim center mt4" id="pub-ai-lock">请先完成第一步的资料汇总</div>
+
       <div id="pub-ai-result" class="mt12"></div>
     </div>
 
@@ -357,15 +369,91 @@ export async function renderPublish(ctx, params) {
         if (e.dataTransfer?.files?.length) uploadFiles([...e.dataTransfer.files]);
       });
 
-      /* ---------------- AI 生成 ---------------- */
+      /* ---------------- 第一步：AI 汇总资料 ---------------- */
+      let digest = '';
+
+      const renderSummary = (s, extracted) => {
+        const box = $('#pub-summary');
+        const facts = s.facts || {};
+        const factRows = Object.entries({
+          项目名称: facts.projectName, 发布主体: facts.owner, 地点: facts.location,
+          行业: facts.industry, 金额: facts.amount, 规模: facts.scale,
+          周期: facts.period, 范围: facts.scope, 合作方式: facts.cooperation,
+          资质要求: facts.requirements, 付款条件: facts.payment, 联系方式: facts.contact,
+        }).filter(([, v]) => v);
+
+        box.innerHTML = `
+          <div class="summary-card">
+            <div class="row between mb8">
+              <div class="strong">📋 资料汇总结果</div>
+              <span class="badge ${s.source === 'ai' ? 'ok' : 'gray'}">${s.source === 'ai' ? '大模型汇总' : '内置规则汇总'}</span>
+            </div>
+            ${s.note ? `<div class="tiny" style="color:var(--danger)">${ui.esc(s.note)}</div>` : ''}
+
+            <div class="field">
+              <label>汇总摘要（可以直接修改，生成时会以此为准）</label>
+              <textarea class="input" id="pub-digest" rows="5">${ui.esc(s.digest || '')}</textarea>
+            </div>
+
+            ${(s.points || []).length ? `<div class="field">
+              <label>要点（${s.points.length} 条）</label>
+              <ul class="summary-points">${s.points.map((p) => `<li>${ui.esc(p)}</li>`).join('')}</ul>
+            </div>` : ''}
+
+            ${factRows.length ? `<div class="field">
+              <label>AI 提取的关键信息</label>
+              <div class="kv-table">${factRows.map(([k, v]) => `<div class="kv"><span class="k">${ui.esc(k)}</span><span class="v">${ui.esc(v)}</span></div>`).join('')}</div>
+            </div>` : ''}
+
+            ${(s.missing || []).length ? `<div class="warn-note">
+              ⚠️ <b>建议补充：</b>${s.missing.map(ui.esc).join('、')} —— 可以回到第 2 步补进正文，也可以直接生成。
+            </div>` : ''}
+
+            ${extracted?.chars ? `<div class="tiny dim mt8">已读取附件文字 ${extracted.chars} 字${(extracted.notes || []).length ? `；解析提示：${extracted.notes.map(ui.esc).join('；')}` : ''}</div>` : ''}
+          </div>`;
+
+        const digestEl = box.querySelector('#pub-digest');
+        digest = digestEl.value;
+        digestEl.addEventListener('input', () => { digest = digestEl.value; });
+      };
+
+      $('#pub-summarize').addEventListener('click', async () => {
+        const text = $('#pub-text').value.trim();
+        if (!text && !uploaded.length) return ui.toast('请先输入文字内容或导入文件', 'err');
+        const btn = $('#pub-summarize');
+        btn.disabled = true;
+        btn.textContent = 'AI 正在汇总资料…';
+        try {
+          const fd = api.form({ text, category, fileIds: uploaded.map((f) => f.id) });
+          const res = await service.aiSummarize(fd);
+          renderSummary(res.summary || {}, res.extracted || {});
+          const next = $('#pub-ai');
+          next.disabled = false;
+          const lock = $('#pub-ai-lock');
+          if (lock) lock.style.display = 'none';
+          ui.toast('汇总完成，可以生成项目信息了', 'ok');
+        } catch (err) {
+          ui.toast(err.message, 'err');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '📋 第一步：AI 汇总资料（重新汇总）';
+        }
+      });
+
+      /* ---------------- 第二步：生成项目信息 ---------------- */
       $('#pub-ai').addEventListener('click', async () => {
         const text = $('#pub-text').value.trim();
         if (!text && !uploaded.length) return ui.toast('请先输入文字内容或导入文件', 'err');
         const btn = $('#pub-ai');
         btn.disabled = true;
-        btn.textContent = 'AI 正在阅读并分析…';
+        btn.textContent = 'AI 正在生成项目信息…';
         try {
-          const fd = api.form({ text, category, fileIds: uploaded.map((f) => f.id) });
+          const fd = api.form({
+            text,
+            category,
+            fileIds: uploaded.map((f) => f.id),
+            digest: digest || $('#pub-digest')?.value || '',
+          });
           const res = await service.aiPreview(fd);
           aiResult = res;
           renderAiResult(res);
@@ -376,7 +464,7 @@ export async function renderPublish(ctx, params) {
           ui.toast(err.message, 'err');
         } finally {
           btn.disabled = false;
-          btn.textContent = '🤖 AI 生成主标题、副标题并解析项目';
+          btn.textContent = '🤖 第二步：生成项目信息（主副标题 + 解析）';
         }
       });
 

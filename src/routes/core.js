@@ -207,43 +207,82 @@ export default function registerCoreRoutes(app) {
   /* ---------------------------------------------------------------- */
   /* AI 预览（发布前的标题生成 + 可靠性解析）                            */
   /* ---------------------------------------------------------------- */
-  app.post('/api/ai/preview', async (req, res) => {
+  /** 组装 AI 输入（/ai/summarize 与 /ai/preview 共用） */
+  async function buildAiInput(req, body = {}) {
     const user = authUser(req);
-    const rl = rateLimit(`ai:${clientIp(req)}`, 60, 60_000);
-    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
-
-    const body = req.body || {};
     const uploaded = await saveUploads(req, { ownerId: user?.id || 'guest' });
     // 支持复用已上传的文件（前端先上传再请求 AI，避免重复上传）
     const reused = list(body.fileIds).map((fid) => getFile(fid)).filter(Boolean);
     const files = [...reused, ...uploaded];
     const text = String(body.text || '');
-    if (!text.trim() && !files.length) return fail(res, '请先输入文字或导入文件');
-
     const category = ['project', 'event', 'trade'].includes(body.category) ? body.category : 'project';
     const fileText = aggregateText(files, 14000);
-    const input = {
-      text,
+    return {
+      user,
+      files,
       fileText,
-      files: files.map(filePublic),
-      filename: files[0]?.name || '',
-      category,
-      categoryName: listingsSvc.categoryName(category),
-      company: user?.company || '',
-      hasContact: Boolean(body.phone || body.wechat || user?.phone),
-      hasQualification: user?.qualification?.status === 'approved',
+      input: {
+        text,
+        fileText,
+        files: files.map(filePublic),
+        filename: files[0]?.name || '',
+        category,
+        categoryName: listingsSvc.categoryName(category),
+        company: user?.company || '',
+        hasContact: Boolean(body.phone || body.wechat || user?.phone),
+        hasQualification: user?.qualification?.status === 'approved',
+        // 第一步的汇总结果（第二步生成时优先以此为准）
+        digest: String(body.digest || '').slice(0, 4000),
+        points: list(body.points).slice(0, 20),
+      },
     };
+  }
+
+  const aiExtracted = (fileText, files) => ({
+    chars: fileText.length,
+    preview: fileText.slice(0, 600),
+    notes: files.flatMap((f) => (f.notes || []).map((n) => `${f.name}: ${n}`)),
+  });
+
+  /**
+   * 第一步：AI 汇总资料
+   * 先把用户填写的文字与附件解析文本汇总成结构化摘要，
+   * 再交给 /ai/preview 生成主副标题与可靠性分析。
+   */
+  app.post('/api/ai/summarize', async (req, res) => {
+    const rl = rateLimit(`ai:${clientIp(req)}`, 60, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const { input, files, fileText } = await buildAiInput(req, req.body || {});
+    if (!input.text.trim() && !files.length) return fail(res, '请先输入文字或导入文件');
+
+    const summary = await ai.summarizeProject(input);
+    return data(res, {
+      summary,
+      files: files.map(filePublic),
+      extracted: aiExtracted(fileText, files),
+    });
+  });
+
+  /**
+   * 第二步：生成主副标题与可靠性分析
+   * 若带上第一步的 digest，则以汇总内容为主输入。
+   */
+  app.post('/api/ai/preview', async (req, res) => {
+    const rl = rateLimit(`ai:${clientIp(req)}`, 60, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const { input, files, fileText } = await buildAiInput(req, req.body || {});
+    if (!input.text.trim() && !input.digest.trim() && !files.length) {
+      return fail(res, '请先输入文字或导入文件');
+    }
 
     const [titles, analysis] = await Promise.all([ai.generateTitles(input), ai.analyzeProject(input)]);
     return data(res, {
       titles,
       analysis,
       files: files.map(filePublic),
-      extracted: {
-        chars: fileText.length,
-        preview: fileText.slice(0, 600),
-        notes: files.flatMap((f) => (f.notes || []).map((n) => `${f.name}: ${n}`)),
-      },
+      extracted: aiExtracted(fileText, files),
     });
   });
 

@@ -171,6 +171,37 @@ async function main() {
 
   const preview = await call('POST', '/api/ai/preview', { token: tokenA, form: jsonForm({ text: sampleText, category: 'project' }) });
   check('AI 预览接口', preview.status === 200, JSON.stringify(preview.json).slice(0, 300));
+
+  /* ---- 第一步：AI 汇总 ---- */
+  const summarize = await call('POST', '/api/ai/summarize', { token: tokenA, form: jsonForm({ text: sampleText, category: 'project' }) });
+  check('AI 汇总接口可用', summarize.status === 200, JSON.stringify(summarize.json).slice(0, 300));
+  const sm = summarize.data?.summary || {};
+  check('汇总返回摘要文本', String(sm.digest || '').length > 20, `长度 ${String(sm.digest || '').length}`);
+  check('汇总返回要点清单', Array.isArray(sm.points) && sm.points.length > 0, JSON.stringify(sm.points));
+  check('汇总返回结构化字段', Boolean(sm.facts) && typeof sm.facts === 'object', JSON.stringify(Object.keys(sm.facts || {})));
+  check('汇总提取到金额', String(sm.facts?.amount || '').includes('亿'), String(sm.facts?.amount));
+  check('汇总提取到规模', /MW|亩/.test(String(sm.facts?.scale || '')), String(sm.facts?.scale));
+  check('汇总列出缺失信息', Array.isArray(sm.missing), JSON.stringify(sm.missing));
+  check('汇总标注来源', ['ai', 'local'].includes(sm.source), String(sm.source));
+
+  const sumEmpty = await call('POST', '/api/ai/summarize', { token: tokenA, form: jsonForm({ text: '   ', category: 'project' }) });
+  check('空内容不能汇总', sumEmpty.status === 400, String(sumEmpty.status));
+
+  /* ---- 第二步：用汇总结果生成 ---- */
+  const previewFromDigest = await call('POST', '/api/ai/preview', {
+    token: tokenA,
+    form: jsonForm({ text: sampleText, category: 'project', digest: sm.digest, points: JSON.stringify(sm.points || []) }),
+  });
+  check('带汇总结果生成成功', previewFromDigest.status === 200, JSON.stringify(previewFromDigest.json).slice(0, 200));
+  check('仍能生成主标题', Boolean(previewFromDigest.data?.titles?.title), JSON.stringify(previewFromDigest.data?.titles));
+  check('仍能生成可靠性评分', typeof previewFromDigest.data?.analysis?.reliability?.score === 'number');
+
+  const digestOnly = await call('POST', '/api/ai/preview', {
+    token: tokenA, form: jsonForm({ digest: sm.digest, category: 'project' }),
+  });
+  check('只给汇总也能生成', digestOnly.status === 200 && Boolean(digestOnly.data?.titles?.title), String(digestOnly.status));
+
+
   check('AI 生成主标题', Boolean(preview.data?.titles?.title), JSON.stringify(preview.data?.titles));
   check('AI 生成副标题', Boolean(preview.data?.titles?.subtitle));
   check('AI 可靠性评分存在', typeof preview.data?.analysis?.reliability?.score === 'number');

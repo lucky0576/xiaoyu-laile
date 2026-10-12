@@ -189,6 +189,7 @@ export const service = {
   closeListing: (id, reason) => api.post(`/api/listings/${id}/close`, { reason }),
   likeListing: (id) => api.post(`/api/listings/${id}/like`, {}),
   regenerate: (id, body) => api.post(`/api/listings/${id}/regenerate`, body || {}),
+  aiSummarize: (fd, opts) => api.upload('/api/ai/summarize', fd, opts),
   aiPreview: (fd, opts) => api.upload('/api/ai/preview', fd, opts),
 
   comments: (id, query) => api.get(`/api/listings/${id}/comments`, query),

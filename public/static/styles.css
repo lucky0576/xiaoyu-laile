@@ -479,6 +479,45 @@ ul { margin: 0; padding-left: 18px; }
 }
 .gate-card .btn { height: 42px; }
 
+/* ---------- 发布页：AI 两步流程 ---------- */
+.step-hint {
+  background: #f5f9ff;
+  border: 1px solid #dbe8fb;
+  border-radius: var(--r);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: #33507a;
+}
+.step-hint b { color: #17406f; }
+
+.summary-card {
+  background: #f8fbff;
+  border: 1px solid #dbe8fb;
+  border-radius: var(--r-lg);
+  padding: 12px;
+}
+.summary-points {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--text-2);
+}
+.summary-points li { margin-bottom: 2px; }
+
+.warn-note {
+  background: #fff8e6;
+  border: 1px solid #ffe1a8;
+  border-radius: var(--r);
+  padding: 9px 12px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #8a5a00;
+  margin-top: 8px;
+}
+.warn-note b { color: #6b4600; }
+
 /* 未登录时给操作按钮加一个锁的提示 */
 .locked-hint {
   background: #fff8e6;
