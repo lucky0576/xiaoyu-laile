@@ -66,21 +66,73 @@ function computeExpiry(days, from = Date.now()) {
 /* ------------------------------------------------------------------ */
 export function listingPublic(l, viewer = null, opts = {}) {
   if (!l) return null;
-  const isOwner = viewer && viewer.id === l.ownerId;
+  const isOwner = Boolean(viewer && viewer.id === l.ownerId);
+  const isAdmin = Boolean(viewer && viewer.isAdmin);
+  const signedIn = Boolean(viewer);
+  // 已对接的项目成员（含发布方 / 管理员）
+  const isMember = Boolean(
+    isOwner || isAdmin || opts.unlocked || (viewer && (l.memberIds || []).includes(viewer.id)),
+  );
+
   const contact = l.contact || {};
-  // 平台规则：信息一旦发布，联系方式对所有人隐藏。
-  // 仅两种人可以看：发布方本人，以及已发起项目对接、被登记为项目成员的人。
-  const canSeeContact = Boolean(isOwner || opts.unlocked);
+
+  // 规则 1：分享出去的链接，访客必须先登录注册才能查看正文与操作。
+  //        未登录只给一段摘要做预览，正文、附件、商务条件、资质要求一律不下发。
+  const gated = !signedIn;
+
+  // 规则 2：AI 可靠性分析是发布方的内部参考，只有发布方和管理员可见。
+  //        其他人（包括已登录用户）只能看到 AI 生成的主副标题。
+  const aiVisible = isOwner || isAdmin;
+  const ai = aiVisible ? l.ai : (signedIn && l.ai ? { titles: l.ai.titles, source: l.ai.source } : null);
+
+  // 规则 3：联系方式只有发布方 / 管理员 / 已对接成为项目成员的人可见。
+  const canSeeContact = isOwner || isAdmin || opts.unlocked;
+
+  const summary = String(l.ai?.summary || l.text || '').replace(/\s+/g, ' ').trim();
+
   return {
     ...l,
     categoryName: categoryName(l.category),
     typeName: l.typeName || typeNameOf(l.category, l.type),
-    fileList: (l.files || []).map(filePublic).filter(Boolean),
+
+    // 未登录访客拿不到任何附件
+    fileList: signedIn ? (l.files || []).map(filePublic).filter(Boolean) : [],
+
+    // 未登录只下发摘要级别的正文
+    text: signedIn ? l.text : summary.slice(0, 80),
+    gated,
+    loginRequired: gated,
+
+    // 商务条件与资质要求属于「对接后才展开」的信息
+    project: l.project
+      ? {
+          ...l.project,
+          businessTerms: signedIn ? (l.project.businessTerms || {}) : {},
+          qualifications: signedIn ? (l.project.qualifications || []) : [],
+          target: signedIn ? l.project.target : '',
+        }
+      : null,
+
+    // 后续跟进、协议、他人资质提交都属于项目内部信息
+    followUps: isMember ? (l.followUps || []) : [],
+    agreements: isMember ? (l.agreements || []) : [],
+    qualificationSubmissions: [], // 统一走 /qualification 接口按权限返回
+
+    ai,
+    aiVisible,
+
     contact: canSeeContact
       ? contact
-      : { hidden: true, tip: '平台保护隐私：发起项目对接成为项目成员后，才能查看完整联系方式' },
+      : {
+          hidden: true,
+          tip: signedIn
+            ? '发起项目对接、成为项目成员后，才能查看完整联系方式'
+            : '登录后可发起项目对接，对接成功后查看完整联系方式',
+        },
     contactVisible: canSeeContact,
-    isOwner: Boolean(isOwner),
+
+    isOwner,
+    isMember,
     following: viewer ? notifySvc.isFollowing(viewer.id, 'listing', l.id) : false,
     ownerFollowing: viewer && l.ownerId ? notifySvc.isFollowing(viewer.id, 'user', l.ownerId) : false,
   };

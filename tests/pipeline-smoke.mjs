@@ -127,7 +127,11 @@ async function main() {
     form: jsonForm({
       category: 'project',
       type: 'equity-investment',
-      text: '山东东营 200MW 渔光互补光伏电站 EPC 总承包项目，已备案，总投资 8.6 亿元，工期 14 个月。需要承接方具备电力工程施工总承包一级资质。',
+      text: '山东东营 200MW 渔光互补光伏电站 EPC 总承包项目。项目位于山东省东营市广饶县，利用现有水库水面建设光伏电站，装机容量 200MW，采用渔光互补模式。'
+        + '项目已完成备案，土地手续齐全，总投资约 8.6 亿元，计划工期 14 个月，预计年发电量 2.4 亿千瓦时。'
+        + '招标范围包括光伏场区、升压站、集电线路、送出工程的设计、设备采购、施工安装、调试并网及质保期服务。'
+        + '需要承接方具备电力工程施工总承包一级资质、承装（修、试）电力设施许可证、安全生产许可证，并提供同类项目业绩证明。'
+        + '商务条件详见下方商务条件栏，欢迎符合条件的总包单位与我们联系对接。',
       durationDays: '30',
       investAmount: '8.6 亿元',
       stage: '已备案',
@@ -435,6 +439,82 @@ async function main() {
   const fd = await call('GET', `/api/listings/${cid}`, { token: owner.token });
   check('详情页返回后续记录', (fd.data.listing.followUps || []).length >= 1,
     `实际 ${(fd.data.listing.followUps || []).length}`);
+
+  console.log('\n=== 11. 分享后需登录才能查看 / AI 分析仅发布方可见 ===');
+  // 该信息此前是草稿，先发布，访客才可访问
+  const pubMain = await call('POST', `/api/listings/${listingId}/publish`, { token: owner.token, body: { days: 30 } });
+  check('主测试项目已发布', pubMain.status === 200, JSON.stringify(pubMain.json).slice(0, 120));
+
+  // 用项目类信息（有商务条件、资质要求、AI 分析）来验证
+  const guest = await call('GET', `/api/listings/${listingId}`);
+  check('访客被标记为需登录', guest.data.listing.gated === true && guest.data.listing.loginRequired === true,
+    JSON.stringify({ gated: guest.data.listing.gated }));
+  check('访客仍能看到标题', Boolean(guest.data.listing.title), String(guest.data.listing.title));
+  check('访客只拿到摘要级正文', String(guest.data.listing.text || '').length <= 80,
+    `长度 ${String(guest.data.listing.text || '').length}`);
+  check('访客拿不到附件', (guest.data.listing.fileList || []).length === 0);
+  check('访客拿不到商务条件', Object.keys(guest.data.listing.project?.businessTerms || {}).length === 0,
+    JSON.stringify(Object.keys(guest.data.listing.project?.businessTerms || {})));
+  check('访客拿不到资质要求', (guest.data.listing.project?.qualifications || []).length === 0);
+  check('访客拿不到 AI 分析', guest.data.listing.ai === null);
+  check('访客拿不到后续跟进', (guest.data.listing.followUps || []).length === 0);
+  check('访客拿不到联系方式', guest.data.listing.contact?.hidden === true);
+
+  const signedOther = await call('GET', `/api/listings/${listingId}`, { token: other.token });
+  check('登录后不再要求登录', signedOther.data.listing.gated === false);
+  check('登录后能看到完整正文', String(signedOther.data.listing.text || '').length > 80,
+    `长度 ${String(signedOther.data.listing.text || '').length}`);
+  check('登录后能看到商务条件', Object.keys(signedOther.data.listing.project?.businessTerms || {}).length >= 10,
+    `实际 ${Object.keys(signedOther.data.listing.project?.businessTerms || {}).length}`);
+  check('登录后能看到资质要求', (signedOther.data.listing.project?.qualifications || []).length === 3,
+    `实际 ${(signedOther.data.listing.project?.qualifications || []).length}`);
+
+  check('非发布方 aiVisible 为 false', signedOther.data.listing.aiVisible === false);
+  check('非发布方拿不到 AI 分析', !signedOther.data.listing.ai?.analysis,
+    JSON.stringify(signedOther.data.listing.ai).slice(0, 200));
+  check('非发布方拿不到可靠性评分', !signedOther.data.listing.ai?.reliability);
+  check('非发布方仍能看到 AI 生成的标题', Boolean(signedOther.data.listing.ai?.titles?.main),
+    JSON.stringify(signedOther.data.listing.ai?.titles));
+
+  const ownerSelf = await call('GET', `/api/listings/${listingId}`, { token: owner.token });
+  check('发布方 aiVisible 为 true', ownerSelf.data.listing.aiVisible === true);
+  check('发布方能看到 AI 分析', Boolean(ownerSelf.data.listing.ai?.analysis),
+    JSON.stringify(Object.keys(ownerSelf.data.listing.ai || {})));
+  check('发布方能看到 AI 可靠性评分', Boolean(ownerSelf.data.listing.ai?.reliability));
+  check('发布方不会被门禁', ownerSelf.data.listing.gated === false);
+
+  console.log('\n=== 12. 对接后可继续上传资质（对接 → 上传 → AI审核 → 确认） ===');
+  const dockProject = await call('POST', '/api/listings', {
+    token: owner.token,
+    form: jsonForm({
+      category: 'project', type: 'epc',
+      text: '对接后走资质流程的测试项目，用于验证对接与资质审核可以串联。',
+      durationDays: '30', needQualification: '1',
+      qualifications: JSON.stringify([{ name: '市政公用工程施工总承包一级', required: true }]),
+    }),
+  });
+  const dpId = dockProject.data.listing.id;
+  await call('POST', `/api/listings/${dpId}/publish`, { token: owner.token, body: { days: 30 } });
+
+  const docked2 = await call('POST', `/api/listings/${dpId}/dock`, { token: bidder.token, body: { note: '希望参与' } });
+  check('对接成功并建立群', docked2.status === 201 && Boolean(docked2.data?.room?.id), JSON.stringify(docked2.json).slice(0, 150));
+
+  const qs = await call('GET', `/api/listings/${dpId}/qualification`, { token: bidder.token });
+  check('对接后可提交资质', qs.data.qualification.canSubmit === true);
+  check('对接后成为项目成员', docked2.data.listing?.memberIds?.includes(bidder.user.id) === true,
+    JSON.stringify(docked2.data.listing?.memberIds));
+
+  const sub2 = await call('POST', `/api/listings/${dpId}/qualification`, {
+    token: bidder.token,
+    body: { items: [{ name: '市政公用工程施工总承包一级', fileIds: ['f1'] }], note: '已上传证书' },
+  });
+  check('对接后提交资质成功', sub2.status === 201);
+  check('AI 初审通过', sub2.data.aiReview.pass === true, JSON.stringify(sub2.data.aiReview));
+
+  const appr2 = await call('POST', `/api/listings/${dpId}/qualification/review`, {
+    token: owner.token, body: { userId: bidder.user.id, agree: true, note: '资质符合' },
+  });
+  check('发布方确认通过', appr2.status === 200 && appr2.data.submission.status === 'approved');
 
   db.flush();
   await app.close();

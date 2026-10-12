@@ -471,6 +471,25 @@ ul { margin: 0; padding-left: 18px; }
 }
 .privacy-note b { color: #17406f; }
 
+/* 未登录访客的门禁卡片 */
+.gate-card {
+  text-align: center;
+  background: linear-gradient(180deg, #f5f9ff, #fff);
+  border: 1px solid #cfe0ff;
+}
+.gate-card .btn { height: 42px; }
+
+/* 未登录时给操作按钮加一个锁的提示 */
+.locked-hint {
+  background: #fff8e6;
+  border: 1px solid #ffe1a8;
+  border-radius: var(--r);
+  padding: 9px 12px;
+  font-size: 12.5px;
+  color: #8a5a00;
+  margin-top: 8px;
+}
+
 .form-section-title {
   font-size: 13.5px;
   font-weight: 700;

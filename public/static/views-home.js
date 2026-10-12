@@ -706,7 +706,20 @@ export async function renderDetail(ctx, params) {
             <span>${ui.esc(ui.fmtRelative(listing.publishedAt || listing.createdAt))}</span>
           </div>
 
-          ${aiCardHtml(listing.ai)}
+          ${listing.gated ? `<div class="card card-pad gate-card">
+            <div style="font-size:34px">🔐</div>
+            <div class="strong mt8" style="font-size:16px">登录后查看完整项目信息</div>
+            <div class="small muted mt8" style="line-height:1.8">
+              为了保护项目方隐私，分享出去的链接打开后需要先<b>登录或注册</b>，才能查看正文、附件、商务条件、资质要求，并进行项目对接、留言等操作。
+            </div>
+            <div class="row gap8 mt12">
+              <a class="btn btn-primary grow" href="#/login?redirect=${encodeURIComponent(`#/detail/${listing.id}`)}">登录</a>
+              <a class="btn grow" href="#/register?redirect=${encodeURIComponent(`#/detail/${listing.id}`)}">免费注册</a>
+            </div>
+            <div class="tiny dim center mt8">当前仅展示摘要：${ui.esc(listing.subtitle || '')}</div>
+          </div>` : ''}
+
+          ${listing.aiVisible && listing.ai ? aiCardHtml(listing.ai) : ''}
 
           ${projectBlock}
           ${eventBlock}
@@ -829,6 +842,10 @@ export async function renderDetail(ctx, params) {
       root.querySelector('#btn-share')?.addEventListener('click', () => openShareSheet({ ...listing, summary: listing.ai?.summary }));
 
       /* 项目对接 */
+      // 资质上传表单：在下面的「当前环节」块里赋值，但对接按钮也要用，
+      // 所以先在挂载作用域声明（点击发生在 mount 结束之后，赋值一定已完成）
+      let openQualificationForm = () => {};
+
       root.querySelector('#btn-dock')?.addEventListener('click', async () => {
         if (!ctx.requireLogin()) return;
         if (isOwner) return ui.toast('这是你自己发布的信息', 'err');
@@ -838,6 +855,23 @@ export async function renderDetail(ctx, params) {
         try {
           const res = await service.dock(listing.id, note || '');
           ui.hideLoading();
+
+          // 对接后如果项目要求资质，立刻引导上传 → AI 审核 → 发布方确认
+          const needQual = listing.category === 'project'
+            && proj.needQualification
+            && (proj.qualifications || []).length > 0;
+          if (needQual) {
+            const go = await ui.confirmDialog({
+              title: '已建立项目对接群',
+              message: '本项目需要提供企业资质。现在上传吗？提交后 AI 会先逐项核对，再由发布方确认。',
+              okText: '现在上传资质',
+              cancelText: '稍后再说',
+            });
+            if (go) {
+              openQualificationForm();
+              return;
+            }
+          }
           ui.toast('已建立项目对接群', 'ok');
           ctx.nav(`#/chat/${res.room.id}`);
         } catch (err) {
@@ -1066,7 +1100,7 @@ ${rows}
           }
         };
 
-        const openQualificationForm = () => {
+        openQualificationForm = () => {
           const reqs = (proj.qualifications || []);
           const mine = qual?.mine;
           const rows = reqs.length ? reqs : [{ name: '', level: '', required: true }];
