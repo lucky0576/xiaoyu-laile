@@ -365,13 +365,18 @@ async function localTitles(input) {
   const type = types[0]?.name || '';
 
   /* 核心短语：
-     中文商务信息习惯把标题写在第一行，优先采用；否则用「信息量评分」挑最像标题的句子。 */
+     中文商务信息习惯把标题写在第一行，优先采用；
+     但用户常常把整段内容写在一行里，那时第一行是整段话，
+     要退回到「第一句」，否则会被按分数挑出「项目位于……」这类叙述句当标题。 */
   const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
   const firstLine = (lines[0] || '').replace(/[。；;，,、\s]+$/, '');
+  const firstSent = (sentences(lines[0] || '')[0] || '').replace(/[。；;，,、\s]+$/, '');
   const sents = sentences(text).filter((s) => s.length >= 8);
+
   let core = '';
-  if (firstLine.length >= 6 && firstLine.length <= 46) {
-    core = firstLine;
+  const candidate = firstLine.length <= 46 ? firstLine : firstSent;
+  if (candidate.length >= 6 && candidate.length <= 46) {
+    core = candidate;
   } else if (sents.length) {
     const scored = sents
       .map((s) => {
@@ -390,19 +395,37 @@ async function localTitles(input) {
   }
   if (!core) core = sentences(text)[0] || '';
 
-  const headParts = [region, industry].filter(Boolean);
+  // 地区前缀：核心短语里已经出现城市名时不再重复（避免「东营市｜山东东营…」）
+  // 城市对象常常只有 name（如「东营市」），所以额外去掉省/市/区/县后缀再比对
+  const cityNames = cities
+    .flatMap((c) => [c.short, c.name, String(c.name || '').replace(/[省市区县]$/, '')])
+    .filter(Boolean);
+  const coreHasCity = cityNames.some((n) => n && core.includes(n));
+  const headParts = [];
+  if (region && !coreHasCity) headParts.push(region);
+  if (industry && !core.includes(industry)) headParts.push(industry);
   const head = headParts.length ? `${headParts.join('·')}｜` : '';
+
+  // 尾部：核心短语里已有的类型 / 规模 / 金额不再重复
+  // （比较时去掉空格，「8.6 亿元」与「8.6亿元」应视为同一个）
+  const coreCompact = core.replace(/\s+/g, '');
+  const hasInCore = (v) => Boolean(v) && coreCompact.includes(String(v).replace(/\s+/g, ''));
+  const usedInHead = new Set(headParts);
+
   const tailParts = [];
-  if (type) tailParts.push(type);
-  if (headlineAmounts.length) tailParts.push(headlineAmounts[0]);
-  else if (scales.length) tailParts.push(scales[0]);
+  if (type && !hasInCore(type) && !usedInHead.has(type)) tailParts.push(type);
+  if (headlineAmounts.length && !hasInCore(headlineAmounts[0])) tailParts.push(headlineAmounts[0]);
+  else if (scales.length && !hasInCore(scales[0]) && !usedInHead.has(scales[0])) tailParts.push(scales[0]);
   const tail = tailParts.length ? `（${tailParts.join(' / ')}）` : '';
 
-  let title = `${head}${core}`.trim();
-  if (title.length > 38) title = title.slice(0, 37) + '…';
+  // 超长时截断「核心短语」本身，保住前缀与括号里的金额，而不是把整条标题切掉
+  const budget = 46 - head.length - tail.length;
+  let coreOut = core;
+  if (coreOut.length > budget) coreOut = `${coreOut.slice(0, Math.max(6, budget - 1))}…`;
+
+  let title = `${head}${coreOut}`.trim();
   if (!title) title = `${head}${type || input.categoryName || '项目'}信息发布`.trim();
   title = `${title}${tail}`;
-  if (title.length > 46) title = title.slice(0, 45) + '…';
 
   const subBits = [];
   if (type) subBits.push(`合作方式：${type}`);
