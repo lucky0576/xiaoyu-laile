@@ -518,6 +518,35 @@ ul { margin: 0; padding-left: 18px; }
 }
 .warn-note b { color: #6b4600; }
 
+/* ---------- 注册身份选择 / 实名认证 ---------- */
+.acct-type { display: flex; gap: 10px; }
+.acct-opt {
+  flex: 1;
+  text-align: center;
+  padding: 12px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all .15s;
+  background: #fff;
+}
+.acct-opt:hover { border-color: #b9d3f5; }
+.acct-opt.active { border-color: var(--brand); background: #f2f8ff; box-shadow: 0 0 0 3px rgba(45,120,245,.08); }
+.acct-opt .ico { font-size: 26px; line-height: 1.2; }
+.acct-opt .strong { font-size: 14px; margin: 4px 0 2px; }
+
+.verify-summary {
+  background: #f6f9fe;
+  border: 1px solid #e2ecfa;
+  border-radius: var(--r);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+.verify-list { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.8; color: var(--text-2); }
+.verify-list li { margin-bottom: 2px; }
+
 /* 未登录时给操作按钮加一个锁的提示 */
 .locked-hint {
   background: #fff8e6;

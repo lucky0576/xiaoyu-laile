@@ -165,6 +165,13 @@ export const service = {
   submitQualification: (fd, opts) => api.upload('/api/users/me/qualification', fd, opts),
   qualification: () => api.get('/api/users/me/qualification'),
 
+  // 实名认证：个人身份证 / 企业营业执照 + AI 征信审核
+  verificationMeta: () => api.get('/api/verification/meta'),
+  myVerification: () => api.get('/api/users/me/verification'),
+  submitVerification: (fd, opts) => api.upload('/api/users/me/verification', fd, opts),
+  reviewVerification: (userId, body) => api.post(`/api/users/${userId}/verification/review`, body),
+  adminVerifications: (status) => api.get('/api/admin/verifications', { status }),
+
   smsSend: (phone, purpose) => api.post('/api/auth/sms/send', { phone, purpose }),
   smsLogin: (body) => api.post('/api/auth/sms/login', body),
   mailSend: (email, purpose) => api.post('/api/auth/email/send-code', { email, purpose }),

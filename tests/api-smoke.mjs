@@ -631,6 +631,144 @@ async function main() {
   const taxSearch = await call('GET', `/api/taxonomy/search?q=${encodeURIComponent('储能')}`);
   check('行业细分搜索', (taxSearch.data?.subs || []).length > 0, JSON.stringify(taxSearch.json).slice(0, 200));
 
+  console.log('\n=== 12b. 注册身份选择 + 实名认证（个人身份证 / 企业 AI 征信审核） ===');
+  const vmeta = await call('GET', '/api/verification/meta');
+  check('认证元数据接口', vmeta.status === 200, JSON.stringify(vmeta.json).slice(0, 150));
+  check('提供个人与企业两种身份', (vmeta.data?.accountTypes || []).length === 2,
+    JSON.stringify(vmeta.data?.accountTypes));
+  check('个人认证要求身份证正反面', (vmeta.data?.personal?.files || []).length === 2,
+    JSON.stringify((vmeta.data?.personal?.files || []).map((f) => f.key)));
+  check('企业认证要求营业执照', (vmeta.data?.company?.files || []).some((f) => f.key === 'license'));
+  check('声明 AI 征信审核的边界', String(vmeta.data?.creditNote || '').includes('并非外部征信机构查询结果'),
+    String(vmeta.data?.creditNote || '').slice(0, 60));
+
+  // 注册时选择身份
+  const pEmail = `personal${Date.now() % 100000}@example.com`;
+  const pc = await call('POST', '/api/auth/email/send-code', { body: { email: pEmail, purpose: 'register' } });
+  const pReg = await call('POST', '/api/auth/email/register', {
+    body: { email: pEmail, code: pc.data?.demoCode, password: 'test123456', nickname: '个人用户甲', accountType: 'personal' },
+  });
+  check('注册可选个人身份', pReg.status === 200 && pReg.data?.user?.accountType === 'personal',
+    JSON.stringify(pReg.data?.user?.accountType));
+  check('新用户认证状态为未认证', pReg.data?.user?.verification?.status === 'none',
+    JSON.stringify(pReg.data?.user?.verification));
+  const tokenP = pReg.data?.token;
+
+  const cEmail = `company${Date.now() % 100000}@example.com`;
+  const cc = await call('POST', '/api/auth/email/send-code', { body: { email: cEmail, purpose: 'register' } });
+  const cReg = await call('POST', '/api/auth/email/register', {
+    body: { email: cEmail, code: cc.data?.demoCode, password: 'test123456', nickname: '企业用户甲', company: '山东电力建设集团有限公司', accountType: 'company' },
+  });
+  check('注册可选企业身份', cReg.data?.user?.accountType === 'company', JSON.stringify(cReg.data?.user?.accountType));
+  const tokenCmp = cReg.data?.token;
+
+  /* ---- 个人认证 ---- */
+  const badId = new FormData();
+  badId.append('type', 'personal');
+  badId.append('realName', '张三');
+  badId.append('idNumber', '110105194912310021'); // 校验位错误
+  badId.append('file', new Blob([Buffer.from('id-front')], { type: 'image/jpeg' }), 'front.jpg');
+  badId.append('file', new Blob([Buffer.from('id-back')], { type: 'image/jpeg' }), 'back.jpg');
+  badId.append('fileFields', JSON.stringify(['idFront', 'idBack']));
+  const pBad = await call('POST', '/api/users/me/verification', { token: tokenP, form: badId });
+  check('身份证校验位错误会被拒绝', pBad.status === 201 && pBad.data?.verification?.status === 'rejected',
+    JSON.stringify(pBad.data?.verification?.status));
+  check('拒绝原因指出校验位问题',
+    (pBad.data?.verification?.findings || []).some((f) => f.includes('校验位')),
+    JSON.stringify(pBad.data?.verification?.findings));
+  check('未通过时 verified 为 false', pBad.data?.verification?.verified === false);
+
+  const goodId = new FormData();
+  goodId.append('type', 'personal');
+  goodId.append('realName', '张三');
+  goodId.append('idNumber', '11010519491231002X'); // 合法身份证
+  goodId.append('file', new Blob([Buffer.from('id-front')], { type: 'image/jpeg' }), 'front.jpg');
+  goodId.append('file', new Blob([Buffer.from('id-back')], { type: 'image/jpeg' }), 'back.jpg');
+  goodId.append('fileFields', JSON.stringify(['idFront', 'idBack']));
+  const pOk = await call('POST', '/api/users/me/verification', { token: tokenP, form: goodId });
+  check('个人认证通过', pOk.status === 201 && pOk.data?.verification?.status === 'approved',
+    JSON.stringify(pOk.data?.verification?.status));
+  check('通过后 verified 为 true', pOk.data?.verification?.verified === true);
+  check('身份证号做脱敏', /^\d{6}\*{8}[\dX]{4}$/.test(String(pOk.data?.verification?.idNumberMasked || '')),
+    String(pOk.data?.verification?.idNumberMasked));
+  check('认证摘要不回传完整身份证号', !JSON.stringify(pOk.data?.verification || {}).includes('11010519491231002X'),
+    JSON.stringify(pOk.data?.verification || {}).slice(0, 200));
+
+  const vMe = await call('GET', '/api/users/me/verification', { token: tokenP });
+  check('可查询自己的认证状态', vMe.data?.verification?.status === 'approved');
+  check('认证类型写明个人', vMe.data?.verification?.typeName === '个人', String(vMe.data?.verification?.typeName));
+
+  /* ---- 企业认证：AI 征信审核 ---- */
+  const cBad = new FormData();
+  cBad.append('type', 'company');
+  cBad.append('companyName', '山东电力建设集团有限公司');
+  cBad.append('creditCode', '11010519491231002X'); // 非法信用代码
+  cBad.append('legalPerson', '李四');
+  cBad.append('regCapital', '5000万元');
+  cBad.append('foundedAt', '2015-06-01');
+  cBad.append('scope', '电力工程施工');
+  cBad.append('file', new Blob([Buffer.from('license')], { type: 'image/jpeg' }), 'license.jpg');
+  cBad.append('fileFields', JSON.stringify(['license']));
+  const rBad = await call('POST', '/api/users/me/verification', { token: tokenCmp, form: cBad });
+  check('企业认证返回 AI 征信结果', rBad.status === 201 && Boolean(rBad.data?.review), JSON.stringify(rBad.json).slice(0, 200));
+  check('非法信用代码被判为高风险', rBad.data?.review?.riskLevel === 'high', String(rBad.data?.review?.riskLevel));
+  check('非法信用代码不会被自动通过', rBad.data?.verification?.status !== 'approved',
+    String(rBad.data?.verification?.status));
+  check('审核结果含评分', typeof rBad.data?.review?.score === 'number', String(rBad.data?.review?.score));
+  console.log(`    → 非法信用代码：${rBad.data?.review?.riskLevel} ${rBad.data?.review?.score} 分 / ${rBad.data?.mode}`);
+
+  const cGood = new FormData();
+  cGood.append('type', 'company');
+  cGood.append('companyName', '山东电力建设集团有限公司');
+  cGood.append('creditCode', '91350100M000100Y43'); // 合法校验位
+  cGood.append('legalPerson', '李四');
+  cGood.append('regCapital', '5000万元');
+  cGood.append('foundedAt', '2015-06-01');
+  cGood.append('scope', '电力工程施工、机电设备安装');
+  cGood.append('file', new Blob([Buffer.from('license')], { type: 'image/jpeg' }), 'license.jpg');
+  cGood.append('fileFields', JSON.stringify(['license']));
+  const rGood = await call('POST', '/api/users/me/verification', { token: tokenCmp, form: cGood });
+  check('材料齐全的企业认证通过', rGood.data?.verification?.status === 'approved',
+    JSON.stringify({ status: rGood.data?.verification?.status, risk: rGood.data?.review?.riskLevel, mode: rGood.data?.mode }));
+  check('低风险走 AI 自动通过', rGood.data?.mode === 'auto', String(rGood.data?.mode));
+  check('通过后企业名写入资料', rGood.data?.user?.company === '山东电力建设集团有限公司',
+    String(rGood.data?.user?.company));
+  check('通过后 verified 为 true', rGood.data?.verification?.verified === true);
+  console.log(`    → 材料齐全：${rGood.data?.review?.riskLevel} ${rGood.data?.review?.score} 分 / ${rGood.data?.mode}`);
+
+  // 高风险材料（含失信信号）应被拒绝
+  const cRisky = new FormData();
+  cRisky.append('type', 'company');
+  cRisky.append('companyName', '某某投资管理有限公司');
+  cRisky.append('creditCode', '91350100M000100Y43');
+  cRisky.append('legalPerson', '王五');
+  cRisky.append('regCapital', '10万元');
+  cRisky.append('foundedAt', '2020-01-01');
+  cRisky.append('scope', '投资管理、资金盘');
+  cRisky.append('extra', '该公司已被列为失信被执行人，并列入经营异常名录');
+  cRisky.append('file', new Blob([Buffer.from('license')], { type: 'image/jpeg' }), 'license.jpg');
+  cRisky.append('fileFields', JSON.stringify(['license']));
+  const rRisky = await call('POST', '/api/users/me/verification', { token: tokenCmp, form: cRisky });
+  check('含失信信号的材料被判高风险', rRisky.data?.review?.riskLevel === 'high', String(rRisky.data?.review?.riskLevel));
+  check('高风险被拒绝并说明原因', rRisky.data?.verification?.status === 'rejected'
+    && String(rRisky.data?.review?.summary || '').length > 0,
+    JSON.stringify({ status: rRisky.data?.verification?.status, summary: rRisky.data?.review?.summary }));
+  console.log(`    → 含风险信号：${rRisky.data?.review?.riskLevel} ${rRisky.data?.review?.score} 分 / ${rRisky.data?.mode}`);
+
+  // 未选类型应报错
+  const noType = await call('POST', '/api/users/me/verification', { token: tokenP, body: { realName: '张三' } });
+  check('未选认证类型会报错', noType.status === 400, String(noType.status));
+
+  // 普通用户不能复核认证
+  const forbid = await call('POST', `/api/users/${pReg.data?.user?.id}/verification/review`, {
+    token: tokenP, body: { agree: true },
+  });
+  check('普通用户不能复核认证', forbid.status === 403, String(forbid.status));
+
+  const adminList = await call('GET', '/api/admin/verifications?status=all', { token: adminToken });
+  check('管理员可查看认证列表', adminList.status === 200 && Array.isArray(adminList.data?.items),
+    JSON.stringify(adminList.json).slice(0, 150));
+
   console.log('\n=== 13. 权限与边界 ===');
   const noAuth = await call('POST', '/api/listings', { form: jsonForm({ text: 'x' }) });
   check('未登录不能发布', noAuth.status === 401);

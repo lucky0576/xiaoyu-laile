@@ -234,6 +234,23 @@ export async function renderRegister(ctx, query) {
       <div class="small muted">完善企业与行业信息，对接成功率更高</div>
     </div>
 
+    <div class="card card-pad mb12">
+      <div class="strong mb8">选择注册身份 <span style="color:var(--danger)">*</span></div>
+      <div class="acct-type" id="rg-acct-type">
+        <div class="acct-opt active" data-type="personal">
+          <div class="ico">👤</div>
+          <div class="strong">个人</div>
+          <div class="tiny dim">投资人 · 项目经理 · 个人从业者</div>
+        </div>
+        <div class="acct-opt" data-type="company">
+          <div class="ico">🏢</div>
+          <div class="strong">企业</div>
+          <div class="tiny dim">施工 · 总包 · 设备 · 服务商</div>
+        </div>
+      </div>
+      <div class="tiny dim mt8" id="rg-type-hint"></div>
+    </div>
+
     <div class="card card-pad">
       <div class="strong mb12">账号信息</div>
       <div class="field">
@@ -305,6 +322,26 @@ export async function renderRegister(ctx, query) {
     noTab: true,
     async mount(root) {
       const $ = (s) => root.querySelector(s);
+      let accountType = 'personal';
+
+      const typeHint = {
+        personal: '注册后需完成实名认证：填写姓名与身份证号，并上传身份证正反面照片。',
+        company: '注册后需完成企业认证：上传营业执照并填写企业信息，由 AI 征信审核。',
+      };
+      const applyType = (t) => {
+        accountType = t;
+        root.querySelectorAll('#rg-acct-type .acct-opt').forEach((el) => el.classList.toggle('active', el.dataset.type === t));
+        const hint = $('#rg-type-hint');
+        if (hint) hint.textContent = typeHint[t];
+        const companyLabel = $('#rg-company')?.previousElementSibling;
+        if (companyLabel) companyLabel.innerHTML = t === 'company' ? '企业名称 <span style="color:var(--danger)">*</span>' : '企业名称';
+      };
+      root.querySelector('#rg-acct-type')?.addEventListener('click', (e) => {
+        const opt = e.target.closest('.acct-opt');
+        if (opt) applyType(opt.dataset.type);
+      });
+      applyType('personal');
+
       $('#rg-send').addEventListener('click', async () => {
         const email = $('#rg-email').value.trim();
         const btn = $('#rg-send');
@@ -336,20 +373,249 @@ export async function renderRegister(ctx, query) {
           city: $('#rg-city').value.trim(),
           phone: $('#rg-phone').value.trim(),
           wechatId: $('#rg-wechat').value.trim(),
+          accountType,
           invite: query.invite,
         };
         if (!payload.email || !payload.code || !payload.password) return ui.toast('请填写邮箱、验证码和密码', 'err');
+        if (accountType === 'company' && !payload.company) return ui.toast('企业注册请填写企业名称', 'err');
         try {
           const res = await service.mailRegister(payload);
           store.token = res.token;
           store.user = res.user;
           await ctx.refreshMe();
           ui.toast('注册成功，欢迎加入！', 'ok');
-          ctx.nav('#/me');
+          // 企业 / 个人都引导去完成实名认证
+          ctx.nav(`#/verify${query.redirect ? `?redirect=${encodeURIComponent(query.redirect)}` : ''}`);
         } catch (err) {
           ui.toast(err.message, 'err');
         }
       });
+    },
+  };
+}
+
+/* ================================================================== */
+/* 实名认证：个人身份证 / 企业营业执照 + AI 征信审核                      */
+/* ================================================================== */
+export async function renderVerify(ctx, query) {
+  if (!ctx.requireLogin()) {
+    return { title: '实名认证', content: ui.emptyState('🔒', '请先登录后再进行实名认证'), showBack: true };
+  }
+
+  const [metaRes, meRes] = await Promise.all([
+    service.verificationMeta().catch(() => null),
+    service.myVerification().catch(() => null),
+  ]);
+  const meta = metaRes || {};
+  const v = meRes?.verification || { status: 'none' };
+  const verified = Boolean(v.verified);
+  const statusName = meta.statuses?.[v.status] || '未认证';
+
+  /* ---------------- 已有审核结果 ---------------- */
+  const riskBadge = (lv) => {
+    if (!lv) return '';
+    const cls = lv === 'low' ? 'ok' : lv === 'medium' ? 'warn' : 'danger';
+    const name = meta.riskLevels?.[lv] || lv;
+    return `<span class="badge ${cls}">${ui.esc(name)}</span>`;
+  };
+
+  const resultCard = v.status === 'none' ? '' : `<div class="card card-pad mb12">
+    <div class="row between mb8">
+      <div class="strong">认证状态</div>
+      <span class="badge ${verified ? 'ok' : v.status === 'rejected' ? 'danger' : 'warn'}">${ui.esc(statusName)}</span>
+    </div>
+    ${v.typeName ? `<div class="tiny dim mb8">认证类型：${ui.esc(v.typeName)}${v.reviewModeName ? ` · ${ui.esc(v.reviewModeName)}` : ''}</div>` : ''}
+
+    ${v.score !== null && v.score !== undefined ? `<div class="row between mb8">
+      <span class="small">AI 征信评分</span>
+      <span class="row gap8"><b style="font-size:18px;color:${v.score >= 80 ? 'var(--ok,#17a673)' : v.score >= 45 ? '#c98a00' : 'var(--danger)'}">${v.score}</b>${riskBadge(v.riskLevel)}</span>
+    </div>` : ''}
+
+    ${v.summary ? `<div class="verify-summary">${ui.esc(v.summary)}</div>` : ''}
+
+    ${(v.findings || []).length ? `<div class="field mt12"><label>审核发现</label>
+      <ul class="verify-list">${v.findings.map((f) => `<li>${ui.esc(f)}</li>`).join('')}</ul></div>` : ''}
+
+    ${(v.missing || []).length ? `<div class="warn-note mt8">⚠️ <b>缺少材料：</b>${v.missing.map(ui.esc).join('、')}</div>` : ''}
+    ${v.advice ? `<div class="tiny dim mt8">处理建议：${ui.esc(v.advice)}</div>` : ''}
+    ${v.reviewerNote ? `<div class="tiny dim mt8">审核意见：${ui.esc(v.reviewerNote)}</div>` : ''}
+    ${v.note ? `<div class="tiny dim mt8">${ui.esc(v.note)}</div>` : ''}
+
+    ${v.realName ? `<div class="kv-table mt12">
+      <div class="kv"><span class="k">真实姓名</span><span class="v">${ui.esc(v.realName)}</span></div>
+      <div class="kv"><span class="k">身份证号</span><span class="v">${ui.esc(v.idNumberMasked)}</span></div>
+    </div>` : ''}
+    ${v.companyName ? `<div class="kv-table mt12">
+      <div class="kv"><span class="k">企业名称</span><span class="v">${ui.esc(v.companyName)}</span></div>
+      <div class="kv"><span class="k">信用代码</span><span class="v">${ui.esc(v.creditCode)}</span></div>
+      ${v.legalPerson ? `<div class="kv"><span class="k">法定代表人</span><span class="v">${ui.esc(v.legalPerson)}</span></div>` : ''}
+      ${v.regCapital ? `<div class="kv"><span class="k">注册资本</span><span class="v">${ui.esc(v.regCapital)}</span></div>` : ''}
+      ${v.foundedAt ? `<div class="kv"><span class="k">成立日期</span><span class="v">${ui.esc(v.foundedAt)}</span></div>` : ''}
+    </div>` : ''}
+  </div>`;
+
+  /* ---------------- 表单 ---------------- */
+  const fieldHtml = (f, prefix) => `<div class="field">
+    <label>${ui.esc(f.label)}${f.required ? ' <span style="color:var(--danger)">*</span>' : ''}</label>
+    ${f.multiline
+      ? `<textarea class="input" rows="3" id="${prefix}-${f.key}" placeholder="${ui.esc(f.placeholder || '')}"></textarea>`
+      : `<input class="input" id="${prefix}-${f.key}" placeholder="${ui.esc(f.placeholder || '')}">`}
+  </div>`;
+
+  const fileHtml = (f, prefix) => `<div class="field">
+    <label>${ui.esc(f.label)}${f.required ? ' <span style="color:var(--danger)">*</span>' : ''}</label>
+    <input type="file" class="input" id="${prefix}-file-${f.key}" accept="image/*,application/pdf">
+    <div class="tiny dim mt4">支持 JPG / PNG / PDF，建议清晰可辨</div>
+  </div>`;
+
+  const formCard = `<div class="card card-pad mb12" id="vf-card">
+    <div class="row between mb12">
+      <div class="strong">提交认证材料</div>
+      <span class="tiny dim">仅认证一次，通过后不可随意更改</span>
+    </div>
+
+    <div class="acct-type" id="vf-type">
+      <div class="acct-opt" data-type="personal"><div class="ico">👤</div><div class="strong">个人认证</div>
+        <div class="tiny dim">身份证实名认证</div></div>
+      <div class="acct-opt" data-type="company"><div class="ico">🏢</div><div class="strong">企业认证</div>
+        <div class="tiny dim">营业执照 + AI 征信审核</div></div>
+    </div>
+
+    <div class="step-hint mb12" id="vf-desc"></div>
+
+    <div id="vf-personal">
+      ${pFields.map((f) => fieldHtml(f, 'pf')).join('')}
+      ${pFiles.map((f) => fileHtml(f, 'pf')).join('')}
+    </div>
+
+    <div id="vf-company" class="hide">
+      ${cFields.map((f) => fieldHtml(f, 'cf')).join('')}
+      ${cFiles.map((f) => fileHtml(f, 'cf')).join('')}
+      <div class="field">
+        <label>补充说明（选填）</label>
+        <textarea class="input" rows="2" id="cf-extra" placeholder="如有历史资质、业绩或其他需要说明的情况"></textarea>
+      </div>
+      <div class="warn-note">🔍 <b>AI 征信审核</b>：系统会核对统一社会信用代码校验位、企业信息一致性、经营范围与风险关键词。${ui.esc(meta.creditNote || '')}</div>
+    </div>
+
+    <button class="btn btn-primary btn-block mt16" id="vf-submit">提交认证</button>
+  </div>`;
+
+  const html = `<div class="page">
+    <div class="center" style="padding:16px 0 10px">
+      <div style="font-size:40px">🛡️</div>
+      <h1 style="font-size:19px;margin-top:6px">实名认证</h1>
+      <div class="small muted">${verified ? '您已完成认证，可放心发布与对接' : '完成认证后才能发布项目和发起对接'}</div>
+    </div>
+    ${resultCard}
+    ${verified ? '' : formCard}
+    ${verified ? `<div class="center"><button class="btn btn-outline" id="vf-again">重新提交认证</button></div>` : ''}
+  </div>`;
+
+  let type = v.type || ctx.state.user?.accountType || 'personal';
+
+  return {
+    title: '实名认证',
+    content: html,
+    showBack: true,
+    noTab: true,
+    async mount(root) {
+      const $ = (s) => root.querySelector(s);
+      let showForm = !verified;
+
+      const applyType = (t) => {
+        type = t;
+        root.querySelectorAll('#vf-type .acct-opt').forEach((el) => el.classList.toggle('active', el.dataset.type === t));
+        $('#vf-personal')?.classList.toggle('hide', t !== 'personal');
+        $('#vf-company')?.classList.toggle('hide', t !== 'company');
+        const desc = $('#vf-desc');
+        if (desc) {
+          desc.innerHTML =
+            t === 'personal'
+              ? `<b>个人认证</b> —— ${ui.esc(meta.personal?.desc || '填写姓名与身份证号，上传身份证正反面照片。')}`
+              : `<b>企业认证</b> —— ${ui.esc(meta.company?.desc || '填写企业信息并上传营业执照，由 AI 征信审核。')}`;
+        }
+      };
+      root.querySelector('#vf-type')?.addEventListener('click', (e) => {
+        const opt = e.target.closest('.acct-opt');
+        if (opt) applyType(opt.dataset.type);
+      });
+      applyType(type);
+
+      $('#vf-again')?.addEventListener('click', () => {
+        showForm = true;
+        void showForm;
+        ctx.nav('#/verify?again=1');
+      });
+
+      $('#vf-submit')?.addEventListener('click', async () => {
+        const btn = $('#vf-submit');
+        const fd = new FormData();
+        fd.append('type', type);
+        const fileFields = [];
+
+        if (type === 'personal') {
+          for (const f of pFields) {
+            const el = $(`#pf-${f.key}`);
+            const val = (el?.value || '').trim();
+            if (f.required && !val) return ui.toast(`请填写${f.label}`, 'err');
+            fd.append(f.key, val);
+          }
+          for (const f of pFiles) {
+            const input = $(`#pf-file-${f.key}`);
+            const file = input?.files?.[0];
+            if (f.required && !file) return ui.toast(`请上传${f.label}`, 'err');
+            if (file) {
+              fd.append('file', file, file.name);
+              fileFields.push(f.key);
+            }
+          }
+        } else {
+          for (const f of cFields) {
+            const el = $(`#cf-${f.key}`);
+            const val = (el?.value || '').trim();
+            if (f.required && !val) return ui.toast(`请填写${f.label}`, 'err');
+            fd.append(f.key, val);
+          }
+          const extra = ($('#cf-extra')?.value || '').trim();
+          if (extra) fd.append('extra', extra);
+          for (const f of cFiles) {
+            const input = $(`#cf-file-${f.key}`);
+            const file = input?.files?.[0];
+            if (f.required && !file) return ui.toast(`请上传${f.label}`, 'err');
+            if (file) {
+              fd.append('file', file, file.name);
+              fileFields.push(f.key);
+            }
+          }
+        }
+        fd.append('fileFields', JSON.stringify(fileFields));
+
+        btn.disabled = true;
+        btn.textContent = type === 'company' ? 'AI 正在征信审核…' : '正在校验…';
+        try {
+          const res = await service.submitVerification(fd, {
+            onProgress: (p) => { btn.textContent = `上传中 ${p}%`; },
+          });
+          const vv = res.verification || {};
+          if (vv.status === 'approved') {
+            ui.toast('认证通过！', 'ok');
+          } else if (vv.status === 'rejected') {
+            ui.toast(`认证未通过：${(vv.missing || []).join('、') || vv.summary || '请核对材料'}`, 'err');
+          } else {
+            ui.toast('已提交，等待人工复核', 'ok');
+          }
+          await ctx.refreshMe();
+          ctx.nav('#/verify');
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '提交认证';
+          ui.toast(err.message, 'err');
+        }
+      });
+
+      void showForm;
+      void query;
     },
   };
 }
@@ -399,6 +665,15 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/my-registrations"><div class="avatar">🎪</div><div class="item-body"><div class="item-title">我的报名</div><div class="item-sub">已报名参加的活动与课程</div></div><span class="dim">›</span></a>
       <a class="item" href="#/chat"><div class="avatar">💬</div><div class="item-body"><div class="item-title">项目群聊与会议</div><div class="item-sub">${data.rooms || 0} 个群聊</div></div><span class="dim">›</span></a>
       <a class="item" href="#/contacts"><div class="avatar">📇</div><div class="item-body"><div class="item-title">通讯录</div><div class="item-sub">导入微信 / 手机通讯录，邀请好友注册</div></div><span class="dim">›</span></a>
+      <a class="item" href="#/verify"><div class="avatar">🪪</div><div class="item-body"><div class="item-title">实名认证</div><div class="item-sub">${
+        u.verification?.status === 'approved'
+          ? (u.accountType === 'company' ? '企业已认证' : '个人已认证')
+          : u.verification?.status === 'pending'
+            ? 'AI 审核中，等待人工复核'
+            : u.verification?.status === 'rejected'
+              ? '未通过，请核对材料后重新提交'
+              : '个人上传身份证 / 企业上传营业执照 + AI 征信审核'
+      }</div></div><span class="dim">›</span></a>
       <a class="item" href="#/qualification"><div class="avatar">🛡️</div><div class="item-body"><div class="item-title">企业资质认证</div><div class="item-sub">${verified ? '已通过认证' : u.qualification?.status === 'pending' ? '审核中' : '上传营业执照与资质证书'}</div></div><span class="dim">›</span></a>
       <a class="item" href="#/profile"><div class="avatar">⚙️</div><div class="item-body"><div class="item-title">资料与设置</div><div class="item-sub">头像、企业介绍、通知偏好</div></div><span class="dim">›</span></a>
       <a class="item" href="#/notifications"><div class="avatar">🔔</div><div class="item-body"><div class="item-title">消息通知</div><div class="item-sub">${data.unread || 0} 条未读</div></div><span class="dim">›</span></a>

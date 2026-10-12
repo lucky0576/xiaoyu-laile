@@ -18,6 +18,7 @@ import notifySvc from '../services/notify.js';
 import chatSvc from '../services/chat.js';
 import wechat from '../services/wechat.js';
 import listingsSvc from '../services/listings.js';
+import verifySvc from '../services/verification.js';
 import { sendMail, mailTemplates, mailConfigured } from '../services/mail.js';
 import { INDUSTRIES, HELPER } from '../data/taxonomy.js';
 
@@ -90,6 +91,8 @@ export default function registerAuthUserRoutes(app) {
         industry: str(req.body?.industry, 60),
         city: str(req.body?.city, 60),
         wechatId: str(req.body?.wechatId, 60),
+        // 注册时选择个人 / 企业
+        accountType: str(req.body?.accountType, 20),
       });
       created = true;
       applyInvite(user, req.body?.invite);
@@ -147,6 +150,7 @@ export default function registerAuthUserRoutes(app) {
       city: str(req.body?.city, 60),
       phone: normalizePhone(req.body?.phone || ''),
       wechatId: str(req.body?.wechatId, 60),
+      accountType: str(req.body?.accountType, 20),
     });
     applyInvite(user, req.body?.invite);
     if (mailConfigured()) {
@@ -239,6 +243,7 @@ export default function registerAuthUserRoutes(app) {
         company: str(req.body?.company, 100),
         profession: str(req.body?.profession, 60),
         industry: str(req.body?.industry, 60),
+        accountType: str(req.body?.accountType, 20),
       });
       created = true;
       applyInvite(user, req.body?.invite);
@@ -414,6 +419,158 @@ export default function registerAuthUserRoutes(app) {
       qualification: user.qualification || { status: 'none', files: [] },
       isVerified: Boolean(user.verified || user.qualification?.status === 'approved'),
     });
+  });
+
+  /* ================================================================ */
+  /* 实名认证：个人身份证 / 企业营业执照 + AI 征信审核                    */
+  /* ================================================================ */
+
+  /** 认证表单的字段与选项定义（前端直接照着渲染） */
+  app.get('/api/verification/meta', (req, res) => {
+    return data(res, {
+      accountTypes: Object.entries(verifySvc.ACCOUNT_TYPES).map(([value, label]) => ({ value, label })),
+      statuses: verifySvc.VERIFY_STATUS,
+      riskLevels: verifySvc.RISK_LEVELS,
+      reviewModes: verifySvc.REVIEW_MODES,
+      personal: {
+        label: '个人认证',
+        desc: '填写本人真实姓名与身份证号，并上传身份证正反面照片。',
+        fields: [
+          { key: 'realName', label: '真实姓名', placeholder: '与身份证一致', required: true },
+          { key: 'idNumber', label: '身份证号', placeholder: '18 位身份证号码', required: true },
+        ],
+        files: [
+          { key: 'idFront', label: '身份证人像面', required: true },
+          { key: 'idBack', label: '身份证国徽面', required: true },
+        ],
+      },
+      company: {
+        label: '企业认证',
+        desc: '填写企业信息并上传营业执照，系统会做 AI 征信审核。',
+        fields: [
+          { key: 'companyName', label: '企业名称', placeholder: '与营业执照一致', required: true },
+          { key: 'creditCode', label: '统一社会信用代码', placeholder: '18 位', required: true },
+          { key: 'legalPerson', label: '法定代表人', required: true },
+          { key: 'regCapital', label: '注册资本', placeholder: '如 5000 万元' },
+          { key: 'foundedAt', label: '成立日期', placeholder: '如 2015-06-01' },
+          { key: 'address', label: '注册地址' },
+          { key: 'scope', label: '经营范围', multiline: true },
+        ],
+        files: [{ key: 'license', label: '营业执照照片', required: true }],
+      },
+      creditNote:
+        'AI 征信审核依据的是您提交的材料本身（代码校验位、字段一致性、经营范围匹配、风险关键词），'
+        + '并非外部征信机构查询结果。',
+    });
+  });
+
+  app.get('/api/users/me/verification', (req, res) => {
+    const user = mustAuth(req);
+    return data(res, { verification: verifySvc.verificationSummary(user) });
+  });
+
+  app.post('/api/users/me/verification', async (req, res) => {
+    const user = mustAuth(req);
+    const b = req.body || {};
+    const type = str(b.type, 20);
+    if (!verifySvc.ACCOUNT_TYPES[type]) return fail(res, '请选择认证类型（个人 / 企业）');
+
+    const saved = await saveUploads(req, { ownerId: user.id, role: 'verification' });
+
+    // 上传的文件按 fileFields 的顺序映射到表单槽位（idFront / idBack / license）
+    let slots = b.fileFields;
+    if (typeof slots === 'string') {
+      try { slots = JSON.parse(slots); } catch { slots = []; }
+    }
+    if (!Array.isArray(slots)) slots = [];
+
+    const files = {};
+    saved.forEach((f, i) => {
+      const slot = ['idFront', 'idBack', 'license'].includes(slots[i]) ? slots[i] : '';
+      if (slot && !files[slot]) files[slot] = f.id;
+    });
+    // 也支持直接传已上传文件的 ID（前端先调 /api/files 再提交）
+    for (const slot of ['idFront', 'idBack', 'license']) {
+      const direct = str(b[`${slot}FileId`], 60);
+      if (direct && !files[slot]) files[slot] = direct;
+    }
+    // 兜底：只传了文件但没标字段名
+    if (saved.length && !Object.keys(files).length) {
+      if (type === 'personal') {
+        files.idFront = saved[0].id;
+        if (saved[1]) files.idBack = saved[1].id;
+      } else {
+        files.license = saved[0].id;
+      }
+    }
+
+    const result = await verifySvc.submitVerification(user, { type, data: b, files });
+
+    // 需要人工复核的，通知管理员
+    if (result.verification.status === 'pending') {
+      for (const admin of users().find((u) => u.isAdmin)) {
+        notifySvc.notify({
+          userId: admin.id,
+          type: 'system',
+          title: `新的${verifySvc.ACCOUNT_TYPES[type]}认证待复核`,
+          body: `${user.nickname} 提交了认证材料，AI 审核结果：${verifySvc.RISK_LEVELS[result.review?.riskLevel] || ''} ${result.review?.score ?? ''} 分`,
+          link: `/#/admin`,
+          meta: { userId: user.id, kind: 'verification' },
+        });
+      }
+    }
+
+    // 通知本人结果
+    notifySvc.notify({
+      userId: user.id,
+      type: 'system',
+      title:
+        result.verification.status === 'approved'
+          ? `认证通过：${verifySvc.ACCOUNT_TYPES[type]}`
+          : result.verification.status === 'rejected'
+            ? `认证未通过：${verifySvc.ACCOUNT_TYPES[type]}`
+            : '认证已提交，等待人工复核',
+      body: result.review?.summary || '',
+      link: `/#/verify`,
+    });
+
+    return data(res, {
+      user: selfUser(result.user),
+      verification: verifySvc.verificationSummary(result.user),
+      review: result.review,
+      mode: result.mode || (result.verification.status === 'approved' ? 'auto' : 'manual'),
+      files: saved.map(filePublic),
+    }, 201);
+  });
+
+  /** 管理员人工复核认证 */
+  app.post('/api/users/:id/verification/review', (req, res) => {
+    const admin = mustAuth(req);
+    if (!admin.isAdmin) throw httpError(403, '需要管理员权限');
+    const agree = bool(req.body?.agree);
+    const note = str(req.body?.note, 500);
+    const result = verifySvc.reviewVerification(req.params.id, { agree, note }, admin);
+    notifySvc.notify({
+      userId: req.params.id,
+      type: 'system',
+      title: agree ? '认证已通过' : '认证未通过',
+      body: note || (agree ? '管理员已通过您的认证。' : '管理员未通过您的认证，请核对材料后重新提交。'),
+      link: `/#/verify`,
+    });
+    return data(res, { user: selfUser(result.user), verification: verifySvc.verificationSummary(result.user) });
+  });
+
+  /** 管理员查看待复核列表 */
+  app.get('/api/admin/verifications', (req, res) => {
+    const admin = mustAuth(req);
+    if (!admin.isAdmin) throw httpError(403, '需要管理员权限');
+    const status = String(queryOf(req).status || 'pending');
+    const items = users()
+      .all()
+      .filter((u) => u.verification && u.verification.status !== 'none')
+      .filter((u) => (status === 'all' ? true : u.verification.status === status))
+      .map((u) => ({ user: publicUser(u), verification: verifySvc.verificationSummary(u) }));
+    return data(res, { items, total: items.length });
   });
 
   /* ================================================================ */

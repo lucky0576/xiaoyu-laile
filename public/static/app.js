@@ -215,6 +215,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderLogin(ctx, query);
     case 'register':
       return viewsAccount.renderRegister(ctx, query);
+    case 'verify':
+      return viewsAccount.renderVerify(ctx, query);
     case 'me':
       return viewsAccount.renderMe(ctx, query);
     case 'my-listings':
