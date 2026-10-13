@@ -5,6 +5,7 @@
 // extractText 全程 try/catch 兜底，失败时返回 { text:'', meta:{}, notes:['提取失败: ...'] }。
 
 import { inflateSync, inflateRawSync } from 'node:zlib';
+import { extractPdfText } from './pdftext.js';
 import { readZip, isZip } from './zip.js';
 
 /** 文本类文件的单次处理上限（64MB） */
@@ -672,6 +673,24 @@ function extractPdf(buf) {
     }
   } catch {
     // 忽略
+  }
+
+  // ---- 优先走 ToUnicode 解析器 ----
+  // 中文 PDF 基本都是 Identity-H 子集字体，内容流里是 CID 而不是码点。
+  // 不做 ToUnicode 映射只能读出乱码（下游 AI 汇总会因此残缺），
+  // 所以先试这条路径；不可用或结果为空时再回退到下面的通用流扫描。
+  try {
+    const better = extractPdfText(src);
+    if (better.text && better.text.replace(/\s/g, '').length > 50) {
+      if (better.note) notes.push(better.note);
+      meta.pages = better.pages || meta.pages;
+      meta.textMode = better.mode;
+      meta.cidHits = better.cidHits;
+      return { text: cleanText(better.text), meta, notes };
+    }
+    if (better.note && better.mode === 'none') notes.push(better.note);
+  } catch (err) {
+    notes.push('pdf: ToUnicode 解析失败 ' + msg(err));
   }
 
   // ---- 流扫描 ----

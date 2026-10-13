@@ -709,6 +709,113 @@ test('extractText rar/7z 只做类型识别', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// PDF：ToUnicode（Identity-H 子集字体）
+//
+// 中文 PDF 几乎都用 Type0 / Identity-H，内容流里是 CID 而不是码点。
+// 不查 ToUnicode 就只会读出乱码，下游 AI 汇总会因此残缺 —— 这是实际踩过的坑，
+// 所以这里手工构造一份带 ToUnicode 的 PDF 把它锁住。
+// ---------------------------------------------------------------------------
+
+function buildToUnicodePdf(text) {
+  const chars = [...text].filter((c) => c.charCodeAt(0) > 0x2000 || /[\x20-\x7e]/.test(c));
+  const entries = chars
+    .map((c, i) => `<${(i + 1).toString(16).padStart(4, '0')}> <${c.charCodeAt(0).toString(16).padStart(4, '0')}>`)
+    .join('\n');
+  const cidHex = chars.map((_, i) => (i + 1).toString(16).padStart(4, '0')).join('');
+
+  const cmap = `/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo <</Registry (Adobe) /Ordering (UCS) /Supplement 0>> def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<0000> <FFFF>
+endcodespacerange
+${chars.length} beginbfchar
+${entries}
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end`;
+
+  const content = `BT /F1 12 Tf 72 700 Td <${cidHex}> Tj ET`;
+
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    '<< /Type /Font /Subtype /Type0 /BaseFont /TestSubset /Encoding /Identity-H /DescendantFonts [6 0 R] /ToUnicode 7 0 R >>',
+    '<< /Type /Font /Subtype /CIDFontType2 /BaseFont /TestSubset >>',
+    `<< /Length ${cmap.length} >>\nstream\n${cmap}\nendstream`,
+  ];
+
+  let pdf = '%PDF-1.7\n';
+  objs.forEach((o, i) => {
+    pdf += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  pdf += 'trailer\n<< /Root 1 0 R /Size ' + (objs.length + 1) + ' >>\n%%EOF\n';
+  return Buffer.from(pdf, 'latin1');
+}
+
+test('PDF：有 ToUnicode 时能还原中文（不再是乱码）', async () => {
+  const { extractPdfText } = await import('../src/lib/pdftext.js');
+  const text = '庆阳绿电算力数据中心项目总投资五十亿元人民币本次融资六亿元建设周期十二个月';
+  const buf = buildToUnicodePdf(text);
+
+  const r = extractPdfText(buf);
+  assert.equal(r.mode, 'tounicode', '应走 ToUnicode 分支');
+  assert.ok(r.cidHits > 0, '应有 CID 命中');
+  assert.equal(r.cidMisses, 0, '不应有未命中的 CID');
+  assert.ok(r.text.includes('庆阳绿电算力数据中心'), '中文应完整还原，实际：' + r.text.slice(0, 60));
+  assert.ok(r.text.includes('本次融资六亿元'), '数字段落也应还原');
+});
+
+test('PDF：extractText 走 ToUnicode 路径', async () => {
+  const text =
+    '庆阳绿电算力数据中心项目总投资五十亿元人民币本次融资六亿元建设周期十二个月'
+    + '一期项目建设内容包括算力楼栋动力楼栋办公楼栋及变电站四大核心建筑总建筑面积约八万五千平方米';
+  const r = await extractText(buildToUnicodePdf(text), 'bp.pdf');
+  assert.equal(r.kind, 'pdf');
+  assert.equal(r.meta.textMode, 'tounicode', '应标注走了 ToUnicode');
+  assert.ok(r.meta.cidHits > 0);
+  assert.ok(r.text.includes('庆阳绿电算力数据中心'), '正文应包含中文项目名');
+  assert.ok(r.text.includes('本次融资六亿元'), '正文应包含融资信息');
+  assert.ok(r.notes.some((s) => s.includes('ToUnicode')), '备注应说明用了 ToUnicode');
+});
+
+test('PDF：无 ToUnicode 时如实说明，不假装成功', async () => {
+  const { extractPdfText } = await import('../src/lib/pdftext.js');
+  // 拿掉 ToUnicode 引用
+  const buf = buildToUnicodePdf('测试文本内容用于验证没有映射时的降级行为');
+  const broken = Buffer.from(buf.toString('latin1').replace(/\/ToUnicode 7 0 R/, ''), 'latin1');
+  const r = extractPdfText(broken);
+  assert.equal(r.mode, 'none');
+  assert.ok(r.note.includes('未找到 ToUnicode'), '应明确说明没有映射，实际：' + r.note);
+  assert.equal(r.cidHits, 0);
+});
+
+test('PDF：对象流不支持时明确降级，不静默出错', async () => {
+  const { extractPdfText, hasObjectStreams } = await import('../src/lib/pdftext.js');
+  const buf = buildToUnicodePdf('对象流测试');
+  const withObjStm = Buffer.from(buf.toString('latin1').replace('/Type /Catalog', '/Type /ObjStm'), 'latin1');
+  assert.equal(hasObjectStreams(withObjStm.toString('latin1')), true);
+  const r = extractPdfText(withObjStm);
+  assert.equal(r.mode, 'none');
+  assert.ok(r.note.includes('对象流'), '应说明原因，实际：' + r.note);
+});
+
+test('PDF：随机字节不抛异常', async () => {
+  const { extractPdfText } = await import('../src/lib/pdftext.js');
+  const junk = Buffer.from(Array.from({ length: 4096 }, (_, i) => (i * 37) % 256));
+  const r = extractPdfText(junk);
+  assert.equal(typeof r.text, 'string');
+  assert.ok(['tounicode', 'none'].includes(r.mode));
+});
+
+// ---------------------------------------------------------------------------
 // 运行
 // ---------------------------------------------------------------------------
 

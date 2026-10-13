@@ -432,10 +432,21 @@ export async function renderPublish(ctx, params) {
         const box = $('#pub-summary');
         const facts = s.facts || {};
         const factRows = Object.entries({
-          项目名称: facts.projectName, 发布主体: facts.owner, 地点: facts.location,
-          行业: facts.industry, 金额: facts.amount, 规模: facts.scale,
-          周期: facts.period, 范围: facts.scope, 合作方式: facts.cooperation,
-          资质要求: facts.requirements, 付款条件: facts.payment, 联系方式: facts.contact,
+          项目名称: facts.projectName,
+          项目定位: facts.positioning,
+          项目选址: facts.location,
+          总投资: facts.totalInvest,
+          本次融资: facts.funding,
+          金额: facts.amount,
+          规模: facts.scale,
+          建设周期: facts.period,
+          电价成本: facts.powerPrice,
+          投资回报: facts.payback,
+          投资者权益: facts.rights,
+          建设内容: facts.scope,
+          合作方式: facts.cooperation,
+          资质要求: facts.requirements,
+          付款条件: facts.payment,
         }).filter(([, v]) => v);
 
         box.innerHTML = `

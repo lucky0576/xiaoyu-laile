@@ -614,29 +614,202 @@ const SYSTEM_PROMPT = `你是"小鱼来了"产业信息发布平台的资深产�
 /* 对外：标题生成                                                      */
 /* ------------------------------------------------------------------ */
 /* ------------------------------------------------------------------ */
+/* 文本回流                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 把文档提取出来的**硬换行**合并成自然段。
+ *
+ * 为什么必须做：
+ *   PDF / PPT 里粗体数字常常单独占一行，提取出来是这样：
+ *       项目总投资
+ *       50
+ *       亿元人民币，分三期建设推进：
+ *   直接按换行切句会把「项目总投资」和「50亿元」拆开，
+ *   于是汇总里出现「建设周期控制在。」这种缺了关键数字的残句。
+ *   回流之后再切句，数字就落回它该在的位置了。
+ */
+export function reflowLines(text) {
+  const lines = String(text || '')
+    .split(/[\n\r]+/)
+    .map((s) => s.replace(/[ \t\u00a0]+/g, ' ').trim())
+    .filter(Boolean);
+
+  /* ---- 先剥掉目录区 ---- */
+  // 目录在提取文本里长这样（点线被清掉之后）：
+  //   目录 / 第一章执行摘要 / 第二章项目概况 / 2.1项目名称与定位 …
+  // 这些内容会被当成正文喂给模型，摘要就会以「目录」开头，必须去掉。
+  const isTocEntry = (l) =>
+    /^\d+(\.\d+)*\s*\S{2,30}$/.test(l) || // 2.1 项目名称与定位
+    /^第[一二三四五六七八九十百]+[章节]\s*\S{2,40}$/.test(l) || // 第一章 执行摘要
+    /^[.·。…\s\d]{6,}$/.test(l); // 纯点线
+
+  const cleaned = [];
+  let tocDepth = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^目\s*录$/.test(l)) {
+      tocDepth = 1;
+      continue;
+    }
+    if (tocDepth) {
+      // 连续多个目录条目 → 判定为目录区，继续跳过
+      if (isTocEntry(l)) continue;
+      // 目录区结束：出现长句正文
+      if (l.length > 40 || /[。！？]/.test(l)) tocDepth = 0;
+      else continue;
+    }
+    if (isTocEntry(l)) continue;
+    cleaned.push(l);
+  }
+
+  const out = [];
+  let buf = '';
+  const flush = () => {
+    const s = buf.trim();
+    if (s) out.push(s);
+    buf = '';
+  };
+
+  for (const line of cleaned) {
+    // 纯数字行要**粘回上一行**，不能当页码丢掉。
+    // PDF 里粗体数字经常被单独拆成一行：
+    //     项目总投资 / 50 / 亿元人民币…
+    //     建设周期控制在 / 12 / 个月内
+    // 丢掉它就会得到「一期投资亿元」「建设周期控制在个月内」这种缺数字的残句。
+    if (/^\d{1,4}(\.\d+)?$/.test(line) && buf) {
+      buf += line;
+      continue;
+    }
+    if (!buf) {
+      buf = line;
+      continue;
+    }
+    // 上一段已经以句末标点收尾 → 另起一段；否则接着拼
+    if (/[。！？；]$/.test(buf)) {
+      flush();
+      buf = line;
+      continue;
+    }
+    buf += line;
+    if (buf.length > 1200) flush();
+  }
+  flush();
+
+  return out.join('\n');
+}
+
+/**
+ * 表格单元格会被粘成超长句，例如：
+ *   分期投资额建设规模建设周期备注一期亿元个kW标准高密机柜…合计175MW个月
+ * 这种句子直接进摘要毫无可读性。这里按「章节号 / 冒号 / 期次 / 数字+单位」等
+ * 边界把长句再切成较短的片段。
+ */
+function splitLongSentences(list, max = 180) {
+  const out = [];
+  for (const s of list) {
+    if (s.length <= max) {
+      out.push(s);
+      continue;
+    }
+    const parts = s
+      .split(/(?=第[一二三四五六七八九十]+[章节])|(?=\d+\.\d+\s*\S)|(?<=：)|(?<=——)|(?=合计\d)|\s{2,}/)
+      .map((x) => x.trim())
+      .filter((x) => x.length >= 6);
+    if (parts.length <= 1) {
+      out.push(s);
+      continue;
+    }
+    for (const p of parts) out.push(p);
+  }
+  return out;
+}
+
+/** 目录/术语表一类的句子：章节号或“术语全称”密集出现，信息量为负 */
+function looksLikeToc(s) {
+  const chapters = (s.match(/第[一二三四五六七八九十]+章/g) || []).length;
+  const numbered = (s.match(/\d+\.\d+/g) || []).length;
+  if (chapters >= 2 || numbered >= 3) return true;
+  if (/术语全称|术语\s*全称|解释\s*PUEPower|PowerUsageEffectiveness/.test(s)) return true;
+  return false;
+}
+
+/** 取关键词附近的上下文窗口（比整句更聚焦） */
+function around(text, keyword, before = 15, after = 90) {
+  const i = String(text).indexOf(keyword);
+  if (i < 0) return '';
+  const s = String(text)
+    .slice(Math.max(0, i - before), i + after)
+    .replace(/\s+/g, ' ')
+    .trim();
+  // 开头常常带出上一句的半截词（「与定位项目名称：…」），
+  // 从最后一个句读之后重新开始
+  const cut = Math.max(s.lastIndexOf('。'), s.lastIndexOf('：'), s.lastIndexOf('；'), s.lastIndexOf(' '));
+  if (cut > 0 && cut < 40) return s.slice(cut + 1).trim();
+  return s;
+}
+
+/** 规模优先取大单位：MW/GW/亩/平方米 比 kW 更能代表项目体量 */
+function bestScale(text) {
+  const list = extractScales(text);
+  const big = list.filter((s) => /(MW|GW|MWh|GWh|万吨|亩|平方米|万平米)/i.test(s) && !/kW\b/i.test(s));
+  return big[0] || list[0] || '';
+}
+
+/* ------------------------------------------------------------------ */
 /* 第一步：AI 汇总                                                     */
 /*   把用户填写的文字 + 导入文件的解析文本，先汇总成一份结构化摘要，      */
 /*   再拿摘要去生成主副标题与可靠性分析。                               */
 /*   好处：长文档、多附件、口语化描述混杂时，生成结果更稳定、更少遗漏。   */
 /* ------------------------------------------------------------------ */
 
-export function localSummary(input) {
-  const raw = cleanText(`${input.text || ''}\n${input.fileText || ''}`);
-  const amounts = sortAmountsDesc(extractAmounts(raw));
-  const scales = extractScales(raw);
-  const all = sentences(raw);
+/** 从文本里按正则抠出一个字段（取第一个命中） */
+function grab(text, patterns, max = 160) {
+  for (const re of patterns) {
+    const m = re.exec(text);
+    if (m) {
+      const v = String(m[1] !== undefined ? m[1] : m[0]).replace(/\s+/g, ' ').trim();
+      if (v) return v.slice(0, max);
+    }
+  }
+  return '';
+}
 
-  // 按「信息量」给句子打分，优先保留含金额 / 规模 / 资质 / 工期 / 地点的句子
+/** 找到含关键词的第一句完整话 */
+function sentenceWith(list, words, max = 200) {
+  for (const s of list) {
+    if (words.some((w) => s.includes(w))) return s.slice(0, max);
+  }
+  return '';
+}
+
+/** 汇总里会尝试抽取的字段（界面按这个顺序展示） */
+export const SUMMARY_FACT_KEYS = [
+  'projectName', 'positioning', 'location', 'industry',
+  'totalInvest', 'funding', 'amount', 'scale', 'period',
+  'powerPrice', 'payback', 'rights',
+  'scope', 'cooperation', 'requirements', 'payment', 'contact',
+];
+
+export function localSummary(input) {
+  // 先回流再切句：否则数字与标签会被硬换行拆散
+  const raw = reflowLines(`${input.text || ''}\n${input.fileText || ''}`);
+  const flat = raw.replace(/\n/g, ' ');
+
+  // 切句 → 再切超长句 → 丢掉目录/术语表一类噪音
+  const all = splitLongSentences(sentences(raw), 180).filter((s) => s.length >= 6 && !looksLikeToc(s));
+
   const scored = all
     .map((s) => {
       let score = 0;
       if (/\d[\d,]*(?:\.\d+)?\s*(亿|万|千)?\s*(元|人民币)/.test(s)) score += 4;
-      if (/(GW|MW|MWh|GWp|MWp|万吨|吨|万台|台|万套|套|平方米|亩)/i.test(s)) score += 3;
+      if (/(GW|MW|MWh|GWp|MWp|万吨|吨|万台|台|万套|套|平方米|亩|EFLOPS)/i.test(s)) score += 3;
       if (/资质|许可|总承包|认证|业绩/.test(s)) score += 3;
       if (/工期|周期|交付|个月|日历天/.test(s)) score += 2;
       if (/位于|地点|地址|省|市|县|区/.test(s)) score += 2;
       if (/招标|采购|投资|融资|转让|合作|EPC|EMC|居间/.test(s)) score += 2;
-      if (s.length > 140) score -= 1;
+      if (s.length > 140) score -= 2;
+      if (s.length < 8) score -= 2;
       return { s, score };
     })
     .sort((a, b) => b.score - a.score);
@@ -644,10 +817,7 @@ export function localSummary(input) {
   const picked = uniq(scored.filter((x) => x.score > 0).map((x) => x.s));
   const ranked = picked.length ? picked : all;
 
-  // 按信息量排出来的第一名常常是「项目位于……」这种叙述句，
-  // 拿去做摘要开头、或被本地标题引擎当核心都很别扭。
-  // 所以只要原文里有一句「像标题」（含项目/工程/采购等关键词且长度合适），
-  // 就把它提到最前面，其余按分数排。
+  // 让「像标题的那句」排在摘要最前面
   const lead = all.find(
     (s) =>
       s.length >= 8 &&
@@ -655,37 +825,96 @@ export function localSummary(input) {
       /项目|工程|采购|招标|交易|融资|转让|建设|服务/.test(s) &&
       !/^(项目)?位于|^地址|^地点/.test(s),
   );
-  const usePoints = (lead ? [lead, ...ranked.filter((s) => s !== lead)] : ranked).slice(0, 10);
+  const usePoints = (lead ? [lead, ...ranked.filter((s) => s !== lead)] : ranked).slice(0, 12);
 
   const digest = usePoints
-    .slice(0, 6)
+    .slice(0, 7)
     .map((s) => s.replace(/[。；;，,]+$/, ''))
     .join('。') + (usePoints.length ? '。' : '');
 
+  /* ---- 结构化字段 ---- */
+  // 金额优先取「总投资 / 本次融资」紧邻的数字。
+  // 直接拿全文最大金额会取到地区 GDP 这类无关数字（实测踩过）。
+  const pickAmountNear = (kw, win = 80) => {
+    const i = flat.indexOf(kw);
+    if (i < 0) return '';
+    const seg = flat.slice(i, i + win);
+    const list2 = sortAmountsDesc(extractAmounts(seg));
+    return list2[0] || '';
+  };
+
+  const cityMatch = /([\u4e00-\u9fa5]{2,8}(?:省|自治区|市))([\u4e00-\u9fa5]{2,12}(?:区|县|市|镇|园区|新区))?/.exec(flat);
+  // 「X省Y市」是最可靠的选址写法，优先用它
+  const provCity = /([\u4e00-\u9fa5]{2,6}(?:省|自治区))([\u4e00-\u9fa5]{2,10}(?:市|州|区))/.exec(flat);
+
+  const facts = {
+    // 必须要求「项目名称：」这种带冒号的真实标签，
+    // 否则会匹配到目录里的「2.1项目名称与定位」，把整段目录当成字段值（实测踩过）
+    projectName: grab(flat, [
+      /项目名称\s*[：:]\s*([^\n。；]{3,80})/,
+      /^([^\n。；]{4,50}数据中心[^\n。；]{0,20}项目)/,
+    ], 70),
+    positioning:
+      around(flat, '项目定位', 0, 160) ||
+      around(flat, '定位：', 0, 160) ||
+      sentenceWith(all, ['打造', '标杆', '承接'], 180),
+    location:
+      grab(flat, [/(?:项目选址|建设地点|项目地址|选址)\s*[：:]\s*([^\n。；]{2,60})/], 80) ||
+      (provCity ? `${provCity[1]}${provCity[2]}` : '') ||
+      (cityMatch ? `${cityMatch[1]}${cityMatch[2] || ''}` : ''),
+    industry: '',
+    totalInvest:
+      pickAmountNear('项目总投资', 60) ||
+      grab(flat, [/总投资[约为：:\s]*([\d.,]+\s*[亿万]?\s*元[^\n。；]{0,40})/], 80),
+    funding:
+      pickAmountNear('融资规模', 60) ||
+      pickAmountNear('本次融资', 80) ||
+      grab(flat, [/(?:融资规模|募集(?:资金|规模))\s*[：:约为\s。]*([\d.,]+\s*[亿万]?\s*元[^\n。；]{0,30})/], 70),
+    amount:
+      pickAmountNear('项目总投资', 60) ||
+      pickAmountNear('本次融资', 80) ||
+      pickAmountNear('总投资', 60) ||
+      (sortAmountsDesc(extractAmounts(flat))[0] || ''),
+    scale: bestScale(flat),
+    period: grab(flat, [
+      /(?:建设周期|工期)[约为：:\s]*([\d.,]+\s*(?:个月|年)[^\n。；]{0,40})/,
+      /(\d+\s*个月内(?:完成)?[^\n。；]{0,30})/,
+    ], 70),
+    // 电价：先在「到户电价 / 优惠电价」附近找确切数字，
+    // 直接搜「电价」会命中市场分析里那段没有数字的论述
+    powerPrice:
+      grab(around(flat, '到户电价', 0, 90), [/([\d.,]+\s*元\s*\/\s*kWh[^\n。；]{0,50})/], 100) ||
+      grab(around(flat, '优惠电价', 0, 90), [/([\d.,]+\s*元\s*\/\s*kWh[^\n。；]{0,50})/], 100) ||
+      grab(flat, [/([\d.]+)\s*元\s*\/\s*kWh/], 60) ||
+      around(flat, '电价', 6, 90),
+    payback: around(flat, '回收期', 10, 90) || around(flat, 'IRR', 20, 80),
+    rights: around(flat, '退出机制', 0, 150) || around(flat, '回购', 20, 100),
+    scope: around(flat, '建设内容', 0, 160) || around(flat, '建设规模', 0, 160) || around(flat, '算力规模', 0, 140),
+    cooperation: grab(flat, [/合作方式\s*[：:]\s*([^\n。；]{2,60})/], 80),
+    requirements: around(flat, '资质', 20, 100),
+    payment: grab(flat, [/付款方式\s*[：:]\s*([^\n。；]{2,60})/], 80),
+    contact: '',
+  };
+
   const missing = [];
-  if (!amounts.length) missing.push('金额 / 投资额');
-  if (!scales.length) missing.push('项目规模');
-  if (!/资质|许可|总承包/.test(raw)) missing.push('对承接方的资质要求');
-  if (!/工期|周期|交付|个月/.test(raw)) missing.push('工期 / 交付期');
-  if (!/付款|预付|结算|月结/.test(raw)) missing.push('付款方式');
+  for (const [k, label] of [
+    ['projectName', '项目名称'],
+    ['location', '项目地点'],
+    ['totalInvest', '投资总额'],
+    ['funding', '本次融资规模'],
+    ['period', '建设周期'],
+  ]) {
+    if (!facts[k]) missing.push(label);
+  }
+  if (!facts.amount) missing.push('金额');
+  if (!facts.scale) missing.push('项目规模');
+  if (!/资质|许可|总承包/.test(flat)) missing.push('对承接方的资质要求');
+  if (!/付款|预付|结算|月结/.test(flat)) missing.push('付款方式');
 
   return {
-    digest: digest.slice(0, 800),
-    points: usePoints.map((s) => s.slice(0, 200)),
-    facts: {
-      projectName: '',
-      owner: String(input.company || ''),
-      location: '',
-      industry: '',
-      amount: amounts[0] || '',
-      scale: scales[0] || '',
-      period: '',
-      scope: '',
-      cooperation: '',
-      requirements: '',
-      payment: '',
-      contact: '',
-    },
+    digest: digest.slice(0, 1200),
+    points: usePoints.map((s) => s.slice(0, 240)),
+    facts,
     missing,
     charCount: raw.length,
     source: 'local',
@@ -704,9 +933,12 @@ export async function summarizeProject(input) {
 1. digest：用 150-300 字客观概述这个项目——是什么、在哪、多大规模、要做什么、有什么条件。只陈述资料里有的内容，不要评价、不要营销词、不要编造；
 2. points：6-10 条要点，每条一句话，尽量覆盖：项目主体、地点、规模与金额、建设或交易内容、工期、资质要求、合作方式、付款条件、关键风险或待确认项；
 3. facts：把能确定的字段抽出来，资料里没有的留空字符串，不要猜：
-   项目名称 projectName / 发布主体 owner / 地点 location / 行业 industry
-   金额 amount / 规模 scale / 周期 period / 范围 scope
-   合作方式 cooperation / 资质与资格要求 requirements / 付款条件 payment / 联系方式 contact
+   项目名称 projectName / 项目定位 positioning / 项目选址 location / 行业 industry
+   项目总投资 totalInvest / 本次融资规模 funding / 金额 amount / 规模 scale
+   建设周期 period / 电价或单位成本 powerPrice / 投资回报（IRR、回收期）payback
+   投资者权益（回购、退出）rights / 建设内容 scope / 合作方式 cooperation
+   资质与资格要求 requirements / 付款条件 payment / 联系方式 contact
+   注意：投资总额与融资规模要分开写；带「亿元/万元」的完整数值不要漏掉单位。
 4. missing：列出原始资料里缺失、但发布时建议补上的信息。
 
 用户填写的原始正文：
