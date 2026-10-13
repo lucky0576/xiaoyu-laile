@@ -603,6 +603,56 @@ ul { margin: 0; padding-left: 18px; }
   background: linear-gradient(135deg, #eef4fb, #f7fbff);
 }
 
+/* ---------- 采购/供应：物资明细 ---------- */
+.trade-item {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #f9fbfd;
+}
+.trade-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+@media (max-width: 560px) {
+  .trade-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------- 数据表格（物资明细 2 条以上） ---------- */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 560px;
+}
+.data-table th,
+.data-table td {
+  padding: 9px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.data-table thead th {
+  background: #f4f8fd;
+  color: var(--text-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:nth-child(even) { background: #fafcff; }
+.data-table .num { text-align: right; white-space: nowrap; }
+.data-table .dim { color: var(--text-3); }
+.data-table td .tiny { line-height: 1.5; }
+
 /* 未登录时给操作按钮加一个锁的提示 */
 .locked-hint {
   background: #fff8e6;

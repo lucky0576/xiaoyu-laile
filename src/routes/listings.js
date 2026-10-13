@@ -31,7 +31,7 @@ function buildEvent(body) {
 }
 
 function buildTrade(body) {
-  return {
+  const out = {
     tradeType: str(body.tradeType || body.type, 40),
     quantity: str(body.quantity, 60),
     unit: str(body.unit, 20),
@@ -41,6 +41,12 @@ function buildTrade(body) {
     deadline: str(body.deadline, 40),
     destination: str(body.destination, 100),
   };
+  // 物资明细：只有前端真的提交了这个字段才覆盖，
+  // 否则编辑其它字段时会把已有的明细冲掉
+  if (body.items !== undefined) {
+    out.items = listingsSvc.normalizeTradeItems(body.items);
+  }
+  return out;
 }
 
 function buildProject(body) {

@@ -680,6 +680,49 @@ export async function renderDetail(ctx, params) {
       </div>`
     : '';
 
+  /* 物资明细：2 条以上用表格，1 条并入普通字段展示 */
+  const tradeItems = (listing.trade && listing.trade.items) || [];
+  const itemsTable = tradeItems.length >= 2
+    ? `<div class="strong mb8 mt12">📋 物资明细（${tradeItems.length} 条）</div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:38px">#</th>
+                <th>品名</th>
+                <th>规格型号</th>
+                <th class="num">数量</th>
+                <th>单位</th>
+                <th class="num">单价</th>
+                <th>备注</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tradeItems.map((it, i) => `<tr>
+                <td class="dim">${i + 1}</td>
+                <td class="strong">${ui.esc(it.name || '—')}</td>
+                <td>${ui.esc(it.spec || '—')}</td>
+                <td class="num">${ui.esc(it.quantity || '—')}</td>
+                <td>${ui.esc(it.unit || '—')}</td>
+                <td class="num">${ui.esc(it.price || '—')}</td>
+                <td class="tiny">${ui.esc(it.note || '')}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="tiny dim mt8">共 ${tradeItems.length} 条物资，数量与单价以双方最终确认为准。</div>`
+    : '';
+
+  const singleItem = tradeItems.length === 1
+    ? `<div class="small muted mt8">
+        <div>品名：${ui.esc(tradeItems[0].name || '—')}</div>
+        ${tradeItems[0].spec ? `<div>规格：${ui.esc(tradeItems[0].spec)}</div>` : ''}
+        ${tradeItems[0].quantity ? `<div>数量：${ui.esc(tradeItems[0].quantity)} ${ui.esc(tradeItems[0].unit || '')}</div>` : ''}
+        ${tradeItems[0].price ? `<div>单价：${ui.esc(tradeItems[0].price)}</div>` : ''}
+        ${tradeItems[0].note ? `<div>备注：${ui.esc(tradeItems[0].note)}</div>` : ''}
+      </div>`
+    : '';
+
   const tradeBlock = listing.category === 'trade' && listing.trade
     ? `<div class="card card-pad">
         <div class="strong mb8">🤝 供需信息</div>
@@ -692,6 +735,8 @@ export async function renderDetail(ctx, params) {
           ${listing.trade.destination ? `<div>地点：${ui.esc(listing.trade.destination)}</div>` : ''}
           ${listing.trade.deadline ? `<div>截止：${ui.esc(ui.fmtDate(listing.trade.deadline))}</div>` : ''}
         </div>
+        ${singleItem}
+        ${itemsTable}
       </div>`
     : '';
 

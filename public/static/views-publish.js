@@ -244,6 +244,51 @@ export async function renderPublish(ctx, params) {
         });
       };
 
+      /* ---------------- 采购/供应：物资明细多条目 ---------------- */
+      const tradeItemRowHtml = (it = {}) => `<div class="trade-item">
+        <div class="row between mb4">
+          <span class="tiny dim">物资</span>
+          <button type="button" class="icon-btn trade-item-del" title="删除这一条">✕</button>
+        </div>
+        <input class="input" data-item="name" placeholder="品名，如 单晶硅光伏组件" value="${ui.esc(it.name || '')}">
+        <div class="trade-grid">
+          <input class="input" data-item="spec" placeholder="规格型号" value="${ui.esc(it.spec || '')}">
+          <input class="input" data-item="quantity" placeholder="数量" value="${ui.esc(it.quantity || '')}">
+          <input class="input" data-item="unit" placeholder="单位" value="${ui.esc(it.unit || '')}">
+          <input class="input" data-item="price" placeholder="单价" value="${ui.esc(it.price || '')}">
+        </div>
+        <input class="input mt4" data-item="note" placeholder="备注（选填），如 品牌 / 交货期 / 质量标准" value="${ui.esc(it.note || '')}">
+      </div>`;
+
+      const collectTradeItems = (scope) => {
+        const out = [];
+        scope.querySelectorAll('#f-items .trade-item').forEach((row) => {
+          const it = {};
+          row.querySelectorAll('[data-item]').forEach((el) => { it[el.dataset.item] = el.value.trim(); });
+          if (Object.values(it).some(Boolean)) out.push(it);
+        });
+        return out;
+      };
+
+      const bindTradeItems = (scope) => {
+        const list = scope.querySelector('#f-items');
+        if (!list) return;
+        scope.querySelector('#f-item-add')?.addEventListener('click', () => {
+          list.insertAdjacentHTML('beforeend', tradeItemRowHtml({}));
+          list.lastElementChild?.querySelector('[data-item="name"]')?.focus();
+        });
+        list.addEventListener('click', (e) => {
+          if (!e.target.closest('.trade-item-del')) return;
+          const rows = list.querySelectorAll('.trade-item');
+          // 至少保留一行，否则用户不知道怎么再加回来
+          if (rows.length <= 1) {
+            rows[0].querySelectorAll('[data-item]').forEach((el) => { el.value = ''; });
+            return;
+          }
+          e.target.closest('.trade-item')?.remove();
+        });
+      };
+
       const renderCatFields = () => {
         const box = $('#pub-cat-fields');
         if (category === 'event') {
@@ -258,18 +303,27 @@ export async function renderPublish(ctx, params) {
             <div class="field"><label>报名截止时间</label><input class="input" type="datetime-local" id="f-registerDeadline" value="${ui.esc((editing?.event?.registerDeadline || '').slice(0, 16))}"></div>
             <div class="field"><label>主办方</label><input class="input" id="f-organizer" value="${ui.esc(editing?.event?.organizer || ctx.state.user?.company || '')}"></div>`;
         } else if (category === 'trade') {
+          const items = editing?.trade?.items || [];
           box.innerHTML = `
             <div class="field"><label>供需类型</label>
               <select class="select" id="f-tradeType">
                 ${['采购', '供应', '委托加工', '询价', '招标采购', '库存尾货', '代理经销', '物流仓储'].map((t) => `<option ${editing?.trade?.tradeType === t ? 'selected' : ''}>${t}</option>`).join('')}
               </select>
             </div>
-            <div class="field"><label>数量</label><input class="input" id="f-quantity" placeholder="如 12 万吨 / 20 套" value="${ui.esc(editing?.trade?.quantity || '')}"></div>
-            <div class="field"><label>单位</label><input class="input" id="f-unit" placeholder="如 吨 / 套 / 台" value="${ui.esc(editing?.trade?.unit || '')}"></div>
+
+            <div class="form-section-title">物资明细</div>
+            <div class="tiny dim mb8">同一个信息里有多条物资时逐条添加，<b>2 条以上会自动用表格展示</b>。</div>
+            <div id="f-items">${items.map(tradeItemRowHtml).join('')}</div>
+            <button class="btn btn-sm mb16" id="f-item-add" type="button">＋ 添加一条物资</button>
+
+            <div class="form-section-title">整单条件</div>
+            <div class="field"><label>总数量</label><input class="input" id="f-quantity" placeholder="如 12 万吨 / 20 套（可留空）" value="${ui.esc(editing?.trade?.quantity || '')}"></div>
             <div class="field"><label>价格条件</label><input class="input" id="f-price" placeholder="如 月结 60 天 / 电议" value="${ui.esc(editing?.trade?.price || '')}"></div>
             <div class="field"><label>付款方式</label><input class="input" id="f-payment" placeholder="如 预付 30%，验收 60%" value="${ui.esc(editing?.trade?.payment || '')}"></div>
             <div class="field"><label>交付方式 / 地点</label><input class="input" id="f-delivery" value="${ui.esc(editing?.trade?.delivery || '')}"></div>
             <div class="field"><label>报价截止</label><input class="input" type="date" id="f-deadline" value="${ui.esc((editing?.trade?.deadline || '').slice(0, 10))}"></div>`;
+          bindTradeItems(box);
+          return;
         } else {
           const qs = editing?.project?.qualifications || [];
           const bt = editing?.project?.businessTerms || {};
@@ -316,8 +370,9 @@ export async function renderPublish(ctx, params) {
         }
         if (category === 'trade') {
           return {
-            tradeType: v('#f-tradeType'), quantity: v('#f-quantity'), unit: v('#f-unit'), price: v('#f-price'),
+            tradeType: v('#f-tradeType'), quantity: v('#f-quantity'), price: v('#f-price'),
             payment: v('#f-payment'), delivery: v('#f-delivery'), deadline: v('#f-deadline'),
+            items: collectTradeItems(box),
           };
         }
         return {

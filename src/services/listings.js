@@ -213,6 +213,32 @@ function truthy(v, fallback = false) {
 }
 
 /**
+ * 采购 / 供应信息的「物资明细」。
+ * 2 条以上时前端会用表格展示，所以这里只做清洗，不做数量限制。
+ */
+export function normalizeTradeItems(input) {
+  const arr = parseMaybeJson(input);
+  if (!Array.isArray(arr)) return [];
+  const s = (v, n) => String(v ?? '').trim().slice(0, n);
+  const out = [];
+  for (const raw of arr) {
+    if (!raw || typeof raw !== 'object') continue;
+    const item = {
+      name: s(raw.name || raw.title, 120),
+      spec: s(raw.spec || raw.model || raw.brand, 120),
+      quantity: s(raw.quantity, 60),
+      unit: s(raw.unit, 20),
+      price: s(raw.price, 60),
+      note: s(raw.note || raw.remark, 200),
+    };
+    // 品名为空、且其它字段也全空的行直接丢弃
+    if (Object.values(item).some(Boolean)) out.push(item);
+    if (out.length >= 100) break; // 防御：别让一条信息塞进上千行
+  }
+  return out;
+}
+
+/**
  * 发布方勾选/填写的「对方需要具备哪些资质」。
  * 支持多项，每项含名称、等级、是否必需、备注。
  */
@@ -467,6 +493,8 @@ export async function createListing({ user, body = {}, files = [] }) {
             delivery: clean(body.delivery || ''),
             deadline: clean(body.deadline || ''),
             destination: clean(body.destination || ''),
+            // 物资明细：2 条以上时前端会用表格展示
+            items: normalizeTradeItems(body.items),
           }
         : null,
 
@@ -519,6 +547,13 @@ export async function updateListing(id, user, patch = {}) {
   for (const k of allowed) if (patch[k] !== undefined) next[k] = patch[k];
   // 项目字段要与原值合并，避免编辑时把未提交的资质/商务条件清空
   if (next.project && l.category === 'project') next.project = normalizeProject(next.project, l.project);
+  // 贸易字段同样要合并，否则改一下付款方式就会把物资明细整片冲掉
+  if (next.trade && l.category === 'trade') {
+    const merged = { ...(l.trade || {}), ...next.trade };
+    // items 是数组：显式提交（含空数组）才覆盖，没提交就保留原来的明细
+    if (next.trade.items === undefined) merged.items = (l.trade || {}).items || [];
+    next.trade = merged;
+  }
   if (next.type) next.typeName = typeNameOf(l.category, next.type);
   if (next.durationDays && l.status === 'published') {
     next.expiresAt = computeExpiry(next.durationDays, new Date(l.publishedAt || Date.now()).getTime());
@@ -1317,6 +1352,7 @@ export default {
   qualificationSummary,
   evaluateQualification,
   normalizeQualifications,
+  normalizeTradeItems,
   normalizeBusinessTerms,
   normalizeProject,
   registerForEvent,

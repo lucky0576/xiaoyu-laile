@@ -910,6 +910,85 @@ async function main() {
   const casesOther = await call('POST', `/api/listings/${cid2}/cases/refresh`, { token: tokenB });
   check('非发布方不能刷新案例', casesOther.status === 403, String(casesOther.status));
 
+  console.log('\n=== 12f. 采购/供应：多条物资明细（2 条以上用表格展示） ===');
+  const multiItems = [
+    { name: '单晶硅光伏组件', spec: '182mm 550W', quantity: '12', unit: '万块', price: '0.72 元/W', note: '一线品牌' },
+    { name: '组串式逆变器', spec: '320kW', quantity: '60', unit: '台', price: '0.18 元/W' },
+    { name: '光伏支架', spec: '热镀锌', quantity: '4200', unit: '吨', price: '电议' },
+  ];
+  const miCreate = await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({
+      category: 'trade', type: 'procurement',
+      text: '江苏常州光伏电站设备集中采购，共 3 类物资，详见物资明细表。',
+      durationDays: '30', tradeType: '采购',
+      items: JSON.stringify(multiItems),
+    }),
+  });
+  check('可发布带多条物资的采购信息', miCreate.status === 201, JSON.stringify(miCreate.json).slice(0, 200));
+  const miId = miCreate.data.listing.id;
+  const miView = await call('GET', `/api/listings/${miId}`, { token: tokenA });
+  const miItems = miView.data?.listing?.trade?.items || [];
+  check('物资明细保存为 3 条', miItems.length === 3, `实际 ${miItems.length}`);
+  check('明细含品名', miItems[0]?.name === '单晶硅光伏组件', String(miItems[0]?.name));
+  check('明细含规格型号', miItems[0]?.spec === '182mm 550W', String(miItems[0]?.spec));
+  check('明细含数量与单位', miItems[0]?.quantity === '12' && miItems[0]?.unit === '万块');
+  check('明细含单价', miItems[0]?.price === '0.72 元/W', String(miItems[0]?.price));
+  check('明细含备注', miItems[0]?.note === '一线品牌', String(miItems[0]?.note));
+  check('供需类型保存正确', miView.data?.listing?.trade?.tradeType === '采购');
+
+  const miBlank = await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({
+      category: 'trade', text: '含空行的采购信息，用于验证空行会被丢弃而不是渲染成空表格行。',
+      durationDays: '30', tradeType: '采购',
+      items: JSON.stringify([{ name: '钢材' }, {}, { name: '', spec: '', quantity: '' }, { name: '水泥', quantity: '500' }]),
+    }),
+  });
+  const miBlankView = await call('GET', `/api/listings/${miBlank.data.listing.id}`, { token: tokenA });
+  check('空行被丢弃，只留 2 条', (miBlankView.data?.listing?.trade?.items || []).length === 2,
+    `实际 ${(miBlankView.data?.listing?.trade?.items || []).length}`);
+
+  const miDirty = await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({
+      category: 'trade', text: '脏数据测试：物资明细里混入 null、字符串、非对象，应被安全忽略。',
+      durationDays: '30', tradeType: '供应',
+      items: JSON.stringify([null, 'x', 42, { name: '有效物资' }, { name: '   ' }]),
+    }),
+  });
+  const miDirtyView = await call('GET', `/api/listings/${miDirty.data.listing.id}`, { token: tokenA });
+  check('脏数据被安全忽略，只留有效条目', (miDirtyView.data?.listing?.trade?.items || []).length === 1,
+    JSON.stringify(miDirtyView.data?.listing?.trade?.items));
+
+  const miHuge = await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({
+      category: 'trade', text: '上限测试：一次提交 150 条物资明细，应被截断到 100 条。',
+      durationDays: '30', tradeType: '采购',
+      items: JSON.stringify(Array.from({ length: 150 }, (_, i) => ({ name: `物料${i + 1}` }))),
+    }),
+  });
+  const miHugeView = await call('GET', `/api/listings/${miHuge.data.listing.id}`, { token: tokenA });
+  check('明细数量有上限（100 条）', (miHugeView.data?.listing?.trade?.items || []).length === 100,
+    `实际 ${(miHugeView.data?.listing?.trade?.items || []).length}`);
+
+  await call('PUT', `/api/listings/${miId}`, { token: tokenA, body: { trade: { tradeType: '采购', payment: '月结 60 天' } } });
+  const miAfterEdit = await call('GET', `/api/listings/${miId}`, { token: tokenA });
+  check('编辑其它字段不会冲掉物资明细', (miAfterEdit.data?.listing?.trade?.items || []).length === 3,
+    `实际 ${(miAfterEdit.data?.listing?.trade?.items || []).length}`);
+
+  const miOne = await call('POST', '/api/listings', {
+    token: tokenA,
+    form: jsonForm({
+      category: 'trade', text: '只有一条物资的采购信息，用于验证单条时也正常保存。',
+      durationDays: '30', tradeType: '采购',
+      items: JSON.stringify([{ name: '水泥', quantity: '500', unit: '吨' }]),
+    }),
+  });
+  const miOneView = await call('GET', `/api/listings/${miOne.data.listing.id}`, { token: tokenA });
+  check('单条明细也正常保存', (miOneView.data?.listing?.trade?.items || []).length === 1);
+
   console.log('\n=== 13. 权限与边界 ===');
   const noAuth = await call('POST', '/api/listings', { form: jsonForm({ text: 'x' }) });
   check('未登录不能发布', noAuth.status === 401);
