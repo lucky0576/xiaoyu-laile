@@ -122,6 +122,7 @@ export async function renderRoom(ctx, params) {
   const html = `<div class="chat-page">
     <div class="topbar">
       <button class="icon-btn" id="nav-back">←</button>
+      <a class="icon-btn" href="#/home" aria-label="回到首页" title="回到首页">🏠</a>
       <div class="title">${ui.esc(room.name)}
         <span class="tiny dim" style="font-weight:400"> · ${room.memberCount} 人</span>
       </div>

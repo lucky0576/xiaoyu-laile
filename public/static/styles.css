@@ -81,6 +81,18 @@ ul { margin: 0; padding-left: 18px; }
 }
 .topbar .title { font-size: 17px; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar .icon-btn { flex: none; }
+
+/* 标题做成回首页链接时的样式：看起来可点，但不像按钮那么重 */
+.topbar .title-link {
+  color: var(--text-1);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.topbar .title-link:active { opacity: .6; }
+.topbar #nav-home { font-size: 17px; }
 .page { padding: 12px; max-width: 1180px; margin: 0 auto; }
 .page.flush { padding: 0; }
 
@@ -568,6 +580,28 @@ ul { margin: 0; padding-left: 18px; }
   margin-bottom: 12px;
 }
 .wx-tip b { color: #14512a; }
+
+/* ---------- 案例参考 ---------- */
+.case-item {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: #fbfcfe;
+}
+.case-title { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
+.case-item .kv { font-size: 12.5px; margin-top: 3px; }
+.case-item .kv .k { width: 62px; }
+
+/* 无封面时的占位区 */
+.hero-empty {
+  display: grid;
+  place-items: center;
+  height: 168px;
+  align-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #eef4fb, #f7fbff);
+}
 
 /* 未登录时给操作按钮加一个锁的提示 */
 .locked-hint {

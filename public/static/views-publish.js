@@ -6,6 +6,7 @@
 import { api, service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import { aiCardHtml, fileCardHtml } from './components.js';
+import { applyAutoCover } from './cover.js';
 
 const ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.dwg,.dxf,.zip,.rar,.7z,.tar,.gz,.mp4,.mov,.avi,.mkv,.webm,.mp3,.wav,.m4a';
 
@@ -548,6 +549,17 @@ export async function renderPublish(ctx, params) {
             ctx.nav(`#/detail/${editing.id}`);
           } else {
             const res = await service.createListing(fd);
+            // 没有上传图片时，自动生成一张项目配图并设为封面
+            if (!uploaded.some((f) => f.kind === 'image')) {
+              try {
+                ui.showLoading('正在生成项目配图…');
+                await applyAutoCover(res.listing.id, res.listing);
+                ui.hideLoading();
+              } catch (err) {
+                ui.hideLoading();
+                console.warn('[publish] 自动配图失败:', err.message);
+              }
+            }
             ui.toast(publishNow ? '发布成功！' : '已存为草稿', 'ok');
             ctx.nav(`#/detail/${res.listing.id}`);
           }

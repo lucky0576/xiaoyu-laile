@@ -8,6 +8,7 @@ import {
   sortBarHtml, categoryIcon, categoryName,
 } from './components.js';
 import { openShareSheet, setupWechatShare } from './share.js';
+import { applyAutoCover, drawProjectCover } from './cover.js';
 
 /* ================================================================== */
 /* 首页                                                                */
@@ -471,11 +472,15 @@ export async function renderDetail(ctx, params) {
   const id = params.id;
   if (!id) return { title: '信息不存在', content: ui.emptyState('🧭', '信息不存在'), showBack: true };
 
-  const [{ listing, pipeline, isOwner }, comments, qualRes] = await Promise.all([
+  const [{ listing, pipeline, isOwner }, comments, qualRes, casesRes] = await Promise.all([
     service.listing(id),
     service.comments(id).catch(() => ({ tree: [] })),
     service.qualification(id).catch(() => null),
+    // 案例参考：未登录访客不请求，省一次检索
+    service.cases(id).catch(() => null),
   ]);
+
+  const cases = casesRes?.cases || null;
 
   const qual = qualRes?.qualification || null;
   const proj = listing.project || {};
@@ -491,6 +496,45 @@ export async function renderDetail(ctx, params) {
     <div class="strong mb8">💰 商务条件</div>
     <div class="kv-table">
       ${termRows.map((r) => `<div class="kv"><span class="k">${ui.esc(r.label)}</span><span class="v">${ui.esc(r.value)}</span></div>`).join('')}
+    </div>
+  </div>` : '';
+
+  /* ---------------- 案例参考 ---------------- */
+  const caseItemHtml = (c) => {
+    if (c.kind === 'benchmark') {
+      return `<div class="case-item">
+        <div class="row between mb4">
+          <span class="case-title">${ui.esc(c.title)}</span>
+          <span class="badge gray">行业基准</span>
+        </div>
+        ${c.cost ? `<div class="kv"><span class="k">造价参考</span><span class="v">${ui.esc(c.cost)}</span></div>` : ''}
+        ${c.period ? `<div class="kv"><span class="k">工期参考</span><span class="v">${ui.esc(c.period)}</span></div>` : ''}
+        ${c.yieldNote ? `<div class="kv"><span class="k">收益参考</span><span class="v">${ui.esc(c.yieldNote)}</span></div>` : ''}
+        ${(c.keyPoints || []).length ? `<div class="tiny dim mt6">关注要点：${c.keyPoints.map(ui.esc).join('；')}</div>` : ''}
+      </div>`;
+    }
+    const facts = [c.location, c.scale, c.amount, c.period].filter(Boolean).map(ui.esc);
+    return `<div class="case-item">
+      <div class="row between mb4">
+        <span class="case-title">${ui.esc(c.title)}</span>
+        ${c.url ? `<a class="tiny" href="${ui.esc(ui.safeUrl(c.url))}" target="_blank" rel="noopener">来源 ›</a>` : ''}
+      </div>
+      ${facts.length ? `<div class="kv"><span class="k">项目信息</span><span class="v">${facts.join(' · ')}</span></div>` : ''}
+      ${c.parties ? `<div class="kv"><span class="k">参与方</span><span class="v">${ui.esc(c.parties)}</span></div>` : ''}
+      ${c.note ? `<div class="tiny dim mt4">${ui.esc(c.note)}</div>` : ''}
+    </div>`;
+  };
+
+  const casesCard = cases && (cases.items || []).length ? `<div class="card card-pad mb12">
+    <div class="row between mb8">
+      <div class="strong">📚 同类案例参考（${cases.items.length}）</div>
+      <span class="badge ${cases.source === 'web' ? 'ok' : 'gray'}">${ui.esc(cases.sourceName)}</span>
+    </div>
+    <div class="tiny dim mb12">${ui.esc(cases.note)}${cases.query ? `<br>检索词：${ui.esc(cases.query)}` : ''}${cases.at ? `<br>更新于 ${ui.esc(ui.fmtDate(cases.at, true))}` : ''}</div>
+    ${(cases.items || []).map(caseItemHtml).join('')}
+    <div class="row gap8 mt8" style="flex-wrap:wrap">
+      ${isOwner ? '<button class="btn btn-sm btn-outline" id="btn-refresh-cases">🔄 重新检索</button>' : ''}
+      ${isOwner ? '<button class="btn btn-sm" id="btn-gen-cover">🎨 生成项目配图</button>' : ''}
     </div>
   </div>` : '';
 
@@ -681,7 +725,10 @@ export async function renderDetail(ctx, params) {
     ${images.length ? `
       <div class="hero"><img id="hero-img" src="${ui.esc(ui.safeUrl(images[0].url))}" alt=""></div>
       ${images.length > 1 ? `<div class="gallery">${images.map((f, i) => `<img src="${ui.esc(ui.safeUrl(f.url))}" data-idx="${i}" class="${i === 0 ? 'active' : ''}" alt="">`).join('')}</div>` : ''}
-    ` : `<div class="hero" style="display:grid;place-items:center;height:160px;font-size:52px">${categoryIcon(listing.category)}</div>`}
+    ` : `<div class="hero hero-empty">
+      <div style="font-size:46px">${categoryIcon(listing.category)}</div>
+      ${isOwner ? `<button class="btn btn-sm mt8" id="btn-gen-cover-from-hero">🎨 自动生成配图</button>` : ''}
+    </div>`}
 
     <div class="page">
       <div class="detail-layout">
@@ -759,6 +806,7 @@ export async function renderDetail(ctx, params) {
           ${qualCard}
           ${pipeline && pipeline.length ? pipelineHtml(pipeline, listing.pipeline?.history || []) : ''}
           ${stagePanel}
+          ${casesCard}
 
           <div class="card card-pad">
             <div class="row between mb8">
@@ -1020,6 +1068,53 @@ export async function renderDetail(ctx, params) {
           ui.toast('已记录', 'ok');
           ctx.nav(`#/detail/${listing.id}`);
         } catch (err) {
+          ui.toast(err.message, 'err');
+        }
+      });
+
+      /* ---------------- 案例参考 + 自动配图 ---------------- */
+      root.querySelector('#btn-refresh-cases')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = '正在检索…';
+        try {
+          await service.refreshCases(listing.id);
+          ui.toast('已重新检索', 'ok');
+          ctx.nav(`#/detail/${listing.id}`);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '🔄 重新检索';
+          ui.toast(err.message, 'err');
+        }
+      });
+
+      root.querySelector('#btn-gen-cover')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = '正在生成配图…';
+        try {
+          await applyAutoCover(listing.id, listing);
+          ui.toast('项目配图已生成并设为封面', 'ok');
+          ctx.nav(`#/detail/${listing.id}`);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '🎨 生成项目配图';
+          ui.toast(err.message, 'err');
+        }
+      });
+
+      // 发布方且当前没有封面图时，给一个明显的生成入口
+      root.querySelector('#btn-gen-cover-from-hero')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = '正在生成配图…';
+        try {
+          await applyAutoCover(listing.id, listing);
+          ui.toast('项目配图已生成', 'ok');
+          ctx.nav(`#/detail/${listing.id}`);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '🎨 自动生成配图';
           ui.toast(err.message, 'err');
         }
       });

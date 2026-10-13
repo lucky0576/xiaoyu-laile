@@ -221,6 +221,11 @@ export const service = {
 
   // 阶段 4/5/7：邀请函 / 居间协议 / 合同要点
   document: (id, kind, query) => api.get(`/api/listings/${id}/document/${kind}`, query),
+
+  // 案例参考（联网检索，未配置时回退内置行业基准）
+  cases: (id) => api.get(`/api/listings/${id}/cases`),
+  refreshCases: (id) => api.post(`/api/listings/${id}/cases/refresh`, {}),
+  searchStatus: () => api.get('/api/search-status'),
   dock: (id, note) => api.post(`/api/listings/${id}/dock`, { note }),
   registerEvent: (id, body) => api.post(`/api/listings/${id}/register`, body),
   registrations: (id) => api.get(`/api/listings/${id}/registrations`),

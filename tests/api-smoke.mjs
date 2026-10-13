@@ -871,6 +871,45 @@ async function main() {
     !(searchAfterClose.data.items || []).some((i) => i.type === 'listing' && i.id === hideId),
     JSON.stringify(searchAfterClose.data.items || []));
 
+  console.log('\n=== 12e. 案例参考（联网检索 / 内置基准） ===');
+  const sStatus = await call('GET', '/api/search-status');
+  check('检索服务状态接口可用', sStatus.status === 200 && typeof sStatus.data?.configured === 'boolean',
+    JSON.stringify(sStatus.json).slice(0, 150));
+  check('未配置检索时必须说明不是实时检索结果',
+    sStatus.data.configured === true || String(sStatus.data.hint || '').includes('不是实时检索结果'),
+    String(sStatus.data?.hint));
+
+  const oneForCases = await call('GET', '/api/listings?pageSize=1');
+  const cid2 = oneForCases.data.items[0]?.id;
+  const casesRes = await call('GET', `/api/listings/${cid2}/cases`);
+  check('案例接口可用', casesRes.status === 200 && Array.isArray(casesRes.data?.cases?.items),
+    JSON.stringify(casesRes.json).slice(0, 150));
+  const cset = casesRes.data?.cases || {};
+  check('案例标注数据来源', ['web', 'builtin'].includes(cset.source), String(cset.source));
+  check('数据来源有中文说明', Boolean(cset.sourceName), String(cset.sourceName));
+  check('案例带来源声明文案', String(cset.note || '').length > 10, String(cset.note));
+  check('案例条目非空', (cset.items || []).length > 0, String((cset.items || []).length));
+
+  if (cset.source === 'builtin') {
+    // 最关键的一条：内置基准绝不能被包装成"网上实时案例"
+    check('内置基准全部标记为 benchmark',
+      (cset.items || []).every((c) => c.kind === 'benchmark'),
+      JSON.stringify((cset.items || []).map((c) => c.kind)));
+    check('内置基准标题写明「参考基准」',
+      (cset.items || []).every((c) => String(c.title).includes('参考基准')),
+      JSON.stringify((cset.items || []).map((c) => c.title)));
+    check('内置基准不附来源链接（避免看起来像检索结果）',
+      (cset.items || []).every((c) => !c.url),
+      JSON.stringify((cset.items || []).map((c) => c.url)));
+    check('内置基准提供造价参考', Boolean((cset.items || [])[0]?.cost), String((cset.items || [])[0]?.cost));
+    check('内置基准提供工期参考', Boolean((cset.items || [])[0]?.period), String((cset.items || [])[0]?.period));
+  }
+
+  const casesAnon = await call('POST', `/api/listings/${cid2}/cases/refresh`, {});
+  check('未登录不能刷新案例', [401, 403].includes(casesAnon.status), String(casesAnon.status));
+  const casesOther = await call('POST', `/api/listings/${cid2}/cases/refresh`, { token: tokenB });
+  check('非发布方不能刷新案例', casesOther.status === 403, String(casesOther.status));
+
   console.log('\n=== 13. 权限与边界 ===');
   const noAuth = await call('POST', '/api/listings', { form: jsonForm({ text: 'x' }) });
   check('未登录不能发布', noAuth.status === 401);

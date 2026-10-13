@@ -11,6 +11,7 @@ import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
 import db from '../store/db.js';
 import { buildDocument } from '../services/documents.js';
+import casesSvc from '../services/cases.js';
 
 const listings = () => db.collection('listings');
 
@@ -406,6 +407,32 @@ export default function registerListingRoutes(app) {
     const kind = str(req.params.kind, 30);
     if (!['invitation', 'brokerage', 'contract'].includes(kind)) throw httpError(400, '未知的文书类型');
     return data(res, { doc: buildDocument(kind, listing, user, baseUrl(req), queryOf(req)) });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* 案例参考：联网检索同类项目（未配置检索时回退内置行业基准）             */
+  /* ---------------------------------------------------------------- */
+
+  /** 检索服务状态：前端据此决定是否展示"实时检索"字样 */
+  app.get('/api/search-status', (req, res) => {
+    return data(res, casesSvc.searchStatus());
+  });
+
+  app.get('/api/listings/:id/cases', async (req, res) => {
+    const listing = listingsSvc.getListing(req.params.id);
+    if (!listing) throw httpError(404, '信息不存在');
+    const payload = await casesSvc.collectCases(listing, { save: true });
+    return data(res, { cases: casesSvc.casesPublic(payload) });
+  });
+
+  /** 强制重新检索（发布方或管理员） */
+  app.post('/api/listings/:id/cases/refresh', async (req, res) => {
+    const user = mustAuth(req);
+    const listing = listingsSvc.getListing(req.params.id);
+    if (!listing) throw httpError(404, '信息不存在');
+    if (listing.ownerId !== user.id && !user.isAdmin) throw httpError(403, '只能刷新自己发布的信息');
+    const payload = await casesSvc.collectCases(listing, { force: true, save: true });
+    return data(res, { cases: casesSvc.casesPublic(payload) });
   });
 
   /* ---------------------------------------------------------------- */

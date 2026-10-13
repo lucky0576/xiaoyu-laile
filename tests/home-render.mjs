@@ -253,6 +253,41 @@ async function main() {
     check('轮播 slide 数量增加', (view3.content.match(/class="slide/g) || []).length >= 2, `slide 数 ${(view3.content.match(/class="slide/g) || []).length}`);
   }
 
+  /* ---------------- 每个页面都能回首页 ---------------- */
+  console.log('\n=== 回首页入口 ===');
+  try {
+    const appMod = await import('../public/static/app.js');
+    const shell = appMod.shell;
+    check('可调用 shell()', typeof shell === 'function');
+
+    if (typeof shell === 'function') {
+      const page = () => '<div class="page">内容</div>';
+
+      const homeHtml = shell({ title: site.name, activeTab: 'home', content: page() });
+      check('首页顶栏显示品牌名', homeHtml.includes('小鱼来了'), homeHtml.slice(0, 160));
+      check('首页顶栏标题是回首页链接', homeHtml.includes('href="#/home"') && homeHtml.includes('title-link'));
+      check('首页不重复显示 🏠', !homeHtml.includes('nav-home'));
+
+      const detailHtml = shell({ title: '项目详情', activeTab: 'project', showBack: true, content: page() });
+      check('带返回箭头的页面有 🏠 回首页', detailHtml.includes('nav-home') && detailHtml.includes('🏠'),
+        detailHtml.slice(0, 200));
+      check('内页标题同样是回首页链接', detailHtml.includes('href="#/home"'));
+      check('内页仍保留返回箭头', detailHtml.includes('nav-back'));
+
+      const noticeHtml = shell({ title: '消息通知', noTab: true, showBack: true, content: page() });
+      check('无底部导航的页面也有 🏠', noticeHtml.includes('nav-home'));
+      check('无底部导航时不渲染 tabbar', !noticeHtml.includes('class="tabbar"'));
+
+      const loginHtml = shell({ title: '登录', noTab: true, showBack: true, content: page() });
+      check('登录页也有 🏠（否则登录后无路可走）', loginHtml.includes('nav-home'));
+
+      const listHtml = shell({ title: '项目', activeTab: 'project', content: page() });
+      check('有底部导航的页面底部含首页 tab', listHtml.includes('#/home') && listHtml.includes('首页'));
+    }
+  } catch (err) {
+    check('加载 app.js 并检查 shell()', false, err.message);
+  }
+
   await app.close();
   console.log(`\n${'='.repeat(60)}`);
   console.log(`通过 ${passed} 项，失败 ${failed} 项`);
