@@ -10,6 +10,84 @@ import { applyAutoCover } from './cover.js';
 
 const ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.dwg,.dxf,.zip,.rar,.7z,.tar,.gz,.mp4,.mov,.avi,.mkv,.webm,.mp3,.wav,.m4a';
 
+/* ------------------------------------------------------------------ */
+/* 导入：拖拽 / 文件夹                                                  */
+/* ------------------------------------------------------------------ */
+
+const ACCEPT_EXTS = ACCEPT.split(',').map((s) => s.trim().replace(/^\./, '').toLowerCase()).filter(Boolean);
+const IMPORT_LIMIT = 300;
+
+/**
+ * 过滤掉系统文件、空文件与不支持的类型。
+ * 文件夹导入很容易带出 .DS_Store、~$xxx.docx 这类垃圾，不过滤会白传一堆。
+ */
+export function filterImportable(list, limit = IMPORT_LIMIT) {
+  const out = [];
+  let skipped = 0;
+  for (const f of list || []) {
+    const name = f?.name || '';
+    if (!name) { skipped++; continue; }
+    // Office 临时文件、macOS 资源分支、隐藏文件
+    if (name.startsWith('~$') || name.startsWith('.') || name.startsWith('._')) { skipped++; continue; }
+    if (!f.size) { skipped++; continue; }
+    const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+    if (ext && !ACCEPT_EXTS.includes(ext)) { skipped++; continue; }
+    if (out.length >= limit) { skipped++; continue; }
+    out.push(f);
+  }
+  return { files: out, skipped };
+}
+
+/**
+ * 把拖进来的内容展开成文件列表，**支持文件夹**。
+ *
+ * 为什么不能直接用 dataTransfer.files：
+ *   拖文件夹时 files 里只有目录项（部分浏览器干脆为空），
+ *   必须走 webkitGetAsEntry() 递归遍历目录。
+ *
+ * readEntries 每次最多返回 100 条，要反复读到空为止，否则大文件夹会漏文件。
+ */
+export async function filesFromDataTransfer(dt) {
+  const { items, files } = dt || {};
+  const canWalk = items && items.length && typeof items[0]?.webkitGetAsEntry === 'function';
+  if (!canWalk) return [...(files || [])];
+
+  const roots = [];
+  for (const it of items) {
+    if (it.kind !== 'file') continue;
+    const entry = it.webkitGetAsEntry?.();
+    if (entry) roots.push(entry);
+  }
+  if (!roots.length) return [...(files || [])];
+
+  const out = [];
+  const walk = async (entry, depth) => {
+    if (!entry || depth > 8 || out.length >= IMPORT_LIMIT) return;
+    if (entry.isFile) {
+      const f = await new Promise((res) => entry.file(res, () => res(null)));
+      if (f) out.push(f);
+      return;
+    }
+    if (!entry.isDirectory) return;
+    const reader = entry.createReader();
+    for (let round = 0; round < 200; round++) {
+      // 必须反复读，一次最多 100 条
+      const batch = await new Promise((res) => reader.readEntries(res, () => res([])));
+      if (!batch || !batch.length) break;
+      for (const child of batch) {
+        if (out.length >= IMPORT_LIMIT) break;
+        await walk(child, depth + 1);
+      }
+    }
+  };
+
+  for (const r of roots) {
+    if (out.length >= IMPORT_LIMIT) break;
+    await walk(r, 0);
+  }
+  return out;
+}
+
 export async function renderPublish(ctx, params) {
   if (!isLoggedIn()) {
     ctx.nav(`#/login?redirect=${encodeURIComponent('#/publish')}`);
@@ -40,11 +118,20 @@ export async function renderPublish(ctx, params) {
 要求电力工程施工总承包一级资质，近三年 100MW 以上业绩不少于 2 个
 联系人：张工 13800001234">${ui.esc(editing?.text || '')}</textarea>
 
-      <div class="row between mt8">
-        <button class="btn btn-sm btn-outline" id="pub-import">📎 导入文件（PPT/PDF/Word/Excel/CAD/图片/视频/压缩包）</button>
-        <span class="tiny dim" id="pub-upload-status"></span>
+      <div class="upload-zone" id="pub-drop">
+        <div class="upload-zone-ico">📥</div>
+        <div class="upload-zone-main">把文件或<b>整个文件夹</b>拖到这里</div>
+        <div class="upload-zone-sub" id="pub-drop-hint">PPT · Word · Excel · PDF · CAD · 图片 · 视频 · 压缩包，可一次拖多个</div>
+        <div class="row gap8 mt12" style="justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-sm btn-outline" id="pub-import" type="button">📎 选择文件</button>
+          <button class="btn btn-sm btn-outline" id="pub-import-dir" type="button">📁 选择文件夹</button>
+        </div>
       </div>
       <input type="file" id="pub-file-input" multiple accept="${ACCEPT}" style="display:none">
+      <input type="file" id="pub-dir-input" webkitdirectory directory multiple style="display:none">
+      <div class="row between mt8">
+        <span class="tiny dim" id="pub-upload-status"></span>
+      </div>
       <div id="pub-files" class="row wrap gap8 mt8"></div>
       <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 文本），据此生成标题并解析项目。</div>
     </div>
@@ -498,23 +585,81 @@ export async function renderPublish(ctx, params) {
 
       $('#pub-import').addEventListener('click', () => $('#pub-file-input').click());
       $('#pub-file-input').addEventListener('change', (e) => {
-        uploadFiles([...e.target.files]);
+        const picked = [...e.target.files];
         e.target.value = '';
+        const { files, skipped } = filterImportable(picked);
+        if (skipped) ui.toast(`已跳过 ${skipped} 个不支持或空文件`, '');
+        uploadFiles(files);
       });
+
+      $('#pub-import-dir').addEventListener('click', () => $('#pub-dir-input').click());
+      $('#pub-dir-input').addEventListener('change', (e) => {
+        const picked = [...e.target.files];
+        e.target.value = '';
+        const { files, skipped } = filterImportable(picked);
+        if (!files.length) return ui.toast('这个文件夹里没有可导入的文件', 'err');
+        ui.toast(`从文件夹读取到 ${files.length} 个文件${skipped ? `，跳过 ${skipped} 个` : ''}`, 'ok');
+        uploadFiles(files);
+      });
+
       root.querySelector('#pub-files').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-remove]');
         if (!btn) return;
         uploaded = uploaded.filter((f) => f.id !== btn.dataset.remove);
         renderFiles();
       });
-      // 拖拽上传
-      const dropZone = $('#pub-text');
-      dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--brand)'; });
-      dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
-      dropZone.addEventListener('drop', (e) => {
+
+      /* ---------------- 拖拽上传（含文件夹） ---------------- */
+      const dropZone = $('#pub-drop');
+      const dropHint = $('#pub-drop-hint');
+      const hintText = dropHint.textContent;
+      let dragDepth = 0;
+
+      const setDragging = (on) => {
+        dropZone.classList.toggle('dragging', on);
+        dropHint.innerHTML = on ? '<b>松开即可导入</b>' : hintText;
+      };
+
+      dropZone.addEventListener('dragenter', (e) => {
         e.preventDefault();
-        dropZone.style.borderColor = '';
-        if (e.dataTransfer?.files?.length) uploadFiles([...e.dataTransfer.files]);
+        dragDepth++;
+        setDragging(true);
+      });
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      });
+      dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) setDragging(false);
+      });
+      dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dragDepth = 0;
+        setDragging(false);
+        if (!e.dataTransfer) return;
+
+        dropHint.innerHTML = '正在读取…';
+        let picked = [];
+        try {
+          picked = await filesFromDataTransfer(e.dataTransfer);
+        } catch (err) {
+          dropHint.innerHTML = hintText;
+          return ui.toast('读取拖入内容失败：' + err.message, 'err');
+        }
+        dropHint.innerHTML = hintText;
+
+        if (!picked.length) return ui.toast('没有识别到文件', 'err');
+        const { files, skipped } = filterImportable(picked);
+        if (!files.length) return ui.toast('拖入的文件都不受支持', 'err');
+        if (skipped) ui.toast(`已跳过 ${skipped} 个不支持或空文件`, '');
+        uploadFiles(files);
+      });
+
+      // 整个页面也接受拖拽，避免用户拖到附近没反应
+      ['dragover', 'drop'].forEach((ev) => {
+        window.addEventListener(ev, (e) => e.preventDefault());
       });
 
       /* ---------------- 第一步：AI 汇总资料 ---------------- */

@@ -593,6 +593,28 @@ ul { margin: 0; padding-left: 18px; }
 .case-item .kv { font-size: 12.5px; margin-top: 3px; }
 .case-item .kv .k { width: 62px; }
 
+/* ---------- 导入：拖拽区 ---------- */
+.upload-zone {
+  border: 2px dashed #c8d8ee;
+  border-radius: var(--r-lg);
+  background: #f8fbff;
+  padding: 20px 14px;
+  text-align: center;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+.upload-zone.dragging {
+  border-color: var(--brand);
+  background: #eef6ff;
+  transform: scale(1.01);
+}
+.upload-zone-ico { font-size: 32px; line-height: 1.1; }
+.upload-zone-main { font-size: 14px; font-weight: 600; color: var(--text-1); margin-top: 6px; }
+.upload-zone-sub { font-size: 12.5px; color: var(--text-3); margin-top: 4px; line-height: 1.6; }
+@media (max-width: 560px) {
+  .upload-zone { padding: 16px 10px; }
+  .upload-zone-ico { font-size: 26px; }
+}
+
 /* ---------- 悬赏配图 ---------- */
 .bounty-img-box { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .bounty-img-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
