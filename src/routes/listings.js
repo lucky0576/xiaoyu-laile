@@ -4,6 +4,7 @@
 import { httpError } from '../http/app.js';
 import {
   data, fail, num, bool, list, str, baseUrl, authUser, mustAuth, queryOf,
+  rateLimit, clientIp,
 } from './_util.js';
 import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
 import { saveUploads, filePublic, getFile } from '../services/files.js';
@@ -12,6 +13,7 @@ import ai from '../services/ai.js';
 import db from '../store/db.js';
 import { buildDocument } from '../services/documents.js';
 import casesSvc from '../services/cases.js';
+import filesecure from '../services/filesecure.js';
 
 const listings = () => db.collection('listings');
 
@@ -455,6 +457,40 @@ export default function registerListingRoutes(app) {
     if (listing.ownerId !== user.id && !user.isAdmin) throw httpError(403, '只能刷新自己发布的信息');
     const payload = await casesSvc.collectCases(listing, { force: true, save: true });
     return data(res, { cases: casesSvc.casesPublic(payload) });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* 文件保密：密码解锁                                                */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * 用查看密码换取访问令牌。
+   * 加限流：密码短，必须防暴力尝试。
+   */
+  app.post('/api/listings/:id/files/unlock', (req, res) => {
+    const listing = listingsSvc.getListing(req.params.id);
+    if (!listing) throw httpError(404, '信息不存在');
+    const rl = rateLimit(`unlock:${clientIp(req)}:${req.params.id}`, 10, 60_000);
+    if (!rl.ok) return fail(res, `尝试过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    const result = filesecure.unlock(listing, req.body?.password);
+    return data(res, result);
+  });
+
+  /** 当前访问者对该信息附件的权限状态 */
+  app.get('/api/listings/:id/files/access', (req, res) => {
+    const listing = listingsSvc.getListing(req.params.id);
+    if (!listing) throw httpError(404, '信息不存在');
+    const viewer = authUser(req);
+    const access = filesecure.canAccessFile(listing, { viewer, token: String(req.query.t || '') });
+    return data(res, {
+      ...filesecure.fileSecretPublic(listing, {
+        isOwner: Boolean(viewer && viewer.id === listing.ownerId),
+        unlocked: access.allowed,
+      }),
+      reason: access.reason,
+      ttlMin: filesecure.TTL_MIN,
+      ttlMax: filesecure.TTL_MAX,
+    });
   });
 
   /* ---------------------------------------------------------------- */

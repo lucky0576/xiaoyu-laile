@@ -134,6 +134,33 @@ export async function renderPublish(ctx, params) {
       </div>
       <div id="pub-files" class="row wrap gap8 mt8"></div>
       <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 文本），据此生成标题并解析项目。</div>
+
+      <div class="secret-box mt12">
+        <div class="row between">
+          <div class="strong">🔒 文件保密</div>
+          <label class="switch"><input type="checkbox" id="pub-secret-enabled" ${editing?.fileSecret?.enabled ? 'checked' : ''}><span class="slider"></span></label>
+        </div>
+        <div class="tiny dim mt4">开启后，附件只能凭密码<b>在线查看</b>，页面不提供下载入口；密码在有效期内可用。</div>
+
+        <div id="pub-secret-body" class="${editing?.fileSecret?.enabled ? '' : 'hide'}">
+          <div class="field mt12">
+            <label>查看密码 ${editing?.fileSecret?.hasPassword ? '<span class="tiny dim">（留空则不修改）</span>' : '<span style="color:var(--danger)">*</span>'}</label>
+            <div class="row gap8">
+              <input class="input" id="pub-secret-pwd" maxlength="32" placeholder="至少 4 位，请自行告知对方" style="flex:2">
+              <button class="btn btn-sm" type="button" id="pub-secret-gen">随机生成</button>
+            </div>
+            <div class="tiny dim mt4">密码只以哈希形式保存，平台也无法查看原文，请自行记下。</div>
+          </div>
+          <div class="field">
+            <label>有效期（发布者决定）</label>
+            <select class="select" id="pub-secret-ttl">
+              ${[1, 2, 3, 4, 6, 8, 12].map((h) => `<option value="${h}" ${Number(editing?.fileSecret?.ttlHours) === h ? 'selected' : (h === 6 && !editing?.fileSecret?.ttlHours ? 'selected' : '')}>${h} 小时</option>`).join('')}
+            </select>
+            <div class="tiny dim mt4">过期后需要重新输入密码。</div>
+          </div>
+          <div class="warn-note">⚠️ <b>如实说明</b>：浏览器无法真正阻止下载 —— 能看到的内容都可以被截图、录屏或另存。这里挡住的是「随手下载」这条路，并让每次访问都有据可查。</div>
+        </div>
+      </div>
     </div>
 
     <div class="card card-pad mt12">
@@ -662,6 +689,23 @@ export async function renderPublish(ctx, params) {
         window.addEventListener(ev, (e) => e.preventDefault());
       });
 
+      /* ---------------- 文件保密 ---------------- */
+      const secretToggle = $('#pub-secret-enabled');
+      const secretBody = $('#pub-secret-body');
+      secretToggle?.addEventListener('change', () => {
+        secretBody.classList.toggle('hide', !secretToggle.checked);
+      });
+      $('#pub-secret-gen')?.addEventListener('click', () => {
+        // 去掉容易看错的 0/O/1/l/I
+        const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        let out = '';
+        const buf = new Uint32Array(8);
+        (crypto.getRandomValues ? crypto : { getRandomValues: (a) => a.forEach((_, i) => { a[i] = Math.floor(Math.random() * 4294967296); }) }).getRandomValues(buf);
+        for (let i = 0; i < 8; i++) out += chars[buf[i] % chars.length];
+        $('#pub-secret-pwd').value = out;
+        ui.toast('已生成随机密码，请记下', 'ok');
+      });
+
       /* ---------------- 第一步：AI 汇总资料 ---------------- */
       let digest = '';
 
@@ -839,6 +883,12 @@ export async function renderPublish(ctx, params) {
           wechat: $('#pub-wechat')?.value || '',
           company: $('#pub-company')?.value || '',
           aiAutoReply: $('#pub-ai-reply')?.checked ? '1' : '0',
+          // 文件保密：密码为空表示沿用原密码（编辑时）
+          fileSecret: {
+            enabled: Boolean($('#pub-secret-enabled')?.checked),
+            password: $('#pub-secret-pwd')?.value || '',
+            ttlHours: Number($('#pub-secret-ttl')?.value) || 6,
+          },
           publish: publishNow ? '1' : '0',
           ...collectCategoryFields(),
         };

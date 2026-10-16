@@ -171,6 +171,114 @@ async function main() {
   const imgRes = await fetch(BASE + imgUrl);
   check('悬赏图片可直接访问', imgRes.status === 200, String(imgRes.status));
 
+  console.log('\n=== 1c. 文件保密：密码查看 + 1–12 小时有效期 ===');
+  // 带附件 + 保密密码发布
+  const secFd = new FormData();
+  secFd.append('category', 'project');
+  secFd.append('type', 'epc');
+  secFd.append('title', '保密资料测试项目：含商业机密的可研报告');
+  secFd.append('text', '附件包含报价与成本测算，属于商业机密，需凭密码查看。');
+  secFd.append('durationDays', '30');
+  secFd.append('publish', '1');
+  secFd.append('fileSecret', JSON.stringify({ enabled: true, password: 'seek2026', ttlHours: 6 }));
+  secFd.append('file', new Blob([Buffer.from('机密内容：成本 1234 万元', 'utf8')], { type: 'text/plain' }), '机密可研.txt');
+  const secCreate = await call('POST', '/api/listings', { token: owner.token, form: secFd });
+  check('可发布带保密附件的项目', secCreate.status === 201, JSON.stringify(secCreate.json).slice(0, 200));
+  const secId = secCreate.data.listing.id;
+  const secFileUrl = secCreate.data.listing.fileList?.[0]?.url || '';
+  check('附件已关联', secFileUrl.startsWith('/files/'), secFileUrl);
+
+  const secView = await call('GET', `/api/listings/${secId}`, { token: bidder.token });
+  check('详情返回保密状态', secView.data?.listing?.fileSecret?.enabled === true,
+    JSON.stringify(secView.data?.listing?.fileSecret));
+  check('保密状态不含密码哈希',
+    !JSON.stringify(secView.data?.listing?.fileSecret || {}).includes('passHash')
+    && !JSON.stringify(secView.data?.listing?.fileSecret || {}).includes('salt'),
+    JSON.stringify(secView.data?.listing?.fileSecret));
+  check('非发布方初始为未解锁', secView.data?.listing?.fileSecret?.unlocked === false);
+
+  // 无令牌直接取文件 → 拒绝
+  const noToken = await fetch(BASE + secFileUrl);
+  check('没有密码拿不到文件字节（服务端拦截）', noToken.status === 403, String(noToken.status));
+
+  // 错误密码
+  const wrong = await call('POST', `/api/listings/${secId}/files/unlock`, {
+    body: { password: 'wrong-password' },
+  });
+  check('错误密码被拒绝', wrong.status === 403, String(wrong.status));
+
+  // 正确密码
+  const right = await call('POST', `/api/listings/${secId}/files/unlock`, {
+    body: { password: 'seek2026' },
+  });
+  check('正确密码可换取令牌', right.status === 200 && Boolean(right.data?.token),
+    JSON.stringify(right.json).slice(0, 160));
+  check('令牌带过期时间', Boolean(right.data?.expiresAt), String(right.data?.expiresAt));
+  check('有效期按发布者选择（6 小时）', right.data?.ttlHours === 6, String(right.data?.ttlHours));
+
+  // 带令牌取文件
+  const withToken = await fetch(`${BASE}${secFileUrl}?t=${encodeURIComponent(right.data.token)}`);
+  check('带令牌可取到文件', withToken.status === 200, String(withToken.status));
+  const fileText = await withToken.text();
+  check('取到的内容正确', fileText.includes('机密内容'), fileText.slice(0, 40));
+  const cd = withToken.headers.get('content-disposition') || '';
+  check('保密文件强制 inline（不提供附件下载）', cd.startsWith('inline'), cd);
+  const cc = withToken.headers.get('cache-control') || '';
+  check('保密文件禁用缓存', cc.includes('no-store'), cc);
+
+  // 发布方自己无需密码
+  const ownerGet = await fetch(BASE + secFileUrl, { headers: { Authorization: `Bearer ${owner.token}` } });
+  check('发布方自己可直接查看', ownerGet.status === 200, String(ownerGet.status));
+
+  // 伪造令牌
+  const forged = await fetch(`${BASE}${secFileUrl}?t=9999999999999.fake`);
+  check('伪造令牌无效', forged.status === 403, String(forged.status));
+
+  // 有效期裁剪到 1–12
+  const clampFd = new FormData();
+  clampFd.append('category', 'project');
+  clampFd.append('title', '有效期裁剪测试');
+  clampFd.append('text', '用于验证有效期被限制在 1 到 12 小时之间。');
+  clampFd.append('durationDays', '30');
+  clampFd.append('fileSecret', JSON.stringify({ enabled: true, password: 'abc12345', ttlHours: 99 }));
+  const clampCreate = await call('POST', '/api/listings', { token: owner.token, form: clampFd });
+  check('有效期上限裁剪为 12 小时', clampCreate.data?.listing?.fileSecret?.ttlHours === 12,
+    String(clampCreate.data?.listing?.fileSecret?.ttlHours));
+  const clamp2 = await call('POST', '/api/listings', {
+    token: owner.token,
+    form: jsonForm({ category: 'project', title: '下限裁剪', text: '下限测试用文本内容。', durationDays: '30', fileSecret: JSON.stringify({ enabled: true, password: 'abc12345', ttlHours: 0 }) }),
+  });
+  check('有效期下限裁剪为 1 小时', clamp2.data?.listing?.fileSecret?.ttlHours === 1,
+    String(clamp2.data?.listing?.fileSecret?.ttlHours));
+
+  // 启用保密但没给密码 → 报错
+  const noPwd = await call('POST', '/api/listings', {
+    token: owner.token,
+    form: jsonForm({ category: 'project', title: '缺密码', text: '启用保密却没给密码的情况。', durationDays: '30', fileSecret: JSON.stringify({ enabled: true }) }),
+  });
+  check('启用保密必须设置密码', noPwd.status === 400, String(noPwd.status));
+
+  // 编辑时保留原密码（不重传 password 也能继续用）
+  await call('PUT', `/api/listings/${secId}`, { token: owner.token, body: { fileSecret: { enabled: true, ttlHours: 12 } } });
+  const reUnlock = await call('POST', `/api/listings/${secId}/files/unlock`, { body: { password: 'seek2026' } });
+  check('编辑后原密码仍然有效', reUnlock.status === 200, String(reUnlock.status));
+  check('编辑后有效期已更新为 12', reUnlock.data?.ttlHours === 12, String(reUnlock.data?.ttlHours));
+
+  // 不启用保密时文件正常开放
+  const openRes = await fetch(BASE + secFileUrl.replace(secFileUrl, secFileUrl));
+  void openRes;
+  const openFd = new FormData();
+  openFd.append('category', 'project');
+  openFd.append('title', '公开附件测试');
+  openFd.append('text', '不启用保密时附件应可直接访问。');
+  openFd.append('durationDays', '30');
+  openFd.append('publish', '1');
+  openFd.append('file', new Blob([Buffer.from('公开内容', 'utf8')], { type: 'text/plain' }), '公开.txt');
+  const openCreate = await call('POST', '/api/listings', { token: owner.token, form: openFd });
+  const openUrl = openCreate.data.listing.fileList?.[0]?.url || '';
+  const openGet = await fetch(BASE + openUrl);
+  check('未启用保密的附件可直接访问', openGet.status === 200, String(openGet.status));
+
   console.log('\n=== 2. 发布：资质要求（多项）+ 商务条件 ===');
   const qualifications = [
     { name: '电力工程施工总承包一级', level: '一级', required: true, note: '必须提供证书扫描件' },

@@ -226,6 +226,9 @@ export const service = {
   cases: (id) => api.get(`/api/listings/${id}/cases`),
   refreshCases: (id) => api.post(`/api/listings/${id}/cases/refresh`, {}),
   searchStatus: () => api.get('/api/search-status'),
+  // 保密附件：用查看密码换取短时效令牌
+  unlockFiles: (id, password) => api.post(`/api/listings/${id}/files/unlock`, { password }),
+  fileAccess: (id, token) => api.get(`/api/listings/${id}/files/access`, token ? { t: token } : undefined),
   dock: (id, note) => api.post(`/api/listings/${id}/dock`, { note }),
   registerEvent: (id, body) => api.post(`/api/listings/${id}/register`, body),
   registrations: (id) => api.get(`/api/listings/${id}/registrations`),

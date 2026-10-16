@@ -9,6 +9,7 @@ import ai from './ai.js';
 import notifySvc from './notify.js';
 import hub from './hub.js';
 import { aggregateText, pickCover, filePublic, listFiles } from './files.js';
+import { normalizeFileSecret, fileSecretPublic } from './filesecure.js';
 import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 
 const listings = () => db.collection('listings');
@@ -122,6 +123,9 @@ export function listingPublic(l, viewer = null, opts = {}) {
 
     ai,
     aiVisible,
+
+    // 文件保密状态（不含密码哈希）：前端据此决定是否弹密码框
+    fileSecret: fileSecretPublic(l, { isOwner, unlocked: Boolean(opts.unlocked) }),
 
     contact: canSeeContact
       ? contact
@@ -525,6 +529,9 @@ export async function createListing({ user, body = {}, files = [] }) {
 
     bounty: category === 'bounty' ? normalizeBounty(body.bounty ?? body) : null,
 
+    // 文件保密：发布者可要求凭密码查看附件（带 1–12 小时有效期）
+    fileSecret: normalizeFileSecret(body.fileSecret ?? body),
+
     project: category === 'project' ? normalizeProject(body) : null,
 
     pipeline: {
@@ -569,6 +576,7 @@ export async function updateListing(id, user, patch = {}) {
     'trade',
     'project',
     'bounty',
+    'fileSecret',
     'durationDays',
   ];
   const next = {};
@@ -584,6 +592,8 @@ export async function updateListing(id, user, patch = {}) {
   }
   // 悬赏同理，按字段合并
   if (next.bounty && l.category === 'bounty') next.bounty = normalizeBounty(next.bounty, l.bounty);
+  // 文件保密：保留原有密码哈希，只有传了新密码才重算
+  if (next.fileSecret !== undefined) next.fileSecret = normalizeFileSecret(next.fileSecret, l.fileSecret);
   if (next.type) next.typeName = typeNameOf(l.category, next.type);
   if (next.durationDays && l.status === 'published') {
     next.expiresAt = computeExpiry(next.durationDays, new Date(l.publishedAt || Date.now()).getTime());

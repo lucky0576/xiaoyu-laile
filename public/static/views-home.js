@@ -10,6 +10,37 @@ import {
 import { openShareSheet, setupWechatShare } from './share.js';
 import { applyAutoCover, drawProjectCover } from './cover.js';
 
+/**
+ * 保密附件解锁令牌的本地存储。
+ *
+ * 令牌只放 sessionStorage：关掉标签页即失效，
+ * 不落到 localStorage 长期留存 —— 保密内容不该被长期记着。
+ */
+const ListingFileTokens = {
+  key: (listingId) => `xyll_ft_${listingId}`,
+  get(listingId) {
+    try {
+      return sessionStorage.getItem(this.key(listingId)) || '';
+    } catch {
+      return '';
+    }
+  },
+  set(listingId, token) {
+    try {
+      sessionStorage.setItem(this.key(listingId), token);
+    } catch {
+      /* 隐私模式下 sessionStorage 可能不可用，忽略即可 */
+    }
+  },
+  clear(listingId) {
+    try {
+      sessionStorage.removeItem(this.key(listingId));
+    } catch {
+      /* 同上 */
+    }
+  },
+};
+
 /* ================================================================== */
 /* 首页                                                                */
 /* ================================================================== */
@@ -482,6 +513,21 @@ export async function renderDetail(ctx, params) {
 
   const cases = casesRes?.cases || null;
 
+  // 本地已有解锁令牌时先验证一次，避免每次刷新都重输密码。
+  // 令牌过期或无效就清掉，让用户重新输入。
+  if (listing.fileSecret?.enabled && !listing.fileSecret.unlocked) {
+    const saved = ListingFileTokens.get(id);
+    if (saved) {
+      try {
+        const acc = await api.get(`/api/listings/${id}/files/access?t=${encodeURIComponent(saved)}`);
+        if (acc?.unlocked) listing.fileSecret.unlocked = true;
+        else ListingFileTokens.clear(id);
+      } catch {
+        ListingFileTokens.clear(id);
+      }
+    }
+  }
+
   const qual = qualRes?.qualification || null;
   const proj = listing.project || {};
   const terms = proj.businessTerms || {};
@@ -643,6 +689,19 @@ export async function renderDetail(ctx, params) {
   })();
 
   const files = listing.fileList || [];
+
+  /* ---------------- 文件保密 ---------------- */
+  const fs2 = listing.fileSecret || {};
+  const fileSecretOn = Boolean(fs2.enabled);
+  const fileLocked = fileSecretOn && !fs2.unlocked;
+
+  const tokenKey = ListingFileTokens.key(listing.id);
+  const withFileToken = (url) => {
+    const t = sessionStorage.getItem(tokenKey) || '';
+    if (!t || !url) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}t=${encodeURIComponent(t)}`;
+  };
+
   const images = files.filter((f) => f.kind === 'image');
   const others = files.filter((f) => f.kind !== 'image');
   const dec = files.filter((f) => ['pdf', 'word', 'ppt', 'excel', 'cad', 'archive'].includes(f.kind));
@@ -851,18 +910,32 @@ export async function renderDetail(ctx, params) {
             <div class="small" style="white-space:pre-wrap;word-break:break-word;color:var(--text-2)">${ui.esc(listing.text || '（发布方未填写正文）')}</div>
           </div>
 
-          ${files.length ? `<div class="card card-pad" id="project-files">
+          ${files.length ? (fileLocked ? `<div class="card card-pad" id="project-files">
+            <div class="file-locked">
+              <div class="file-locked-ico">🔒</div>
+              <div class="file-locked-txt">
+                <div class="strong">附件已加密（${files.length} 个）</div>
+                <div class="tiny dim mt4">发布方设置了查看密码。输入后可在 <b>${ui.esc(String(fs2.ttlHours || 6))} 小时</b>内在线查看。</div>
+              </div>
+            </div>
+            <div class="row gap8 mt12">
+              <input class="input" id="file-pwd" type="password" maxlength="32" placeholder="请输入查看密码" style="flex:1">
+              <button class="btn btn-primary" id="file-unlock">查看</button>
+            </div>
+            <div class="tiny dim mt8">🔐 仅供在线查看，页面不提供下载入口。但请注意：能看到的内容仍可能被截图或录屏保存。</div>
+          </div>` : `<div class="card card-pad" id="project-files">
             <div class="row between mb8">
               <div class="strong">📁 项目文件（${files.length}）</div>
-              <span class="tiny dim">点击文件即可在线查看或下载</span>
+              <span class="tiny dim">点击文件即可在线查看${fileSecretOn ? '' : '或下载'}</span>
             </div>
+            ${fileSecretOn ? '<div class="file-unlocked-tip mb8">🔓 密码已验证 <span id="file-countdown" class="file-countdown"></span></div>' : ''}
             <div class="row wrap gap8">
-              ${files.map((f) => fileCardHtml(f)).join('')}
+              ${files.map((f) => fileCardHtml({ ...f, url: withFileToken(f.url) })).join('')}
             </div>
             <div class="tiny dim mt8">发布方上传的项目资料，${listing.isOwner ? '其他人需登录后才能看到。' : '已登录用户均可查看。'}</div>
-          </div>` : (listing.gated ? `<div class="card card-pad center">
+          </div>`) : (listing.gated ? `<div class="card card-pad center">
             <div class="strong">📁 项目文件</div>
-            <div class="small muted mt4">发布方上传了项目资料，登录后可查看与下载。</div>
+            <div class="small muted mt4">发布方上传了项目资料，登录后可查看。</div>
             <a class="btn btn-primary btn-sm mt12" href="#/login?redirect=${encodeURIComponent(`#/detail/${listing.id}`)}">登录后查看</a>
           </div>` : '')}
 
@@ -1146,6 +1219,46 @@ export async function renderDetail(ctx, params) {
       });
 
       /* ---------------- 案例参考 + 自动配图 ---------------- */
+      root.querySelector('#file-unlock')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const pwd = root.querySelector('#file-pwd')?.value || '';
+        if (!pwd) return ui.toast('请输入查看密码', 'err');
+        btn.disabled = true;
+        btn.textContent = '验证中…';
+        try {
+          const r = await service.unlockFiles(listing.id, pwd);
+          ListingFileTokens.set(listing.id, r.token);
+          const mins = Math.round(Number(r.ttlHours || 0) * 60);
+          ui.toast(`密码正确，${r.ttlHours} 小时内可查看`, 'ok');
+          void mins;
+          // 重新渲染详情页，让附件区切换成可查看状态
+          ctx.refresh ? ctx.refresh() : window.location.reload();
+        } catch (err) {
+          ui.toast(err.message || '密码不正确', 'err');
+          btn.disabled = false;
+          btn.textContent = '查看';
+        }
+      });
+
+      // 倒计时：让用户知道令牌什么时候过期
+      const cd = root.querySelector('#file-countdown');
+      if (cd && fileSecretOn) {
+        const tick = () => {
+          const t = ListingFileTokens.get(listing.id);
+          if (!t) { cd.textContent = ''; return; }
+          const exp = Number(String(t).split('.')[0]);
+          const ms = exp - Date.now();
+          if (ms <= 0) { cd.textContent = '（已过期，请重新输入密码）'; return; }
+          const h = Math.floor(ms / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          cd.textContent = h > 0 ? `剩余 ${h} 小时 ${m} 分` : `剩余 ${m} 分钟`;
+        };
+        tick();
+        const timer = setInterval(tick, 30000);
+        // 页面切走时清掉定时器，避免堆积
+        window.addEventListener('hashchange', () => clearInterval(timer), { once: true });
+      }
+
       root.querySelector('#btn-refresh-cases')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;

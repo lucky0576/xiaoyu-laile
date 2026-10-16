@@ -7,6 +7,7 @@ import db from '../store/db.js';
 import { config } from '../config.js';
 import { data, fail, mustAuth, authUser, baseUrl, queryOf, rateLimit, clientIp, list } from './_util.js';
 import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND } from '../services/files.js';
+import filesecure from '../services/filesecure.js';
 import listingsSvc from '../services/listings.js';
 import wechat from '../services/wechat.js';
 import hub from '../services/hub.js';
@@ -110,10 +111,28 @@ export default function registerCoreRoutes(app) {
     const f = getFile(req.params.id);
     if (!f) throw httpError(404, '文件不存在');
     if (!fs.existsSync(f.path)) throw httpError(410, '文件已被清理');
+
+    // 保密文件：服务端拦截，没有密码根本不下发字节（不是前端遮罩）
+    const ownerListing = f.listingId ? db.collection('listings').get(f.listingId) : null;
+    const viewer = authUser(req);
+    const access = filesecure.canAccessFile(ownerListing, { viewer, token: String(req.query.t || '') });
+    if (!access.allowed) {
+      throw httpError(403, '该文件已加密，请输入查看密码', 'file_locked');
+    }
+
+    const locked = Boolean(ownerListing?.fileSecret?.enabled && ownerListing?.fileSecret?.passHash);
     const inline = ['image', 'video', 'audio', 'pdf'].includes(f.kind);
     res.set('Content-Type', f.mime || 'application/octet-stream');
-    res.set('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`);
-    res.set('Cache-Control', 'public, max-age=86400');
+    if (locked) {
+      // 保密文件一律 inline：不提供「另存为」入口；同时禁缓存，
+      // 避免令牌过期后浏览器仍能拿旧缓存继续看
+      res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(f.name)}`);
+      res.set('Cache-Control', 'private, no-store');
+      res.set('X-Robots-Tag', 'noindex, nofollow');
+    } else {
+      res.set('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`);
+      res.set('Cache-Control', 'public, max-age=86400');
+    }
     res.set('Accept-Ranges', 'bytes');
     return res.sendFile(f.path, 'stream');
   });

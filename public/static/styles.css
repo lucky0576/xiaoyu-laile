@@ -593,6 +593,34 @@ ul { margin: 0; padding-left: 18px; }
 .case-item .kv { font-size: 12.5px; margin-top: 3px; }
 .case-item .kv .k { width: 62px; }
 
+/* ---------- 文件保密 ---------- */
+.secret-box {
+  border: 1px solid #e6ddc8;
+  border-radius: var(--r);
+  background: #fffdf6;
+  padding: 12px;
+}
+.file-locked {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px;
+  border: 1px dashed #e0cfa8;
+  border-radius: var(--r);
+  background: #fffdf6;
+}
+.file-locked-ico { font-size: 26px; }
+.file-locked-txt { flex: 1; min-width: 0; }
+.file-unlocked-tip {
+  background: #f0f9f1;
+  border: 1px solid #cfe9d4;
+  border-radius: var(--r);
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #1f6b34;
+}
+.file-countdown { font-variant-numeric: tabular-nums; }
+
 /* ---------- 导入：拖拽区 ---------- */
 .upload-zone {
   border: 2px dashed #c8d8ee;
