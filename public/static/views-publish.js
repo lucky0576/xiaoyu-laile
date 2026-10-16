@@ -289,6 +289,45 @@ export async function renderPublish(ctx, params) {
         });
       };
 
+      /* ---------------- 悬赏配图 ---------------- */
+      const bindBountyImgs = (scope) => {
+        const pick = scope.querySelector('#f-bountyImg-pick');
+        const input = scope.querySelector('#f-bountyImgs');
+        const list = scope.querySelector('#f-bountyImg-list');
+        if (!pick || !input || !list) return;
+
+        // 复用页面顶部的通用上传逻辑，传完的图会自动进 uploaded，
+        // 发布时第一张图会被后端选为封面。
+        const render = () => {
+          const imgs = uploaded.filter((f) => f.kind === 'image');
+          list.innerHTML = imgs.length
+            ? imgs.map((f) => `<div class="bounty-img-item">
+                <img src="${ui.esc(ui.safeUrl(f.url || ''))}" alt="">
+                <button type="button" class="bounty-img-del" data-del="${ui.esc(f.id)}" title="移除">✕</button>
+                ${uploaded.filter((x) => x.kind === 'image')[0]?.id === f.id ? '<span class="bounty-img-cover">封面</span>' : ''}
+              </div>`).join('')
+            : '<div class="tiny dim">还没有配图</div>';
+        };
+
+        pick.addEventListener('click', () => input.click());
+        input.addEventListener('change', async () => {
+          const files = [...(input.files || [])];
+          input.value = '';
+          if (!files.length) return;
+          await uploadFiles(files);
+          render();
+        });
+        list.addEventListener('click', (e) => {
+          const del = e.target.closest('[data-del]');
+          if (!del) return;
+          uploaded = uploaded.filter((f) => f.id !== del.dataset.del);
+          renderFiles();
+          render();
+        });
+
+        render();
+      };
+
       const renderCatFields = () => {
         const box = $('#pub-cat-fields');
         if (category === 'event') {
@@ -328,6 +367,16 @@ export async function renderPublish(ctx, params) {
           const bt = editing?.bounty || {};
           const bountyTypes = ctx.state.taxonomy?.bountyTypes || [];
           box.innerHTML = `
+            <div class="form-section-title">悬赏图片</div>
+            <div class="tiny dim mb8">配一张图，列表和详情页会醒目很多。第一张图会自动作为封面。</div>
+            <div class="bounty-img-box">
+              <input type="file" id="f-bountyImgs" accept="image/*" multiple style="display:none">
+              <button class="btn btn-sm" id="f-bountyImg-pick" type="button">🖼️ 选择悬赏图片</button>
+              <span class="tiny dim" id="f-bountyImg-tip">支持 JPG / PNG / WebP，可多选</span>
+            </div>
+            <div class="bounty-img-list" id="f-bountyImg-list"></div>
+
+            <div class="form-section-title">悬赏内容</div>
             <div class="field"><label>悬赏类型</label>
               <select class="select" id="f-bountyType">
                 ${bountyTypes.map((t) => `<option value="${ui.esc(t.id)}" ${bt.bountyType === t.id || bt.bountyType === t.name ? 'selected' : ''}>${ui.esc(t.name)} — ${ui.esc(t.desc)}</option>`).join('')}
@@ -357,6 +406,7 @@ export async function renderPublish(ctx, params) {
             <div class="field"><label>悬赏截止时间</label><input class="input" type="date" id="f-bountyDeadline" value="${ui.esc((bt.deadline || '').slice(0, 10))}"></div>
             <div class="field"><label>交付要求</label><textarea class="input" rows="3" id="f-deliverable" placeholder="说明要交付什么、达到什么标准才算完成">${ui.esc(bt.deliverable || '')}</textarea></div>
             <div class="field"><label>补充说明（选填）</label><textarea class="input" rows="2" id="f-bountyExtra" placeholder="如：可提供资料清单、需签保密协议等">${ui.esc(bt.extra || '')}</textarea></div>`;
+          bindBountyImgs(box);
           return;
         } else {
           const qs = editing?.project?.qualifications || [];

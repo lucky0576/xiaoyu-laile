@@ -142,6 +142,35 @@ async function main() {
   check('编辑后结算方式已更新', bAfter.data?.listing?.bounty?.settleMode === '成交即付',
     String(bAfter.data?.listing?.bounty?.settleMode));
 
+  // 悬赏配图：第一张图应自动成为封面
+  const png = Buffer.from(
+    '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489'
+    + '0000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082',
+    'hex',
+  );
+  const imgFd = new FormData();
+  imgFd.append('category', 'bounty');
+  imgFd.append('type', 'solution');
+  imgFd.append('title', '悬赏配图测试：征集光伏电站运维方案');
+  imgFd.append('text', '需要一套降低运维成本的方案，详见附图。');
+  imgFd.append('durationDays', '30');
+  imgFd.append('bountyType', '方案征集');
+  imgFd.append('reward', '20000');
+  imgFd.append('publish', '1');
+  imgFd.append('file', new Blob([png], { type: 'image/png' }), '悬赏图.png');
+  const bImg = await call('POST', '/api/listings', { token: owner.token, form: imgFd });
+  check('悬赏可附带图片', bImg.status === 201, JSON.stringify(bImg.json).slice(0, 200));
+  const bImgView = await call('GET', `/api/listings/${bImg.data.listing.id}`, { token: owner.token });
+  const bFiles = bImgView.data?.listing?.fileList || [];
+  check('悬赏图片已关联', bFiles.length === 1, `实际 ${bFiles.length}`);
+  check('悬赏图片识别为 image', bFiles[0]?.kind === 'image', String(bFiles[0]?.kind));
+  check('悬赏配图自动成为封面', bImgView.data?.listing?.coverId === bFiles[0]?.id,
+    JSON.stringify({ coverId: bImgView.data?.listing?.coverId, fileId: bFiles[0]?.id }));
+  check('封面文件带可访问地址', String(bFiles[0]?.url || '').startsWith('/files/'), String(bFiles[0]?.url));
+  const imgUrl = bImgView.data.listing.fileList[0].url;
+  const imgRes = await fetch(BASE + imgUrl);
+  check('悬赏图片可直接访问', imgRes.status === 200, String(imgRes.status));
+
   console.log('\n=== 2. 发布：资质要求（多项）+ 商务条件 ===');
   const qualifications = [
     { name: '电力工程施工总承包一级', level: '一级', required: true, note: '必须提供证书扫描件' },

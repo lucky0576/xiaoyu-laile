@@ -593,6 +593,32 @@ ul { margin: 0; padding-left: 18px; }
 .case-item .kv { font-size: 12.5px; margin-top: 3px; }
 .case-item .kv .k { width: 62px; }
 
+/* ---------- 悬赏配图 ---------- */
+.bounty-img-box { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bounty-img-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.bounty-img-item {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--r);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #f4f7fb;
+}
+.bounty-img-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bounty-img-del {
+  position: absolute; top: 4px; right: 4px;
+  width: 22px; height: 22px; line-height: 1;
+  border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, .55); color: #fff;
+  font-size: 12px; cursor: pointer; padding: 0;
+}
+.bounty-img-cover {
+  position: absolute; left: 4px; bottom: 4px;
+  background: #ff8f00; color: #fff;
+  font-size: 10px; padding: 1px 6px; border-radius: 999px;
+}
+
 /* ---------- 悬赏 ---------- */
 .bounty-card { border: 1px solid #ffe0b2; background: linear-gradient(180deg, #fffdf7, #fff); }
 .bounty-reward {
