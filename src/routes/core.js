@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import db from '../store/db.js';
-import { config } from '../config.js';
+import { config, PUBLIC_DIR } from '../config.js';
 import { data, fail, mustAuth, authUser, baseUrl, queryOf, rateLimit, clientIp, list } from './_util.js';
 import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND } from '../services/files.js';
 import filesecure from '../services/filesecure.js';
@@ -50,6 +50,36 @@ export default function registerCoreRoutes(app) {
   );
 
   app.get('/api/stats', (req, res) => data(res, listingsSvc.platformStats()));
+
+  /**
+   * 前端版本号：取所有前端文件的最近修改时间。
+   *
+   * 用途是排查「浏览器跑的是旧版前端」这类问题 ——
+   * 之前出现过部署后浏览器仍用缓存的新旧混合模块，导致点发布没反应，
+   * 但页面上看不出任何线索。有了这个接口就能一眼比对。
+   */
+  app.get('/api/version', (req, res) => {
+    const dir = path.join(PUBLIC_DIR, 'static');
+    let newest = 0;
+    const files = [];
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (!/\.(js|css)$/.test(f)) continue;
+        const st = fs.statSync(path.join(dir, f));
+        files.push({ file: f, mtime: st.mtime.toISOString(), size: st.size });
+        if (st.mtimeMs > newest) newest = st.mtimeMs;
+      }
+    } catch {
+      /* 目录不可读时返回空列表即可 */
+    }
+    files.sort((a, b) => String(b.mtime).localeCompare(String(a.mtime)));
+    return data(res, {
+      // 前端用它做缓存比对
+      build: new Date(newest).toISOString(),
+      fileCount: files.length,
+      files: files.slice(0, 30),
+    });
+  });
 
   /* ---------------------------------------------------------------- */
   /* 字典                                                              */

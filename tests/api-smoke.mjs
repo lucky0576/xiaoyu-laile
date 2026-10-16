@@ -76,8 +76,9 @@ async function main() {
   const app = createApp();
   // 与 server.js 保持一致：注册静态资源与 SPA 回退
   const { PUBLIC_DIR } = await import('../src/config.js');
-  app.static('/static', path.join(PUBLIC_DIR, 'static'), { cache: 'public, max-age=3600' });
-  app.static('', PUBLIC_DIR, { spa: true, cache: 'no-cache', exclude: [/^\/api\//, /^\/files\//] });
+  const { registerStatic } = await import('../src/http/static.js');
+  // 与生产用同一个注册函数，这样测的就是线上真正生效的缓存策略
+  registerStatic(app, PUBLIC_DIR);
   registerRoutes(app);
   const server = await app.listen(PORT, '127.0.0.1');
   check('服务启动', Boolean(server));
@@ -95,6 +96,30 @@ async function main() {
 
   const site = await call('GET', '/api/site');
   check('GET /api/site 返回四大板块', (site.data?.categories || []).length === 4, JSON.stringify((site.data?.categories || []).map((c) => c.id)));
+
+  console.log('\n=== 0b. 静态资源缓存（防止新旧前端混用） ===');
+  const verInfo = await call('GET', '/api/version');
+  check('提供前端版本号', Boolean(verInfo.data?.build), JSON.stringify(verInfo.data).slice(0, 120));
+  check('版本号列出前端文件', (verInfo.data?.files || []).length > 5, `实际 ${(verInfo.data?.files || []).length}`);
+
+  // app.js 静态导入全部视图模块，缓存策略必须能保证部署后立刻拿到新版；
+  // 之前是 max-age=3600 且无 ETag，浏览器会拿着新旧混合的模块，整个 SPA 挂掉
+  const cacheProbe = await fetch(`${BASE}/static/app.js`);
+  check('静态资源返回 200', cacheProbe.status === 200, String(cacheProbe.status));
+  const cacheCc = cacheProbe.headers.get('cache-control') || '';
+  check('静态资源为 no-cache（每次回源校验）', cacheCc.includes('no-cache'), cacheCc);
+  check('静态资源不再长时间强缓存', !/max-age=[1-9]/.test(cacheCc), cacheCc);
+  const cacheEtag = cacheProbe.headers.get('etag') || '';
+  check('静态资源带 ETag', Boolean(cacheEtag), cacheEtag);
+  await cacheProbe.text();
+
+  if (cacheEtag) {
+    const revalidated = await fetch(`${BASE}/static/app.js`, { headers: { 'If-None-Match': cacheEtag } });
+    check('ETag 未变时返回 304（不重传）', revalidated.status === 304, String(revalidated.status));
+    const changed = await fetch(`${BASE}/static/app.js`, { headers: { 'If-None-Match': 'W/"stale-000"' } });
+    check('ETag 不匹配时返回 200（拿到新版）', changed.status === 200, String(changed.status));
+    await changed.text();
+  }
 
   const tax = await call('GET', '/api/taxonomy');
   check('行业数 >= 40', (tax.data?.industries || []).length >= 40, `实际 ${(tax.data?.industries || []).length}`);
@@ -118,8 +143,8 @@ async function main() {
   const indexHtml = await fetch(`${BASE}/`);
   const indexText = await indexHtml.text();
   check('首页 HTML 可访问', indexHtml.status === 200 && indexText.includes('小鱼来了'));
-  const appJs = await fetch(`${BASE}/static/app.js`);
-  check('前端 JS 可访问', appJs.status === 200);
+  const staticAppJs = await fetch(`${BASE}/static/app.js`);
+  check('前端 JS 可访问', staticAppJs.status === 200);
   const css = await fetch(`${BASE}/static/styles.css`);
   check('前端 CSS 可访问', css.status === 200);
 

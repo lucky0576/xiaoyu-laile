@@ -203,9 +203,28 @@ export function createApp() {
       try {
         const st = await fsp.stat(target);
         if (st.isFile()) {
-          res.set('Content-Type', MIME[path.extname(target).toLowerCase()] || 'application/octet-stream');
-          res.set('Cache-Control', opts.cache || 'public, max-age=300');
+          // ETag 由 mtime + size 生成：文件改一个字节就换值。
+          //
+          // 之前只有 Last-Modified、没有 ETag，缓存策略是 max-age=3600，
+          // 结果是部署后浏览器最长 1 小时都拿不到新前端 ——
+          // app.js 是**静态导入**所有视图模块的，新旧文件混用会让整个 SPA 挂掉
+          // （表现就是「点发布没反应」）。这里改用 ETag + no-cache：
+          // 每次都回来校验，没变就 304（依然很快），变了立刻拿到新版。
+          const etag = `W/"${st.mtimeMs.toString(36)}-${st.size.toString(36)}"`;
+          res.set('ETag', etag);
           res.set('Last-Modified', st.mtime.toUTCString());
+
+          const inm = String(req.headers['if-none-match'] || '');
+          if (inm && inm.split(',').some((s) => s.trim() === etag)) {
+            res.statusCode = 304;
+            res.__handled = true;
+            return res.end();
+          }
+
+          res.set('Content-Type', MIME[path.extname(target).toLowerCase()] || 'application/octet-stream');
+          // no-cache = 可以缓存，但每次必须回源校验。
+          // 不是 no-store：那样每次都得重新下载，白费流量。
+          res.set('Cache-Control', opts.cache || 'no-cache');
           if (req.method === 'HEAD') {
             res.statusCode = 200;
             res.__handled = true;

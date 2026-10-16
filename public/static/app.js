@@ -350,11 +350,53 @@ document.addEventListener('visibilitychange', () => {
 /* ------------------------------------------------------------------ */
 /* 启动                                                                */
 /* ------------------------------------------------------------------ */
+
+/**
+ * 全局错误上报。
+ *
+ * 之前出过「点发布没反应」但页面上没有任何提示的情况 ——
+ * 错误只在控制台里，用户看不到，也就无法反馈具体原因。
+ * 这里把未捕获的错误与 Promise 异常显式提示出来，方便定位。
+ */
+function setupErrorReporting() {
+  const shown = new Set();
+  const report = (label, detail) => {
+    const msg = `${label}：${detail}`;
+    if (shown.has(msg)) return;
+    shown.add(msg);
+    // 去重后最多提示 3 条，避免报错风暴刷屏
+    if (shown.size > 3) return;
+    console.error('[xiaoyu]', label, detail);
+    try {
+      ui.toast(`页面出错：${String(detail).slice(0, 120)}`, 'err');
+    } catch {
+      /* toast 本身异常时不再递归 */
+    }
+  };
+
+  window.addEventListener('error', (e) => {
+    // 资源加载失败（img/script）也会走这里，target 不是 window
+    if (e.target && e.target !== window && e.target.tagName) {
+      report('资源加载失败', `${e.target.tagName} ${e.target.src || e.target.href || ''}`);
+      return;
+    }
+    report('脚本错误', e.message || '未知错误');
+  });
+
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e.reason;
+    report('未处理的异常', (r && r.message) || String(r));
+  });
+}
+
 async function boot() {
+  setupErrorReporting();
   try {
     const [site, taxonomy] = await Promise.all([service.site(), service.taxonomy()]);
     state.site = site;
     state.taxonomy = taxonomy;
+    // 把版本号记下来，排查「浏览器用的是不是旧版前端」时一眼可见
+    service.version?.().then((v) => { state.build = v?.build || ''; }).catch(() => {});
   } catch (err) {
     appEl.innerHTML = `<div class="page"><div class="card card-pad center mt24">
       <div style="font-size:44px">🔌</div>

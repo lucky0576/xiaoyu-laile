@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createApp } from './src/http/app.js';
 import { config, PUBLIC_DIR } from './src/config.js';
+import { registerStatic } from './src/http/static.js';
 import db from './src/store/db.js';
 import registerRoutes from './src/routes/index.js';
 import notifySvc from './src/services/notify.js';
@@ -32,12 +33,9 @@ const NO_SEED = argv.includes('--no-seed') || process.env.NO_SEED === '1';
 const app = createApp();
 
 // 静态资源：/static 放前端资源；其余路径走 SPA（前端 hash 路由）
-app.static('/static', path.join(PUBLIC_DIR, 'static'), { cache: 'public, max-age=3600' });
-app.static('', PUBLIC_DIR, {
-  spa: true,
-  cache: 'no-cache',
-  exclude: [/^\/api\//, /^\/files\//],
-});
+// 缓存策略集中在 src/http/static.js，测试也调同一个函数，
+// 避免生产和测试各写一份导致「测过了但线上配置不同」。
+registerStatic(app, PUBLIC_DIR);
 
 registerRoutes(app);
 

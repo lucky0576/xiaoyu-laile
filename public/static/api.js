@@ -226,6 +226,8 @@ export const service = {
   cases: (id) => api.get(`/api/listings/${id}/cases`),
   refreshCases: (id) => api.post(`/api/listings/${id}/cases/refresh`, {}),
   searchStatus: () => api.get('/api/search-status'),
+  // 前端版本号（排查浏览器是否在用旧缓存）
+  version: () => api.get('/api/version'),
   // 保密附件：用查看密码换取短时效令牌
   unlockFiles: (id, password) => api.post(`/api/listings/${id}/files/unlock`, { password }),
   fileAccess: (id, token) => api.get(`/api/listings/${id}/files/access`, token ? { t: token } : undefined),
