@@ -279,6 +279,60 @@ async function main() {
   const openGet = await fetch(BASE + openUrl);
   check('未启用保密的附件可直接访问', openGet.status === 200, String(openGet.status));
 
+  console.log('\n=== 1d. 联系方式自动隐藏 ===');
+  const leakFd = new FormData();
+  leakFd.append('category', 'project');
+  leakFd.append('type', 'epc');
+  leakFd.append('title', '联系方式泄漏测试 13812345678');
+  leakFd.append('text', '联系人张工，手机 138 1234 5678，微信 zhangsan2026，邮箱 zhang@example.com，座机 010-88886666。项目总投资 50 亿元，工期 12 个月。');
+  leakFd.append('durationDays', '30');
+  leakFd.append('publish', '1');
+  const leak = await call('POST', '/api/listings', { token: owner.token, form: leakFd });
+  check('可发布含联系方式的正文', leak.status === 201, JSON.stringify(leak.json).slice(0, 160));
+  const leakId = leak.data.listing.id;
+
+  const asOwner = await call('GET', `/api/listings/${leakId}`, { token: owner.token });
+  check('发布方自己看到原文（否则编辑会覆盖掉原内容）',
+    /1[3-9]\d[\s-]?\d{4}[\s-]?\d{4}/.test(String(asOwner.data.listing.text)),
+    String(asOwner.data.listing.text).slice(0, 60));
+
+  const asOther = await call('GET', `/api/listings/${leakId}`, { token: bidder.token });
+  const otherText = String(asOther.data?.listing?.text || '');
+  const otherTitle = String(asOther.data?.listing?.title || '');
+  check('他人看不到标题里的手机号', !/1[3-9]\d{9}/.test(otherTitle.replace(/\D/g, '')), otherTitle);
+  check('他人看不到正文里的手机号', !/1[3-9]\d{9}/.test(otherText.replace(/\D/g, '')), otherText.slice(0, 80));
+  check('他人看不到正文里的邮箱', !otherText.includes('@'), otherText.slice(0, 80));
+  check('他人看不到正文里的微信号', !otherText.includes('zhangsan2026'), otherText.slice(0, 80));
+  check('他人看不到正文里的座机', !otherText.includes('88886666'), otherText.slice(0, 80));
+  check('隐藏后留下占位提示', otherText.includes('联系方式已隐藏'), otherText.slice(0, 80));
+  check('合法数字不受影响：总投资', otherText.includes('50 亿元'), otherText.slice(0, 120));
+  check('合法数字不受影响：工期', otherText.includes('12 个月'), otherText.slice(0, 120));
+
+  const asAnon = await call('GET', `/api/listings/${leakId}`);
+  check('访客摘要页也没有手机号',
+    !/1[3-9]\d{9}/.test(String(asAnon.data?.listing?.text || '').replace(/\D/g, '')),
+    String(asAnon.data?.listing?.text || '').slice(0, 60));
+
+  // 列表页摘要
+  const listWithLeak = await call('GET', `/api/listings?pageSize=50`, { token: bidder.token });
+  const brief = (listWithLeak.data?.items || []).find((x) => x.id === leakId);
+  check('列表摘要里的标题已隐藏', brief && !/1[3-9]\d{9}/.test(String(brief.title).replace(/\D/g, '')),
+    brief ? brief.title : '未找到');
+
+  // 留言区
+  const leakCmt = await call('POST', `/api/listings/${leakId}/comments`, {
+    token: bidder.token,
+    body: { content: '我有兴趣，我的手机 13900002222，微信 mywechat88' },
+  });
+  check('留言可发布', leakCmt.status === 201, JSON.stringify(leakCmt.json).slice(0, 160));
+  const leakCmtList = await call('GET', `/api/listings/${leakId}/comments`, { token: owner.token });
+  const allCmt = JSON.stringify(leakCmtList.data || {});
+  if (/13900002222/.test(allCmt) || /mywechat88/.test(allCmt)) {
+    check('留言里的联系方式已隐藏', false, allCmt.slice(0, 200));
+  } else {
+    check('留言里的联系方式已隐藏', allCmt.includes('联系方式已隐藏'), allCmt.slice(0, 200));
+  }
+
   console.log('\n=== 2. 发布：资质要求（多项）+ 商务条件 ===');
   const qualifications = [
     { name: '电力工程施工总承包一级', level: '一级', required: true, note: '必须提供证书扫描件' },

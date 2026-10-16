@@ -11,6 +11,7 @@ import hub from './hub.js';
 import { aggregateText, pickCover, filePublic, listFiles } from './files.js';
 import { normalizeFileSecret, fileSecretPublic } from './filesecure.js';
 import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
+import { maskContacts } from '../lib/contact-mask.js';
 
 const listings = () => db.collection('listings');
 const comments = () => db.collection('comments');
@@ -85,9 +86,27 @@ export function listingPublic(l, viewer = null, opts = {}) {
   //        其他人（包括已登录用户）只能看到 AI 生成的主副标题。
   const aiVisible = isOwner || isAdmin;
   const ai = aiVisible ? l.ai : (signedIn && l.ai ? { titles: l.ai.titles, source: l.ai.source } : null);
+  // AI 摘要/要点是从原文生成的，原文里的手机号会原样带出来，必须一起遮蔽。
+  // 注意 titles 是 { main, sub, keywords } 对象，不能直接当字符串处理
+  const maskDeep = (v) => {
+    if (typeof v === 'string') return maskContacts(v).text;
+    if (Array.isArray(v)) return v.map(maskDeep);
+    if (v && typeof v === 'object') {
+      const out = {};
+      for (const [k, val] of Object.entries(v)) out[k] = maskDeep(val);
+      return out;
+    }
+    return v;
+  };
+  const aiOut = ai && !isOwner && !isAdmin ? maskDeep(ai) : ai;
 
   // 规则 3：联系方式只有发布方 / 管理员 / 已对接成为项目成员的人可见。
   const canSeeContact = isOwner || isAdmin || opts.unlocked;
+
+  // 规则 4：自由文本里的联系方式（手机号/邮箱/微信…）对非发布方一律隐去。
+  //        之前只隐藏了结构化的 contact 字段，用户把手机号打进标题或正文照样会泄漏。
+  //        发布方自己看原文，否则编辑时会拿着被打码的内容覆盖掉原文。
+  const mask = (v) => (isOwner || isAdmin ? v : maskContacts(v).text);
 
   const summary = String(l.ai?.summary || l.text || '').replace(/\s+/g, ' ').trim();
 
@@ -95,6 +114,8 @@ export function listingPublic(l, viewer = null, opts = {}) {
     ...l,
     categoryName: categoryName(l.category),
     typeName: l.typeName || typeNameOf(l.category, l.type),
+    title: mask(l.title),
+    subtitle: mask(l.subtitle),
 
     // 未登录访客拿不到任何附件
     // l.files 存的是文件 ID 数组，必须解析成记录，否则 filePublic(字符串)
@@ -102,7 +123,7 @@ export function listingPublic(l, viewer = null, opts = {}) {
     fileList: signedIn ? listFiles(l.files || []).map(filePublic) : [],
 
     // 未登录只下发摘要级别的正文
-    text: signedIn ? l.text : summary.slice(0, 80),
+    text: mask(signedIn ? l.text : summary.slice(0, 80)),
     gated,
     loginRequired: gated,
 
@@ -121,7 +142,7 @@ export function listingPublic(l, viewer = null, opts = {}) {
     agreements: isMember ? (l.agreements || []) : [],
     qualificationSubmissions: [], // 统一走 /qualification 接口按权限返回
 
-    ai,
+    ai: aiOut,
     aiVisible,
 
     // 文件保密状态（不含密码哈希）：前端据此决定是否弹密码框
@@ -155,9 +176,9 @@ export function listingBrief(l) {
     categoryName: categoryName(l.category),
     type: l.type,
     typeName: l.typeName || typeNameOf(l.category, l.type),
-    title: l.title,
-    subtitle: l.subtitle,
-    summary: (l.ai?.summary || l.text || '').slice(0, 120),
+    title: maskContacts(l.title).text,
+    subtitle: maskContacts(l.subtitle).text,
+    summary: maskContacts((l.ai?.summary || l.text || '').slice(0, 120)).text,
     industries: l.industries || [],
     subs: l.subs || [],
     cities: l.cities || [],
@@ -769,6 +790,12 @@ export function listComments(listingId, { limit = 200, includeInternal = false }
   let list = comments().where('listingId', listingId);
   if (!includeInternal) list = list.filter((c) => !c.internal);
   list.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+
+  // 留言区同样不允许留联系方式：用户把手机号写进留言，
+  // 效果和写在正文里一样，都是绕过「平台不出现联系方式」。
+  const maskComment = (c) => ({ ...c, content: maskContacts(c.content).text });
+  list = list.map(maskComment);
+
   const roots = list.filter((c) => !c.parentId);
   const byParent = new Map();
   for (const c of list) {

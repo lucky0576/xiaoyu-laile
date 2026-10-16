@@ -18,6 +18,7 @@ const SUITES = [
   ['feeds        短视频与直播', 'feeds-smoke.mjs'],
   ['pipeline     资质审核与 7 步流程', 'pipeline-smoke.mjs'],
   ['import-dnd   拖拽与文件夹导入', 'import-dnd.test.mjs'],
+  ['contact-mask 联系方式自动隐藏', 'contact-mask.test.mjs'],
 ];
 
 let failedSuites = 0;

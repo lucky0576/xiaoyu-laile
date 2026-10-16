@@ -18,6 +18,36 @@ const ACCEPT_EXTS = ACCEPT.split(',').map((s) => s.trim().replace(/^\./, '').toL
 const IMPORT_LIMIT = 300;
 
 /**
+ * 发布前的联系方式提醒。
+ *
+ * 这里只是**提示**，真正的隐藏由服务端（src/lib/contact-mask.js）执行 ——
+ * 前端提示可以被绕过，服务端遮蔽才是那道人拦不住的关。
+ * 所以两边的规则不需要逐字一致，提示宁可宽一点。
+ */
+const CONTACT_HINT = [
+  { kind: '手机号', re: /(?:\+?86[\s-]?)?1[3-9]\d[\s-]?\d{4}[\s-]?\d{4}/g },
+  { kind: '邮箱', re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g },
+  { kind: '社交账号', re: /(?:微信|weixin|wechat|wx|vx|VX|V信|QQ|qq|企鹅)\s*(?:号|号码|ID|id)?\s*[:：]?\s*[A-Za-z0-9_-]{4,20}/g },
+  { kind: '固定电话', re: /0\d{2,3}[\s-]\d{7,8}/g },
+  { kind: '服务电话', re: /[48]00[\s-]?\d{3}[\s-]?\d{4}/g },
+];
+
+function hintContacts(text) {
+  const s = String(text || '').replace(/[\uFF10-\uFF19]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  const kinds = [];
+  let count = 0;
+  for (const { kind, re } of CONTACT_HINT) {
+    re.lastIndex = 0;
+    const m = s.match(re);
+    if (m && m.length) {
+      count += m.length;
+      kinds.push(kind);
+    }
+  }
+  return { count, kinds: [...new Set(kinds)] };
+}
+
+/**
  * 过滤掉系统文件、空文件与不支持的类型。
  * 文件夹导入很容易带出 .DS_Store、~$xxx.docx 这类垃圾，不过滤会白传一堆。
  */
@@ -115,8 +145,8 @@ export async function renderPublish(ctx, params) {
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
 山东东营 200MW 渔光互补光伏电站 EPC 总承包招标
 总投资约 8.6 亿元，工期 14 个月
-要求电力工程施工总承包一级资质，近三年 100MW 以上业绩不少于 2 个
-联系人：张工 13800001234">${ui.esc(editing?.text || '')}</textarea>
+要求电力工程施工总承包一级资质，近三年 100MW 以上业绩不少于 2 个">${ui.esc(editing?.text || '')}</textarea>
+        <div class="warn-note hide mt8" id="pub-contact-warn"></div>
 
       <div class="upload-zone" id="pub-drop">
         <div class="upload-zone-ico">📥</div>
@@ -165,8 +195,7 @@ export async function renderPublish(ctx, params) {
 
     <div class="card card-pad mt12">
       <div class="row between mb8">
-        <div class="strong">3. AI 智能生成</div>
-        <span class="tiny dim">先汇总、再生成，可反复重来</span>
+        <div class="strong">3. AI 智能生成</div>        <span class="tiny dim">先汇总、再生成，可反复重来</span>
       </div>
 
       <div class="step-hint mb12">
@@ -609,6 +638,26 @@ export async function renderPublish(ctx, params) {
           $('#pub-upload-status').textContent = '';
         }
       };
+
+      /* ---------------- 联系方式实时提示 ---------------- */
+      const contactWarn = $('#pub-contact-warn');
+      const checkContacts = () => {
+        if (!contactWarn) return;
+        const text = `${$('#pub-title')?.value || ''} ${$('#pub-text')?.value || ''}`;
+        const { count, kinds } = hintContacts(text);
+        if (!count) {
+          contactWarn.classList.add('hide');
+          contactWarn.innerHTML = '';
+          return;
+        }
+        contactWarn.classList.remove('hide');
+        contactWarn.innerHTML = `⚠️ 检测到 <b>${count}</b> 处联系方式（${ui.esc(kinds.join('、'))}）。`
+          + '平台规则：发布后对其他用户会自动隐藏为「【联系方式已隐藏】」。'
+          + '建议改为在留言区沟通，或让对方通过平台发起对接。';
+      };
+      $('#pub-text')?.addEventListener('input', checkContacts);
+      $('#pub-title')?.addEventListener('input', checkContacts);
+      checkContacts();
 
       $('#pub-import').addEventListener('click', () => $('#pub-file-input').click());
       $('#pub-file-input').addEventListener('change', (e) => {
