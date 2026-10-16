@@ -723,6 +723,33 @@ export async function renderDetail(ctx, params) {
       </div>`
     : '';
 
+  /* ---------------- 悬赏 ---------------- */
+  const bountyBlock = listing.category === 'bounty' && listing.bounty && Object.values(listing.bounty).some(Boolean)
+    ? (() => {
+        const b = listing.bounty;
+        const types = ctx.state.taxonomy?.bountyTypes || [];
+        const t = types.find((x) => x.id === b.bountyType || x.name === b.bountyType);
+        const rows = [
+          ['悬赏类型', t ? t.name : b.bountyType],
+          ['结算方式', b.settleMode],
+          ['参与资格', b.eligibility],
+          ['中赏人数', b.winnerCount ? `${b.winnerCount} 名` : ''],
+          ['截止时间', b.deadline ? ui.fmtDate(b.deadline) : ''],
+        ].filter(([, v]) => v);
+        return `<div class="card card-pad bounty-card">
+          <div class="row between mb8">
+            <div class="strong">🎯 悬赏信息</div>
+            ${b.reward ? `<span class="bounty-reward">赏金 ${ui.esc(b.reward)}${ui.esc(b.rewardUnit || '元')}</span>` : ''}
+          </div>
+          ${b.bountyType ? `<div class="small muted mb8">${ui.esc(t ? t.desc : '')}</div>` : ''}
+          ${rows.length ? `<div class="kv-table">${rows.map(([k, v]) => `<div class="kv"><span class="k">${ui.esc(k)}</span><span class="v">${ui.esc(v)}</span></div>`).join('')}</div>` : ''}
+          ${b.deliverable ? `<div class="mt12"><div class="small strong mb4">交付要求</div>
+            <div class="small" style="white-space:pre-wrap;color:var(--text-2)">${ui.esc(b.deliverable)}</div></div>` : ''}
+          ${b.extra ? `<div class="mt8 tiny dim" style="white-space:pre-wrap">${ui.esc(b.extra)}</div>` : ''}
+        </div>`;
+      })()
+    : '';
+
   const tradeBlock = listing.category === 'trade' && listing.trade
     ? `<div class="card card-pad">
         <div class="strong mb8">🤝 供需信息</div>
@@ -816,6 +843,7 @@ export async function renderDetail(ctx, params) {
           ${projectBlock}
           ${eventBlock}
           ${tradeBlock}
+          ${bountyBlock}
           ${contactBlock}
 
           <div class="card card-pad">

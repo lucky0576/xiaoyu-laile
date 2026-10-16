@@ -12,7 +12,8 @@ import wechat from '../services/wechat.js';
 import hub from '../services/hub.js';
 import ai from '../services/ai.js';
 import { httpError } from '../http/app.js';
-import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, QUALIFICATION_TYPES, HELPER, PROJECT_QUALIFICATION_PRESETS, QUALIFICATION_LEVELS, COOPERATION_MODES, PRICE_TYPES, PAYMENT_TERMS, SETTLEMENT_MODES, INVOICE_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
+import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BOUNTY_TYPES, BOUNTY_SETTLE_MODES, BOUNTY_ELIGIBILITY, QUALIFICATION_TYPES, HELPER, PROJECT_QUALIFICATION_PRESETS, QUALIFICATION_LEVELS, COOPERATION_MODES, PRICE_TYPES, PAYMENT_TERMS, SETTLEMENT_MODES, INVOICE_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
+import { FEED_TYPES } from '../services/feeds.js';
 
 let qrModule = null;
 let qrTried = false;
@@ -60,6 +61,10 @@ export default function registerCoreRoutes(app) {
       projectTypes: PROJECT_TYPES,
       tradeTypes: TRADE_TYPES,
       eventTypes: EVENT_TYPES,
+      bountyTypes: BOUNTY_TYPES,
+      bountySettleModes: BOUNTY_SETTLE_MODES,
+      bountyEligibility: BOUNTY_ELIGIBILITY,
+      feedTypes: FEED_TYPES,
       pipelineStages: PIPELINE_STAGES,
       qualificationTypes: QUALIFICATION_TYPES,
       projectQualificationPresets: PROJECT_QUALIFICATION_PRESETS,
@@ -215,7 +220,7 @@ export default function registerCoreRoutes(app) {
     const reused = list(body.fileIds).map((fid) => getFile(fid)).filter(Boolean);
     const files = [...reused, ...uploaded];
     const text = String(body.text || '');
-    const category = ['project', 'event', 'trade'].includes(body.category) ? body.category : 'project';
+    const category = ['project', 'bounty', 'event', 'trade'].includes(body.category) ? body.category : 'project';
     const fileText = aggregateText(files, 14000);
     return {
       user,

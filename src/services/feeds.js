@@ -20,7 +20,21 @@ const feeds = () => db.collection('feeds');
 const files = () => db.collection('files');
 const users = () => db.collection('users');
 
-export const FEED_TYPES = { short: '短视频', live: '直播' };
+export const FEED_TYPES = {
+  short: '短视频',
+  live: '直播',
+  moment: '动态',
+  news: '新闻',
+};
+
+/**
+ * 创建时**必须**带视频文件的类型。
+ * 直播不算：直播间是先建号后开播，开播时才有媒体流，创建时不该要求上传视频。
+ */
+export const REQUIRE_VIDEO_TYPES = ['short'];
+
+/** 属于视频形态的内容类型 */
+export const VIDEO_FEED_TYPES = ['short', 'live'];
 
 /* ------------------------------------------------------------------ */
 /* 查询                                                                */
@@ -37,6 +51,10 @@ export function feedPublic(f, viewerId = null) {
     title: f.title,
     subtitle: f.subtitle || '',
     description: f.description || '',
+    source: f.source || '',
+    author: f.author || '',
+    tags: f.tags || [],
+    location: f.location || '',
     video: video ? filePublic(video) : null,
     videoUrl: video ? video.url : '',
     cover: cover ? filePublic(cover) : null,
@@ -81,9 +99,30 @@ export function getFeed(id) {
 /* ------------------------------------------------------------------ */
 /* 创建 / 修改                                                         */
 /* ------------------------------------------------------------------ */
+
+/** 话题标签：兼容数组与 JSON 字符串（multipart 传上来是字符串） */
+function toTags(v) {
+  let arr = v;
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (s.startsWith('[')) {
+      try { arr = JSON.parse(s); } catch { arr = s.split(/[,，\s#]+/); }
+    } else {
+      arr = s.split(/[,，\s#]+/);
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  return [...new Set(arr.map((t) => String(t).trim().slice(0, 20)).filter(Boolean))].slice(0, 8);
+}
+
 export async function createFeed({ user, body = {}, files: uploaded = [] }) {
-  const type = body.type === 'live' ? 'live' : 'short';
+  const type = FEED_TYPES[body.type] ? body.type : 'short';
+  const needVideo = REQUIRE_VIDEO_TYPES.includes(type);
   if (!String(body.title || '').trim()) throw httpError(400, '请填写标题');
+  // 动态 / 新闻是图文内容，光有标题没有意义
+  if (!needVideo && !String(body.description || body.subtitle || '').trim()) {
+    throw httpError(400, type === 'news' ? '请填写新闻正文' : '请填写动态内容');
+  }
 
   let fileId = '';
   let coverFileId = '';
@@ -96,12 +135,12 @@ export async function createFeed({ user, body = {}, files: uploaded = [] }) {
   if (!fileId && body.fileId) fileId = String(body.fileId);
   if (!coverFileId && body.coverFileId) coverFileId = String(body.coverFileId);
 
-  if (type === 'short' && !fileId) throw httpError(400, '请上传短视频文件（支持 MP4 / MOV / WebM）');
+  if (needVideo && !fileId) throw httpError(400, '请上传短视频文件（支持 MP4 / MOV / WebM）');
   const video = fileId ? files().get(fileId) : null;
-  if (type === 'short' && video && video.kind !== 'video') {
+  if (needVideo && video && video.kind !== 'video') {
     throw httpError(400, '短视频必须是视频文件');
   }
-  if (type === 'short' && video) files().update(fileId, { listingId: '' });
+  if (needVideo && video) files().update(fileId, { listingId: '' });
 
   const days = Number(body.days) || 90;
 
@@ -113,6 +152,11 @@ export async function createFeed({ user, body = {}, files: uploaded = [] }) {
     description: String(body.description || '').slice(0, 2000),
     fileId,
     coverFileId,
+    // 新闻可标注来源与作者，动态可带话题标签
+    source: String(body.source || '').slice(0, 80),
+    author: String(body.author || '').slice(0, 40),
+    tags: toTags(body.tags),
+    location: String(body.location || '').slice(0, 60),
     ownerId: user.id,
     ownerSnapshot: {
       id: user.id,

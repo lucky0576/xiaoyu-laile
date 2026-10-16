@@ -324,6 +324,40 @@ export async function renderPublish(ctx, params) {
             <div class="field"><label>报价截止</label><input class="input" type="date" id="f-deadline" value="${ui.esc((editing?.trade?.deadline || '').slice(0, 10))}"></div>`;
           bindTradeItems(box);
           return;
+        } else if (category === 'bounty') {
+          const bt = editing?.bounty || {};
+          const bountyTypes = ctx.state.taxonomy?.bountyTypes || [];
+          box.innerHTML = `
+            <div class="field"><label>悬赏类型</label>
+              <select class="select" id="f-bountyType">
+                ${bountyTypes.map((t) => `<option value="${ui.esc(t.id)}" ${bt.bountyType === t.id || bt.bountyType === t.name ? 'selected' : ''}>${ui.esc(t.name)} — ${ui.esc(t.desc)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>赏金金额 <span style="color:var(--danger)">*</span></label>
+              <div class="row gap8">
+                <input class="input" id="f-reward" placeholder="如 50000" value="${ui.esc(bt.reward || '')}" style="flex:2">
+                <select class="select" id="f-rewardUnit" style="flex:1">
+                  ${['元', '万元'].map((u) => `<option ${bt.rewardUnit === u ? 'selected' : ''}>${u}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="field"><label>结算方式</label>
+              <select class="select" id="f-settleMode">
+                <option value="">请选择</option>
+                ${(ctx.state.taxonomy?.bountySettleModes || []).map((m) => `<option ${bt.settleMode === m ? 'selected' : ''}>${ui.esc(m)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>参与资格</label>
+              <select class="select" id="f-eligibility">
+                <option value="">不限</option>
+                ${(ctx.state.taxonomy?.bountyEligibility || []).map((m) => `<option ${bt.eligibility === m ? 'selected' : ''}>${ui.esc(m)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>中赏人数</label><input class="input" id="f-winnerCount" placeholder="如 1 / 3" value="${ui.esc(bt.winnerCount || '')}"></div>
+            <div class="field"><label>悬赏截止时间</label><input class="input" type="date" id="f-bountyDeadline" value="${ui.esc((bt.deadline || '').slice(0, 10))}"></div>
+            <div class="field"><label>交付要求</label><textarea class="input" rows="3" id="f-deliverable" placeholder="说明要交付什么、达到什么标准才算完成">${ui.esc(bt.deliverable || '')}</textarea></div>
+            <div class="field"><label>补充说明（选填）</label><textarea class="input" rows="2" id="f-bountyExtra" placeholder="如：可提供资料清单、需签保密协议等">${ui.esc(bt.extra || '')}</textarea></div>`;
+          return;
         } else {
           const qs = editing?.project?.qualifications || [];
           const bt = editing?.project?.businessTerms || {};
@@ -366,6 +400,14 @@ export async function renderPublish(ctx, params) {
             startAt: v('#f-startAt'), endAt: v('#f-endAt'), address: v('#f-address'), online: c('#f-online'),
             capacity: v('#f-capacity'), needPay: c('#f-needPay'), fee: v('#f-fee'),
             registerDeadline: v('#f-registerDeadline'), organizer: v('#f-organizer'),
+          };
+        }
+        if (category === 'bounty') {
+          return {
+            bountyType: v('#f-bountyType'), reward: v('#f-reward'), rewardUnit: v('#f-rewardUnit'),
+            settleMode: v('#f-settleMode'), eligibility: v('#f-eligibility'),
+            winnerCount: v('#f-winnerCount'), deadline: v('#f-bountyDeadline'),
+            deliverable: v('#f-deliverable'), extra: v('#f-bountyExtra'),
           };
         }
         if (category === 'trade') {

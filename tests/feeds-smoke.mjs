@@ -232,6 +232,61 @@ async function main() {
   const badType = await uploadFeed(host.token, { type: 'nonsense', title: '未知类型', withFile: true, withCover: false });
   check('未知类型按短视频处理', badType.data?.feed?.type === 'short', String(badType.data?.feed?.type));
 
+  /* ---------------- 动态 / 新闻 ---------------- */
+  console.log('\n--- 动态与新闻 ---');
+  // 注意：call() 只支持 JSON body，带文件的 multipart 要直接 fetch
+  const postFeed = async (token, fields) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    const res = await fetch(`${BASE}/api/feeds`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    const json = await res.json();
+    return { status: res.status, data: json.data, json };
+  };
+
+  const moment = await postFeed(host.token, {
+    type: 'moment',
+    title: '庆阳算力中心一期今日开工',
+    description: '现场已完成围挡与临建，下周进入基础施工阶段。',
+    location: '甘肃 · 庆阳',
+    tags: '东数西算 算力 庆阳',
+  });
+  check('可发布动态', moment.status === 201 && moment.data?.feed?.type === 'moment',
+    JSON.stringify(moment.json).slice(0, 180));
+  check('动态保存位置', moment.data?.feed?.location === '甘肃 · 庆阳', String(moment.data?.feed?.location));
+  check('动态保存话题标签', (moment.data?.feed?.tags || []).includes('东数西算'),
+    JSON.stringify(moment.data?.feed?.tags));
+  check('动态不需要视频文件', !moment.data?.feed?.videoUrl);
+
+  const news = await postFeed(host.token, {
+    type: 'news',
+    title: '国家发改委：加快东数西算枢纽节点建设',
+    description: '会议要求各枢纽节点加快绿色算力供给，鼓励使用绿电。',
+    source: '中国能源报',
+    author: '本报记者',
+    tags: '东数西算,政策',
+  });
+  check('可发布新闻', news.status === 201 && news.data?.feed?.type === 'news',
+    JSON.stringify(news.json).slice(0, 180));
+  check('新闻保存来源', news.data?.feed?.source === '中国能源报', String(news.data?.feed?.source));
+  check('新闻保存作者', news.data?.feed?.author === '本报记者', String(news.data?.feed?.author));
+  check('新闻不需要视频文件', !news.data?.feed?.videoUrl);
+
+  const noBody = await postFeed(host.token, { type: 'news', title: '只有标题没有正文' });
+  check('新闻缺正文会被拒绝', noBody.status === 400, String(noBody.status));
+  const noMomentBody = await postFeed(host.token, { type: 'moment', title: '只有标题的动态' });
+  check('动态缺内容会被拒绝', noMomentBody.status === 400, String(noMomentBody.status));
+
+  const momentList = await call('GET', '/api/feeds?type=moment');
+  check('可按动态筛选', (momentList.data?.items || []).some((f) => f.id === moment.data.feed.id),
+    `列表 ${(momentList.data?.items || []).length} 条`);
+  const newsList = await call('GET', '/api/feeds?type=news');
+  check('可按新闻筛选', (newsList.data?.items || []).some((f) => f.id === news.data.feed.id),
+    `列表 ${(newsList.data?.items || []).length} 条`);
+  const shortList = await call('GET', '/api/feeds?type=short');
+  check('短视频与动态互不串台', !(shortList.data?.items || []).some((f) => f.id === moment.data.feed.id));
+  const liveList = await call('GET', '/api/feeds?type=live');
+  check('直播筛选只返回直播', (liveList.data?.items || []).every((f) => f.type === 'live'));
+
   db.flush();
   await app.close();
 

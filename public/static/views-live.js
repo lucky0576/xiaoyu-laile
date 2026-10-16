@@ -391,6 +391,8 @@ export async function renderFeedNew(ctx, params) {
       <div class="strong mb12">发布短视频 / 直播</div>
       <div class="chips mb12" id="fd-type">
         <a class="chip active" data-type="short">🎬 短视频</a>
+        <a class="chip" data-type="moment">💬 动态</a>
+        <a class="chip" data-type="news">📰 新闻</a>
         <a class="chip" data-type="live">📡 直播</a>
       </div>
 
@@ -409,14 +411,31 @@ export async function renderFeedNew(ctx, params) {
         <div class="tiny dim mt4">支持 MP4 / MOV / WebM，建议 1080p 以内、单条 200MB 以内</div>
       </div>
 
-      <div class="field">
+      <div class="field" id="fd-source-field" style="display:none">
+        <label>来源 / 媒体（选填）</label>
+        <input class="input" id="fd-source" maxlength="80" placeholder="如：中国能源报 / 平台原创">
+      </div>
+      <div class="field" id="fd-author-field" style="display:none">
+        <label>作者（选填）</label>
+        <input class="input" id="fd-author" maxlength="40" placeholder="如：张工">
+      </div>
+      <div class="field" id="fd-location-field" style="display:none">
+        <label>位置（选填）</label>
+        <input class="input" id="fd-location" maxlength="60" placeholder="如：甘肃 · 庆阳">
+      </div>
+      <div class="field" id="fd-tags-field" style="display:none">
+        <label>话题标签（选填）</label>
+        <input class="input" id="fd-tags" placeholder="用空格或逗号分隔，如：东数西算 算力 庆阳">
+      </div>
+
+      <div class="field" id="fd-cover-field">
         <label>封面（选填）</label>
         <input type="file" id="fd-cover" accept="image/*" class="input">
       </div>
 
       <div class="field">
-        <label>简介（选填）</label>
-        <textarea class="input" id="fd-desc" rows="3" maxlength="2000" placeholder="详细介绍内容、产品、项目背景"></textarea>
+        <label id="fd-desc-label">简介（选填）</label>
+        <textarea class="input" id="fd-desc" rows="5" maxlength="2000" placeholder="详细介绍内容、产品、项目背景"></textarea>
       </div>
 
       <label class="row gap8 mb12" style="cursor:pointer">
@@ -437,7 +456,7 @@ export async function renderFeedNew(ctx, params) {
   </div>`;
 
   return {
-    title: '发布短视频 / 直播',
+    title: '发布内容',
     content: html,
     showBack: true,
     activeTab: 'home',
@@ -445,19 +464,41 @@ export async function renderFeedNew(ctx, params) {
       const $ = (s) => root.querySelector(s);
       let type = 'short';
 
+      const LABEL = { short: '发布短视频', live: '创建直播间', moment: '发布动态', news: '发布新闻' };
+      const OK = { short: '短视频已发布', live: '直播间已创建', moment: '动态已发布', news: '新闻已发布' };
+
+      const applyType = (t) => {
+        type = t;
+        root.querySelectorAll('#fd-type .chip').forEach((c) => c.classList.toggle('active', c.dataset.type === t));
+        // 只有短视频需要上传视频文件；直播是开播时才有流，动态/新闻是图文
+        $('#fd-file-field').style.display = t === 'short' ? '' : 'none';
+        $('#fd-source-field').style.display = t === 'news' ? '' : 'none';
+        $('#fd-author-field').style.display = t === 'news' ? '' : 'none';
+        $('#fd-location-field').style.display = t === 'moment' ? '' : 'none';
+        $('#fd-tags-field').style.display = t === 'moment' || t === 'news' ? '' : 'none';
+        const dl = $('#fd-desc-label');
+        if (dl) dl.textContent = t === 'news' ? '新闻正文' : t === 'moment' ? '动态内容' : '简介（选填）';
+        $('#fd-desc').placeholder = t === 'news'
+          ? '正文内容，建议包含时间、地点、事件与影响'
+          : t === 'moment'
+            ? '记录进展、见闻或想法…'
+            : '详细介绍内容、产品、项目背景';
+        $('#fd-submit').textContent = LABEL[t] || '发布';
+      };
+
       root.querySelectorAll('#fd-type .chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-          type = chip.dataset.type;
-          root.querySelectorAll('#fd-type .chip').forEach((c) => c.classList.toggle('active', c === chip));
-          $('#fd-file-field').style.display = type === 'short' ? '' : 'none';
-          $('#fd-submit').textContent = type === 'short' ? '发布短视频' : '创建直播间';
-        });
+        chip.addEventListener('click', () => applyType(chip.dataset.type));
       });
+      applyType('short');
 
       $('#fd-submit').addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         const title = $('#fd-title').value.trim();
         if (!title) return ui.toast('请填写标题', 'err');
+        const desc = $('#fd-desc').value.trim();
+        if ((type === 'moment' || type === 'news') && !desc) {
+          return ui.toast(type === 'news' ? '请填写新闻正文' : '请填写动态内容', 'err');
+        }
         const file = $('#fd-file').files[0];
         if (type === 'short' && !file) return ui.toast('请选择视频文件', 'err');
 
@@ -465,24 +506,30 @@ export async function renderFeedNew(ctx, params) {
         fd.append('type', type);
         fd.append('title', title);
         fd.append('subtitle', $('#fd-subtitle').value.trim());
-        fd.append('description', $('#fd-desc').value.trim());
+        fd.append('description', desc);
         fd.append('featured', $('#fd-featured').checked ? '1' : '0');
+        if (type === 'news') {
+          fd.append('source', $('#fd-source').value.trim());
+          fd.append('author', $('#fd-author').value.trim());
+        }
+        if (type === 'moment') fd.append('location', $('#fd-location').value.trim());
+        if (type === 'moment' || type === 'news') fd.append('tags', $('#fd-tags').value.trim());
         if (file) fd.append('file', file);
         const cover = $('#fd-cover').files[0];
         if (cover) fd.append('file', cover);
 
         btn.disabled = true;
-        btn.textContent = '上传中…';
+        btn.textContent = type === 'short' || cover ? '上传中…' : '发布中…';
         try {
           const r = await service.createFeed(fd, {
             onProgress: (p) => { btn.textContent = `上传中 ${p}%`; },
           });
-          ui.toast(type === 'short' ? '短视频已发布' : '直播间已创建', 'ok');
-          ctx.nav(`#/live/${r.feed.id}`);
+          ui.toast(OK[type] || '已发布', 'ok');
+          ctx.nav(type === 'short' || type === 'live' ? `#/live/${r.feed.id}` : `#/live/${r.feed.id}`);
         } catch (err) {
           ui.toast(err.message, 'err');
           btn.disabled = false;
-          btn.textContent = type === 'short' ? '发布短视频' : '创建直播间';
+          btn.textContent = LABEL[type] || '发布';
         }
       });
     },

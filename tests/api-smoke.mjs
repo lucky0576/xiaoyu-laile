@@ -94,7 +94,7 @@ async function main() {
   check('健康检查含 AI 状态', Boolean(health.data?.ai?.mode));
 
   const site = await call('GET', '/api/site');
-  check('GET /api/site 返回三大板块', (site.data?.categories || []).length === 3);
+  check('GET /api/site 返回四大板块', (site.data?.categories || []).length === 4, JSON.stringify((site.data?.categories || []).map((c) => c.id)));
 
   const tax = await call('GET', '/api/taxonomy');
   check('行业数 >= 40', (tax.data?.industries || []).length >= 40, `实际 ${(tax.data?.industries || []).length}`);

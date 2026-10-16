@@ -5,7 +5,7 @@ import { httpError } from '../http/app.js';
 import {
   data, fail, num, bool, list, str, baseUrl, authUser, mustAuth, queryOf,
 } from './_util.js';
-import listingsSvc from '../services/listings.js';
+import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
 import { saveUploads, filePublic, getFile } from '../services/files.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
@@ -45,6 +45,16 @@ function buildTrade(body) {
   // 否则编辑其它字段时会把已有的明细冲掉
   if (body.items !== undefined) {
     out.items = listingsSvc.normalizeTradeItems(body.items);
+  }
+  return out;
+}
+
+function buildBounty(body) {
+  const out = {};
+  if (body.bounty !== undefined) return body.bounty;
+  // 也支持字段平铺提交
+  for (const k of ['bountyType', 'reward', 'rewardUnit', 'settleMode', 'deadline', 'deliverable', 'eligibility', 'winnerCount', 'extra']) {
+    if (body[k] !== undefined) out[k] = body[k];
   }
   return out;
 }
@@ -122,7 +132,9 @@ export default function registerListingRoutes(app) {
     const reused = list(body.fileIds).map((fid) => getFile(fid)).filter(Boolean);
     const files = [...reused, ...uploaded];
 
-    const category = ['project', 'event', 'trade'].includes(body.category) ? body.category : 'project';
+    // 分类白名单直接用 taxonomy 里的定义，别在这里再抄一份
+    // （之前抄了一份忘了同步，悬赏会被回落成 project）
+    const category = CATEGORY_IDS.includes(body.category) ? body.category : 'project';
     const doc = await listingsSvc.createListing({
       user,
       body: {
@@ -139,6 +151,7 @@ export default function registerListingRoutes(app) {
     if (category === 'event') patch.event = { ...doc.event, ...buildEvent(body), registered: 0 };
     if (category === 'trade') patch.trade = { ...doc.trade, ...buildTrade(body) };
     if (category === 'project') patch.project = { ...doc.project, ...buildProject(body) };
+    if (category === 'bounty') patch.bounty = { ...doc.bounty, ...buildBounty(body) };
     if (Object.keys(patch).length) listings().update(doc.id, patch);
 
     // 回填文件的归属
@@ -197,6 +210,9 @@ export default function registerListingRoutes(app) {
     }
     if (l.category === 'project' && (b.investAmount !== undefined || b.stage !== undefined)) {
       patch.project = { ...l.project, ...buildProject(b) };
+    }
+    if (l.category === 'bounty' && (b.reward !== undefined || b.bountyType !== undefined || b.bounty !== undefined)) {
+      patch.bounty = { ...l.bounty, ...buildBounty(b) };
     }
     // updateListing 是 async 的：必须 await，否则拿到的是 Promise，
     // listingPublic 会把 Promise 当对象展开，响应里返回一个空壳

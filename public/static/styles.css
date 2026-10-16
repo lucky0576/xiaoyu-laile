@@ -593,6 +593,19 @@ ul { margin: 0; padding-left: 18px; }
 .case-item .kv { font-size: 12.5px; margin-top: 3px; }
 .case-item .kv .k { width: 62px; }
 
+/* ---------- 悬赏 ---------- */
+.bounty-card { border: 1px solid #ffe0b2; background: linear-gradient(180deg, #fffdf7, #fff); }
+.bounty-reward {
+  flex: none;
+  background: linear-gradient(135deg, #ff8f00, #ff6f00);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 /* 无封面时的占位区 */
 .hero-empty {
   display: grid;

@@ -56,6 +56,11 @@ export default function registerFeedRoutes(app) {
         coverFileId: str(req.body?.coverFileId, 60),
         featured: req.body?.featured === undefined ? true : bool(req.body.featured),
         days: num(req.body?.days, 90),
+        // 动态 / 新闻的附加字段
+        source: str(req.body?.source, 80),
+        author: str(req.body?.author, 40),
+        location: str(req.body?.location, 60),
+        tags: req.body?.tags,
       },
       files: uploaded,
     });

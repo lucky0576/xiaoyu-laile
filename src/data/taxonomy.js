@@ -1020,11 +1020,47 @@ export const EVENT_TYPES = [
 ]
 
 /* ------------------------------------------------------------------ *
- * 5. CATEGORIES —— 三大板块
+ * 4.5 BOUNTY_TYPES —— 悬赏类型
+ *     发布方带着赏金发需求，能解决的人来接单、交方案、领赏。
+ *     与「采购」的区别：采购是买东西，悬赏是买「本事 / 信息 / 方案」。
+ * ------------------------------------------------------------------ */
+
+export const BOUNTY_TYPES = [
+  { id: 'tech', name: '技术攻关', desc: '工艺、设备、算法等技术难题，能解决者得赏' },
+  { id: 'solution', name: '方案征集', desc: '征集可研、设计、实施方案或策划案' },
+  { id: 'resource', name: '资源对接', desc: '赏金换取关键人脉、渠道或稀缺资源引荐' },
+  { id: 'intel', name: '信息征集', desc: '征集项目线索、标的、供应商或市场情报' },
+  { id: 'referral', name: '业务转介', desc: '介绍成单即付佣金，适合居间与渠道' },
+  { id: 'talent', name: '人才招募', desc: '急聘关键岗位，推荐入职或自荐均可领赏' },
+  { id: 'consult', name: '疑难咨询', desc: '政策、合规、税务、资质等专业问题咨询' },
+  { id: 'other', name: '其他悬赏', desc: '以上未覆盖的其他悬赏需求' }
+]
+
+/** 赏金结算方式 */
+export const BOUNTY_SETTLE_MODES = [
+  '成交即付',
+  '方案验收后付',
+  '分期支付',
+  '入职后付',
+  '面议',
+]
+
+/** 悬赏参与资格 */
+export const BOUNTY_ELIGIBILITY = [
+  '不限',
+  '仅认证企业',
+  '仅实名个人',
+  '需具备相关资质',
+  '需有同类业绩',
+]
+
+/* ------------------------------------------------------------------ *
+ * 5. CATEGORIES —— 四大板块
  * ------------------------------------------------------------------ */
 
 export const CATEGORIES = [
   { id: 'project', name: '项目', icon: '📁', types: PROJECT_TYPES },
+  { id: 'bounty', name: '悬赏', icon: '🎯', types: BOUNTY_TYPES },
   { id: 'event', name: '活动', icon: '🎪', types: EVENT_TYPES },
   { id: 'trade', name: '贸易', icon: '🤝', types: TRADE_TYPES }
 ]
@@ -2176,6 +2212,9 @@ export default {
   PROJECT_TYPES,
   TRADE_TYPES,
   EVENT_TYPES,
+  BOUNTY_TYPES,
+  BOUNTY_SETTLE_MODES,
+  BOUNTY_ELIGIBILITY,
   CATEGORIES,
   CITIES,
   PIPELINE_STAGES,

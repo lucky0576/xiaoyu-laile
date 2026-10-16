@@ -9,7 +9,7 @@ import ai from './ai.js';
 import notifySvc from './notify.js';
 import hub from './hub.js';
 import { aggregateText, pickCover, filePublic, listFiles } from './files.js';
-import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
+import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 
 const listings = () => db.collection('listings');
 const comments = () => db.collection('comments');
@@ -17,13 +17,13 @@ const shares = () => db.collection('shares');
 const registrations = () => db.collection('registrations');
 const users = () => db.collection('users');
 
-export const CATEGORY_IDS = ['project', 'event', 'trade'];
+export const CATEGORY_IDS = ['project', 'bounty', 'event', 'trade'];
 
 export function categoryName(id) {
   return CATEGORIES.find((c) => c.id === id)?.name || '信息';
 }
 
-const TYPE_POOLS = { project: PROJECT_TYPES, trade: TRADE_TYPES, event: EVENT_TYPES };
+const TYPE_POOLS = { project: PROJECT_TYPES, bounty: BOUNTY_TYPES, trade: TRADE_TYPES, event: EVENT_TYPES };
 
 /**
  * 解析类型：先按 id 精确匹配，再按中文名匹配，最后原样保留。
@@ -256,8 +256,7 @@ export function normalizeQualifications(input) {
     .filter((q) => q.name);
 }
 
-/** 商务条件：只保留 taxonomy 里定义过的字段，避免脏数据 */
-export function normalizeBusinessTerms(input) {
+/** 商务条件：只保留 taxonomy 里定义过的字段，避免脏数据 */export function normalizeBusinessTerms(input) {
   const src = parseMaybeJson(input);
   if (!src || typeof src !== 'object') return {};
   const plain = {};
@@ -301,6 +300,32 @@ export function normalizeProject(body = {}, prev = null) {
         : normalizeBusinessTerms(body.businessTerms),
   };
   return project;
+}
+
+/* ------------------------------------------------------------------ */
+/* 悬赏                                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 悬赏信息：发布方带赏金发需求，能解决的人来接单。
+ * 与采购的区别：采购买的是「货」，悬赏买的是「本事 / 信息 / 方案」。
+ */
+export function normalizeBounty(input, base = {}) {
+  const src = parseMaybeJson(input) || {};
+  const b = base && typeof base === 'object' ? base : {};
+  const s = (v, n) => String(v ?? '').trim().slice(0, n);
+  return {
+    bountyType: s(src.bountyType ?? b.bountyType, 40),
+    // 赏金单独存在，避免被当成项目金额混进统计
+    reward: s(src.reward ?? b.reward, 40),
+    rewardUnit: s(src.rewardUnit ?? b.rewardUnit, 10) || '元',
+    settleMode: s(src.settleMode ?? b.settleMode, 30),
+    deadline: s(src.deadline ?? b.deadline, 20),
+    deliverable: s(src.deliverable ?? b.deliverable, 600),
+    eligibility: s(src.eligibility ?? b.eligibility, 30),
+    winnerCount: s(src.winnerCount ?? b.winnerCount, 20),
+    extra: s(src.extra ?? b.extra, 400),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -498,6 +523,8 @@ export async function createListing({ user, body = {}, files = [] }) {
           }
         : null,
 
+    bounty: category === 'bounty' ? normalizeBounty(body.bounty ?? body) : null,
+
     project: category === 'project' ? normalizeProject(body) : null,
 
     pipeline: {
@@ -541,6 +568,7 @@ export async function updateListing(id, user, patch = {}) {
     'event',
     'trade',
     'project',
+    'bounty',
     'durationDays',
   ];
   const next = {};
@@ -554,6 +582,8 @@ export async function updateListing(id, user, patch = {}) {
     if (next.trade.items === undefined) merged.items = (l.trade || {}).items || [];
     next.trade = merged;
   }
+  // 悬赏同理，按字段合并
+  if (next.bounty && l.category === 'bounty') next.bounty = normalizeBounty(next.bounty, l.bounty);
   if (next.type) next.typeName = typeNameOf(l.category, next.type);
   if (next.durationDays && l.status === 'published') {
     next.expiresAt = computeExpiry(next.durationDays, new Date(l.publishedAt || Date.now()).getTime());
@@ -1353,6 +1383,7 @@ export default {
   evaluateQualification,
   normalizeQualifications,
   normalizeTradeItems,
+  normalizeBounty,
   normalizeBusinessTerms,
   normalizeProject,
   registerForEvent,

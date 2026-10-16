@@ -98,6 +98,50 @@ async function main() {
     JSON.stringify(tax.data.pipelineStages[1].actions) === JSON.stringify(['upload-qualification', 'ai-review', 'confirm-qualification']),
     JSON.stringify(tax.data.pipelineStages[1].actions));
 
+  console.log('\n=== 1b. 悬赏分类 ===');
+  check('分类里含悬赏板块', (tax.data.categories || []).some((c) => c.id === 'bounty'),
+    JSON.stringify((tax.data.categories || []).map((c) => c.id)));
+  check('悬赏类型可选', (tax.data.bountyTypes || []).length >= 6, `实际 ${(tax.data.bountyTypes || []).length}`);
+  check('悬赏结算方式可选', (tax.data.bountySettleModes || []).length >= 3);
+  check('悬赏参与资格可选', (tax.data.bountyEligibility || []).length >= 3);
+
+  const bountyForm = {
+    category: 'bounty', type: 'tech',
+    title: '求解：储能集装箱低温环境下的热管理方案',
+    text: '需要在 -30℃ 环境下保证电池舱温度不低于 5℃，求可行方案与设备选型建议。',
+    durationDays: '30',
+    bountyType: '技术攻关', reward: '50000', rewardUnit: '元',
+    settleMode: '方案验收后付', deadline: '2026-12-31',
+    deliverable: '提交完整热管理方案 + 设备清单 + 预算', eligibility: '需有同类业绩',
+    winnerCount: '1',
+    publish: '1',
+  };
+  const bCreate = await call('POST', '/api/listings', { token: owner.token, form: jsonForm(bountyForm) });
+  check('可发布悬赏', bCreate.status === 201, JSON.stringify(bCreate.json).slice(0, 200));
+  const bId = bCreate.data.listing.id;
+  const bView = await call('GET', `/api/listings/${bId}`, { token: owner.token });
+  const b = bView.data?.listing?.bounty || {};
+  check('悬赏分类保存正确', bView.data?.listing?.category === 'bounty');
+  check('赏金金额保存', b.reward === '50000' && b.rewardUnit === '元', JSON.stringify(b));
+  check('悬赏类型保存', b.bountyType === '技术攻关', String(b.bountyType));
+  check('结算方式保存', b.settleMode === '方案验收后付', String(b.settleMode));
+  check('交付要求保存', String(b.deliverable).includes('热管理方案'), String(b.deliverable));
+  check('参与资格保存', b.eligibility === '需有同类业绩', String(b.eligibility));
+  check('截止日期保存', b.deadline === '2026-12-31', String(b.deadline));
+  check('中赏人数保存', b.winnerCount === '1', String(b.winnerCount));
+  check('悬赏不写入项目/贸易字段', !bView.data?.listing?.project && !bView.data?.listing?.trade);
+
+  const bList = await call('GET', '/api/listings?category=bounty&pageSize=20');
+  check('可按悬赏分类筛选', (bList.data.items || []).some((x) => x.id === bId),
+    `列表 ${(bList.data.items || []).length} 条`);
+
+  await call('PUT', `/api/listings/${bId}`, { token: owner.token, body: { bounty: { settleMode: '成交即付' } } });
+  const bAfter = await call('GET', `/api/listings/${bId}`, { token: owner.token });
+  check('编辑悬赏不会冲掉赏金', bAfter.data?.listing?.bounty?.reward === '50000',
+    JSON.stringify(bAfter.data?.listing?.bounty));
+  check('编辑后结算方式已更新', bAfter.data?.listing?.bounty?.settleMode === '成交即付',
+    String(bAfter.data?.listing?.bounty?.settleMode));
+
   console.log('\n=== 2. 发布：资质要求（多项）+ 商务条件 ===');
   const qualifications = [
     { name: '电力工程施工总承包一级', level: '一级', required: true, note: '必须提供证书扫描件' },
