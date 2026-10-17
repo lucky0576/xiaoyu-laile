@@ -9,8 +9,19 @@
  *
  * 所有对外函数都会在返回值里带上 `source` 字段：'ai' 或 'local'。
  */
-import { config, aiConfigured } from '../config.js';
+import { effectiveAiConfig } from './settings.js';
 import { kindOf, listFiles } from './files.js';
+
+/**
+ * 是否接上了大模型。
+ *
+ * 不能用 config.js 里那个同名函数 —— 它只看环境变量，
+ * 管理端在线保存的 API Key 它看不见，会导致「填了 Key 却仍走规则引擎」。
+ * 这里统一以 effectiveAiConfig()（在线设置 > 环境变量）为准。
+ */
+function aiConfigured() {
+  return Boolean(effectiveAiConfig().apiKey);
+}
 
 /* ------------------------------------------------------------------ */
 /* 行业/城市/类型 词表（延迟加载，缺失时降级）                            */
@@ -561,22 +572,24 @@ async function localReply({ listing, comment, history }) {
 /* ------------------------------------------------------------------ */
 export async function chat(messages, opts = {}) {
   if (!aiConfigured()) return null;
-  const { temperature = 0.4, maxTokens = 2200, json = false, timeoutMs = config.ai.timeoutMs } = opts;
+  // 通过 settings 读配置：管理端在线填的 Key 优先于环境变量
+  const conf = effectiveAiConfig();
+  const { temperature = 0.4, maxTokens = 2200, json = false, timeoutMs = conf.timeoutMs } = opts;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const payload = {
-      model: opts.model || config.ai.model,
+      model: opts.model || conf.model,
       messages,
       temperature,
       max_tokens: maxTokens,
     };
     if (json) payload.response_format = { type: 'json_object' };
-    const res = await fetch(`${config.ai.baseUrl}/chat/completions`, {
+    const res = await fetch(`${conf.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.ai.apiKey}`,
+        Authorization: `Bearer ${conf.apiKey}`,
       },
       body: JSON.stringify(payload),
       signal: controller.signal,
@@ -1320,11 +1333,14 @@ export async function askAboutListing({ listing, question, history = [] }) {
 }
 
 export function aiStatus() {
+  const conf = effectiveAiConfig();
+  const on = Boolean(conf.enabled && conf.apiKey);
   return {
-    mode: aiConfigured() ? 'ai' : 'local',
-    provider: aiConfigured() ? config.ai.baseUrl : '内置规则引擎',
-    model: aiConfigured() ? config.ai.model : 'rule-based-v1',
-    enabled: config.ai.enabled,
+    mode: on ? 'ai' : 'local',
+    provider: on ? conf.baseUrl : '内置规则引擎',
+    model: on ? conf.model : 'rule-based-v1',
+    enabled: true,
+    source: conf.source,
   };
 }
 

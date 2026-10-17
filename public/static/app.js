@@ -260,6 +260,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderFollows(ctx, query);
     case 'admin':
       return viewsAccount.renderAdmin(ctx, query);
+    case 'admin-ai':
+      return viewsAccount.renderAdminAi(ctx, query);
     case 'chat':
       return viewsChat.renderChat(ctx, { roomId: p1, ...query });
     case 'join':

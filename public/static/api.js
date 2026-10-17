@@ -228,6 +228,11 @@ export const service = {
   searchStatus: () => api.get('/api/search-status'),
   // 前端版本号（排查浏览器是否在用旧缓存）
   version: () => api.get('/api/version'),
+  // AI 设置（管理端在线配置 DeepSeek 等）
+  adminAi: () => api.get('/api/admin/ai'),
+  saveAdminAi: (body) => api.put('/api/admin/ai', body),
+  clearAdminAi: () => api.del('/api/admin/ai'),
+  testAdminAi: (body) => api.post('/api/admin/ai/test', body),
   // 保密附件：用查看密码换取短时效令牌
   unlockFiles: (id, password) => api.post(`/api/listings/${id}/files/unlock`, { password }),
   fileAccess: (id, token) => api.get(`/api/listings/${id}/files/access`, token ? { t: token } : undefined),

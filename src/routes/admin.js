@@ -2,11 +2,12 @@
  * 管理后台路由
  */
 import db from '../store/db.js';
-import { data, fail, str, bool, num, queryOf } from './_util.js';
+import { data, fail, str, bool, num, queryOf, rateLimit, clientIp } from './_util.js';
 import { publicUser, requireAdmin } from '../services/auth.js';
 import listingsSvc from '../services/listings.js';
 import notifySvc from '../services/notify.js';
 import hub from '../services/hub.js';
+import settingsSvc from '../services/settings.js';
 import { httpError } from '../http/app.js';
 
 const users = () => db.collection('users');
@@ -160,5 +161,43 @@ export default function registerAdminRoutes(app) {
       result = { flushed: true };
     } else return fail(res, '未知操作');
     return data(res, result);
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* AI 设置：管理端在线配置，不用改 .env 也不用重启                    */
+  /* ---------------------------------------------------------------- */
+
+  app.get('/api/admin/ai', (req, res) => {
+    requireAdmin(req);
+    return data(res, settingsSvc.aiSettingsPublic());
+  });
+
+  app.put('/api/admin/ai', (req, res) => {
+    requireAdmin(req);
+    const b = req.body || {};
+    // apiKey 传空表示「不改动」，传 '-' 表示清除
+    return data(res, settingsSvc.saveAiSettings({
+      baseUrl: b.baseUrl,
+      model: b.model,
+      apiKey: b.apiKey,
+    }));
+  });
+
+  app.del('/api/admin/ai', (req, res) => {
+    requireAdmin(req);
+    return data(res, settingsSvc.clearAiSettings());
+  });
+
+  /** 真实调一次验证 key（只发极小请求，几乎不产生费用） */
+  app.post('/api/admin/ai/test', async (req, res) => {
+    requireAdmin(req);
+    const rl = rateLimit(`aitest:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) return fail(res, `测试过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    const b = req.body || {};
+    return data(res, await settingsSvc.testAiConnection({
+      baseUrl: b.baseUrl,
+      model: b.model,
+      apiKey: b.apiKey,
+    }));
   });
 }

@@ -665,6 +665,59 @@ async function main() {
   const nonAdmin = await call('GET', '/api/admin/overview', { token: tokenB });
   check('普通用户无法访问管理端', nonAdmin.status === 403);
 
+  console.log('\n=== 11b. AI 设置（在线绑定 DeepSeek） ===');
+  const aiDefaults = await call('GET', '/api/admin/ai', { token: adminToken });
+  check('管理端可读 AI 设置', aiDefaults.status === 200, JSON.stringify(aiDefaults.json).slice(0, 160));
+  check('默认指向 DeepSeek', String(aiDefaults.data?.baseUrl || '').includes('deepseek'),
+    String(aiDefaults.data?.baseUrl));
+  check('默认模型 deepseek-chat', aiDefaults.data?.model === 'deepseek-chat', String(aiDefaults.data?.model));
+  check('初始未配置 Key', aiDefaults.data?.hasApiKey === false, String(aiDefaults.data?.hasApiKey));
+  check('初始走内置规则引擎', aiDefaults.data?.source === 'none', String(aiDefaults.data?.source));
+  check('提供多家服务商预设', (aiDefaults.data?.presets || []).length >= 4,
+    `实际 ${(aiDefaults.data?.presets || []).length}`);
+
+  const aiGuest = await call('GET', '/api/admin/ai');
+  check('未登录不能读 AI 设置', aiGuest.status === 401 || aiGuest.status === 403, String(aiGuest.status));
+  const aiNonAdmin = await call('GET', '/api/admin/ai', { token: tokenB });
+  check('普通用户不能读 AI 设置', aiNonAdmin.status === 403, String(aiNonAdmin.status));
+  const aiNonAdminWrite = await call('PUT', '/api/admin/ai', { token: tokenB, body: { apiKey: 'sk-x' } });
+  check('普通用户不能改 AI 设置', aiNonAdminWrite.status === 403, String(aiNonAdminWrite.status));
+
+  const FAKE_KEY = 'sk-testsmoke-abcdefghijklmnop';
+  const aiSaved = await call('PUT', '/api/admin/ai', {
+    token: adminToken,
+    body: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat', apiKey: FAKE_KEY },
+  });
+  check('管理员可保存 AI 设置', aiSaved.status === 200 && aiSaved.data?.hasApiKey === true,
+    JSON.stringify(aiSaved.json).slice(0, 160));
+  check('保存后来源为页面配置', aiSaved.data?.source === 'online', String(aiSaved.data?.source));
+
+  // 关键：接口绝不能把完整 key 回传出去
+  const aiReadBack = await call('GET', '/api/admin/ai', { token: adminToken });
+  const aiRaw = JSON.stringify(aiReadBack.data || {});
+  check('接口不回传完整 API Key', !aiRaw.includes(FAKE_KEY), aiRaw.slice(0, 200));
+  check('只回传可核对的片段', Boolean(aiReadBack.data?.apiKeyHint), String(aiReadBack.data?.apiKeyHint));
+
+  // 保存后 AI 应立即切换到「大模型」模式（无需重启）
+  const aiHealth = await call('GET', '/api/health');
+  check('保存后 AI 立即切换为大模型模式', aiHealth.data?.ai?.mode === 'ai',
+    JSON.stringify(aiHealth.data?.ai));
+  check('AI 状态标注来源为 online', aiHealth.data?.ai?.source === 'online',
+    JSON.stringify(aiHealth.data?.ai));
+
+  // 留空表示不修改
+  const aiKeep = await call('PUT', '/api/admin/ai', {
+    token: adminToken,
+    body: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat', apiKey: '' },
+  });
+  check('Key 留空表示不修改', aiKeep.data?.hasApiKey === true, String(aiKeep.data?.hasApiKey));
+
+  // 清除后回退
+  const aiCleared = await call('DELETE', '/api/admin/ai', { token: adminToken });
+  check('可清除配置', aiCleared.data?.hasApiKey === false, JSON.stringify(aiCleared.data));
+  const health2 = await call('GET', '/api/health');
+  check('清除后回退内置规则引擎', health2.data?.ai?.mode === 'local', JSON.stringify(health2.data?.ai));
+
   console.log('\n=== 12. 用户资料 / 目录 / 搜索建议 ===');
   const profile = await call('PUT', '/api/users/me', { token: tokenB, body: { company: '唐山钢铁贸易有限公司', profession: '采购总监', industry: '制造业', city: '唐山', bio: '专注钢材与型材集采' } });
   check('更新用户资料', profile.status === 200 && profile.data?.user?.company === '唐山钢铁贸易有限公司');

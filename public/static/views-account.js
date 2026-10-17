@@ -724,6 +724,7 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/qualification"><div class="avatar">🛡️</div><div class="item-body"><div class="item-title">企业资质认证</div><div class="item-sub">${verified ? '已通过认证' : u.qualification?.status === 'pending' ? '审核中' : '上传营业执照与资质证书'}</div></div><span class="dim">›</span></a>
       <a class="item" href="#/profile"><div class="avatar">⚙️</div><div class="item-body"><div class="item-title">资料与设置</div><div class="item-sub">头像、企业介绍、通知偏好</div></div><span class="dim">›</span></a>
       <a class="item" href="#/notifications"><div class="avatar">🔔</div><div class="item-body"><div class="item-title">消息通知</div><div class="item-sub">${data.unread || 0} 条未读</div></div><span class="dim">›</span></a>
+      ${u.isAdmin ? '<a class="item" href="#/admin-ai"><div class="avatar">🤖</div><div class="item-body"><div class="item-title">AI 设置</div><div class="item-sub">绑定 DeepSeek 等大模型，提升汇总与解析质量</div></div><span class="dim">›</span></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin"><div class="avatar">🛠️</div><div class="item-body"><div class="item-title">管理后台</div><div class="item-sub">资质审核、内容治理、平台数据</div></div><span class="dim">›</span></a>' : ''}
     </div>
 
@@ -1581,6 +1582,190 @@ export async function renderAdmin(ctx) {
           }
         } catch (err) {
           ui.toast(err.message, 'err');
+        }
+      });
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* AI 设置（管理端）                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 在线配置 AI 接口 —— 不用改 .env，也不用重启服务。
+ * 默认就是 DeepSeek（OpenAI 兼容协议），填个 Key 即可。
+ */
+export async function renderAdminAi(ctx) {
+  if (!isLoggedIn()) {
+    ctx.nav('#/login?redirect=%23/admin-ai');
+    return { title: 'AI 设置', content: '<div class="page"></div>' };
+  }
+  if (!ctx.state.user?.isAdmin) {
+    return { title: 'AI 设置', content: ui.emptyState('🔒', '需要管理员权限'), showBack: true };
+  }
+
+  let info = null;
+  try {
+    info = await service.adminAi();
+  } catch (err) {
+    return {
+      title: 'AI 设置',
+      showBack: true,
+      content: `<div class="page"><div class="card card-pad center">
+        <div style="font-size:40px">⚠️</div>
+        <div class="strong mt12">读取设置失败</div>
+        <div class="small muted mt8">${ui.esc(err.message)}</div>
+      </div></div>`,
+    };
+  }
+
+  const presets = info.presets || [];
+  const on = Boolean(info.hasApiKey);
+
+  const content = `<div class="page">
+    <div class="card card-pad">
+      <div class="row between mb8">
+        <div class="strong">🤖 AI 汇总资料</div>
+        <span class="badge ${on ? 'accent' : 'gray'}">${on ? '已接大模型' : '内置规则引擎'}</span>
+      </div>
+      <div class="step-hint mb12">
+        填上 API Key 后，「AI 汇总资料 / 生成标题 / 项目解析」会改用大模型。
+        <b>不填也能用</b>，走内置规则引擎，只是摘要与字段提取会粗一些。
+        <br>配置保存在服务器本机，不会随发布包分发出去。
+      </div>
+
+      <div class="field">
+        <label>服务商</label>
+        <select class="select" id="ai-preset">
+          ${presets.map((p) => `<option value="${ui.esc(p.id)}" data-url="${ui.esc(p.baseUrl)}" data-models="${ui.esc((p.models || []).join(','))}">${ui.esc(p.name)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="field">
+        <label>接口地址（Base URL）</label>
+        <input class="input" id="ai-baseurl" value="${ui.esc(info.baseUrl || '')}" placeholder="https://api.deepseek.com/v1">
+        <div class="tiny dim mt4">要带 /v1，末尾不加斜杠。自建或代理服务填自己的地址。</div>
+      </div>
+
+      <div class="field">
+        <label>模型</label>
+        <input class="input" id="ai-model" value="${ui.esc(info.model || '')}" placeholder="deepseek-chat">
+        <div class="tiny dim mt4">DeepSeek 常用：deepseek-chat（通用）、deepseek-reasoner（推理更强）。</div>
+      </div>
+
+      <div class="field">
+        <label>API Key ${on ? '<span class="tiny dim">（留空表示不修改）</span>' : ''}</label>
+        <input class="input" id="ai-key" type="password" autocomplete="off"
+          placeholder="${on ? ui.esc(info.apiKeyHint || '已保存') : 'sk-…'}" value="">
+        <div class="tiny dim mt4">
+          ${on ? '已保存一个 Key，出于安全不回显。要更换直接填新的。' : '在服务商后台创建，形如 sk-xxxx。'}
+        </div>
+      </div>
+
+      <div class="row gap8 mt12" style="flex-wrap:wrap">
+        <button class="btn btn-outline" id="ai-test" type="button">🔌 测试连接</button>
+        <button class="btn btn-primary grow" id="ai-save" type="button">保存</button>
+      </div>
+
+      <div id="ai-result" class="mt12"></div>
+    </div>
+
+    <div class="card card-pad mt12">
+      <div class="strong mb8">当前状态</div>
+      <div class="kv-table">
+        <div class="kv"><span class="k">运行模式</span><span class="v">${on ? '大模型' : '内置规则引擎'}</span></div>
+        <div class="kv"><span class="k">服务商</span><span class="v">${ui.esc(info.provider || '')}</span></div>
+        <div class="kv"><span class="k">模型</span><span class="v">${ui.esc(info.model || '')}</span></div>
+        <div class="kv"><span class="k">Key 来源</span><span class="v">${
+          info.source === 'online' ? '页面配置' : info.source === 'env' ? '环境变量' : '未配置'
+        }</span></div>
+      </div>
+      ${on ? '<button class="btn btn-sm btn-outline mt12" id="ai-clear" type="button">清除配置，回退内置引擎</button>' : ''}
+    </div>
+
+    <div class="card card-pad mt12">
+      <div class="small muted">
+        <div>· Key 只保存在这台服务器的 <code>data/</code> 目录，不进发布包，也不同步到坚果云</div>
+        <div>· 「测试连接」只发一个极小的请求，几乎不产生费用</div>
+        <div>· DeepSeek 参考价：约 1 元 / 百万 token，一份 50 页文档汇总约 0.03 元</div>
+      </div>
+    </div>
+  </div>`;
+
+  return {
+    title: 'AI 设置',
+    content,
+    showBack: true,
+    async mount(root) {
+      const $ = (s) => root.querySelector(s);
+
+      // 按当前地址回选服务商
+      const preset = $('#ai-preset');
+      if (preset && info.baseUrl) {
+        const hit = [...preset.options].find((o) => o.dataset.url === info.baseUrl);
+        if (hit) preset.value = hit.value;
+      }
+      preset?.addEventListener('change', () => {
+        const opt = preset.selectedOptions[0];
+        if (!opt) return;
+        const url = opt.dataset.url || '';
+        const models = (opt.dataset.models || '').split(',').filter(Boolean);
+        if (url) $('#ai-baseurl').value = url;
+        if (models.length) $('#ai-model').value = models[0];
+      });
+
+      const collect = () => ({
+        baseUrl: $('#ai-baseurl').value.trim(),
+        model: $('#ai-model').value.trim(),
+        apiKey: $('#ai-key').value.trim(),
+      });
+      const showResult = (html) => { $('#ai-result').innerHTML = html; };
+
+      $('#ai-test')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = '测试中…';
+        showResult('<div class="tiny dim">正在连接…</div>');
+        try {
+          const r = await service.testAdminAi(collect());
+          showResult(r.ok
+            ? `<div class="file-unlocked-tip">✅ 连接正常 · ${ui.esc(String(r.ms))}ms · 模型 ${ui.esc(r.model)}${r.reply ? ` · 回复「${ui.esc(r.reply)}」` : ''}</div>`
+            : `<div class="warn-note">❌ ${ui.esc(r.error || '连接失败')}${r.detail ? `<div class="tiny dim mt4">${ui.esc(String(r.detail).slice(0, 200))}</div>` : ''}</div>`);
+        } catch (err) {
+          showResult(`<div class="warn-note">❌ ${ui.esc(err.message)}</div>`);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '🔌 测试连接';
+        }
+      });
+
+      $('#ai-save')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = '保存中…';
+        try {
+          await service.saveAdminAi(collect());
+          ui.toast('已保存，立即生效', 'ok');
+          ctx.refresh ? ctx.refresh() : window.location.reload();
+        } catch (err) {
+          ui.toast(err.message, 'err');
+          btn.disabled = false;
+          btn.textContent = '保存';
+        }
+      });
+
+      $('#ai-clear')?.addEventListener('click', async (e) => {
+        const ok = await ui.confirmDialog({ title: '清除 AI 配置', message: '清除后回到内置规则引擎，确定吗？' });
+        if (!ok) return;
+        e.currentTarget.disabled = true;
+        try {
+          await service.clearAdminAi();
+          ui.toast('已清除', 'ok');
+          ctx.refresh ? ctx.refresh() : window.location.reload();
+        } catch (err) {
+          ui.toast(err.message, 'err');
+          e.currentTarget.disabled = false;
         }
       });
     },
