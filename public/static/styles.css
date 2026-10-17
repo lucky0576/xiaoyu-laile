@@ -593,6 +593,59 @@ ul { margin: 0; padding-left: 18px; }
 .case-item .kv { font-size: 12.5px; margin-top: 3px; }
 .case-item .kv .k { width: 62px; }
 
+/* ---------- 上传队列（逐个文件进度） ---------- */
+.upload-queue {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: #fff;
+  padding: 10px 12px;
+}
+.upload-queue-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.upload-item { padding: 6px 0; border-top: 1px dashed #eef2f7; }
+.upload-item:first-of-type { border-top: 0; }
+.upload-item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.upload-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-1);
+}
+.upload-item-meta { flex: none; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.upload-item.is-error .upload-item-name { color: var(--danger); }
+.upload-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: #eef2f7;
+  margin-top: 5px;
+  overflow: hidden;
+}
+.upload-bar > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand), #4aa3ff);
+  transition: width .18s ease;
+}
+.upload-bar > i.err { background: var(--danger); }
+.upload-retry { margin-top: 6px; }
+
 /* ---------- 文件保密 ---------- */
 .secret-box {
   border: 1px solid #e6ddc8;

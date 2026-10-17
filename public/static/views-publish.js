@@ -162,6 +162,7 @@ export async function renderPublish(ctx, params) {
       <div class="row between mt8">
         <span class="tiny dim" id="pub-upload-status"></span>
       </div>
+      <div id="pub-upload-queue"></div>
       <div id="pub-files" class="row wrap gap8 mt8"></div>
       <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 文本），据此生成标题并解析项目。</div>
 
@@ -619,23 +620,129 @@ export async function renderPublish(ctx, params) {
         };
       };
 
-      /* ---------------- 导入文件 ---------------- */
-      const uploadFiles = async (files) => {
-        if (!files.length) return;
-        $('#pub-upload-status').textContent = `上传中 0%`;
+      /* ---------------- 导入文件：逐个上传 + 独立进度 ----------------
+       *
+       * 之前是把所有文件塞进一个 FormData 一次提交，只能拿到一个总百分比 ——
+       * 一次选 10 个文件时，完全看不出哪个正在传、哪个卡住、哪个失败了。
+       * 改成逐个上传：每个文件有自己的进度条、状态与失败重试。
+       */
+      let uploadTasks = [];
+
+      const fmtSize = (n) => {
+        const num = Number(n) || 0;
+        if (num < 1024) return `${num} B`;
+        const units = ['KB', 'MB', 'GB'];
+        let v = num / 1024;
+        let i = 0;
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+        return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+      };
+
+      const renderUploadQueue = () => {
+        const box = $('#pub-upload-queue');
+        if (!box) return;
+        // 上传成功的会进入下方「已导入」列表，这里只留未完成与失败的
+        const visible = uploadTasks.filter((t) => t.status !== 'done');
+        if (!visible.length) {
+          box.innerHTML = '';
+          return;
+        }
+        const doneCount = uploadTasks.filter((t) => t.status === 'done').length;
+        const failedCount = visible.filter((t) => t.status === 'error').length;
+        const uploading = visible.filter((t) => t.status === 'uploading').length;
+        const total = uploadTasks.length;
+        const overall = total
+          ? Math.round(uploadTasks.reduce((s, t) => s + (t.status === 'done' ? 100 : t.percent), 0) / total)
+          : 0;
+
+        const head = uploading
+          ? `正在上传 ${uploading} 个文件`
+          : failedCount
+            ? `${failedCount} 个文件上传失败`
+            : '等待上传';
+
+        box.innerHTML = `<div class="upload-queue">
+          <div class="upload-queue-head">
+            <span class="strong">${head}</span>
+            <span class="tiny dim">总进度 ${overall}%${doneCount ? ` · 已完成 ${doneCount}` : ''}${
+              failedCount ? ` · <span style="color:var(--danger)">失败 ${failedCount}</span>` : ''
+            }</span>
+          </div>
+          ${visible.map((t) => {
+            const meta =
+              t.status === 'uploading' ? `<b>${t.percent}%</b>`
+                : t.status === 'pending' ? '等待中'
+                  : `<span style="color:var(--danger)">${ui.esc(t.error || '上传失败')}</span>`;
+            const pct = t.status === 'uploading' ? t.percent : t.status === 'error' ? 100 : 0;
+            return `<div class="upload-item is-${t.status}">
+              <div class="upload-item-main">
+                <span class="upload-item-name" title="${ui.esc(t.name)}">${ui.esc(t.name)}</span>
+                <span class="upload-item-meta">${fmtSize(t.size)} · ${meta}</span>
+              </div>
+              <div class="upload-bar"><i class="${t.status === 'error' ? 'err' : ''}" style="width:${pct}%"></i></div>
+              ${t.status === 'error' ? `<button class="btn btn-sm btn-outline upload-retry" data-retry="${t.id}" type="button">重试</button>` : ''}
+            </div>`;
+          }).join('')}
+        </div>`;
+      };
+
+      const uploadOne = async (task) => {
+        task.status = 'uploading';
+        task.percent = 0;
+        task.error = '';
+        renderUploadQueue();
         const fd = new FormData();
-        for (const f of files) fd.append('file', f, f.name);
+        fd.append('file', task.file, task.name);
         try {
           const res = await api.upload('/api/files', fd, {
-            onProgress: (p) => { $('#pub-upload-status').textContent = `上传中 ${p}%`; },
+            onProgress: (p) => { task.percent = p; renderUploadQueue(); },
           });
-          uploaded = [...uploaded, ...res.files];
-          renderFiles();
-          const parsed = res.files.filter((f) => (f.text || '').trim().length > 0).length;
-          ui.toast(`已导入 ${res.files.length} 个文件${parsed ? `，其中 ${parsed} 个已解析出文字` : ''}`, 'ok');
+          const rec = res.files?.[0];
+          if (!rec) throw new Error('服务端未返回文件信息');
+          uploaded = [...uploaded, rec];
+          task.status = 'done';
+          task.percent = 100;
+          task.fileId = rec.id;
         } catch (err) {
-          ui.toast(err.message, 'err');
-          $('#pub-upload-status').textContent = '';
+          task.status = 'error';
+          task.error = err.message || '上传失败';
+        }
+        renderUploadQueue();
+        renderFiles();
+      };
+
+      const uploadFiles = async (files) => {
+        const list = [...files];
+        if (!list.length) return;
+        // 上一批已完成的清掉，避免队列越来越长（失败的要留着重试）
+        uploadTasks = uploadTasks.filter((t) => t.status !== 'done');
+        const base = uploadTasks.length;
+        const batch = list.map((f, i) => ({
+          id: `up${Date.now().toString(36)}_${base + i}`,
+          file: f,
+          name: f.name || `文件${i + 1}`,
+          size: f.size || 0,
+          status: 'pending',
+          percent: 0,
+          error: '',
+          fileId: '',
+        }));
+        uploadTasks = [...uploadTasks, ...batch];
+        renderUploadQueue();
+
+        // 顺序上传：并发会让进度互相干扰，也更占上行带宽
+        for (const t of batch) {
+          if (t.status === 'done') continue;
+          await uploadOne(t);
+        }
+
+        const ok = batch.filter((t) => t.status === 'done').length;
+        const bad = batch.filter((t) => t.status === 'error').length;
+        if (bad) {
+          ui.toast(`${ok} 个上传成功，${bad} 个失败，可点「重试」`, 'err');
+        } else if (ok) {
+          const parsed = uploaded.filter((f) => (f.text || '').trim().length > 0).length;
+          ui.toast(`已导入 ${ok} 个文件${parsed ? `，其中 ${parsed} 个已解析出文字` : ''}`, 'ok');
         }
       };
 
@@ -683,6 +790,18 @@ export async function renderPublish(ctx, params) {
         if (!btn) return;
         uploaded = uploaded.filter((f) => f.id !== btn.dataset.remove);
         renderFiles();
+      });
+
+      // 上传失败的文件可以单独重试，不必重选整批
+      root.querySelector('#pub-upload-queue').addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-retry]');
+        if (!btn) return;
+        const task = uploadTasks.find((t) => t.id === btn.dataset.retry);
+        if (!task) return;
+        btn.disabled = true;
+        btn.textContent = '重试中…';
+        await uploadOne(task);
+        if (task.status === 'done') ui.toast(`${task.name} 已重试成功`, 'ok');
       });
 
       /* ---------------- 拖拽上传（含文件夹） ---------------- */

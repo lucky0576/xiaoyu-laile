@@ -261,6 +261,31 @@ async function main() {
   const fileText = await fileFetch.text();
   check('下载内容正确', fileText.includes('逆变器'));
 
+  // 逐文件上传：前端现在是一个文件一次请求，用来显示各自的进度。
+  // 每次必须只返回 1 条记录，否则前端取 res.files[0] 会拿错文件。
+  console.log('\n--- 逐文件上传（配合独立进度显示） ---');
+  const perNames = ['逐文件A.txt', '逐文件B.txt', '逐文件C.txt'];
+  const perGot = [];
+  for (const nm of perNames) {
+    const oneFd = new FormData();
+    oneFd.append('file', new Blob([`内容 ${nm}`], { type: 'text/plain' }), nm);
+    const one = await call('POST', '/api/files', { token: tokenA, form: oneFd });
+    perGot.push({ status: one.status, count: (one.data?.files || []).length, name: one.data?.files?.[0]?.name });
+  }
+  check('单文件上传每次只返回 1 条记录', perGot.every((x) => x.count === 1),
+    JSON.stringify(perGot));
+  check('单文件上传状态均为 201', perGot.every((x) => x.status === 201), JSON.stringify(perGot));
+  check('返回的文件名与上传的一致',
+    perGot.map((x) => x.name).join(',') === perNames.join(','), JSON.stringify(perGot.map((x) => x.name)));
+
+  // 一次请求传多个文件仍然要支持（旧接口 / 其他调用方在用）
+  const multiFd = new FormData();
+  multiFd.append('file', new Blob(['多文件一'], { type: 'text/plain' }), '多文件一.txt');
+  multiFd.append('file', new Blob(['多文件二'], { type: 'text/plain' }), '多文件二.txt');
+  const multi = await call('POST', '/api/files', { token: tokenA, form: multiFd });
+  check('一次传多个文件仍然支持', multi.status === 201 && (multi.data?.files || []).length === 2,
+    JSON.stringify(multi.data?.files?.map((f) => f.name) || []));
+
   // 用文件内容 + 文字做 AI 预览，验证文件内容进入 AI 上下文
   const preview2 = await call('POST', '/api/ai/preview', {
     token: tokenA,
