@@ -63,6 +63,36 @@ function Test-AppUp {
   } catch { return $false }
 }
 
+# Tunnel liveness ONLY -- deliberately independent of the local app.
+#
+# BUG THIS FIXES: the watchdog used Test-PublicUrl (tunnel + app end to end) to
+# decide whether the tunnel was dead. So every time the web app restarted, the
+# probe failed, the script concluded "tunnel DEAD", killed cloudflared and made a
+# brand new tunnel -- which means a new public URL. Restarting the app was
+# silently destroying the tunnel and invalidating every shared link.
+#
+# A tunnel is alive if cloudflared is running AND its hostname still resolves.
+# Whether the app behind it is up is a separate question (Test-AppUp).
+function Test-TunnelAlive([string]$u) {
+  if (-not $u) { return $false }
+  $cf = @(Get-Process cloudflared -ErrorAction SilentlyContinue)
+  if ($cf.Count -eq 0) { return $false }
+  try {
+    $h = ([uri]$u).Host
+    $a = @(Resolve-DnsName $h -Type A -ErrorAction Stop | Where-Object { $_.IPAddress })
+    return ($a.Count -gt 0)
+  } catch {
+    # No Resolve-DnsName (old host) -> fall back to an HTTP probe.
+    try {
+      $null = Invoke-WebRequest "$u/api/health" -UseBasicParsing -TimeoutSec 10
+      return $true
+    } catch {
+      # An HTTP-level error still proves the tunnel edge is reachable.
+      return [bool]$_.Exception.Response
+    }
+  }
+}
+
 function Start-App {
   if (-not $NodeExe) { Write-Log 'node executable not found, cannot start web app'; return $false }
   Start-Process -FilePath $NodeExe -ArgumentList @('server.js', '--port', "$Port") `
@@ -131,7 +161,10 @@ function Start-QuickTunnel {
 $knownUrl = Get-EnvBaseUrl
 $cfRunning = @(Get-Process cloudflared -ErrorAction SilentlyContinue)
 
-if ($knownUrl -and (Test-PublicUrl $knownUrl)) {
+# Keep the existing tunnel unless it is genuinely gone.
+# Do NOT use Test-PublicUrl here -- that also tests the local app, so an app
+# restart would look like a dead tunnel and needlessly mint a new URL.
+if ($knownUrl -and (Test-TunnelAlive $knownUrl)) {
   Write-Log "tunnel healthy, keeping it: $knownUrl"
 } else {
   if ($knownUrl) { Write-Log "tunnel at $knownUrl is DEAD, replacing it" }
