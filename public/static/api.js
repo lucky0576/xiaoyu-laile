@@ -184,8 +184,129 @@ export const api = {
     });
   },
 
-  /** 把对象转成 FormData（数组自动 JSON 化，文件单独 append） */
-  form(fields = {}, files = []) {
+  /* ---------------------------------------------------------------- */
+  /* 上传单个文件：小文件一次传，大文件自动分片                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Cloudflare 隧道对单个请求有 100 秒等待上限，超时回报 524。
+   * 12MB 的资料在 1Mbps 上行下正好约 100 秒 —— 用户看到的就是
+   * 「进度 100%，上传失败（524）」。
+   * 超过阈值的文件自动切成 2MB 分片，每片远低于上限。
+   */
+  CHUNK_THRESHOLD: 4 * 1024 * 1024,
+
+  /** 上传一个分片（原始二进制），带进度 */
+  _putChunk(uploadId, index, blob, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let settled = false;
+      const done = (fn, arg) => {
+        if (settled) return;
+        settled = true;
+        fn(arg);
+      };
+      xhr.open('POST', `/api/files/chunk/${uploadId}/${index}`, true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      const t = store.token;
+      if (t) xhr.setRequestHeader('Authorization', `Bearer ${t}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        let json = null;
+        try {
+          json = JSON.parse(xhr.responseText);
+        } catch {
+          /* ignore */
+        }
+        if (xhr.status >= 200 && xhr.status < 300 && json && json.ok !== false) {
+          done(resolve, json.data || json);
+        } else {
+          done(reject, new ApiError((json && json.error) || `分片上传失败（${xhr.status}）`, xhr.status, json && json.code));
+        }
+      };
+      xhr.onerror = () => done(reject, new ApiError('分片上传失败，请检查网络', 0, 'network'));
+      xhr.ontimeout = () => done(reject, new ApiError('分片上传超时', 0, 'timeout'));
+      xhr.onabort = () => done(reject, new ApiError('分片上传已取消', 0, 'aborted'));
+      xhr.send(blob);
+    });
+  },
+
+  /**
+   * 上传单个文件（自动选择直传或分片）。
+   * @returns {Promise<{files:Array}>} 与 /api/files 一致
+   */
+  async uploadFile(file, { onProgress, onPhase } = {}) {
+    const threshold = this.CHUNK_THRESHOLD;
+    if (!file || file.size <= threshold) {
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      return this.upload('/api/files', fd, { onProgress, onPhase });
+    }
+
+    // ---- 分片 ----
+    let init = null;
+    try {
+      init = await this.post('/api/files/chunk/init', {
+        name: file.name,
+        size: file.size,
+        mime: file.type || 'application/octet-stream',
+      });
+    } catch (err) {
+      // 服务端不支持分片时退回直传，别让用户卡死
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      return this.upload('/api/files', fd, { onProgress, onPhase });
+    }
+
+    const { uploadId, chunkSize } = init;
+    const total = Math.max(1, Math.ceil(file.size / chunkSize));
+    let sent = 0;
+
+    try {
+      for (let i = 0; i < total; i++) {
+        const start = i * chunkSize;
+        const blob = file.slice(start, Math.min(start + chunkSize, file.size));
+        // 单片失败自动重试 3 次（网络抖动很常见，不能让用户重传整个文件）
+        let lastErr = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await this._putChunk(uploadId, i, blob, (pct) => {
+              if (!onProgress) return;
+              const overall = Math.round(((sent + (blob.size * pct) / 100) / file.size) * 100);
+              onProgress(Math.min(99, overall));
+            });
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+          }
+        }
+        if (lastErr) throw lastErr;
+        sent += blob.size;
+        if (onProgress) onProgress(Math.min(99, Math.round((sent / file.size) * 100)));
+      }
+
+      // 字节都到了，接下来是服务端合并 + 解析
+      if (onPhase) onPhase('parsing');
+      const res = await this.post(`/api/files/chunk/${uploadId}/complete`, {});
+      if (onProgress) onProgress(100);
+      return res;
+    } catch (err) {
+      // 失败就清掉服务端分片，避免残留占空间
+      try {
+        await this.del(`/api/files/chunk/${uploadId}`);
+      } catch {
+        /* ignore */
+      }
+      throw err;
+    }
+  },
+
+  /** 把对象转成 FormData（数组自动 JSON 化，文件单独 append） */  form(fields = {}, files = []) {
     const fd = new FormData();
     for (const [k, v] of Object.entries(fields)) {
       if (v === undefined || v === null) continue;

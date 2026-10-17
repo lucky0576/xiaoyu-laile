@@ -696,16 +696,16 @@ export async function renderPublish(ctx, params) {
         task.percent = 0;
         task.error = '';
         renderUploadQueue();
-        const fd = new FormData();
-        fd.append('file', task.file, task.name);
         try {
-          const res = await api.upload('/api/files', fd, {
+          // 大文件自动走分片（由 api.uploadFile 内部判断），
+          // 否则 12MB 在慢速上行下会超过 Cloudflare 的 100 秒上限，报 524
+          const res = await api.uploadFile(task.file, {
             onProgress: (p) => {
               task.percent = p;
               renderUploadQueue();
             },
-            // 字节传完 ≠ 完成：服务端还要解析 PDF/Word 提取文字，
-            // 大文档可能要好几秒，这里必须给出反馈，否则看着像卡死
+            // 字节传完 ≠ 完成：服务端还要合并分片、解析文档，
+            // 这里必须给出反馈，否则看着像卡死
             onPhase: (phase) => {
               if (phase === 'parsing') {
                 task.status = 'parsing';

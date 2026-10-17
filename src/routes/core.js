@@ -5,9 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import db from '../store/db.js';
 import { config, PUBLIC_DIR } from '../config.js';
-import { data, fail, mustAuth, authUser, baseUrl, queryOf, rateLimit, clientIp, list } from './_util.js';
+import { data, fail, str, num, mustAuth, authUser, baseUrl, queryOf, rateLimit, clientIp, list } from './_util.js';
 import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND } from '../services/files.js';
 import filesecure from '../services/filesecure.js';
+import chunksSvc from '../services/chunks.js';
 import listingsSvc from '../services/listings.js';
 import wechat from '../services/wechat.js';
 import hub from '../services/hub.js';
@@ -177,6 +178,54 @@ export default function registerCoreRoutes(app) {
     const user = mustAuth(req);
     const saved = await saveUploads(req, { ownerId: user.id });
     return data(res, { files: saved.map(filePublic) }, 201);
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* 分片上传                                                          */
+  /*                                                                  */
+  /* Cloudflare 隧道对单个请求有 100 秒上限（超时回报 524）。          */
+  /* 12MB 的资料在 1Mbps 上行下正好约 100 秒 —— 用户看到的就是         */
+  /* 「进度 100%，上传失败（524）」。切成 2MB 一块即可绕过。           */
+  /* ---------------------------------------------------------------- */
+
+  app.post('/api/files/chunk/init', (req, res) => {
+    const user = mustAuth(req);
+    const rl = rateLimit(`chunk-init:${clientIp(req)}`, 60, 60_000);
+    if (!rl.ok) return fail(res, `操作过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    const b = req.body || {};
+    return data(res, chunksSvc.initUpload({
+      name: str(b.name, 200),
+      size: num(b.size, 0),
+      mime: str(b.mime, 120),
+      ownerId: user.id,
+    }));
+  });
+
+  // 合并必须在写分片的路由**之前**注册，
+  // 否则 /chunk/:id/complete 会被 /chunk/:id/:index 抢先匹配（index='complete'）。
+  app.post('/api/files/chunk/:id/complete', async (req, res) => {
+    const user = mustAuth(req);
+    const record = await chunksSvc.completeUpload(req.params.id, { ownerId: user.id });
+    return data(res, { files: [filePublic(record)] }, 201);
+  });
+
+  app.get('/api/files/chunk/:id', async (req, res) => {
+    mustAuth(req);
+    return data(res, await chunksSvc.uploadStatus(req.params.id));
+  });
+
+  app.del('/api/files/chunk/:id', async (req, res) => {
+    mustAuth(req);
+    return data(res, { aborted: await chunksSvc.abortUpload(req.params.id) });
+  });
+
+  // 分片本体用原始二进制提交（application/octet-stream），
+  // 走的是已有的 req.rawBody，单块 2MB 远低于 JSON 上限。
+  app.post('/api/files/chunk/:id/:index', async (req, res) => {
+    mustAuth(req);
+    const buf = req.rawBody;
+    if (!buf || !buf.length) return fail(res, '分片内容为空', 400);
+    return data(res, await chunksSvc.appendChunk(req.params.id, req.params.index, buf));
   });
 
   /* ---------------------------------------------------------------- */

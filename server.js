@@ -13,6 +13,7 @@ import db from './src/store/db.js';
 import registerRoutes from './src/routes/index.js';
 import notifySvc from './src/services/notify.js';
 import { sweepOtps } from './src/services/auth.js';
+import chunksSvc from './src/services/chunks.js';
 import { seedIfEmpty } from './scripts/seed.js';
 
 /* ------------------------------------------------------------------ */
@@ -59,6 +60,18 @@ function startJobs() {
   run('expire', () => ({ expired: notifySvc.expireListings() }), 5 * 60_000);
   run('remind', () => ({ reminded: notifySvc.remindExpiring() }), 30 * 60_000);
   run('otp-sweep', () => ({ swept: sweepOtps() }), 60 * 60_000);
+  // 清理超过 2 小时没传完的分片会话，避免数据目录被残片占满。
+  // run() 只处理同步返回值，所以这里自己把 Promise 的成败都兜住，
+  // 否则会变成 unhandled rejection。
+  run('chunk-sweep', () => {
+    chunksSvc
+      .sweepStale()
+      .then((n) => {
+        if (n) console.log('[job:chunk-sweep] swept', n);
+      })
+      .catch((err) => console.warn('[job:chunk-sweep] 失败:', err.message));
+    return {};
+  }, 60 * 60_000);
   // 首轮立即跑一次
   try {
     notifySvc.expireListings();

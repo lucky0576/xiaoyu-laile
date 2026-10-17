@@ -21,6 +21,7 @@ const SUITES = [
   ['contact-mask 联系方式自动隐藏', 'contact-mask.test.mjs'],
   ['ai-chunk     长文档分块汇总', 'ai-chunk.test.mjs'],
   ['upload-limits 上传健壮性', 'upload-limits.test.mjs'],
+  ['chunk-upload  分片上传', 'chunk-upload.test.mjs'],
 ];
 
 let failedSuites = 0;

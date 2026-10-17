@@ -78,7 +78,7 @@ export const EXT_KIND = {
   '.yaml': 'text',
 };
 
-const ALLOWED = new Set([...Object.keys(EXT_KIND), '.apk', '.exe', '.psd', '.ai']);
+export const ALLOWED = new Set([...Object.keys(EXT_KIND), '.apk', '.exe', '.psd', '.ai']);
 
 export function extOf(name) {
   return path.extname(String(name || '')).toLowerCase();
@@ -136,12 +136,17 @@ function storagePath(fileId, ext) {
  * @param {{tmpPath:string, filename:string, mime:string, size:number, field:string}} part
  * @param {{ownerId?:string, listingId?:string, role?:string, extract?:boolean}} opts
  */
-export async function saveUpload(part, opts = {}) {
-  const name = safeFilename(part.filename);
+/**
+ * 把已经落在 dest 路径上的文件登记为文件记录（含文本解析）。
+ *
+ * 抽出来是为了让「一次上传」与「分片上传合并后」共用同一段逻辑，
+ * 避免两条路径的解析行为/字段不一致。
+ */
+export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
   const ext = extOf(name);
   if (!ALLOWED.has(ext)) {
     try {
-      fs.unlinkSync(part.tmpPath);
+      fs.unlinkSync(srcPath);
     } catch {
       /* ignore */
     }
@@ -150,8 +155,7 @@ export async function saveUpload(part, opts = {}) {
 
   const id = newId('f');
   const dest = storagePath(id, ext);
-  await fsp.rename(part.tmpPath, dest);
-  part.moved = true;
+  if (srcPath !== dest) await fsp.rename(srcPath, dest);
 
   const stat = await fsp.stat(dest);
   const kind = kindOf(name);
@@ -173,7 +177,7 @@ export async function saveUpload(part, opts = {}) {
     }
   }
 
-  const record = filesCol().insert({
+  return filesCol().insert({
     id,
     ownerId: opts.ownerId || '',
     listingId: opts.listingId || '',
@@ -181,7 +185,7 @@ export async function saveUpload(part, opts = {}) {
     name,
     ext,
     kind,
-    mime: part.mime || 'application/octet-stream',
+    mime: mime || 'application/octet-stream',
     size: stat.size,
     path: dest,
     url: `/files/${id}/${encodeURIComponent(name)}`,
@@ -190,7 +194,26 @@ export async function saveUpload(part, opts = {}) {
     notes,
     createdAt: new Date().toISOString(),
   });
-  // path 属于内部信息，不外发
+}
+
+export async function saveUpload(part, opts = {}) {
+  const name = safeFilename(part.filename);
+  const ext = extOf(name);
+  if (!ALLOWED.has(ext)) {
+    try {
+      fs.unlinkSync(part.tmpPath);
+    } catch {
+      /* ignore */
+    }
+    throw httpError(415, `不支持的文件类型：${ext || '未知'}`);
+  }
+  const record = await registerStoredFile({
+    srcPath: part.tmpPath,
+    name,
+    mime: part.mime,
+    opts,
+  });
+  part.moved = true;
   return record;
 }
 
