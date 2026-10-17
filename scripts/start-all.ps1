@@ -223,4 +223,41 @@ if (-not $PublicUrl) {
   }
 }
 
+# ---------------------------------------------------------------- 4. launcher
+# Keep a desktop shortcut pointing at the CURRENT tunnel URL.
+#
+# A quick tunnel's hostname dies with the tunnel, so old links start returning
+# Cloudflare Error 1016 ("Origin DNS error"). Rather than chase the user with a
+# new URL every time, we rewrite a clickable shortcut on the Desktop and inside
+# the project folder so there is one stable thing to click.
+#
+# NOTE: filename must stay ASCII -- this script must remain pure ASCII because a
+# non-ASCII .ps1 gets corrupted by the ANSI codepage on Windows PowerShell 5.1.
+function Write-Launcher([string]$url) {
+  if (-not $url) { return }
+  $body = "[InternetShortcut]`r`nURL=$url`r`nIconIndex=0`r`n"
+  $targets = @(
+    (Join-Path $Root 'xiaoyu-laile.url'),
+    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'xiaoyu-laile.url')
+  )
+  foreach ($path in $targets) {
+    try {
+      $dir = Split-Path $path -Parent
+      if (-not (Test-Path $dir)) { continue }
+      $old = if (Test-Path $path) { [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($false))) } else { '' }
+      if ($old -ne $body) {
+        [System.IO.File]::WriteAllText($path, $body, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Log "launcher updated: $path"
+      }
+    } catch {
+      Write-Log "launcher write failed: $path"
+    }
+  }
+}
+
+# Prefer the value we just synced; fall back to whatever .env already holds.
+$finalUrl = $PublicUrl
+if (-not $finalUrl) { $finalUrl = Get-EnvBaseUrl }
+if ($finalUrl) { Write-Launcher $finalUrl }
+
 Write-Log '---- start-all done ----'
