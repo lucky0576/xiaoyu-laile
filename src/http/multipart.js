@@ -73,6 +73,18 @@ export function safeFilename(name) {
  * @returns {Promise<{fields: Record<string,string>, files: Array}>}
  *   files 项：{ field, filename, mime, tmpPath, size }
  */
+/** 人类可读的字节数：512MB / 200KB，避免出现「0MB」这种提示 */
+export function formatBytes(n) {
+  const num = Number(n) || 0;
+  if (num < 1024) return `${num}B`;
+  if (num < 1024 * 1024) return `${Math.round(num / 1024)}KB`;
+  if (num < 1024 * 1024 * 1024) {
+    const mb = num / 1048576;
+    return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)}MB`;
+  }
+  return `${(num / 1073741824).toFixed(1)}GB`;
+}
+
 export function parseMultipartStream(req, options = {}) {
   const {
     boundary,
@@ -110,8 +122,15 @@ export function parseMultipartStream(req, options = {}) {
       if (settled) return;
       settled = true;
       cleanup();
+      // 不要在这里 req.destroy()。
+      //
+      // 直接销毁 socket 会让客户端拿不到我们准备好的 4xx JSON 响应：
+      // 浏览器只看到「网络错误」，个别情况下还会一直等到超时 ——
+      // 用户看到的现象就是「上传 100% 后无反应」。
+      // 改为暂停读取，把错误抛给上层，由统一错误处理返回真正的错误信息；
+      // 上层响应结束后会再销毁连接。
       try {
-        req.destroy();
+        req.pause();
       } catch {
         /* ignore */
       }
@@ -266,7 +285,12 @@ export function parseMultipartStream(req, options = {}) {
       if (settled) return;
       total += chunk.length;
       if (total > maxTotalBytes) {
-        return fail(new Error(`上传内容超过限制（${Math.round(maxTotalBytes / 1048576)}MB）`));
+        // 客户端把太大的文件传上来了，属于客户端错误：
+        // 用 413 而不是 500，否则会被当成服务端故障，也会打一堆无意义的错误日志
+        const err = new Error(`上传内容超过限制（${formatBytes(maxTotalBytes)}）`);
+        err.status = 413;
+        err.code = 'payload_too_large';
+        return fail(err);
       }
       buf = buf.length ? Buffer.concat([buf, chunk]) : chunk;
       drain();

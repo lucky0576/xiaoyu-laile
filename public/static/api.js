@@ -100,29 +100,86 @@ export const api = {
   put: (path, body, opts) => request('PUT', path, { ...opts, body }),
   del: (path, query, opts) => request('DELETE', path, { ...opts, query }),
 
-  /** 带进度的文件上传 */
-  upload(path, formData, { onProgress } = {}) {
+  /**
+   * 带进度的文件上传。
+   *
+   * 关键：必须保证 Promise **一定会 settle**。
+   * 原来没有 timeout、没有 onabort / ontimeout，服务端一旦不响应
+   * （例如超限时直接掐断连接），这个 Promise 就永远挂着 ——
+   * 用户看到的现象就是「上传 100% 后无反应」。
+   *
+   * @param {number} timeoutMs 从「字节发完」开始算的等待上限
+   */
+  upload(path, formData, { onProgress, onPhase, timeoutMs = 180000 } = {}) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+      let settled = false;
+      let sent = false;
+      let timer = null;
+
+      const finish = (fn, arg) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        fn(arg);
+      };
+      const arm = () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          try {
+            xhr.abort();
+          } catch {
+            /* ignore */
+          }
+          finish(reject, new ApiError('服务端处理超时，请重试或换小一点的文件', 0, 'timeout'));
+        }, timeoutMs);
+      };
+
       xhr.open('POST', path, true);
       xhr.withCredentials = true;
       const t = store.token;
       if (t) xhr.setRequestHeader('Authorization', `Bearer ${t}`);
+
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+        if (!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        if (onProgress) onProgress(pct);
+        // 字节发完了，但服务端还要解析文档（PDF/Word 提取文字），
+        // 这段时间界面不能只停在 100% 不动 —— 会让人以为卡死
+        if (pct >= 100 && !sent) {
+          sent = true;
+          if (onPhase) onPhase('parsing');
+        }
       };
+      xhr.upload.onload = () => {
+        if (!sent) {
+          sent = true;
+          if (onPhase) onPhase('parsing');
+        }
+        arm();
+      };
+
       xhr.onload = () => {
         let json = null;
-        try { json = JSON.parse(xhr.responseText); } catch { /* ignore */ }
+        try {
+          json = JSON.parse(xhr.responseText);
+        } catch {
+          /* ignore */
+        }
         if (xhr.status >= 200 && xhr.status < 300 && json && json.ok !== false) {
-          resolve(json && Object.prototype.hasOwnProperty.call(json, 'data') ? json.data : json);
+          finish(resolve, json && Object.prototype.hasOwnProperty.call(json, 'data') ? json.data : json);
         } else {
           const msg = (json && json.error) || `上传失败（${xhr.status}）`;
           if (xhr.status === 401) store.clear();
-          reject(new ApiError(msg, xhr.status, json && json.code));
+          finish(reject, new ApiError(msg, xhr.status, json && json.code));
         }
       };
-      xhr.onerror = () => reject(new ApiError('上传失败，请检查网络', 0, 'network'));
+      xhr.onerror = () => finish(reject, new ApiError('上传失败，请检查网络', 0, 'network'));
+      xhr.ontimeout = () => finish(reject, new ApiError('上传超时', 0, 'timeout'));
+      xhr.onabort = () => finish(reject, new ApiError('上传已取消', 0, 'aborted'));
+
+      // 兜底：连 onload 都没触发时也不能永远挂着
+      arm();
       xhr.send(formData);
     });
   },

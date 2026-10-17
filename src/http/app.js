@@ -391,7 +391,16 @@ export function createApp() {
     try {
       await parseBody(req);
     } catch (err) {
-      return errorHandler(err, req, res);
+      // 解析失败（超限、格式错）时请求体可能还没读完。
+      // multipart 里已经 req.pause()，这里先把错误响应发出去，
+      // 再关闭连接 —— 顺序反了客户端就只能看到「网络错误」。
+      const done = errorHandler(err, req, res);
+      try {
+        req.destroy();
+      } catch {
+        /* ignore */
+      }
+      return done;
     }
 
     // 1) 前置中间件与静态资源

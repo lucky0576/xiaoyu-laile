@@ -644,6 +644,20 @@ ul { margin: 0; padding-left: 18px; }
   transition: width .18s ease;
 }
 .upload-bar > i.err { background: var(--danger); }
+/* 解析阶段：进度条走满并流动，表示「还在忙」而不是卡死 */
+.upload-bar > i.busy {
+  background: repeating-linear-gradient(
+    115deg,
+    var(--brand) 0 12px,
+    #7cbcff 12px 24px
+  );
+  background-size: 200% 100%;
+  animation: upload-stripe 1s linear infinite;
+}
+@keyframes upload-stripe {
+  from { background-position: 0 0; }
+  to { background-position: -48px 0; }
+}
 .upload-retry { margin-top: 6px; }
 
 /* ---------- 文件保密 ---------- */

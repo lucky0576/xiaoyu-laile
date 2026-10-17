@@ -20,6 +20,7 @@ const SUITES = [
   ['import-dnd   拖拽与文件夹导入', 'import-dnd.test.mjs'],
   ['contact-mask 联系方式自动隐藏', 'contact-mask.test.mjs'],
   ['ai-chunk     长文档分块汇总', 'ai-chunk.test.mjs'],
+  ['upload-limits 上传健壮性', 'upload-limits.test.mjs'],
 ];
 
 let failedSuites = 0;

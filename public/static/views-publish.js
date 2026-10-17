@@ -649,17 +649,20 @@ export async function renderPublish(ctx, params) {
         }
         const doneCount = uploadTasks.filter((t) => t.status === 'done').length;
         const failedCount = visible.filter((t) => t.status === 'error').length;
-        const uploading = visible.filter((t) => t.status === 'uploading').length;
+        const uploading = visible.filter((t) => t.status === 'uploading' || t.status === 'parsing').length;
         const total = uploadTasks.length;
         const overall = total
           ? Math.round(uploadTasks.reduce((s, t) => s + (t.status === 'done' ? 100 : t.percent), 0) / total)
           : 0;
 
-        const head = uploading
-          ? `正在上传 ${uploading} 个文件`
-          : failedCount
-            ? `${failedCount} 个文件上传失败`
-            : '等待上传';
+        const parsing = visible.filter((t) => t.status === 'parsing').length;
+        const head = parsing
+          ? `服务端正在解析 ${parsing} 个文件…`
+          : uploading
+            ? `正在上传 ${uploading} 个文件`
+            : failedCount
+              ? `${failedCount} 个文件上传失败`
+              : '等待上传';
 
         box.innerHTML = `<div class="upload-queue">
           <div class="upload-queue-head">
@@ -671,15 +674,17 @@ export async function renderPublish(ctx, params) {
           ${visible.map((t) => {
             const meta =
               t.status === 'uploading' ? `<b>${t.percent}%</b>`
-                : t.status === 'pending' ? '等待中'
-                  : `<span style="color:var(--danger)">${ui.esc(t.error || '上传失败')}</span>`;
-            const pct = t.status === 'uploading' ? t.percent : t.status === 'error' ? 100 : 0;
+                : t.status === 'parsing' ? '<b>解析中…</b>'
+                  : t.status === 'pending' ? '等待中'
+                    : `<span style="color:var(--danger)">${ui.esc(t.error || '上传失败')}</span>`;
+            // 解析阶段进度条走满并轻微流动，表示「还在忙」
+            const pct = t.status === 'parsing' ? 100 : t.status === 'uploading' ? t.percent : t.status === 'error' ? 100 : 0;
             return `<div class="upload-item is-${t.status}">
               <div class="upload-item-main">
                 <span class="upload-item-name" title="${ui.esc(t.name)}">${ui.esc(t.name)}</span>
                 <span class="upload-item-meta">${fmtSize(t.size)} · ${meta}</span>
               </div>
-              <div class="upload-bar"><i class="${t.status === 'error' ? 'err' : ''}" style="width:${pct}%"></i></div>
+              <div class="upload-bar"><i class="${t.status === 'error' ? 'err' : t.status === 'parsing' ? 'busy' : ''}" style="width:${pct}%"></i></div>
               ${t.status === 'error' ? `<button class="btn btn-sm btn-outline upload-retry" data-retry="${t.id}" type="button">重试</button>` : ''}
             </div>`;
           }).join('')}
@@ -695,7 +700,19 @@ export async function renderPublish(ctx, params) {
         fd.append('file', task.file, task.name);
         try {
           const res = await api.upload('/api/files', fd, {
-            onProgress: (p) => { task.percent = p; renderUploadQueue(); },
+            onProgress: (p) => {
+              task.percent = p;
+              renderUploadQueue();
+            },
+            // 字节传完 ≠ 完成：服务端还要解析 PDF/Word 提取文字，
+            // 大文档可能要好几秒，这里必须给出反馈，否则看着像卡死
+            onPhase: (phase) => {
+              if (phase === 'parsing') {
+                task.status = 'parsing';
+                task.percent = 100;
+                renderUploadQueue();
+              }
+            },
           });
           const rec = res.files?.[0];
           if (!rec) throw new Error('服务端未返回文件信息');
@@ -708,7 +725,14 @@ export async function renderPublish(ctx, params) {
           task.error = err.message || '上传失败';
         }
         renderUploadQueue();
-        renderFiles();
+        // 渲染失败不能把整个上传流程带崩（否则队列已清空、列表又没内容，
+        // 用户看到的就是「100% 之后什么都没有」）
+        try {
+          renderFiles();
+        } catch (err) {
+          console.warn('[publish] 文件列表渲染失败:', err.message);
+          ui.toast('文件已上传，但列表渲染失败，请刷新页面', 'err');
+        }
       };
 
       const uploadFiles = async (files) => {
