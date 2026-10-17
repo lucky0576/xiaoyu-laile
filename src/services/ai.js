@@ -960,8 +960,8 @@ ${fileText ? `\n从附件里提取的内容：\n"""${fileText}"""` : ''}
 ${fileList ? `\n附件清单：${fileList}` : ''}
 ${input.filename ? `\n主要附件：${input.filename}` : ''}
 
-请只输出如下 JSON：
-{"digest":"","points":[""],"facts":{"projectName":"","owner":"","location":"","industry":"","amount":"","scale":"","period":"","scope":"","cooperation":"","requirements":"","payment":"","contact":""},"missing":[""]}`;
+请只输出如下 JSON（facts 里每个字段都要出现，资料里没有的写空字符串）：
+{"digest":"","points":[""],"facts":{${SUMMARY_FACT_KEYS.map((k) => `"${k}":""`).join(',')}},"missing":[""]}`;
 
   try {
     const raw = await chat(
@@ -978,11 +978,22 @@ ${input.filename ? `\n主要附件：${input.filename}` : ''}
       ? parsed.points.map((p) => String(p || '').trim().slice(0, 200)).filter(Boolean).slice(0, 12)
       : local.points;
     const factsSrc = parsed.facts && typeof parsed.facts === 'object' ? parsed.facts : {};
-    const facts = { ...local.facts };
-    for (const k of Object.keys(local.facts)) {
-      if (factsSrc[k] !== undefined && factsSrc[k] !== null) {
-        facts[k] = String(factsSrc[k]).trim().slice(0, 200);
+    // AI 成功时**以 AI 为准**：它没给值的字段就留空。
+    //
+    // 之前是以 local.facts 打底，AI 没返回的字段会漏出规则引擎的粗糙输出，
+    // 例如 powerPrice = "5元/kWh庆阳数据中心集群专项优惠电价，较一般工商业低约价格来源…"。
+    // 混在大模型干净的结果里既难看出是拼凑的，也会被误当成 AI 的结论。
+    const facts = {};
+    for (const k of SUMMARY_FACT_KEYS) {
+      const v = factsSrc[k];
+      if (v !== undefined && v !== null) {
+        facts[k] = String(v).trim().slice(0, 200);
+        continue;
       }
+      // AI 漏了这一项：本地值只在「干净短文本」时补位，
+      // 带残句特征（缺数字的「≥，」、结尾冒号、连续逗号）的一律丢弃
+      const lv = String(local.facts?.[k] || '').trim();
+      facts[k] = lv && lv.length <= 40 && !/[，,]{2}|≥\s*[，,]|[：:]\s*$/.test(lv) ? lv : '';
     }
     const missing = Array.isArray(parsed.missing)
       ? parsed.missing.map((m) => String(m || '').trim().slice(0, 80)).filter(Boolean).slice(0, 12)
