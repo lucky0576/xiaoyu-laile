@@ -934,12 +934,203 @@ export function localSummary(input) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* 长文档：分块提炼再合并                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 单次能安全塞进模型的字数。
+ *
+ * deepseek-chat 上下文 64K token，中文大致 1 字 ≈ 1 token，
+ * 这里取 24000 字，给提示词与输出留足余量。
+ *
+ * 之前固定只取 12000 字 —— 一份 47 页、3 万字的商业计划书，
+ * 有 60% 的内容根本没进模型，用户看到的就是「提取不全」。
+ */
+export const SINGLE_SHOT_CHARS = 24000;
+/** 分块大小：略小于单次上限，块内保留完整上下文 */
+export const CHUNK_CHARS = 14000;
+
+/** 按段落/句子边界切块，避免把一句话劈成两半 */
+export function splitChunks(text, size = CHUNK_CHARS) {
+  const src = String(text || '');
+  if (!src.trim()) return [];
+  if (src.length <= size) return [src];
+
+  const chunks = [];
+  let buf = '';
+  // 先按换行切，再按句末标点切，最后才硬切
+  const lines = src.split(/\n/);
+  for (const line of lines) {
+    if ((buf + line).length > size && buf) {
+      chunks.push(buf);
+      buf = '';
+    }
+    if (line.length > size) {
+      // 单行超长：按句子切
+      const parts = line.split(/(?<=[。！？；])/);
+      for (const p of parts) {
+        if ((buf + p).length > size && buf) {
+          chunks.push(buf);
+          buf = '';
+        }
+        if (p.length > size) {
+          // 仍然超长，硬切
+          for (let i = 0; i < p.length; i += size) {
+            chunks.push(p.slice(i, i + size));
+          }
+        } else {
+          buf += p;
+        }
+      }
+      continue;
+    }
+    buf += (buf ? '\n' : '') + line;
+  }
+  if (buf.trim()) chunks.push(buf);
+  return chunks.filter((c) => c.trim());
+}
+
+const CHUNK_PROMPT = `你在阅读一份长资料的第 {N}/{TOTAL} 部分。
+请只提炼**这一部分里实际写出的事实**，不要推测，不要补全没写的内容。
+
+输出 JSON：
+{"digest":"这部分讲了什么，200 字以内","facts":{"projectName":"","positioning":"","location":"","industry":"","totalInvest":"","funding":"","amount":"","scale":"","period":"","powerPrice":"","payback":"","rights":"","scope":"","cooperation":"","requirements":"","payment":"","contact":""},"points":["这部分的要点，每条一句话"]}
+facts 里没有的字段写空字符串。`;
+
+/**
+ * 长文档汇总：分块提炼（map）→ 合并成最终结果（reduce）。
+ *
+ * 好处是不丢内容，代价是 N+1 次调用（用 DeepSeek 约 0.1 元量级）。
+ */
+async function summarizeLongDoc({ input, local, full }) {
+  const chunks = splitChunks(full);
+  const partials = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    try {
+      const raw = await chat(
+        [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `${CHUNK_PROMPT.replace('{N}', String(i + 1)).replace('{TOTAL}', String(chunks.length))}
+${input.filename ? `\n（资料名称：${input.filename}）` : ''}
+
+资料内容：
+"""${chunks[i]}"""`,
+          },
+        ],
+        { json: true, temperature: 0.2, maxTokens: 1600 },
+      );
+      const p = extractJson(raw);
+      if (p) partials.push({ index: i, digest: String(p.digest || ''), facts: p.facts || {}, points: p.points || [] });
+    } catch (err) {
+      // 单块失败不影响整体，记下来继续
+      console.warn(`[ai] 第 ${i + 1}/${chunks.length} 块提炼失败:`, err.message);
+    }
+  }
+
+  if (!partials.length) return { ...local, note: '分段提炼全部失败，已回退本地引擎' };
+
+  // 合并：把各块结果作为「分部分摘要」再让模型汇总一次
+  const factLines = partials
+    .map((p) => {
+      const f = Object.entries(p.facts || {})
+        .filter(([, v]) => String(v || '').trim())
+        .map(([k, v]) => `${k}=${v}`)
+        .join('；');
+      return `【第 ${p.index + 1} 部分】\n摘要：${p.digest}\n字段：${f || '（无）'}\n要点：${(p.points || []).join(' / ')}`;
+    })
+    .join('\n\n');
+
+  const reduceUser = `下面是一份长资料分段提炼的结果（共 ${partials.length} 段）。请把它们合并成一份完整的汇总。
+
+要求：
+1. digest：150-300 字客观概述整体，只陈述资料里有的内容；
+2. points：6-10 条要点，覆盖主体、地点、规模与金额、建设或交易内容、工期、资质、合作方式、付款、风险或待确认项；
+3. facts：合并各段字段，同一字段取更完整准确的那个；资料里没有的留空，不要猜。
+   字段：${SUMMARY_FACT_KEYS.join(' / ')}
+4. missing：列出资料里缺失、但发布时建议补上的信息。
+
+分段结果：
+${factLines}
+
+请只输出如下 JSON：
+{"digest":"","points":[""],"facts":{${SUMMARY_FACT_KEYS.map((k) => `"${k}":""`).join(',')}},"missing":[""]}`;
+
+  try {
+    const raw = await chat(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: reduceUser },
+      ],
+      { json: true, temperature: 0.3, maxTokens: 2600 },
+    );
+    const parsed = extractJson(raw);
+    if (!parsed || (!parsed.digest && !parsed.points)) {
+      return {
+        ...local,
+        digest: partials.map((p) => p.digest).filter(Boolean).join(' ').slice(0, 800) || local.digest,
+        points: partials.flatMap((p) => p.points || []).slice(0, 12),
+        source: 'ai',
+        note: '合并失败，已用分段结果拼接',
+      };
+    }
+
+    const facts = {};
+    const factsSrc = parsed.facts && typeof parsed.facts === 'object' ? parsed.facts : {};
+    for (const k of SUMMARY_FACT_KEYS) {
+      const v = factsSrc[k];
+      if (v !== undefined && v !== null && String(v).trim()) {
+        facts[k] = String(v).trim().slice(0, 200);
+        continue;
+      }
+      // 合并结果没给，就看各分块里有没有
+      const fromChunks = partials.map((p) => String(p.facts?.[k] || '').trim()).filter(Boolean);
+      facts[k] = fromChunks.length ? fromChunks.sort((a, b) => b.length - a.length)[0].slice(0, 200) : '';
+    }
+
+    return {
+      digest: String(parsed.digest || '').trim().slice(0, 800) || local.digest,
+      points: Array.isArray(parsed.points)
+        ? parsed.points.map((p) => String(p || '').trim().slice(0, 200)).filter(Boolean).slice(0, 12)
+        : partials.flatMap((p) => p.points || []).slice(0, 12),
+      facts,
+      missing: Array.isArray(parsed.missing)
+        ? parsed.missing.map((m) => String(m || '').trim().slice(0, 80)).filter(Boolean).slice(0, 12)
+        : local.missing,
+      charCount: full.length,
+      source: 'ai',
+      chunked: { chunks: chunks.length, ok: partials.length },
+    };
+  } catch (err) {
+    console.warn('[ai] 长文档合并失败:', err.message);
+    return {
+      ...local,
+      digest: partials.map((p) => p.digest).filter(Boolean).join(' ').slice(0, 800) || local.digest,
+      points: partials.flatMap((p) => p.points || []).slice(0, 12),
+      source: 'ai',
+      note: `合并调用失败：${err.message}`,
+    };
+  }
+}
+
 export async function summarizeProject(input) {
   const local = localSummary(input);
   if (!aiConfigured()) return local;
 
-  const fileText = String(input.fileText || '').slice(0, 12000);
+  const bodyText = String(input.text || '');
+  const fileText = String(input.fileText || '');
   const fileList = (input.files || []).map((f) => `${f.name}（${f.kind}）`).join('、');
+
+  // 长文档走分块提炼，不再粗暴截断。
+  // 之前固定 slice(0,12000)：3 万字的 PDF 有 60% 内容根本没进模型。
+  const full = [bodyText, fileText].filter(Boolean).join('\n\n');
+  if (full.length > SINGLE_SHOT_CHARS) {
+    return summarizeLongDoc({ input, local, full });
+  }
+
   const user = `请先把下面这些原始资料汇总成一份结构化摘要，供后续生成【${input.categoryName || '项目'}】发布信息使用。
 
 汇总要求：
@@ -955,7 +1146,7 @@ export async function summarizeProject(input) {
 4. missing：列出原始资料里缺失、但发布时建议补上的信息。
 
 用户填写的原始正文：
-"""${String(input.text || '').slice(0, 8000)}"""
+"""${bodyText.slice(0, 12000)}"""
 ${fileText ? `\n从附件里提取的内容：\n"""${fileText}"""` : ''}
 ${fileList ? `\n附件清单：${fileList}` : ''}
 ${input.filename ? `\n主要附件：${input.filename}` : ''}
@@ -1020,7 +1211,8 @@ export async function generateTitles(input) {
   const local = await localTitles(input);
   if (!aiConfigured()) return local;
 
-  const fileText = String(input.fileText || '').slice(0, 6000);
+  // 第二步的主输入是第一步的 digest，这里放宽附件上限避免正文缺信息
+  const fileText = String(input.fileText || '').slice(0, 20000);
   const user = `请为下面这条【${input.categoryName || '项目'}】信息生成发布用主标题与副标题。
 
 要求：
@@ -1073,7 +1265,7 @@ export async function analyzeProject(input) {
   const local = await localAnalyze(input);
   if (!aiConfigured()) return local;
 
-  const fileText = String(input.fileText || '').slice(0, 8000);
+  const fileText = String(input.fileText || '').slice(0, 20000);
   const fileList = (input.files || []).map((f) => `${f.name}（${f.kind}）`).join('、');
   const user = `请对下面这条【${input.categoryName || '项目'}】信息做结构化解析与可靠性评估。
 

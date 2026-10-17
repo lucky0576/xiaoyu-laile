@@ -270,7 +270,9 @@ export default function registerCoreRoutes(app) {
     const files = [...reused, ...uploaded];
     const text = String(body.text || '');
     const category = ['project', 'bounty', 'event', 'trade'].includes(body.category) ? body.category : 'project';
-    const fileText = aggregateText(files, 14000);
+    // 附件正文要尽量完整地交给 AI：长文档由 summarizeProject 分块处理，
+    // 这里不要先截断（旧值 14000 会把 3 万字的 PDF 砍掉一半以上）
+    const fileText = aggregateText(files, 200000);
     return {
       user,
       files,
