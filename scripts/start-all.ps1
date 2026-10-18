@@ -73,24 +73,42 @@ function Test-AppUp {
 #
 # A tunnel is alive if cloudflared is running AND its hostname still resolves.
 # Whether the app behind it is up is a separate question (Test-AppUp).
+#
+# A single failed probe must NOT kill the tunnel. One transient DNS hiccup used
+# to look like "tunnel dead" and mint a new URL, so the address churned every
+# few minutes. Now we retry a few times, and only call it dead if every attempt
+# fails -- a real reclaim returns NXDOMAIN consistently.
 function Test-TunnelAlive([string]$u) {
   if (-not $u) { return $false }
   $cf = @(Get-Process cloudflared -ErrorAction SilentlyContinue)
   if ($cf.Count -eq 0) { return $false }
-  try {
-    $h = ([uri]$u).Host
-    $a = @(Resolve-DnsName $h -Type A -ErrorAction Stop | Where-Object { $_.IPAddress })
-    return ($a.Count -gt 0)
-  } catch {
-    # No Resolve-DnsName (old host) -> fall back to an HTTP probe.
+
+  $host_ = ([uri]$u).Host
+
+  # Resolve first, and give a flaky resolver a few chances.
+  for ($attempt = 1; $attempt -le 3; $attempt++) {
+    try {
+      $a = @(Resolve-DnsName $host_ -Type A -ErrorAction Stop | Where-Object { $_.IPAddress })
+      if ($a.Count -gt 0) { return $true }
+    } catch {
+      # fall through to the next attempt
+    }
+    if ($attempt -lt 3) { Start-Sleep -Seconds 2 }
+  }
+
+  # DNS never answered. Ask the edge directly before declaring the tunnel dead:
+  # any HTTP response (even 502/530) still proves the tunnel is registered.
+  for ($attempt = 1; $attempt -le 2; $attempt++) {
     try {
       $null = Invoke-WebRequest "$u/api/health" -UseBasicParsing -TimeoutSec 10
       return $true
     } catch {
-      # An HTTP-level error still proves the tunnel edge is reachable.
-      return [bool]$_.Exception.Response
+      if ($_.Exception.Response) { return $true }
     }
+    if ($attempt -lt 2) { Start-Sleep -Seconds 2 }
   }
+
+  return $false
 }
 
 function Start-App {
