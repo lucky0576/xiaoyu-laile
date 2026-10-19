@@ -718,6 +718,67 @@ async function main() {
   const health2 = await call('GET', '/api/health');
   check('清除后回退内置规则引擎', health2.data?.ai?.mode === 'local', JSON.stringify(health2.data?.ai));
 
+  console.log('\n=== 11c. 同一账号多设备同步 ===');
+  // 所有业务数据都在服务端，浏览器只存登录凭证。
+  // 这里模拟「同一账号在电脑A、电脑B分别登录」，验证读写互相可见。
+  const syncPhone = '13600009999';
+  const devA = await call('POST', '/api/auth/sms/login', {
+    body: { phone: syncPhone, code: (await call('POST', '/api/auth/sms/send', { body: { phone: syncPhone, purpose: 'login' } })).data.demoCode, purpose: 'login', nickname: '多设备用户' },
+  });
+  const devB = await call('POST', '/api/auth/sms/login', {
+    body: { phone: syncPhone, code: (await call('POST', '/api/auth/sms/send', { body: { phone: syncPhone, purpose: 'login' } })).data.demoCode, purpose: 'login', nickname: '多设备用户' },
+  });
+  const tokA2 = devA.data?.token;
+  const tokB2 = devB.data?.token;
+  check('两台设备都能登录同一账号', Boolean(tokA2 && tokB2));
+  check('两台设备解析为同一用户', devA.data?.user?.id === devB.data?.user?.id,
+    `${devA.data?.user?.id} vs ${devB.data?.user?.id}`);
+  check('后登录不会踢掉前一台设备', Boolean(tokA2 && tokB2) && devA.data?.user?.id === devB.data?.user?.id);
+
+  // A 发布，B 立即可见
+  const syncFd = new FormData();
+  syncFd.append('category', 'project');
+  syncFd.append('title', '多设备同步测试信息');
+  syncFd.append('text', '在设备A发布，设备B应能立刻看到并识别我是发布方。');
+  syncFd.append('durationDays', '30');
+  syncFd.append('publish', '1');
+  const syncCreate = await call('POST', '/api/listings', { token: tokA2, form: syncFd });
+  const syncId = syncCreate.data?.listing?.id;
+  check('设备A可发布信息', Boolean(syncId), JSON.stringify(syncCreate.json).slice(0, 160));
+
+  const bList = await call('GET', '/api/listings?pageSize=50', { token: tokB2 });
+  check('设备B在列表中看到设备A发布的信息',
+    (bList.data?.items || []).some((x) => x.id === syncId));
+  const bDetail = await call('GET', `/api/listings/${syncId}`, { token: tokB2 });
+  check('设备B能打开详情', bDetail.status === 200, String(bDetail.status));
+  check('设备B被识别为发布方', bDetail.data?.listing?.isOwner === true);
+
+  // A 留言，B 可见
+  await call('POST', `/api/listings/${syncId}/comments`, { token: tokA2, body: { content: '设备A的留言' } });
+  const bComments = await call('GET', `/api/listings/${syncId}/comments`, { token: tokB2 });
+  check('设备B能看到设备A的留言', JSON.stringify(bComments.data || {}).includes('设备A的留言'));
+
+  // 关注状态互通
+  await call('POST', '/api/follow', { token: tokA2, body: { targetType: 'listing', targetId: syncId } });
+  const bFollowDetail = await call('GET', `/api/listings/${syncId}`, { token: tokB2 });
+  check('设备A关注后设备B同步显示已关注', bFollowDetail.data?.listing?.following === true,
+    String(bFollowDetail.data?.listing?.following));
+  const bFollows = await call('GET', '/api/follows', { token: tokB2 });
+  const followItems = bFollows.data?.items || bFollows.data?.follows || [];
+  check('设备B的收藏列表包含该信息', Array.isArray(followItems) && followItems.length >= 1,
+    `实际 ${Array.isArray(followItems) ? followItems.length : '?'} 条`);
+
+  // 通知已读状态双向同步
+  const unreadA = await call('GET', '/api/notifications/unread', { token: tokA2 });
+  const unreadB = await call('GET', '/api/notifications/unread', { token: tokB2 });
+  const cntA = unreadA.data?.unread ?? unreadA.data?.count;
+  const cntB = unreadB.data?.unread ?? unreadB.data?.count;
+  check('两台设备未读数一致', String(cntA) === String(cntB), `A=${cntA} B=${cntB}`);
+  await call('POST', '/api/notifications/read', { token: tokB2, body: {} });
+  const afterA = await call('GET', '/api/notifications/unread', { token: tokA2 });
+  const afterCnt = afterA.data?.unread ?? afterA.data?.count;
+  check('设备B标记已读后设备A同步为0', String(afterCnt) === '0', `实际 ${afterCnt}`);
+
   console.log('\n=== 12. 用户资料 / 目录 / 搜索建议 ===');
   const profile = await call('PUT', '/api/users/me', { token: tokenB, body: { company: '唐山钢铁贸易有限公司', profession: '采购总监', industry: '制造业', city: '唐山', bio: '专注钢材与型材集采' } });
   check('更新用户资料', profile.status === 200 && profile.data?.user?.company === '唐山钢铁贸易有限公司');
