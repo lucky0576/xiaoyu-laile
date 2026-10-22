@@ -462,3 +462,38 @@
   .ai-proof { flex-direction: column; }
   .ai-proof-l { flex: none; }
 }
+
+/* 协议书中的收款账户块 */
+.doc-bank {
+  margin: 10px 0 12px;
+  border: 1px solid #d8e3ee;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fafcfe;
+}
+.doc-bank-t {
+  background: #eef4ff;
+  color: #0a4fa8;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 14px;
+  letter-spacing: 1px;
+}
+.doc-bank > div:not(.doc-bank-t) {
+  display: flex;
+  gap: 14px;
+  padding: 9px 14px;
+  border-top: 1px dashed #e2ebf4;
+  font-size: 13px;
+}
+.doc-bank > div:not(.doc-bank-t) span {
+  flex: 0 0 78px;
+  color: #7a8a9a;
+  letter-spacing: 1px;
+}
+.doc-bank > div:not(.doc-bank-t) b { color: #1a2b3c; word-break: break-all; }
+.doc-bank-card {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: 1.5px;
+  font-size: 14px !important;
+}

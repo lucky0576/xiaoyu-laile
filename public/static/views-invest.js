@@ -508,9 +508,18 @@ export async function renderAgreement(ctx, { id } = {}) {
         <p class="doc-p">2.4 乙方确认已充分理解上述权利安排，并自愿接受。</p>
 
         <div class="doc-h">第三条　付款方式</div>
-        <p class="doc-p">3.1 乙方应于本协议确认之日起 7 个工作日内，将投资款人民币 <b>${money(i.amount)}</b> 汇入甲方指定账户。</p>
-        <p class="doc-p">3.2 收款账户信息由甲方通过平台页面告知，乙方应核对账户名称与金额后再行打款。</p>
-        <p class="doc-p">3.3 乙方打款时应在备注中填写本协议编号 <b>${ui.esc(i.agreementNo || '—')}</b>。</p>
+        <p class="doc-p">3.1 乙方应于本协议确认之日起 7 个工作日内，将投资款人民币 <b>${money(i.amount)}</b> 汇入甲方以下指定账户。</p>
+        <div class="doc-bank">
+          <div class="doc-bank-t">甲方指定收款账户</div>
+          <div><span>户　　名</span><b>${ui.esc((i.bank || {}).name || '—')}</b></div>
+          <div><span>卡　　号</span><b class="doc-bank-card">${ui.esc((i.bank || {}).card || '—')}</b></div>
+          <div><span>开 户 行</span><b>${ui.esc((i.bank || {}).branch || '—')}</b></div>
+          <div><span>打款金额</span><b>人民币 ${money(i.amount)}</b></div>
+          <div><span>打款备注</span><b>${ui.esc(i.agreementNo || '—')} 投资款</b></div>
+        </div>
+        <p class="doc-p">3.2 乙方应在打款备注中填写本协议编号 <b>${ui.esc(i.agreementNo || '—')}</b>，便于甲方对账。</p>
+        <p class="doc-p">3.3 乙方打款前应核对上述账户名称、卡号与金额；因乙方未核对导致的损失，由乙方自行承担。</p>
+        <p class="doc-p">3.4 甲方收到款项并核验打款凭证无误后，按本协议第四条签发股权证。</p>
 
         <div class="doc-h">第四条　股权证的签发</div>
         <p class="doc-p">4.1 甲方核验乙方打款凭证无误后，向乙方签发电子股权证，载明持股数量、编号与签发日期。</p>

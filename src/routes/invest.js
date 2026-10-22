@@ -93,7 +93,7 @@ export function interestView(i, { withBank = false } = {}) {
     certIssuedAt: i.certIssuedAt || '',
     rejectReason: i.rejectReason || '',
     createdAt: i.createdAt,
-    ...(withBank && (i.status === 'confirmed' || i.status === 'proof_uploaded') ? { bank: bankInfo() } : {}),
+    ...(withBank && ['confirmed', 'proof_uploaded', 'verified'].includes(i.status) ? { bank: bankInfo() } : {}),
   };
 }
 
