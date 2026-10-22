@@ -14,6 +14,7 @@ import * as viewsBindings from './views-bindings.js';
 import * as viewsInvest from './views-invest.js';
 import * as viewsAdminInvest from './views-admin-invest.js';
 import * as viewsTags from './views-tags.js';
+import * as viewsWechatSetup from './views-wechat-setup.js';
 
 const appEl = document.getElementById('app');
 
@@ -263,6 +264,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderQualification(ctx, query);
     case 'bindings':
       return viewsBindings.renderBindings(ctx, query);
+    case 'wechat-setup':
+      return viewsWechatSetup.renderWechatSetup(ctx, query);
     case 'tags':
       return viewsTags.renderTags(ctx, query);
     case 'membership':

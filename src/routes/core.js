@@ -11,6 +11,7 @@ import filesecure from '../services/filesecure.js';
 import chunksSvc from '../services/chunks.js';
 import listingsSvc from '../services/listings.js';
 import wechat from '../services/wechat.js';
+import wechatStatusSvc from '../services/wechat-status.js';
 import hub from '../services/hub.js';
 import ai from '../services/ai.js';
 import { httpError } from '../http/app.js';
@@ -280,6 +281,11 @@ export default function registerCoreRoutes(app) {
     const pageUrl = String(req.query.url || `${baseUrl(req)}/#/detail/${id}`);
     const cfg = await wechat.buildWechatShare({ listing, baseUrl: baseUrl(req), pageUrl });
     return data(res, cfg);
+  });
+
+  /** 公众号接入状态（前端分享面板 / 后台配置页用） */
+  app.get('/api/wechat/status', (req, res) => {
+    return data(res, wechatStatusSvc.wechatStatus());
   });
 
   app.get('/api/wechat/jsconfig', async (req, res) => {

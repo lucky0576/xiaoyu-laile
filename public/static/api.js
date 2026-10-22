@@ -435,6 +435,8 @@ export const service = {
   share: (id) => api.get(`/api/listings/${id}/share`),
   recordShare: (id, channel) => api.post(`/api/listings/${id}/share`, { channel }),
   wechatShare: (id, url) => api.get('/api/wechat/share-config', { id, url }),
+  wechatStatus: () => api.get('/api/wechat/status'),
+  wechatJsConfig: (url) => api.get('/api/wechat/jsconfig', { url }),
   qrUrl: (text, size) => `/api/share/qrcode?text=${encodeURIComponent(text)}&size=${size || 320}`,
 
   follow: (targetType, targetId, meta) => api.post('/api/follow', { targetType, targetId, meta }),

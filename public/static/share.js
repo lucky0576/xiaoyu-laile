@@ -287,6 +287,14 @@ export async function openShareSheet(listing) {
 
   const coverUrl = safeUrl(payload.imgUrl) || '';
 
+  // 公众号接入状态：决定微信内转发卡片是否带自定义标题/封面
+  let wxStatus = null;
+  try {
+    wxStatus = await service.wechatStatus();
+  } catch {
+    /* 拿不到就不提示 */
+  }
+
   /* 纯文字文案：不带图片、不带链接，可直接粘贴到任何地方 */
   const plainShareText = () => {
     const lines = [];
@@ -366,6 +374,11 @@ export async function openShareSheet(listing) {
               <div class="wx-guide-arrow">↗</div>
               <div class="wx-guide-t">点击右上角「···」</div>
               <div class="wx-guide-d">选择「发送给朋友」或「分享到朋友圈」<br>链接会自动带上标题、摘要和封面图</div>
+              <div class="wx-status ${wxStatus && wxStatus.jsSdkReady ? 'ok' : ''}">
+                ${wxStatus && wxStatus.jsSdkReady
+                  ? '✅ 公众号已接入：转发卡片会自动显示标题、摘要与封面图'
+                  : 'ℹ️ 未接入公众号：转发时使用微信默认标题与页面首图'}
+              </div>
               <button class="btn btn-block mt12" id="btn-wx-copy">复制文案备用</button>
             </div>`;
           } else if (mobile) {
@@ -381,6 +394,11 @@ export async function openShareSheet(listing) {
               <div class="wx-guide-t">用微信扫码转发</div>
               <div class="wx-guide-d">微信「扫一扫」打开本页，<br>再点右上角「···」即可转发给好友或朋友圈</div>
               <div class="wx-qr"><img src="${esc(qr)}" alt="微信扫码"></div>
+              <div class="wx-status ${wxStatus && wxStatus.jsSdkReady ? 'ok' : ''}">
+                ${wxStatus && wxStatus.jsSdkReady
+                  ? '✅ 公众号已接入，手机微信扫码打开后卡片信息完整'
+                  : 'ℹ️ 未接入公众号，扫码后转发使用默认标题'}
+              </div>
               <button class="btn btn-primary btn-block mt12" id="btn-wx-copy">复制文案</button>
             </div>`;
           }

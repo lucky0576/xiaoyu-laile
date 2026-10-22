@@ -1487,6 +1487,14 @@ export async function renderAdmin(ctx) {
   const s = overview.stats || {};
 
   const html = `<div class="page">
+      <a class="card card-pad mb12" href="#/wechat-setup" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+        <div style="font-size:26px">💚</div>
+        <div style="flex:1">
+          <div class="strong">公众号接入</div>
+          <div class="tiny dim">微信分享卡片、微信登录配置与自检</div>
+        </div>
+        <span class="dim">›</span>
+      </a>
       <a class="card card-pad mb12" href="#/admin-invest" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
         <div style="font-size:26px">💰</div>
         <div style="flex:1">

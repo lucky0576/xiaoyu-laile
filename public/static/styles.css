@@ -929,3 +929,63 @@ ul { margin: 0; padding-left: 18px; }
   box-shadow: 0 4px 18px rgba(15,30,60,.08);
 }
 .wx-qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+/* 微信接入状态提示 */
+.wx-status {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  background: #f4f6f8;
+  color: var(--muted);
+  text-align: left;
+}
+.wx-status.ok { background: #eafaf0; color: #0e8f5f; }
+
+/* 公众号接入配置页 */
+.wxsetup-hero {
+  background: linear-gradient(135deg, #3a4a63 0%, #55637a 100%);
+  border-radius: 16px; padding: 20px; color: #fff;
+}
+.wxsetup-hero.ok { background: linear-gradient(135deg, #07c160 0%, #0aa552 100%); }
+.wxsetup-hero-t { font-size: 20px; font-weight: 800; }
+.wxsetup-hero-s { font-size: 12.5px; opacity: .92; margin-top: 8px; line-height: 1.7; }
+
+.wxsetup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wxsetup-stat { background: #f7fafd; border-radius: 10px; padding: 10px; text-align: center; }
+.wxsetup-stat.ok { background: #eafaf0; }
+.wxsetup-stat b { display: block; font-size: 14px; color: var(--muted); }
+.wxsetup-stat.ok b { color: #0e8f5f; }
+.wxsetup-stat span { font-size: 10.5px; color: var(--muted); }
+
+.wxsetup-field { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.wxsetup-field:last-child { border-bottom: none; }
+.wxsetup-field-ico { font-size: 15px; }
+.wxsetup-field-k { font-size: 12.5px; font-weight: 700; font-family: ui-monospace, Consolas, monospace; }
+.wxsetup-field-l { font-size: 11.5px; color: var(--text); margin-top: 2px; }
+.wxsetup-field-d { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+.wxsetup-field.ok .wxsetup-field-k { color: #0e8f5f; }
+
+.wxsetup-code {
+  background: #1e2430; color: #d8e2f0;
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 11.5px; line-height: 1.8;
+  overflow-x: auto; margin: 0;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.wxsetup-step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.wxsetup-step:last-child { border-bottom: none; }
+.wxsetup-step-n {
+  width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%;
+  background: var(--brand); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.wxsetup-step-t { font-size: 13.5px; font-weight: 700; }
+.wxsetup-step-d { font-size: 12px; color: var(--muted); line-height: 1.65; margin-top: 4px; }
+
+@media (max-width: 520px) {
+  .wxsetup-grid { grid-template-columns: 1fr; }
+}
