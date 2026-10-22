@@ -518,6 +518,11 @@ export const service = {
   postComments: (id) => api.get(`/api/posts/${id}/comments`),
   addPostComment: (id, content) => api.post(`/api/posts/${id}/comments`, { content }),
   deletePost: (id) => api.del(`/api/posts/${id}`),
+
+  /* ---------------- 融资 ---------------- */
+  investPlan: () => api.get('/api/invest/plan'),
+  investInterest: (body) => api.post('/api/invest/interest', body),
+  myInvestInterests: () => api.get('/api/invest/my'),
 };
 
 export default api;

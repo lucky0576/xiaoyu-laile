@@ -1,0 +1,204 @@
+
+/* ================================================================== */
+/* 融资页                                                              */
+/* ================================================================== */
+
+.invest-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding: 0 10px;
+  margin-left: 2px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b26a00;
+  background: linear-gradient(135deg, #fff4e0, #ffe6b8);
+  border: 1px solid #ffd58a;
+  text-decoration: none;
+  white-space: nowrap;
+  flex: none;
+  animation: investGlow 2.4s ease-in-out infinite;
+}
+
+/* 让融资入口紧贴 logo，而不是被推到右侧 */
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: none;
+}
+.topbar-brand .title { flex: none; min-width: 0; }
+.topbar-spacer { flex: 1 1 auto; min-width: 0; }
+@keyframes investGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 190, 80, .45); }
+  50% { box-shadow: 0 0 0 5px rgba(255, 190, 80, 0); }
+}
+
+/* 主视觉 */
+.inv-hero {
+  background: linear-gradient(135deg, #0b74ff 0%, #00a9c2 100%);
+  border-radius: 18px;
+  padding: 24px 20px 20px;
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(11, 116, 255, .24);
+}
+.inv-hero-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .4);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.inv-hero-title { font-size: 23px; font-weight: 800; margin-top: 10px; letter-spacing: .3px; }
+.inv-hero-sub { font-size: 13px; opacity: .92; margin-top: 6px; }
+.inv-hero-nums {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+.inv-hero-nums > div {
+  flex: 1;
+  background: rgba(255, 255, 255, .14);
+  border-radius: 12px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.inv-hero-nums b { display: block; font-size: 22px; font-weight: 800; line-height: 1.1; }
+.inv-hero-nums b i { font-size: 12px; font-style: normal; margin-left: 1px; font-weight: 600; }
+.inv-hero-nums span { font-size: 11px; opacity: .85; }
+
+/* 小节标题 */
+.inv-sec-t {
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  padding-left: 10px;
+  border-left: 3px solid var(--brand);
+  line-height: 1.1;
+}
+
+/* 认购规则 */
+.inv-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.inv-kv > div {
+  background: #f7fafd;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.inv-kv span { font-size: 11.5px; color: var(--muted); }
+.inv-kv b { font-size: 15px; color: var(--text); }
+
+.inv-formula {
+  margin-top: 12px;
+  padding: 11px 14px;
+  background: #eef4ff;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #0a4fa8;
+  text-align: center;
+}
+.inv-formula b { font-size: 15px; }
+.inv-tip { font-size: 11.5px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+
+/* 权利 */
+.inv-rights { display: flex; flex-direction: column; gap: 10px; }
+.inv-right {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.inv-right.inv-yes { background: #f2fbf6; border-color: #b9e8cf; }
+.inv-right.inv-no { background: #fafbfc; }
+.inv-right-ico { font-size: 18px; line-height: 1.2; }
+.inv-right-t { font-size: 14px; font-weight: 700; }
+.inv-right-d { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+
+.inv-warn {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #fff7e6;
+  border: 1px solid #ffe0a3;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #8a5a00;
+  line-height: 1.6;
+}
+
+/* 资金用途 */
+.inv-use-row {
+  display: grid;
+  grid-template-columns: 84px 1fr 60px;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.inv-use-row:last-child { border-bottom: none; }
+.inv-use-name { font-size: 13px; font-weight: 700; }
+.inv-use-bar {
+  height: 8px;
+  background: #eef2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.inv-use-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0b74ff, #00a9c2);
+}
+.inv-use-amt { font-size: 13px; font-weight: 700; color: var(--brand); text-align: right; }
+.inv-use-note {
+  grid-column: 1 / -1;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: -2px;
+}
+
+/* 亮点 */
+.inv-points { display: flex; flex-direction: column; gap: 12px; }
+.inv-points > div { display: flex; flex-direction: column; gap: 3px; }
+.inv-points b { font-size: 13.5px; }
+.inv-points span { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+/* 完成态 */
+.inv-done { text-align: center; padding: 14px 0 6px; }
+.inv-done-ico { font-size: 34px; }
+.inv-done-t { font-size: 15px; font-weight: 700; margin-top: 8px; }
+.inv-done-d { font-size: 12.5px; color: var(--muted); margin-top: 5px; }
+.inv-done-n {
+  font-size: 12px;
+  color: var(--brand);
+  margin-top: 10px;
+  background: #eef4ff;
+  border-radius: 10px;
+  padding: 9px;
+}
+
+/* 风险提示 */
+.inv-risk {
+  margin-top: 14px;
+  background: #fbfbfc;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.inv-risk-t { font-size: 13px; font-weight: 800; color: #b45309; }
+.inv-risk-b {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.75;
+  margin-top: 8px;
+}
+.inv-risk-b p { margin: 0 0 4px; }
+.inv-risk-b b { color: var(--text); }

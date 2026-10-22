@@ -11,6 +11,7 @@ import * as viewsMeeting from './views-meeting.js';
 import * as viewsLive from './views-live.js';
 import * as viewsForum from './views-forum.js';
 import * as viewsBindings from './views-bindings.js';
+import * as viewsInvest from './views-invest.js';
 
 const appEl = document.getElementById('app');
 
@@ -106,7 +107,11 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
   const topbar = fullscreen ? '' : `<div class="topbar">
     ${showBack ? '<button class="icon-btn" id="nav-back" aria-label="返回">←</button>' : ''}
     ${homeBtn}
-    ${titleEl}
+    <div class="topbar-brand">
+      ${titleEl}
+      ${isHome ? '<a class="invest-pill" href="#/invest" title="小鱼来了 种子轮融资中">💰 融资</a>' : ''}
+    </div>
+    <span class="topbar-spacer"></span>
     ${actions}${actions ? '' : topbarAuth()}
   </div>`;
 
@@ -256,6 +261,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderQualification(ctx, query);
     case 'bindings':
       return viewsBindings.renderBindings(ctx, query);
+    case 'invest':
+      return viewsInvest.renderInvest(ctx, query);
     case 'contacts':
       return viewsAccount.renderContacts(ctx, query);
     case 'notifications':
