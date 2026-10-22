@@ -400,6 +400,12 @@ export async function renderVerify(ctx, query) {
   const verified = Boolean(v.verified);
   const statusName = meta.statuses?.[v.status] || '未认证';
 
+  /* 表单字段定义（来自 /api/verification/meta） */
+  const pFields = meta.personal?.fields || [];
+  const pFiles = meta.personal?.files || [];
+  const cFields = meta.company?.fields || [];
+  const cFiles = meta.company?.files || [];
+
   /* ---------------- 已有审核结果 ---------------- */
   const riskBadge = (lv) => {
     if (!lv) return '';
