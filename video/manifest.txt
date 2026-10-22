@@ -1,9 +1,0 @@
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\01-title.png|7
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\02-positioning.png|9
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\03-home.png|11
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\04-list.png|11
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\05-detail.png|12
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\06-bounty.png|9
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\07-mobile.png|10
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\08-tech.png|12
-C:\Users\Administrator\Documents\deepseek-harness\default-workspace\xiaoyu-laile\video\frames\09-end.png|7
