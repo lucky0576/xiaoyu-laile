@@ -30,5 +30,13 @@
 <div id="modal-host"></div>
 <div id="sheet-host"></div>
 <script type="module" src="/static/app.js"></script>
+<script>
+/* 注册 Service Worker —— 安卓 Chrome 判定"可安装"的硬性条件 */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
+  });
+}
+</script>
 </body>
 </html>
