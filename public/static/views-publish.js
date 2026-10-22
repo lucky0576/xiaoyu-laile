@@ -141,7 +141,15 @@ export async function renderPublish(ctx, params) {
     </div>
 
     <div class="card card-pad mt12">
-      <div class="strong mb8">2. 输入文字 或 导入文件</div>
+      <div class="strong mb8">2. 输入标题与内容 或 导入文件</div>
+      <div class="field">
+        <label>标题 <span class="tiny dim">（可留空，AI 会帮你生成）</span></label>
+        <input class="input" id="pub-title" maxlength="120" placeholder="一句话说清这条信息，例如：山东东营 200MW 渔光互补光伏电站 EPC 总承包招标" value="${ui.esc(editing?.title || '')}">
+      </div>
+      <div class="field">
+        <label>副标题 <span class="tiny dim">（选填）</span></label>
+        <input class="input" id="pub-subtitle" maxlength="200" placeholder="补充说明金额、规模、期限等关键信息" value="${ui.esc(editing?.subtitle || '')}">
+      </div>
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
 山东东营 200MW 渔光互补光伏电站 EPC 总承包招标
 总投资约 8.6 亿元，工期 14 个月
@@ -589,6 +597,9 @@ export async function renderPublish(ctx, params) {
       const collectCategoryFields = () => {
         const v = (id) => $(id)?.value?.trim() || '';
         const c = (id) => Boolean($(id)?.checked);
+        // 注意：这个函数和 renderCatFields 同级，拿不到它内部的局部变量 box，
+        // 必须自己取一次容器，否则会 ReferenceError（项目/贸易发不出去）
+        const catBox = $('#pub-cat-fields');
         if (category === 'event') {
           return {
             startAt: v('#f-startAt'), endAt: v('#f-endAt'), address: v('#f-address'), online: c('#f-online'),
@@ -608,15 +619,15 @@ export async function renderPublish(ctx, params) {
           return {
             tradeType: v('#f-tradeType'), quantity: v('#f-quantity'), price: v('#f-price'),
             payment: v('#f-payment'), delivery: v('#f-delivery'), deadline: v('#f-deadline'),
-            items: collectTradeItems(box),
+            items: collectTradeItems(catBox),
           };
         }
         return {
           investAmount: v('#f-investAmount'), stage: v('#f-stage'), cooperation: v('#f-cooperation'),
           period: v('#f-period'), target: v('#f-target'),
           needQualification: c('#f-needQual') ? '1' : '0',
-          qualifications: collectQualifications(box),
-          businessTerms: collectTerms(box),
+          qualifications: collectQualifications(catBox),
+          businessTerms: collectTerms(catBox),
         };
       };
 
@@ -1012,16 +1023,13 @@ export async function renderPublish(ctx, params) {
         const box = $('#pub-ai-result');
         const titles = res.titles || {};
         const alts = (titles.alternatives || []).filter((a) => a.title && a.title !== titles.title);
+        // 把 AI 生成的标题写进上方常驻输入框（不再重复渲染同名 input）
+        const titleEl = $('#pub-title');
+        const subEl = $('#pub-subtitle');
+        if (titleEl && titles.title) titleEl.value = titles.title;
+        if (subEl && titles.subtitle) subEl.value = titles.subtitle;
         box.innerHTML = `
-          <div class="tiny dim mb8">${titles.source === 'ai' ? '由大模型生成' : '由内置规则引擎生成（未配置 AI_API_KEY）'}，可直接修改</div>
-          <div class="field">
-            <label>主标题</label>
-            <input class="input" id="pub-title" value="${ui.esc(titles.title || '')}" maxlength="120">
-          </div>
-          <div class="field">
-            <label>副标题</label>
-            <input class="input" id="pub-subtitle" value="${ui.esc(titles.subtitle || '')}" maxlength="200">
-          </div>
+          <div class="tiny dim mb8">${titles.source === 'ai' ? '由大模型生成' : '由内置规则引擎生成（未配置 AI_API_KEY）'}，已填入上方标题框，可直接修改</div>
           ${alts.length ? `<div class="field"><label>备选标题（点击替换）</label>
             <div class="chips">${alts.map((a) => `<a class="chip" data-alt="${ui.esc(a.title)}" data-alt-sub="${ui.esc(a.subtitle || '')}">${ui.esc(a.title.slice(0, 24))}…</a>`).join('')}</div>
           </div>` : ''}
@@ -1062,6 +1070,17 @@ export async function renderPublish(ctx, params) {
         if (publishBtn) publishBtn.textContent = '提交中…';
         if (draftBtn) draftBtn.disabled = true;
 
+        let catFields = {};
+        try {
+          catFields = collectCategoryFields();
+        } catch (err) {
+          console.error('[publish] 收集分类字段失败:', err);
+          busy = false;
+          if (publishBtn) publishBtn.textContent = '立即发布';
+          if (draftBtn) draftBtn.disabled = false;
+          return ui.toast('表单读取失败：' + (err.message || err), 'err');
+        }
+
         const fields = {
           category,
           text,
@@ -1082,7 +1101,7 @@ export async function renderPublish(ctx, params) {
             ttlHours: Number($('#pub-secret-ttl')?.value) || 6,
           },
           publish: publishNow ? '1' : '0',
-          ...collectCategoryFields(),
+          ...catFields,
         };
 
         try {
