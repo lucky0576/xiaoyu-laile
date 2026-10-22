@@ -1,13 +1,22 @@
 /**
- * 小鱼来了 — 融资意向登记
+ * 小鱼来了 — 种子轮融资：意向 / 确认 / 打款 / 凭证 / 股权证
  *
- * 注意：这里只做「投资意向登记」，不构成公开募集或要约。
+ * 状态流转：
+ *   pending          已提交意向，等待用户确认
+ *   confirmed        已确认，投资协议书已生成，等待打款
+ *   proof_uploaded   已上传打款凭证，等待核验
+ *   verified         核验通过，股权证已生成
+ *   rejected         已驳回
+ *
+ * 注意：收款账户只从 .env 读取，绝不写进代码或仓库。
  * 所有金额与股权信息仅用于展示融资方案，实际认购以正式协议为准。
  */
 
 import db from '../store/db.js';
-import { data, fail, str, num, authUser, rateLimit, clientIp } from './_util.js';
+import { config } from '../config.js';
+import { data, fail, str, num, authUser, mustAuth, rateLimit, clientIp } from './_util.js';
 import notifySvc from '../services/notify.js';
+import { saveUploads, filePublic, getFile } from '../services/files.js';
 
 const interests = () => db.collection('investInterests');
 
@@ -29,6 +38,86 @@ export const FINANCING = {
   ],
 };
 
+export const INVEST_STATUS = {
+  pending: '待确认',
+  confirmed: '待打款',
+  proof_uploaded: '待核验',
+  verified: '已完成',
+  rejected: '已驳回',
+};
+
+/* ------------------------------------------------------------------ */
+/* 编号                                                                */
+/* ------------------------------------------------------------------ */
+
+function pad(n, len = 4) {
+  return String(n).padStart(len, '0');
+}
+
+function nextSeq(prefix) {
+  const year = new Date().getFullYear();
+  const count = interests().count((i) => String(i.agreementNo || i.certNo || '').includes(`${prefix}-${year}-`));
+  return `${prefix}-${year}-${pad(count + 1)}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* 视图                                                                */
+/* ------------------------------------------------------------------ */
+
+/** 打款账户（仅在已确认后返回给本人） */
+function bankInfo() {
+  return {
+    name: config.invest.bankName || '（未配置）',
+    card: config.invest.bankCard || '（未配置）',
+    branch: config.invest.branch || config.invest.bankBranch || '（未配置）',
+  };
+}
+
+export function interestView(i, { withBank = false } = {}) {
+  if (!i) return null;
+  return {
+    id: i.id,
+    name: i.name,
+    phone: i.phone,
+    amount: i.amount,
+    shares: i.shares,
+    status: i.status,
+    statusName: INVEST_STATUS[i.status] || i.status,
+    note: i.note || '',
+    agreementNo: i.agreementNo || '',
+    agreedAt: i.agreedAt || '',
+    proof: i.proof
+      ? { url: i.proof.url, name: i.proof.name, uploadedAt: i.proof.uploadedAt, note: i.proof.note || '' }
+      : null,
+    certNo: i.certNo || '',
+    certIssuedAt: i.certIssuedAt || '',
+    rejectReason: i.rejectReason || '',
+    createdAt: i.createdAt,
+    ...(withBank && (i.status === 'confirmed' || i.status === 'proof_uploaded') ? { bank: bankInfo() } : {}),
+  };
+}
+
+function ownedOrFail(req, id) {
+  const user = mustAuth(req);
+  const i = interests().get(id);
+  if (!i) {
+    const e = new Error('投资意向不存在');
+    e.status = 404;
+    e.code = 'not_found';
+    throw e;
+  }
+  if (i.userId !== user.id && !user.isAdmin) {
+    const e = new Error('无权查看该记录');
+    e.status = 403;
+    e.code = 'forbidden';
+    throw e;
+  }
+  return { user, interest: i };
+}
+
+/* ------------------------------------------------------------------ */
+/* 路由                                                                */
+/* ------------------------------------------------------------------ */
 export default function registerInvestRoutes(app) {
   /** 融资方案 */
   app.get('/api/invest/plan', (req, res) => {
@@ -51,19 +140,20 @@ export default function registerInvestRoutes(app) {
     if (amount < FINANCING.minInvest) return fail(res, `最低认购金额为 ${FINANCING.minInvest} 万元`);
     if (amount > FINANCING.raiseAmount) return fail(res, `认购金额不能超过本轮融资总额 ${FINANCING.raiseAmount} 万元`);
 
+    const now = new Date().toISOString();
     const doc = interests().insert({
       id: db.newId('iv'),
       userId: user?.id || '',
       name,
       phone,
       amount,
-      shares: amount * 10000 / FINANCING.pricePerShare, // 股数
+      shares: (amount * 10000) / FINANCING.pricePerShare,
       note,
       status: 'pending',
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     });
 
-    // 通知管理员
     for (const admin of db.collection('users').find((u) => u.isAdmin)) {
       notifySvc.notify({
         userId: admin.id,
@@ -74,27 +164,176 @@ export default function registerInvestRoutes(app) {
       });
     }
 
-    return data(res, {
-      ok: true,
-      interest: {
-        id: doc.id,
-        name: doc.name,
-        amount: doc.amount,
-        shares: doc.shares,
-        createdAt: doc.createdAt,
-      },
-    }, 201);
+    return data(res, { ok: true, interest: interestView(doc) }, 201);
   });
 
-  /** 我的意向 */
+  /** 我的投资列表 */
   app.get('/api/invest/my', (req, res) => {
-    const user = authUser(req);
-    if (!user) return data(res, { items: [] });
+    const user = mustAuth(req);
     const items = interests()
       .find((i) => i.userId === user.id)
-      .map((i) => ({ id: i.id, amount: i.amount, shares: i.shares, status: i.status, createdAt: i.createdAt }));
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .map((i) => interestView(i));
     return data(res, { items });
   });
 
-  return app;
+  /** 投资详情（含打款账户） */
+  app.get('/api/invest/:id', (req, res) => {
+    try {
+      const { interest } = ownedOrFail(req, req.params.id);
+      return data(res, { interest: interestView(interest, { withBank: true }), plan: FINANCING });
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code);
+      throw err;
+    }
+  });
+
+  /** 用户确认投资意向 → 生成投资协议书编号 */
+  app.post('/api/invest/:id/confirm', (req, res) => {
+    try {
+      const { user, interest } = ownedOrFail(req, req.params.id);
+      if (interest.status !== 'pending') {
+        return fail(res, `当前状态（${INVEST_STATUS[interest.status] || interest.status}）无法确认`, 409, 'bad_status');
+      }
+      const now = new Date().toISOString();
+      const updated = interests().update(interest.id, {
+        status: 'confirmed',
+        agreementNo: interest.agreementNo || nextSeq('XY'),
+        agreedAt: now,
+        agreedIp: clientIp(req),
+        updatedAt: now,
+      });
+
+      for (const admin of db.collection('users').find((u) => u.isAdmin)) {
+        notifySvc.notify({
+          userId: admin.id,
+          type: 'system',
+          title: `投资意向已确认：${updated.name}`,
+          body: `协议编号 ${updated.agreementNo}，认购 ${updated.amount} 万元，等待打款`,
+          link: '#/admin',
+        });
+      }
+      return data(res, { interest: interestView(updated, { withBank: true }) });
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code);
+      throw err;
+    }
+  });
+
+  /** 上传打款凭证 */
+  app.post('/api/invest/:id/proof', async (req, res) => {
+    let target;
+    try {
+      target = ownedOrFail(req, req.params.id);
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code);
+      throw err;
+    }
+    const { user, interest } = target;
+    if (!['confirmed', 'proof_uploaded'].includes(interest.status)) {
+      return fail(res, `当前状态（${INVEST_STATUS[interest.status] || interest.status}）无法上传凭证`, 409, 'bad_status');
+    }
+
+    const saved = await saveUploads(req, { ownerId: user.id, role: 'invest-proof' });
+    if (!saved.length) return fail(res, '请上传打款凭证截图');
+
+    const f = saved[0];
+    const now = new Date().toISOString();
+    const updated = interests().update(interest.id, {
+      status: 'proof_uploaded',
+      proof: {
+        fileId: f.id,
+        url: f.url,
+        name: f.name,
+        note: str(req.body?.note, 200).trim(),
+        uploadedAt: now,
+      },
+      updatedAt: now,
+    });
+
+    for (const admin of db.collection('users').find((u) => u.isAdmin)) {
+      notifySvc.notify({
+        userId: admin.id,
+        type: 'system',
+        title: `打款凭证待核验：${updated.name}`,
+        body: `协议 ${updated.agreementNo}，${updated.amount} 万元`,
+        link: '#/admin',
+      });
+    }
+
+    return data(res, { interest: interestView(updated), file: filePublic(f) }, 201);
+  });
+
+  /* ---------------- 管理端 ---------------- */
+
+  app.get('/api/admin/invest', (req, res) => {
+    const admin = mustAuth(req);
+    if (!admin.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+    const status = str(req.query.status, 20);
+    let list = interests().all();
+    if (status && status !== 'all') list = list.filter((i) => i.status === status);
+    list.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    return data(res, {
+      total: list.length,
+      items: list.map((i) => ({
+        ...interestView(i),
+        userId: i.userId,
+        bank: undefined,
+      })),
+    });
+  });
+
+  /** 管理员核验打款凭证 → 通过后签发股权证 */
+  app.post('/api/admin/invest/:id/verify', (req, res) => {
+    const admin = mustAuth(req);
+    if (!admin.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+
+    const i = interests().get(req.params.id);
+    if (!i) return fail(res, '投资意向不存在', 404, 'not_found');
+    if (i.status !== 'proof_uploaded') {
+      return fail(res, `当前状态（${INVEST_STATUS[i.status] || i.status}）无法核验`, 409, 'bad_status');
+    }
+
+    const agree = Boolean(req.body?.agree);
+    const note = str(req.body?.note, 300).trim();
+    const now = new Date().toISOString();
+
+    if (!agree) {
+      const updated = interests().update(i.id, {
+        status: Math.random() < 0 ? 'rejected' : 'rejected',
+        rejectReason: note || '打款凭证未能核验',
+        reviewedAt: now,
+        reviewedBy: admin.id,
+        updatedAt: now,
+      });
+      notifySvc.notify({
+        userId: i.userId,
+        type: 'system',
+        title: '打款凭证核验未通过',
+        body: note || '请核对打款金额与账户后重新上传凭证',
+        link: `#/invest/${i.id}`,
+      });
+      return data(res, { interest: interestView(updated) });
+    }
+
+    const updated = interests().update(i.id, {
+      status: 'verified',
+      certNo: i.certNo || nextSeq('XYGQ'),
+      certIssuedAt: now,
+      reviewedAt: now,
+      reviewedBy: admin.id,
+      rejectReason: '',
+      updatedAt: now,
+    });
+
+    notifySvc.notify({
+      userId: i.userId,
+      type: 'system',
+      title: '投资完成，股权证已签发',
+      body: `股权证编号 ${updated.certNo}，认购 ${updated.amount} 万元（${updated.shares} 股）`,
+      link: `#/invest/${i.id}/cert`,
+    });
+
+    return data(res, { interest: interestView(updated) });
+  });
 }

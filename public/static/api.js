@@ -523,6 +523,11 @@ export const service = {
   investPlan: () => api.get('/api/invest/plan'),
   investInterest: (body) => api.post('/api/invest/interest', body),
   myInvestInterests: () => api.get('/api/invest/my'),
+  investDetail: (id) => api.get(`/api/invest/${id}`),
+  confirmInvest: (id) => api.post(`/api/invest/${id}/confirm`, {}),
+  uploadProof: (id, formData, opts) => api.upload(`/api/invest/${id}/proof`, formData, opts),
+  adminInvest: (status) => api.get('/api/admin/invest', { status }),
+  adminVerifyInvest: (id, body) => api.post(`/api/admin/invest/${id}/verify`, body),
 };
 
 export default api;

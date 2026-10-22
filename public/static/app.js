@@ -262,7 +262,11 @@ async function resolveView({ segs, query }) {
     case 'bindings':
       return viewsBindings.renderBindings(ctx, query);
     case 'invest':
-      return viewsInvest.renderInvest(ctx, query);
+      if (!p1) return viewsInvest.renderInvest(ctx, query);
+      if (p1 === 'mine') return viewsInvest.renderMyInvest(ctx, query);
+      if (p2 === 'agreement') return viewsInvest.renderAgreement(ctx, { id: p1 });
+      if (p2 === 'cert') return viewsInvest.renderCertificate(ctx, { id: p1 });
+      return viewsInvest.renderInvestDetail(ctx, { id: p1 });
     case 'contacts':
       return viewsAccount.renderContacts(ctx, query);
     case 'notifications':

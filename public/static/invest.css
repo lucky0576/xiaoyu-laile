@@ -202,3 +202,189 @@
 }
 .inv-risk-b p { margin: 0 0 4px; }
 .inv-risk-b b { color: var(--text); }
+
+/* ================================================================== */
+/* 投资流程                                                            */
+/* ================================================================== */
+
+.inv-hero-sm {
+  background: linear-gradient(135deg, #0b74ff 0%, #00a9c2 100%);
+  border-radius: 16px;
+  padding: 18px 20px;
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(11,116,255,.22);
+}
+.inv-hero-sm-t { font-size: 24px; font-weight: 800; }
+.inv-hero-sm-s { font-size: 12.5px; opacity: .9; margin-top: 5px; }
+.inv-hero-sm-n { font-size: 12px; opacity: .85; margin-top: 3px; }
+
+/* 步骤条 */
+.inv-steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 8px;
+  position: relative;
+}
+.inv-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+.inv-step-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #eef2f7; color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 700; z-index: 1;
+}
+.inv-step.done .inv-step-dot { background: var(--brand); color: #fff; }
+.inv-step.cur .inv-step-dot { box-shadow: 0 0 0 4px rgba(11,116,255,.18); }
+.inv-step-t { font-size: 11px; color: var(--muted); text-align: center; }
+.inv-step.done .inv-step-t { color: var(--text); font-weight: 600; }
+
+/* 确认框 */
+.inv-confirm-box {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.inv-confirm-box > div {
+  background: #f7fafd; border-radius: 10px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.inv-confirm-box span { font-size: 11.5px; color: var(--muted); }
+.inv-confirm-box b { font-size: 15px; }
+
+/* 收款账户 */
+.inv-bank {
+  background: #f7fafd; border-radius: 12px; padding: 4px 14px;
+  border: 1px solid var(--line);
+}
+.inv-bank-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px dashed var(--line);
+}
+.inv-bank-row:last-child { border-bottom: none; }
+.inv-bank-row span { font-size: 12px; color: var(--muted); flex: 0 0 68px; }
+.inv-bank-row b { font-size: 14px; flex: 1; word-break: break-all; }
+.inv-bank-row b.mono { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .5px; }
+
+/* 凭证 */
+.inv-proof { background: #f7fafd; border-radius: 12px; padding: 14px; }
+.inv-proof-meta { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+.inv-proof-meta > div { display: flex; gap: 12px; font-size: 12.5px; }
+.inv-proof-meta span { color: var(--muted); flex: 0 0 68px; }
+.inv-proof-img { width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+
+/* 我的投资列表 */
+.inv-list-row {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px; margin-bottom: 10px; text-decoration: none; color: inherit;
+}
+.inv-list-row:hover { border-color: #b9d3f5; }
+.inv-list-main { flex: 1; min-width: 0; }
+.inv-list-t { font-size: 15px; font-weight: 700; }
+.inv-list-m { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.inv-badge {
+  font-size: 11px; font-weight: 700; border-radius: 8px; padding: 4px 9px; flex: 0 0 auto;
+  background: #eef2f7; color: var(--muted);
+}
+.inv-badge-pending { background: #fff4e0; color: #a3660a; }
+.inv-badge-confirmed { background: #e8f1ff; color: #0a52b8; }
+.inv-badge-proof_uploaded { background: #ece8ff; color: #5b3fbf; }
+.inv-badge-verified { background: #e6f7ef; color: #0e8f5f; }
+.inv-badge-rejected { background: #ffecec; color: #c02a2a; }
+
+/* ================================================================== */
+/* 文档（协议 / 股权证）                                                */
+/* ================================================================== */
+
+.doc-page { max-width: 860px; }
+.doc-toolbar { display: flex; gap: 10px; margin-bottom: 12px; }
+
+.doc {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 44px 52px;
+  box-shadow: 0 2px 16px rgba(15,30,60,.05);
+}
+.doc-title {
+  text-align: center; font-size: 22px; font-weight: 800;
+  letter-spacing: 2px; margin-bottom: 6px;
+}
+.doc-sub { text-align: center; font-size: 12px; color: var(--muted); margin-bottom: 26px; }
+.doc-party { margin-bottom: 16px; font-size: 13.5px; line-height: 1.9; }
+.doc-party b { font-size: 14px; }
+.doc-h { font-size: 14px; font-weight: 800; margin: 22px 0 8px; }
+.doc-p { font-size: 13.5px; line-height: 1.95; margin: 0 0 8px; text-indent: 2em; text-align: justify; }
+.doc-sign { display: flex; gap: 40px; margin-top: 42px; }
+.doc-sign-col { flex: 1; }
+.doc-sign-t { font-size: 13px; font-weight: 700; margin-bottom: 26px; }
+.doc-sign-line { font-size: 14px; border-bottom: 1px solid #999; padding-bottom: 4px; }
+.doc-sign-d { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.doc-foot { margin-top: 34px; text-align: center; font-size: 11px; color: var(--muted); }
+
+/* 股权证 */
+.cert {
+  background: #fffefb;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 24px rgba(15,30,60,.08);
+}
+.cert-border {
+  border: 3px double #c9a227;
+  border-radius: 6px;
+  padding: 34px 40px 26px;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(201,162,39,.07), transparent 42%),
+    radial-gradient(circle at 88% 92%, rgba(201,162,39,.07), transparent 42%),
+    #fffefb;
+}
+.cert-head { text-align: center; }
+.cert-brand { font-size: 15px; font-weight: 800; color: #8a6a12; letter-spacing: 1px; }
+.cert-title { font-size: 30px; font-weight: 800; letter-spacing: 8px; color: #2a2118; margin: 12px 0 4px; }
+.cert-en { font-size: 10px; letter-spacing: 3px; color: #b09a5a; }
+.cert-no { text-align: right; font-size: 12px; color: #8a7a55; margin-top: 14px; }
+.cert-body { text-align: center; margin: 22px 0 20px; }
+.cert-body p { font-size: 13.5px; color: #4a4237; line-height: 1.9; margin: 0; }
+.cert-name {
+  font-size: 26px; font-weight: 800; color: #1a1208;
+  letter-spacing: 4px; margin: 12px 0;
+  border-bottom: 1px solid #d9c88a; display: inline-block; padding: 0 28px 8px;
+}
+.cert-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px;
+  background: #e8dcc0; border: 1px solid #e8dcc0; border-radius: 6px; overflow: hidden;
+}
+.cert-grid > div { background: #fffdf7; padding: 12px 10px; text-align: center; }
+.cert-grid span { display: block; font-size: 10.5px; color: #998a63; margin-bottom: 4px; }
+.cert-grid b { font-size: 14px; color: #2a2118; }
+.cert-rights {
+  margin-top: 18px; text-align: center; font-size: 12.5px; color: #8a5a00;
+  background: #fff7e2; border: 1px solid #f0dca8; border-radius: 6px; padding: 10px;
+}
+.cert-rights b { color: #a3660a; }
+.cert-sign { display: flex; align-items: center; justify-content: space-between; margin-top: 26px; }
+.cert-seal {
+  width: 96px; height: 96px; border-radius: 50%;
+  border: 3px solid #c0392b; color: #c0392b;
+  display: flex; align-items: center; justify-content: center;
+  transform: rotate(-14deg); opacity: .88;
+}
+.cert-seal-inner { text-align: center; font-size: 12px; font-weight: 800; line-height: 1.3; }
+.cert-seal-inner span { font-size: 9px; font-weight: 600; letter-spacing: 1px; }
+.cert-sign-meta { text-align: right; font-size: 12px; color: #6a5f47; line-height: 1.9; }
+.cert-verify { color: #b09a5a; }
+.cert-foot {
+  margin-top: 20px; padding-top: 12px; border-top: 1px dashed #e0d4b0;
+  text-align: center; font-size: 10.5px; color: #a0947a;
+}
+
+/* 打印 */
+@media print {
+  .topbar, .tabbar, .doc-toolbar, .fab { display: none !important; }
+  .page { padding: 0 !important; max-width: none !important; }
+  .doc, .cert { border: none; box-shadow: none; }
+  .cert { padding: 0; }
+  body { background: #fff !important; }
+}
