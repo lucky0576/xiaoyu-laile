@@ -1126,7 +1126,7 @@ export async function renderQualification(ctx) {
     ctx.nav('#/login?redirect=%23/qualification');
     return { title: '企业资质认证', content: '<div class="page"></div>' };
   }
-  const res = await service.qualification();
+  const res = await service.myQualification();
   const q = res.qualification || {};
   const types = ctx.state.taxonomy?.qualificationTypes || [];
 
@@ -1206,7 +1206,7 @@ export async function renderQualification(ctx) {
         for (const f of picked) fd.append('qualification', f, f.name);
         ui.showLoading('提交中…');
         try {
-          await service.submitQualification(fd);
+          await service.submitMyQualification(fd);
           ui.hideLoading();
           ui.toast('已提交，等待审核', 'ok');
           ctx.nav('#/qualification');
@@ -1563,7 +1563,7 @@ export async function renderAdmin(ctx) {
           if (qf) {
             const approve = qf.dataset.approve === '1';
             const note = approve ? '' : (await ui.promptDialog({ title: '驳回原因', multiline: true })) || '';
-            await service.reviewQualification(qf.dataset.qf, { approve, note });
+            await service.adminReviewQualification(qf.dataset.qf, { approve, note });
             ui.toast(approve ? '已通过认证' : '已驳回', 'ok');
             ctx.nav('#/admin');
           } else if (mod) {

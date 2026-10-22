@@ -340,8 +340,8 @@ export const service = {
   user: (id) => api.get(`/api/users/${encodeURIComponent(id)}`),
   users: (query) => api.get('/api/users', query),
   uploadAssets: (fd, opts) => api.upload('/api/users/me/assets', fd, opts),
-  submitQualification: (fd, opts) => api.upload('/api/users/me/qualification', fd, opts),
-  qualification: () => api.get('/api/users/me/qualification'),
+  submitMyQualification: (fd, opts) => api.upload('/api/users/me/qualification', fd, opts),
+  myQualification: () => api.get('/api/users/me/qualification'),
 
   // 实名认证：个人身份证 / 企业营业执照 + AI 征信审核
   verificationMeta: () => api.get('/api/verification/meta'),
@@ -396,15 +396,15 @@ export const service = {
   confirmStage: (id, body) => api.post(`/api/listings/${id}/pipeline/confirm`, body),
 
   // 阶段 2：上传资质审核
-  qualification: (id) => api.get(`/api/listings/${id}/qualification`),
-  submitQualification: (id, fd, opts) => api.upload(`/api/listings/${id}/qualification`, fd, opts),
-  reviewQualification: (id, body) => api.post(`/api/listings/${id}/qualification/review`, body),
+  listingQualification: (id) => api.get(`/api/listings/${id}/qualification`),
+  submitListingQualification: (id, fd, opts) => api.upload(`/api/listings/${id}/qualification`, fd, opts),
+  reviewListingQualification: (id, body) => api.post(`/api/listings/${id}/qualification/review`, body),
 
   // 阶段 4/5/7：邀请函 / 居间协议 / 合同要点
   document: (id, kind, query) => api.get(`/api/listings/${id}/document/${kind}`, query),
 
   // 案例参考（联网检索，未配置时回退内置行业基准）
-  cases: (id) => api.get(`/api/listings/${id}/cases`),
+  listingCases: (id) => api.get(`/api/listings/${id}/cases`),
   refreshCases: (id) => api.post(`/api/listings/${id}/cases/refresh`, {}),
   searchStatus: () => api.get('/api/search-status'),
   // 前端版本号（排查浏览器是否在用旧缓存）
@@ -490,7 +490,7 @@ export const service = {
 
   adminOverview: () => api.get('/api/admin/overview'),
   adminQualifications: (status) => api.get('/api/admin/qualifications', { status }),
-  reviewQualification: (userId, body) => api.post(`/api/admin/qualifications/${userId}`, body),
+  adminReviewQualification: (userId, body) => api.post(`/api/admin/qualifications/${userId}`, body),
   adminUsers: (query) => api.get('/api/admin/users', query),
   adminSetUserStatus: (id, status) => api.post(`/api/admin/users/${id}/status`, { status }),
   adminListings: (query) => api.get('/api/admin/listings', query),

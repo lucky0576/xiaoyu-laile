@@ -507,9 +507,9 @@ export async function renderDetail(ctx, params) {
   const [{ listing, pipeline, isOwner }, comments, qualRes, casesRes] = await Promise.all([
     service.listing(id),
     service.comments(id).catch(() => ({ tree: [] })),
-    service.qualification(id).catch(() => null),
+    service.listingQualification(id).catch(() => null),
     // 案例参考：未登录访客不请求，省一次检索
-    service.cases(id).catch(() => null),
+    service.listingCases(id).catch(() => null),
   ]);
 
   const cases = casesRes?.cases || null;
@@ -1448,7 +1448,7 @@ ${rows}
                   fd.append('itemIndexes', JSON.stringify(itemIndexes));
                   fd.append('note', sheet.querySelector('#q-note').value.trim());
                   for (const f of fileList) fd.append('file', f, f.name);
-                  const res = await service.submitQualification(listing.id, fd);
+                  const res = await service.submitListingQualification(listing.id, fd);
                   close();
                   const rev = res.aiReview || {};
                   ui.toast(rev.pass ? `AI 初审通过（${rev.score} 分），等待发布方确认` : `已提交，AI 初审发现 ${(rev.missing || []).length} 项缺项`, rev.pass ? 'ok' : '');
@@ -1474,7 +1474,7 @@ ${rows}
             if (!ok) return;
           }
           try {
-            await service.reviewQualification(listing.id, { userId, agree, note: note || '' });
+            await service.reviewListingQualification(listing.id, { userId, agree, note: note || '' });
             ui.toast(agree ? '已确认通过' : '已驳回', 'ok');
             reload();
           } catch (err) {
