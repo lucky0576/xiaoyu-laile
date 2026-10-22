@@ -903,3 +903,29 @@ ul { margin: 0; padding-left: 18px; }
   color: var(--text-3);
   font-size: 11.5px;
 }
+
+/* 转发到微信引导 */
+.wx-guide { text-align: center; padding: 18px 4px 6px; }
+.wx-guide-ico { font-size: 44px; line-height: 1.1; }
+.wx-guide-arrow {
+  font-size: 40px;
+  color: #07c160;
+  font-weight: 800;
+  animation: wxArrow 1.4s ease-in-out infinite;
+}
+@keyframes wxArrow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(10px, -10px); }
+}
+.wx-guide-t { font-size: 17px; font-weight: 800; margin-top: 8px; }
+.wx-guide-d { font-size: 12.5px; color: var(--muted); line-height: 1.8; margin-top: 8px; }
+.wx-qr {
+  margin: 16px auto 4px;
+  width: 200px; height: 200px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 4px 18px rgba(15,30,60,.08);
+}
+.wx-qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }

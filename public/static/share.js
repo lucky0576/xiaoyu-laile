@@ -267,6 +267,11 @@ export async function downloadCanvas(canvas, filename = 'xiaoyu-share.png') {
 /* ------------------------------------------------------------------ */
 /* 分享面板                                                            */
 /* ------------------------------------------------------------------ */
+/* 是否手机 / 平板 */
+function isMobileUA() {
+  return /Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i.test(navigator.userAgent || '');
+}
+
 export async function openShareSheet(listing) {
   if (!listing?.id) return;
   showLoading('准备分享内容…');
@@ -313,7 +318,14 @@ export async function openShareSheet(listing) {
 
   const content = `
     ${isWechatBrowser() ? `<div class="wx-tip">💚 <b>你在微信里</b>：选好形态后，点右上角「···」即可<b>发送给朋友</b>或<b>分享到朋友圈</b>，链接会自动带上标题、摘要和封面图。</div>` : ''}
-    <div class="share-mode active" data-mode="text">
+    <div class="share-mode active" data-mode="wechat">
+      <div class="ico">💚</div>
+      <div class="grow">
+        <div class="strong">转发到微信</div>
+        <div class="tiny dim">一键打开微信 / 扫码转发，最简单的方式</div>
+      </div>
+    </div>
+    <div class="share-mode" data-mode="text">
       <div class="ico">📝</div>
       <div class="grow">
         <div class="strong">纯文字</div>
@@ -341,11 +353,38 @@ export async function openShareSheet(listing) {
     content,
     async onMount(sheet, close) {
       const panel = sheet.querySelector('#share-panel');
-      let mode = 'text';
+      let mode = 'wechat';
       let posterCanvas = null;
 
       const renderPanel = async () => {
-        if (mode === 'text') {
+        if (mode === 'wechat') {
+          const qr = esc(service.qrUrl(payload.url, 320));
+          const inWx = isWechatBrowser();
+          const mobile = isMobileUA();
+          if (inWx) {
+            panel.innerHTML = `<div class="wx-guide">
+              <div class="wx-guide-arrow">↗</div>
+              <div class="wx-guide-t">点击右上角「···」</div>
+              <div class="wx-guide-d">选择「发送给朋友」或「分享到朋友圈」<br>链接会自动带上标题、摘要和封面图</div>
+              <button class="btn btn-block mt12" id="btn-wx-copy">复制文案备用</button>
+            </div>`;
+          } else if (mobile) {
+            panel.innerHTML = `<div class="wx-guide">
+              <div class="wx-guide-ico">💚</div>
+              <div class="wx-guide-t">转发到微信</div>
+              <div class="wx-guide-d">文案与链接会先复制好，<br>打开微信后粘贴到聊天窗口即可发给好友或群</div>
+              <button class="btn btn-primary btn-block mt12" id="btn-wx-open">💚 打开微信并复制文案</button>
+              <button class="btn btn-block mt8" id="btn-wx-copy">只复制文案</button>
+            </div>`;
+          } else {
+            panel.innerHTML = `<div class="wx-guide">
+              <div class="wx-guide-t">用微信扫码转发</div>
+              <div class="wx-guide-d">微信「扫一扫」打开本页，<br>再点右上角「···」即可转发给好友或朋友圈</div>
+              <div class="wx-qr"><img src="${esc(qr)}" alt="微信扫码"></div>
+              <button class="btn btn-primary btn-block mt12" id="btn-wx-copy">复制文案</button>
+            </div>`;
+          }
+        } else if (mode === 'text') {
           panel.innerHTML = `<div class="field">
               <label>纯文字文案（可自由复制粘贴）</label>
               <textarea class="input" id="share-plain" rows="10" readonly>${esc(plainShareText())}</textarea>
@@ -387,6 +426,28 @@ export async function openShareSheet(listing) {
       };
 
       const bind = () => {
+        const wxText = () => `${payload.title}\n${payload.desc}\n${payload.url}`;
+
+        panel.querySelector('#btn-wx-open')?.addEventListener('click', async () => {
+          const ok = await copyText(wxText());
+          service.recordShare(listing.id, 'wechat').catch(() => {});
+          toast(ok ? '文案已复制，正在打开微信…' : '复制失败，请手动选择文字', ok ? 'ok' : 'err');
+          // 跳转微信 App；部分浏览器/系统会拦截，已复制的文案仍然可用
+          setTimeout(() => {
+            try {
+              location.href = 'weixin://';
+            } catch {
+              /* 忽略：跳转失败时用户可自行打开微信粘贴 */
+            }
+          }, 400);
+        });
+
+        panel.querySelector('#btn-wx-copy')?.addEventListener('click', async () => {
+          const ok = await copyText(wxText());
+          service.recordShare(listing.id, 'wechat').catch(() => {});
+          toast(ok ? '文案与链接已复制，粘贴到微信即可' : '复制失败，请手动选择文字', ok ? 'ok' : 'err');
+        });
+
         panel.querySelector('#btn-copy-plain')?.addEventListener('click', async () => {
           const ok = await copyText(plainShareText());
           service.recordShare(listing.id, 'text').catch(() => {});
