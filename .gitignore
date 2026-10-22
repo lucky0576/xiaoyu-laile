@@ -45,3 +45,9 @@ backup-data-*/
 backup-*/
 # 由 start-all.ps1 生成的桌面快捷方式（内容随隧道地址变化）
 xiaoyu-laile.url
+
+# 视频与截图素材
+video/
+data-scratch/
+*.zip
+.tools/
