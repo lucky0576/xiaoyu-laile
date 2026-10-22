@@ -497,3 +497,33 @@
   letter-spacing: 1.5px;
   font-size: 14px !important;
 }
+
+/* 募集进度 */
+.inv-quota-tag {
+  font-size: 11px; font-weight: 700; border-radius: 8px; padding: 3px 9px;
+  background: #e6f7ef; color: #0e8f5f;
+}
+.inv-quota-tag.closed { background: #ffecec; color: #c02a2a; }
+
+.inv-quota-bar {
+  height: 10px; background: #eef2f7; border-radius: 999px; overflow: hidden; margin: 4px 0 12px;
+}
+.inv-quota-bar i {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #0b74ff, #00a9c2);
+  transition: width .4s ease;
+}
+.inv-quota-nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.inv-quota-nums > div { text-align: center; }
+.inv-quota-nums b { display: block; font-size: 15px; font-weight: 800; }
+.inv-quota-nums span { font-size: 11px; color: var(--muted); }
+
+/* 募满状态 */
+.inv-closed { text-align: center; padding: 18px 0 6px; }
+.inv-closed-ico { font-size: 38px; }
+.inv-closed-t { font-size: 17px; font-weight: 800; margin-top: 10px; }
+.inv-closed-d { font-size: 12.5px; color: var(--muted); line-height: 1.7; margin-top: 8px; }
+
+@media (max-width: 520px) {
+  .inv-quota-nums { grid-template-columns: repeat(2, 1fr); }
+}

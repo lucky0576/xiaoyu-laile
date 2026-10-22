@@ -64,6 +64,15 @@ function maskCard(c) {
 export async function renderInvest(ctx) {
   const res = await service.investPlan().catch(() => null);
   const p = res?.plan || FALLBACK_PLAN;
+  const q = res?.quota || {
+    total: p.raiseAmount,
+    used: 0,
+    verified: 0,
+    remaining: p.raiseAmount,
+    percent: 0,
+    closed: false,
+    investors: 0,
+  };
 
   const usageRows = (p.usage || [])
     .map(
@@ -75,6 +84,23 @@ export async function renderInvest(ctx) {
       </div>`
     )
     .join('');
+
+  const quotaHtml = `<div class="card card-pad mt12">
+    <div class="row between mb8">
+      <div class="inv-sec-t" style="margin-bottom:0">募集进度</div>
+      <div class="inv-quota-tag ${q.closed ? 'closed' : ''}">${q.closed ? '本轮已满' : '认购中'}</div>
+    </div>
+    <div class="inv-quota-bar"><i style="width:${q.percent}%"></i></div>
+    <div class="inv-quota-nums">
+      <div><b>${num(q.used)} 万</b><span>已认购</span></div>
+      <div><b>${num(q.remaining)} 万</b><span>剩余额度</span></div>
+      <div><b>${num(q.total)} 万</b><span>本轮总额</span></div>
+      <div><b>${num(q.investors)}</b><span>意向人数</span></div>
+    </div>
+    ${q.closed
+      ? `<div class="inv-warn mt12">本轮融资额度已认购完毕，暂不再接受新的投资意向。感谢关注。</div>`
+      : `<div class="inv-tip">剩余额度 ${num(q.remaining)} 万元，单笔最低 ${num(p.minInvest)} 万元，先到先得。</div>`}
+  </div>`;
 
   return {
     title: '小鱼来了融资',
@@ -89,6 +115,8 @@ export async function renderInvest(ctx) {
           <div><b>${num(p.stake)}<i>%</i></b><span>出让股份</span></div>
         </div>
       </div>
+
+      ${quotaHtml}
 
       <div class="card card-pad mt12">
         <div class="inv-sec-t">认购规则</div>
@@ -143,6 +171,12 @@ export async function renderInvest(ctx) {
 
       <div class="card card-pad mt12" id="inv-form-card">
         <div class="inv-sec-t">投资意向登记</div>
+        ${q.closed ? `<div class="inv-closed">
+          <div class="inv-closed-ico">🔒</div>
+          <div class="inv-closed-t">本轮融资已满</div>
+          <div class="inv-closed-d">${num(q.used)} 万元额度已全部认购完毕。<br>如有意参与下一轮，欢迎保持关注。</div>
+          <a class="btn btn-outline btn-block mt12" href="#/invest/mine">查看我的投资</a>
+        </div>` : `
         <div class="tiny dim mb12">提交后可在线确认意向、查看投资协议、上传打款凭证并领取股权证。</div>
         <div class="field">
           <label>姓名 <span style="color:var(--danger)">*</span></label>
@@ -154,7 +188,7 @@ export async function renderInvest(ctx) {
         </div>
         <div class="field">
           <label>意向认购金额（万元）<span style="color:var(--danger)">*</span></label>
-          <input class="input" id="inv-amount" type="number" min="${p.minInvest}" max="${p.raiseAmount}" step="1" placeholder="最低 ${p.minInvest} 万元">
+          <input class="input" id="inv-amount" type="number" min="${p.minInvest}" max="${q.remaining}" step="1" placeholder="最低 ${p.minInvest} 万元，最多 ${q.remaining} 万元">
           <div class="tiny dim mt6" id="inv-shares-hint">对应股数：—</div>
         </div>
         <div class="field">
@@ -162,6 +196,7 @@ export async function renderInvest(ctx) {
           <textarea class="input" id="inv-note" rows="2" maxlength="500" placeholder="你想了解的问题、可提供的资源等"></textarea>
         </div>
         <button class="btn btn-primary btn-block mt8" id="inv-submit">提交意向</button>
+        `}
         <div class="center mt12 small"><a href="#/invest/mine">查看我的投资 ›</a></div>
       </div>
 
@@ -196,7 +231,7 @@ export async function renderInvest(ctx) {
         if (!name) return ui.toast('请填写姓名', 'err');
         if (!/^1[3-9]\d{9}$/.test(phone)) return ui.toast('请填写正确的手机号', 'err');
         if (amount < p.minInvest) return ui.toast(`最低认购 ${p.minInvest} 万元`, 'err');
-        if (amount > p.raiseAmount) return ui.toast(`不能超过本轮融资总额 ${p.raiseAmount} 万元`, 'err');
+        if (amount > q.remaining) return ui.toast(`剩余可认购额度仅 ${q.remaining} 万元`, 'err');
 
         const btn = $('#inv-submit');
         btn.disabled = true;
@@ -209,6 +244,10 @@ export async function renderInvest(ctx) {
           ui.toast(err.message || '提交失败', 'err');
           btn.disabled = false;
           btn.textContent = '提交意向';
+          // 额度变化（别人抢完了）时刷新页面数据
+          if (err.code === 'round_closed' || err.code === 'over_quota') {
+            setTimeout(() => ctx.nav('#/invest', { replace: true }), 1200);
+          }
         }
       });
     },

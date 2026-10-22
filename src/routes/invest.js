@@ -47,6 +47,37 @@ export const INVEST_STATUS = {
 };
 
 /* ------------------------------------------------------------------ */
+/* 额度                                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 本轮额度占用情况。
+ * 「已占额度」把待确认/待打款/待核验/已完成都算进去（驳回的不算），
+ * 避免用户先占坑再拖，导致实际能募到的钱和承诺的对不上。
+ */
+export function quotaOf() {
+  const all = interests().all();
+  const active = all.filter((i) => i.status !== 'rejected');
+  const used = active.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const verified = all
+    .filter((i) => i.status === 'verified')
+    .reduce((s, i) => s + Number(i.amount || 0), 0);
+  const total = Number(FINANCING.raiseAmount);
+  const remaining = Math.max(0, total - used);
+  const closed = remaining < Number(FINANCING.minInvest);
+
+  return {
+    total,
+    used: Math.round(used * 100) / 100,
+    verified: Math.round(verified * 100) / 100,
+    remaining: Math.round(remaining * 100) / 100,
+    percent: Math.min(100, Math.round((used / total) * 100)),
+    closed,
+    investors: new Set(active.map((i) => i.phone)).size,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* 编号                                                                */
 /* ------------------------------------------------------------------ */
 
@@ -121,7 +152,7 @@ function ownedOrFail(req, id) {
 export default function registerInvestRoutes(app) {
   /** 融资方案 */
   app.get('/api/invest/plan', (req, res) => {
-    return data(res, { plan: FINANCING });
+    return data(res, { plan: FINANCING, quota: quotaOf() });
   });
 
   /** 提交投资意向 */
@@ -138,7 +169,14 @@ export default function registerInvestRoutes(app) {
     if (!name) return fail(res, '请填写姓名');
     if (!/^1[3-9]\d{9}$/.test(phone.replace(/[-\s]/g, ''))) return fail(res, '请填写正确的手机号');
     if (amount < FINANCING.minInvest) return fail(res, `最低认购金额为 ${FINANCING.minInvest} 万元`);
-    if (amount > FINANCING.raiseAmount) return fail(res, `认购金额不能超过本轮融资总额 ${FINANCING.raiseAmount} 万元`);
+
+    const q = quotaOf();
+    if (q.closed) {
+      return fail(res, '本轮融资额度已认购完毕，暂不再接受新的投资意向', 409, 'round_closed');
+    }
+    if (amount > q.remaining) {
+      return fail(res, `剩余可认购额度仅 ${q.remaining} 万元`, 400, 'over_quota');
+    }
 
     const now = new Date().toISOString();
     const doc = interests().insert({
