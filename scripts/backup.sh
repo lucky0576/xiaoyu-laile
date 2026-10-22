@@ -103,8 +103,10 @@ do_full() {
 
   if dav_put "$out" "full"; then log "  ✓ 云端上传成功"; else log "  ✗ 云端上传失败"; fi
 
-  find "$BACKUP_DIR/full" -name 'xyll-full-*.tar.gz' -delete 2>/dev/null
-  ls -1t "$BACKUP_DIR/full"/xyll-full-*.tar.gz 2>/dev/null | tail -n +$((KEEP_FULL_LOCAL + 1)) | xargs -r rm -f
+  # 本地保留最新 N 份（按时间倒序，删掉第 N+1 份及以后）
+  ls -1t "$BACKUP_DIR/full"/xyll-full-*.tar.gz 2>/dev/null \
+    | tail -n +$((KEEP_FULL_LOCAL + 1)) \
+    | while read -r old; do [ -n "$old" ] && rm -f "$old" && log "  删除本地旧完整备份: $(basename "$old")"; done
 
   local files cnt
   files=$(dav_list full | grep '^xyll-full-.*\.tar\.gz$' | sort)
