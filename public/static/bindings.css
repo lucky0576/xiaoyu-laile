@@ -1,0 +1,49 @@
+
+/* ================================================================== */
+/* 账号绑定                                                            */
+/* ================================================================== */
+
+.bd-hero {
+  background: linear-gradient(135deg, #0b74ff 0%, #00a9c2 100%);
+  border-radius: 18px;
+  padding: 20px 20px 18px;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(11, 116, 255, .22);
+}
+.bd-hero-t { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
+.bd-hero-s { font-size: 13px; line-height: 1.6; opacity: .92; margin-top: 6px; }
+
+.bd-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.bd-row:last-child { border-bottom: none; }
+.bd-ico {
+  width: 42px; height: 42px; flex: 0 0 42px;
+  border-radius: 12px; background: #eef4ff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 21px;
+}
+.bd-main { flex: 1; min-width: 0; }
+.bd-name { font-size: 14px; font-weight: 700; }
+.bd-val {
+  font-size: 12px; color: var(--muted); margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bd-ok {
+  display: inline-block;
+  font-size: 10px; font-weight: 700;
+  color: #0e8f5f; background: #e6f7ef;
+  border-radius: 6px; padding: 1px 6px;
+  vertical-align: middle; margin-left: 6px;
+}
+.bd-warn {
+  display: inline-block;
+  font-size: 10px; font-weight: 700;
+  color: #b26a00; background: #fff4e0;
+  border-radius: 6px; padding: 1px 6px;
+}
+.bd-lock { font-size: 11px; color: var(--muted); flex: 0 0 auto; }

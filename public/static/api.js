@@ -368,6 +368,18 @@ export const service = {
   wechatBind: (body) => api.post('/api/auth/wechat/bind', body),
   wechatBindDemo: (body) => api.post('/api/auth/wechat/bind/demo', body),
   wechatUnbind: () => api.post('/api/auth/wechat/unbind', {}),
+
+  /* ---------------- 账号绑定 / 通讯地址 ---------------- */
+  bindings: () => api.get('/api/users/me/bindings'),
+  emailBindSendCode: (email) => api.post('/api/users/me/email/send-code', { email }),
+  emailBind: (body) => api.post('/api/users/me/email/bind', body),
+  emailUnbind: () => api.post('/api/users/me/email/unbind', {}),
+  saveAddress: (body) => api.put('/api/users/me/address', body),
+  clearAddress: () => api.post('/api/users/me/address/clear', {}),
+  bindMp: (body) => api.post('/api/users/me/bind/mp', body || {}),
+  bindDouyin: (body) => api.post('/api/users/me/bind/douyin', body || {}),
+  unbind: (type) => api.post(`/api/users/me/bind/${encodeURIComponent(type)}/unbind`, {}),
+
   logout: () => api.post('/api/auth/logout', {}),
 
   listings: (query) => api.get('/api/listings', query),

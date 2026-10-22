@@ -10,6 +10,7 @@ import * as viewsChat from './views-chat.js';
 import * as viewsMeeting from './views-meeting.js';
 import * as viewsLive from './views-live.js';
 import * as viewsForum from './views-forum.js';
+import * as viewsBindings from './views-bindings.js';
 
 const appEl = document.getElementById('app');
 
@@ -253,6 +254,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderProfile(ctx, query);
     case 'qualification':
       return viewsAccount.renderQualification(ctx, query);
+    case 'bindings':
+      return viewsBindings.renderBindings(ctx, query);
     case 'contacts':
       return viewsAccount.renderContacts(ctx, query);
     case 'notifications':

@@ -20,6 +20,7 @@ import wechat from '../services/wechat.js';
 import listingsSvc from '../services/listings.js';
 import verifySvc from '../services/verification.js';
 import captchaSvc from '../services/captcha.js';
+import bindingsSvc from '../services/bindings.js';
 import { sendMail, mailTemplates, mailConfigured } from '../services/mail.js';
 import { INDUSTRIES, HELPER } from '../data/taxonomy.js';
 
@@ -505,6 +506,153 @@ export default function registerAuthUserRoutes(app) {
       settings: { ...user.settings, wechatBind: false },
     });
     return data(res, { user: selfUser(updated), bound: false });
+  });
+
+  /* ================================================================ */
+  /* 账号绑定：邮箱 / 通讯地址 / 公众号 / 抖音                            */
+  /* ================================================================ */
+
+  /** 汇总当前用户的所有绑定状态 */
+  app.get('/api/users/me/bindings', (req, res) => {
+    const user = mustAuth(req);
+    return data(res, {
+      bindings: bindingsSvc.bindingsOf(user),
+      mailConfigured: mailConfigured(),
+      wechatConfigured: Boolean(config.wechat.appId),
+      douyinConfigured: Boolean(config.douyin?.clientKey),
+    });
+  });
+
+  /** 发送邮箱绑定验证码 */
+  app.post('/api/users/me/email/send-code', async (req, res) => {
+    const user = mustAuth(req);
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail(res, '请输入正确的邮箱');
+
+    const other = bindingsSvc.emailTakenByOther(email, user.id);
+    if (other) return fail(res, '该邮箱已被其他账号绑定', 409, 'exists');
+
+    const rl = rateLimit(`bindmail:${clientIp(req)}:${email}`, 5, 60_000);
+    if (!rl.ok) return fail(res, `发送过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const { code } = issueOtp({ target: email, purpose: 'bind', channel: 'email' });
+    const tpl = mailTemplates().otp(code, '绑定邮箱');
+    let mailResult = { mode: 'demo' };
+    try {
+      mailResult = await sendMail({ to: email, ...tpl });
+    } catch (err) {
+      console.error('[mail] 发送失败:', err.message);
+    }
+    return data(res, {
+      ok: true,
+      email,
+      ttl: 300,
+      mode: mailResult.mode || 'demo',
+      ...(mailResult.mode === 'demo' ? { demoCode: code, tip: '未配置 SMTP，验证码直接返回' } : {}),
+    });
+  });
+
+  /** 校验验证码并绑定邮箱 */
+  app.post('/api/users/me/email/bind', (req, res) => {
+    const user = mustAuth(req);
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const code = String(req.body?.code || '').trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail(res, '请输入正确的邮箱');
+    if (!code) return fail(res, '请输入验证码');
+
+    const other = bindingsSvc.emailTakenByOther(email, user.id);
+    if (other) return fail(res, '该邮箱已被其他账号绑定', 409, 'exists');
+
+    const check = verifyOtp({ target: email, purpose: 'bind', code });
+    if (!check.ok) return fail(res, check.reason, 400, 'bad_code');
+
+    const updated = bindingsSvc.setEmailVerified(user.id, email);
+    return data(res, {
+      user: selfUser(updated),
+      bindings: bindingsSvc.bindingsOf(updated),
+      bound: true,
+    });
+  });
+
+  /** 解绑邮箱 */
+  app.post('/api/users/me/email/unbind', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.email) return fail(res, '尚未绑定邮箱');
+    const updated = bindingsSvc.unbindEmail(user.id);
+    return data(res, { user: selfUser(updated), bindings: bindingsSvc.bindingsOf(updated) });
+  });
+
+  /** 保存通讯地址（快递用） */
+  app.put('/api/users/me/address', (req, res) => {
+    const user = mustAuth(req);
+    try {
+      const address = bindingsSvc.setAddress(user.id, req.body || {});
+      const updated = users().get(user.id);
+      return data(res, { address, user: selfUser(updated), bindings: bindingsSvc.bindingsOf(updated) });
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code);
+      throw err;
+    }
+  });
+
+  /** 清空通讯地址 */
+  app.post('/api/users/me/address/clear', (req, res) => {
+    const user = mustAuth(req);
+    const address = bindingsSvc.clearAddress(user.id);
+    return data(res, { address, bindings: bindingsSvc.bindingsOf(users().get(user.id)) });
+  });
+
+  /** 绑定公众号（未配置时走演示模式） */
+  app.post('/api/users/me/bind/mp', (req, res) => {
+    const user = mustAuth(req);
+    const configured = Boolean(config.wechat.appId);
+    const mode = configured ? 'oauth' : 'demo';
+    if (!configured && !config.wechat.demoMode) {
+      return fail(res, '公众号绑定暂未开放（未配置 WECHAT_APP_ID）', 403, 'disabled');
+    }
+    const mp = bindingsSvc.bindMp(user.id, {
+      openId: str(req.body?.openId, 80),
+      nickname: str(req.body?.nickname, 40) || (configured ? '公众号用户' : '公众号演示用户'),
+      avatar: str(req.body?.avatar, 500),
+      subscribed: bool(req.body?.subscribed),
+      mode,
+    });
+    const updated = users().get(user.id);
+    return data(res, { user: selfUser(updated), bindings: bindingsSvc.bindingsOf(updated), mp, mode });
+  });
+
+  /** 绑定抖音（未接入开放平台时按抖音号手工绑定） */
+  app.post('/api/users/me/bind/douyin', (req, res) => {
+    const user = mustAuth(req);
+    const configured = Boolean(config.douyin?.clientKey);
+    try {
+      const douyin = bindingsSvc.bindDouyin(user.id, {
+        openId: str(req.body?.openId, 80),
+        nickname: str(req.body?.nickname, 40),
+        avatar: str(req.body?.avatar, 500),
+        douyinId: str(req.body?.douyinId, 60),
+        mode: configured ? 'oauth' : 'manual',
+      });
+      const updated = users().get(user.id);
+      return data(res, { user: selfUser(updated), bindings: bindingsSvc.bindingsOf(updated), douyin });
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code);
+      throw err;
+    }
+  });
+
+  /** 统一解绑 */
+  app.post('/api/users/me/bind/:type/unbind', (req, res) => {
+    const user = mustAuth(req);
+    const type = String(req.params.type || '');
+    try {
+      const updated = bindingsSvc.unbind(user.id, type);
+      if (!updated) return fail(res, '用户不存在', 404, 'not_found');
+      return data(res, { user: selfUser(updated), bindings: bindingsSvc.bindingsOf(updated) });
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code);
+      throw err;
+    }
   });
 
   /* ================================================================ */
