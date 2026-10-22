@@ -492,6 +492,17 @@ export const service = {
   adminSetUserStatus: (id, status) => api.post(`/api/admin/users/${id}/status`, { status }),
   adminListings: (query) => api.get('/api/admin/listings', query),
   adminModerate: (id, action, note) => api.post(`/api/admin/listings/${id}/moderate`, { action, note }),
+
+  /* ---------------- 论坛 ---------------- */
+  forums: () => api.get('/api/forums'),
+  forumOverview: () => api.get('/api/forums/overview'),
+  forumPosts: (slug, query) => api.get(`/api/forums/${encodeURIComponent(slug)}/posts`, query),
+  post: (id) => api.get(`/api/posts/${id}`),
+  createPost: (formData, opts) => api.upload('/api/posts', formData, opts),
+  likePost: (id) => api.post(`/api/posts/${id}/like`, {}),
+  postComments: (id) => api.get(`/api/posts/${id}/comments`),
+  addPostComment: (id, content) => api.post(`/api/posts/${id}/comments`, { content }),
+  deletePost: (id) => api.del(`/api/posts/${id}`),
 };
 
 export default api;

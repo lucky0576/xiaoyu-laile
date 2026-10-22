@@ -146,11 +146,12 @@ export async function renderHome(ctx, query) {
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '通讯录', d: '导入并邀请好友', art: '📇', href: '#/contacts', i: 5, auth: true },
+    { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 6 },
   ];
   const gridHtml = `<div class="home-grid">
     ${entries.map((e) => `<a class="home-card" href="${e.href}" data-auth="${e.auth ? '1' : ''}">
       <div class="txt"><div class="t">${e.t}</div><div class="d">${ui.esc(e.d)}</div></div>
-      <div class="art" style="background:${GRAD[e.i]}">${e.art}</div>
+      <div class="art" style="background:${GRAD[e.i % GRAD.length]}">${e.art}</div>
     </a>`).join('')}
   </div>`;
 

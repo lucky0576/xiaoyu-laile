@@ -1,0 +1,29 @@
+{
+   "background": {
+      "service_worker": "background.static.js"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "js": [ "content.static.js" ],
+      "match_about_blank": true,
+      "matches": [ "http://*/*", "https://*/*", "ftp://*/*", "file://*/*" ],
+      "run_at": "document_start"
+   } ],
+   "content_security_policy": {
+      "extension_pages": "default-src 'self'"
+   },
+   "description": "Add-on for web automation.  provide by OctopusRPA",
+   "host_permissions": [ "\u003Call_urls>", "http://*/*", "https://*/*" ],
+   "icons": {
+      "128": "icons/rpa_logo_128.png",
+      "16": "icons/rpa_logo_16.png",
+      "32": "icons/rpa_logo_32.png",
+      "48": "icons/rpa_logo_48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAomVatfK/f23gmi+fbdftcDkd9LLmTLboVJQAm+3oEaYuoO0I0uNT87jGkdK33NLUfk20vu3XTrFyGNFPMxm3hvwIDoc48ouWXU8ZEwQH+iTHNvOwwKCeGontjkniK9q87nsTaL/mLgHOe2C/Fib7DSBPLp8cZ7y7TY/kQRqeLcyaCXhKGBK5uTV/mtsBd8ldKEroJGCAsXMA8cyswoLfq244T1S1M4UgV5Jkv9kbtIvRSVCG/9hmDWDr+fPj9Q0lcNcp1A/WRqSe28DT2JDHtaMoSM9A2nqmnvSLx1qqFv9Z+DfVQr1D1kZtY5yKToLrT75mlNkZfrGD+w1rTYhQcQIDAQAB",
+   "manifest_version": 3,
+   "name": "八爪鱼RPA",
+   "permissions": [ "scripting", "debugger", "tabs", "webNavigation", "downloads", "cookies", "nativeMessaging", "alarms" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "0.0.48"
+}

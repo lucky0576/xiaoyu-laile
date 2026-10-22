@@ -233,8 +233,60 @@ export function filePublic(f) {
   return rest;
 }
 
+/**
+ * 迁移/搬迁机器后，记录里存的绝对路径会失效。
+ * 这里按「id + 扩展名」在 UPLOAD_DIR 下重新定位一次，找到就写回记录，
+ * 既修复历史数据，也避免每次请求都重复扫描。
+ */
+function resolveFilePath(f) {
+  if (!f) return null;
+  if (f.path && fs.existsSync(f.path)) return f.path;
+
+  const id = f.id;
+  const ext = extOf(f.name);
+  const found = [];
+
+  // 1) 平铺：uploads/<id><ext>
+  found.push(path.join(UPLOAD_DIR, `${id}${ext}`));
+  // 2) 目录：uploads/<id>/<原文件名>
+  found.push(path.join(UPLOAD_DIR, id, String(f.name || `${id}${ext}`)));
+
+  // 3) 年月结构：uploads/<年>/<月>/<id><ext>
+  try {
+    for (const y of fs.readdirSync(UPLOAD_DIR)) {
+      const yp = path.join(UPLOAD_DIR, y);
+      let st;
+      try { st = fs.statSync(yp); } catch { continue; }
+      if (!st.isDirectory()) continue;
+
+      found.push(path.join(yp, `${id}${ext}`));
+      try {
+        for (const m of fs.readdirSync(yp)) {
+          const mp = path.join(yp, m);
+          try { if (!fs.statSync(mp).isDirectory()) continue; } catch { continue; }
+          found.push(path.join(mp, `${id}${ext}`));
+        }
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+
+  const hit = found.find((p) => {
+    try { return fs.existsSync(p); } catch { return false; }
+  });
+  if (hit) {
+    try {
+      filesCol().update(id, { path: hit });
+    } catch { /* ignore */ }
+    return hit;
+  }
+  return null;
+}
+
 export function getFile(id) {
-  return filesCol().get(id);
+  const f = filesCol().get(id);
+  if (!f) return null;
+  const p = resolveFilePath(f);
+  return p ? { ...f, path: p } : f;
 }
 
 export function listFiles(ids = []) {

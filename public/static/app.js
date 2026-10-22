@@ -9,6 +9,7 @@ import * as viewsAccount from './views-account.js';
 import * as viewsChat from './views-chat.js';
 import * as viewsMeeting from './views-meeting.js';
 import * as viewsLive from './views-live.js';
+import * as viewsForum from './views-forum.js';
 
 const appEl = document.getElementById('app');
 
@@ -276,6 +277,14 @@ async function resolveView({ segs, query }) {
       return p1 === 'new'
         ? viewsLive.renderFeedNew(ctx, query)
         : viewsLive.renderLive(ctx, { id: p1, ...query });
+    case 'forums':
+      return viewsForum.renderForums(ctx, query);
+    case 'forum':
+      return viewsForum.renderForum(ctx, { slug: p1, page: query.page, sort: query.sort });
+    case 'post':
+      return p1 === 'new'
+        ? viewsForum.renderPostNew(ctx, { forum: query.forum })
+        : viewsForum.renderPost(ctx, { id: p1 });
     default:
       return {
         title: '页面不存在',
