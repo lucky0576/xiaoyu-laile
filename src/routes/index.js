@@ -8,6 +8,7 @@ import registerChatRoutes from './chat.js';
 import registerFeedRoutes from './feeds.js';
 import registerForumRoutes from './forums.js';
 import registerInvestRoutes from './invest.js';
+import registerTagRoutes from './tags.js';
 import registerAdminRoutes from './admin.js';
 
 export default function registerRoutes(app) {
@@ -18,6 +19,7 @@ export default function registerRoutes(app) {
   registerFeedRoutes(app);
   registerForumRoutes(app);
   registerInvestRoutes(app);
+  registerTagRoutes(app);
   registerAdminRoutes(app);
   return app;
 }

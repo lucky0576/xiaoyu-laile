@@ -13,6 +13,7 @@ import * as viewsForum from './views-forum.js';
 import * as viewsBindings from './views-bindings.js';
 import * as viewsInvest from './views-invest.js';
 import * as viewsAdminInvest from './views-admin-invest.js';
+import * as viewsTags from './views-tags.js';
 
 const appEl = document.getElementById('app');
 
@@ -262,6 +263,10 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderQualification(ctx, query);
     case 'bindings':
       return viewsBindings.renderBindings(ctx, query);
+    case 'tags':
+      return viewsTags.renderTags(ctx, query);
+    case 'membership':
+      return viewsTags.renderMembership(ctx, query);
     case 'invest':
       if (!p1) return viewsInvest.renderInvest(ctx, query);
       if (p1 === 'mine') return viewsInvest.renderMyInvest(ctx, query);

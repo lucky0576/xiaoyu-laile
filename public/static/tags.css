@@ -1,0 +1,111 @@
+
+/* ================================================================== */
+/* 标签设置                                                            */
+/* ================================================================== */
+
+.tag-hero {
+  background: linear-gradient(135deg, #0b74ff 0%, #00a9c2 100%);
+  border-radius: 16px;
+  padding: 20px;
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(11,116,255,.22);
+}
+.tag-hero-t { font-size: 21px; font-weight: 800; }
+.tag-hero-s { font-size: 12.5px; opacity: .92; margin-top: 6px; line-height: 1.6; }
+
+.tag-sec-t { font-size: 15px; font-weight: 800; }
+
+.tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 12.5px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition: all .14s;
+}
+.tag-chip:hover { border-color: #b9d3f5; }
+.tag-chip.on {
+  background: #eef4ff;
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+.tag-chip.tag-custom { background: #f5f0ff; border-color: #b9a6f0; color: #5b3fbf; }
+.tag-chip.tag-custom.on { background: #ede6ff; border-color: #7c5cf0; color: #5b3fbf; }
+.tag-x { font-style: normal; font-size: 13px; opacity: .7; margin-left: 2px; }
+
+.tag-add { display: flex; gap: 8px; align-items: center; }
+.tag-add .input { flex: 1; height: 36px; font-size: 12.5px; }
+.tag-add .btn { flex: none; }
+
+/* ================================================================== */
+/* 会员等级                                                            */
+/* ================================================================== */
+
+.lv-hero {
+  background: linear-gradient(135deg, #1a2233 0%, #2b3a52 100%);
+  border-radius: 16px;
+  padding: 22px 20px;
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(20,30,50,.25);
+}
+.lv-hero-cur { font-size: 12.5px; opacity: .8; }
+.lv-hero-cur b { display: block; font-size: 24px; font-weight: 800; margin-top: 6px; letter-spacing: 1px; }
+.lv-hero-exp { display: inline-block; font-size: 11.5px; opacity: .75; margin-top: 6px; }
+
+.lv-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin-top: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.lv-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--lv, #8a95a5);
+}
+.lv-card.cur {
+  border-color: var(--lv, var(--brand));
+  box-shadow: 0 6px 22px rgba(11,116,255,.12);
+}
+
+.lv-head { display: flex; align-items: center; gap: 12px; }
+.lv-icon {
+  width: 48px; height: 48px; flex: 0 0 48px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+}
+.lv-title { flex: 1; min-width: 0; }
+.lv-name { font-size: 16px; font-weight: 800; }
+.lv-cur {
+  font-size: 10px; font-weight: 700;
+  background: var(--lv, var(--brand)); color: #fff;
+  border-radius: 6px; padding: 1px 6px; vertical-align: middle;
+  margin-left: 4px;
+}
+.lv-tagline { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.lv-price { text-align: right; flex: 0 0 auto; }
+.lv-price b { display: block; font-size: 19px; font-weight: 800; color: var(--lv, var(--brand)); }
+.lv-price span { font-size: 10.5px; color: var(--muted); }
+
+.lv-perks { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.lv-perk { font-size: 12.5px; color: var(--text); display: flex; gap: 7px; align-items: flex-start; line-height: 1.55; }
+.lv-dot { font-weight: 800; flex: 0 0 auto; }
+
+@media (max-width: 520px) {
+  .lv-head { flex-wrap: wrap; }
+  .lv-price { text-align: left; }
+}

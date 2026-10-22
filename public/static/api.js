@@ -528,6 +528,16 @@ export const service = {
   uploadProof: (id, formData, opts) => api.upload(`/api/invest/${id}/proof`, formData, opts),
   adminInvest: (status) => api.get('/api/admin/invest', { status }),
   adminVerifyInvest: (id, body) => api.post(`/api/admin/invest/${id}/verify`, body),
+
+  /* ---------------- 标签 / 会员 ---------------- */
+  tagsMeta: () => api.get('/api/tags/meta'),
+  myTags: () => api.get('/api/users/me/tags'),
+  saveTags: (body) => api.put('/api/users/me/tags', body),
+  userTags: (id) => api.get(`/api/users/${id}/tags`),
+  levels: () => api.get('/api/levels'),
+  setLevel: (body) => api.post('/api/users/me/level', body),
+  cancelLevel: () => api.post('/api/users/me/level/cancel', {}),
+  levelOrders: () => api.get('/api/users/me/level/orders'),
 };
 
 export default api;

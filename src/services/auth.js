@@ -210,6 +210,9 @@ export function createUser(data) {
     isAdmin: Boolean(data.isAdmin),
     verified: false,
     level: 'free',
+      levelExpiresAt: '',
+      // 用户标签（城市 / 行业 / 业务类型 / 性格 / 爱好），均支持自定义
+      tags: { cities: [], industries: [], businessTypes: [], personality: [], hobbies: [] },
     // 注册时选择的身份类型：personal（个人）/ company（企业）/ ''（未选）
     accountType: data.accountType === 'company' || data.accountType === 'personal' ? data.accountType : '',
     // 实名认证材料与 AI 审核结果（结构见 services/verification.js）
