@@ -352,6 +352,9 @@ export const service = {
 
   smsSend: (phone, purpose) => api.post('/api/auth/sms/send', { phone, purpose }),
   smsLogin: (body) => api.post('/api/auth/sms/login', body),
+  captcha: () => api.get('/api/auth/captcha'),
+  phoneRegister: (body) => api.post('/api/auth/phone/register', body),
+  phoneLogin: (body) => api.post('/api/auth/phone/login', body),
   mailSend: (email, purpose) => api.post('/api/auth/email/send-code', { email, purpose }),
   mailRegister: (body) => api.post('/api/auth/email/register', body),
   mailLogin: (body) => api.post('/api/auth/email/login', body),

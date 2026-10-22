@@ -19,6 +19,7 @@ import chatSvc from '../services/chat.js';
 import wechat from '../services/wechat.js';
 import listingsSvc from '../services/listings.js';
 import verifySvc from '../services/verification.js';
+import captchaSvc from '../services/captcha.js';
 import { sendMail, mailTemplates, mailConfigured } from '../services/mail.js';
 import { INDUSTRIES, HELPER } from '../data/taxonomy.js';
 
@@ -148,6 +149,63 @@ export default function registerAuthUserRoutes(app) {
       applyInvite(user, req.body?.invite);
     }
     return issueLogin(res, user, { created });
+  });
+
+  /* ================================================================ */
+  /* 图形验证码（替代短信验证码）                                        */
+  /* ================================================================ */
+  app.get('/api/auth/captcha', (req, res) => {
+    const rl = rateLimit(`captcha:${clientIp(req)}`, 60, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    const { id, svg, ttl } = captchaSvc.issueCaptcha();
+    return data(res, { id, svg, ttl });
+  });
+
+  /** 手机号注册：手机号 + 密码 + 图形验证码 */
+  app.post('/api/auth/phone/register', (req, res) => {
+    const phone = normalizePhone(req.body?.phone);
+    const password = String(req.body?.password || '');
+    const captchaId = String(req.body?.captchaId || '');
+    const captchaCode = String(req.body?.captchaCode || '');
+
+    if (!/^1[3-9]\d{9}$/.test(phone)) return fail(res, '请输入正确的手机号');
+    if (password.length < 6) return fail(res, '密码至少 6 位');
+
+    const cap = captchaSvc.verifyCaptcha(captchaId, captchaCode);
+    if (!cap.ok) return fail(res, cap.reason, 400, 'bad_captcha');
+
+    if (byPhone(phone)) return fail(res, '该手机号已注册，请直接登录', 409, 'phone_taken');
+
+    const rl = rateLimit(`reg:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) return fail(res, `操作过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const user = createUser({
+      phone,
+      password,
+      nickname: String(req.body?.nickname || '').trim() || ensureNicknameUnique(`用户${phone.slice(-4)}`),
+      company: str(req.body?.company, 100),
+      profession: str(req.body?.profession, 60),
+      industry: str(req.body?.industry, 60),
+      city: str(req.body?.city, 60),
+      accountType: str(req.body?.accountType, 20),
+    });
+    applyInvite(user, req.body?.invite);
+    return issueLogin(res, user, { created: true });
+  });
+
+  /** 手机号 + 密码登录（不再需要短信验证码） */
+  app.post('/api/auth/phone/login', (req, res) => {
+    const phone = normalizePhone(req.body?.phone);
+    const password = String(req.body?.password || '');
+    if (!/^1[3-9]\d{9}$/.test(phone)) return fail(res, '请输入正确的手机号');
+    if (!password) return fail(res, '请输入密码');
+
+    const user = byPhone(phone);
+    if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+      return fail(res, '手机号或密码不正确', 401, 'bad_credentials');
+    }
+    if (user.status === 'banned') return fail(res, '账号已被禁用', 403, 'banned');
+    return issueLogin(res, user);
   });
 
   /* ================================================================ */

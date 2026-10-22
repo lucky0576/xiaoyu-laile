@@ -38,7 +38,7 @@ export async function renderLogin(ctx, query) {
 
     <div class="card card-pad">
       <div class="chips mb12" id="login-tabs">
-        <a class="chip active" data-tab="phone">手机验证码</a>
+        <a class="chip active" data-tab="phone">手机密码</a>
         <a class="chip" data-tab="email">邮箱密码</a>
         <a class="chip" data-tab="wechat">微信登录</a>
       </div>
@@ -46,18 +46,16 @@ export async function renderLogin(ctx, query) {
       <div id="pane-phone">
         <div class="field">
           <label>手机号</label>
-          <div class="input-group">
-            <input class="input" id="lg-phone" type="tel" placeholder="请输入手机号" value="">
-            <button class="btn btn-outline" id="lg-send" style="white-space:nowrap">获取验证码</button>
-          </div>
+          <input class="input" id="lg-phone" type="tel" placeholder="请输入手机号" value="">
         </div>
         <div class="field">
-          <label>验证码</label>
-          <input class="input" id="lg-code" placeholder="6 位数字验证码">
-          <div class="hint" id="lg-code-hint"></div>
+          <label>密码</label>
+          <input class="input" id="lg-pw-phone" type="password" placeholder="请输入密码">
         </div>
-        <button class="btn btn-primary btn-block" id="lg-submit">登录 / 注册</button>
-        <div class="tiny dim mt8 center">未注册的手机号将自动创建账号</div>
+        <button class="btn btn-primary btn-block" id="lg-submit">登录</button>
+        <div class="row between mt12">
+          <a class="small" href="#/register">还没有账号？去注册</a>
+        </div>
       </div>
 
       <div id="pane-email" class="hide">
@@ -91,7 +89,7 @@ export async function renderLogin(ctx, query) {
       <div class="small muted">
         <div>管理员：18800000000 / 密码 admin123456</div>
         <div>普通用户：13800001234 / 密码 demo123456</div>
-        <div>或任意手机号用验证码登录（验证码会直接显示）</div>
+        <div>或任意手机号 + 密码登录（新用户请先注册）</div>
       </div>
     </div>
   </div>`;
@@ -118,42 +116,19 @@ export async function renderLogin(ctx, query) {
         ctx.nav(redirect.startsWith('#') ? redirect : `#${redirect}`);
       };
 
-      const sendCode = async () => {
-        const phone = root.querySelector('#lg-phone').value.trim();
-        const btn = root.querySelector('#lg-send');
-        btn.disabled = true;
-        try {
-          const res = await service.smsSend(phone, 'login');
-          root.querySelector('#lg-code-hint').innerHTML = res.demoCode
-            ? `演示验证码：<b style="color:var(--brand);font-size:16px">${res.demoCode}</b>（生产环境通过短信下发）`
-            : '验证码已发送，请查收短信';
-          ui.toast('验证码已发送', 'ok');
-          let n = 60;
-          const timer = setInterval(() => {
-            btn.textContent = `${n--}s`;
-            if (n < 0) {
-              clearInterval(timer);
-              btn.textContent = '获取验证码';
-              btn.disabled = false;
-            }
-          }, 1000);
-          if (res.demoCode) root.querySelector('#lg-code').value = res.demoCode;
-        } catch (err) {
-          ui.toast(err.message, 'err');
-          btn.disabled = false;
-        }
-      };
-
-      root.querySelector('#lg-send')?.addEventListener('click', sendCode);
       root.querySelector('#lg-submit')?.addEventListener('click', async () => {
         const phone = root.querySelector('#lg-phone').value.trim();
-        const code = root.querySelector('#lg-code').value.trim();
-        if (!phone || !code) return ui.toast('请填写手机号和验证码', 'err');
+        const password = root.querySelector('#lg-pw-phone').value;
+        if (!phone || !password) return ui.toast('请填写手机号和密码', 'err');
         try {
-          const res = await service.smsLogin({ phone, code, purpose: 'login', invite: query.invite });
-          await done(res, res.created ? '注册并登录成功' : '登录成功');
+          const res = await service.phoneLogin({ phone, password });
+          await done(res, '登录成功');
         } catch (err) {
-          ui.toast(err.message, 'err');
+          if (err.code === 'bad_credentials') {
+            ui.toast('手机号或密码不正确，没注册过请先注册', 'err');
+          } else {
+            ui.toast(err.message, 'err');
+          }
         }
       });
 
@@ -255,20 +230,24 @@ export async function renderRegister(ctx, query) {
     <div class="card card-pad">
       <div class="strong mb12">账号信息</div>
       <div class="field">
-        <label>邮箱 <span style="color:var(--danger)">*</span></label>
+        <label>手机号 <span style="color:var(--danger)">*</span></label>
+        <input class="input" id="rg-phone" type="tel" maxlength="11" placeholder="11 位手机号，用于登录">
+      </div>
+      <div class="field">
+        <label>图形验证码 <span style="color:var(--danger)">*</span></label>
         <div class="input-group">
-          <input class="input" id="rg-email" type="email" placeholder="you@example.com">
-          <button class="btn btn-outline" id="rg-send">获取验证码</button>
+          <input class="input" id="rg-captcha" maxlength="6" placeholder="输入右侧图中字符" autocomplete="off">
+          <img id="rg-captcha-img" alt="图形验证码" title="点击刷新" style="height:44px;width:132px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#f4f8fc;flex:0 0 auto" />
         </div>
+        <div class="hint">看不清？点击图片换一张</div>
       </div>
       <div class="field">
-        <label>验证码 <span style="color:var(--danger)">*</span></label>
-        <input class="input" id="rg-code" placeholder="6 位验证码">
-        <div class="hint" id="rg-hint"></div>
-      </div>
-      <div class="field">
-        <label>密码 <span style="color:var(--danger)">*</span></label>
+        <label>设置密码 <span style="color:var(--danger)">*</span></label>
         <input class="input" id="rg-password" type="password" placeholder="至少 6 位">
+      </div>
+      <div class="field">
+        <label>确认密码 <span style="color:var(--danger)">*</span></label>
+        <input class="input" id="rg-password2" type="password" placeholder="再输入一次">
       </div>
       <div class="field">
         <label>昵称</label>
@@ -291,7 +270,7 @@ export async function renderRegister(ctx, query) {
         <label>所属行业</label>
         <select class="select" id="rg-industry">
           <option value="">请选择行业</option>
-          ${industries.map((i) => `<option value="${ui.esc(i.name)}">${i.icon || ''} ${ui.esc(i.name)}</option>`).join('')}
+          ${industries.map((it) => `<option value="${ui.esc(it.name)}">${it.icon || ''} ${ui.esc(it.name)}</option>`).join('')}
         </select>
       </div>
       <div class="field">
@@ -300,10 +279,6 @@ export async function renderRegister(ctx, query) {
         <datalist id="city-list">
           ${provinces.flatMap((p) => (p.cities || []).map((c) => `<option value="${ui.esc(c.name)}">`)).join('')}
         </datalist>
-      </div>
-      <div class="field">
-        <label>手机号</label>
-        <input class="input" id="rg-phone" type="tel" placeholder="用于接收项目对接通知（选填）">
       </div>
       <div class="field">
         <label>微信号</label>
@@ -324,6 +299,7 @@ export async function renderRegister(ctx, query) {
     async mount(root) {
       const $ = (s) => root.querySelector(s);
       let accountType = 'personal';
+      let captchaId = '';
 
       const typeHint = {
         personal: '注册后需完成实名认证：填写姓名与身份证号，并上传身份证正反面照片。',
@@ -334,8 +310,6 @@ export async function renderRegister(ctx, query) {
         root.querySelectorAll('#rg-acct-type .acct-opt').forEach((el) => el.classList.toggle('active', el.dataset.type === t));
         const hint = $('#rg-type-hint');
         if (hint) hint.textContent = typeHint[t];
-        const companyLabel = $('#rg-company')?.previousElementSibling;
-        if (companyLabel) companyLabel.innerHTML = t === 'company' ? '企业名称 <span style="color:var(--danger)">*</span>' : '企业名称';
       };
       root.querySelector('#rg-acct-type')?.addEventListener('click', (e) => {
         const opt = e.target.closest('.acct-opt');
@@ -343,52 +317,66 @@ export async function renderRegister(ctx, query) {
       });
       applyType('personal');
 
-      $('#rg-send').addEventListener('click', async () => {
-        const email = $('#rg-email').value.trim();
-        const btn = $('#rg-send');
-        btn.disabled = true;
+      /** 拉一张新验证码 */
+      const refreshCaptcha = async () => {
         try {
-          const res = await service.mailSend(email, 'register');
-          $('#rg-hint').innerHTML = res.demoCode
-            ? `演示验证码：<b style="color:var(--brand);font-size:16px">${res.demoCode}</b>（未配置 SMTP，正式环境通过邮件发送）`
-            : '验证码已发送到邮箱';
-          if (res.demoCode) $('#rg-code').value = res.demoCode;
-          ui.toast('验证码已发送', 'ok');
+          const res = await service.captcha();
+          captchaId = res.id;
+          const img = $('#rg-captcha-img');
+          if (img) {
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(res.svg);
+          }
+          const input = $('#rg-captcha');
+          if (input) input.value = '';
         } catch (err) {
-          ui.toast(err.message, 'err');
-        } finally {
-          btn.disabled = false;
+          ui.toast(err.message || '验证码加载失败', 'err');
         }
-      });
+      };
+      await refreshCaptcha();
+      $('#rg-captcha-img')?.addEventListener('click', refreshCaptcha);
 
-      $('#rg-submit').addEventListener('click', async () => {
+      $('#rg-submit')?.addEventListener('click', async () => {
+        const phone = ($('#rg-phone').value || '').trim();
+        const captchaCode = ($('#rg-captcha').value || '').trim();
+        const password = $('#rg-password').value || '';
+        const password2 = $('#rg-password2').value || '';
+
+        if (!/^1[3-9]\d{9}$/.test(phone)) return ui.toast('请输入正确的手机号', 'err');
+        if (!captchaCode) return ui.toast('请输入图形验证码', 'err');
+        if (password.length < 6) return ui.toast('密码至少 6 位', 'err');
+        if (password !== password2) return ui.toast('两次输入的密码不一致', 'err');
         if (!$('#rg-agree').checked) return ui.toast('请先同意服务条款', 'err');
-        const payload = {
-          email: $('#rg-email').value.trim(),
-          code: $('#rg-code').value.trim(),
-          password: $('#rg-password').value,
-          nickname: $('#rg-nickname').value.trim(),
-          company: $('#rg-company').value.trim(),
-          profession: $('#rg-profession').value.trim(),
-          industry: $('#rg-industry').value,
-          city: $('#rg-city').value.trim(),
-          phone: $('#rg-phone').value.trim(),
-          wechatId: $('#rg-wechat').value.trim(),
-          accountType,
-          invite: query.invite,
-        };
-        if (!payload.email || !payload.code || !payload.password) return ui.toast('请填写邮箱、验证码和密码', 'err');
-        if (accountType === 'company' && !payload.company) return ui.toast('企业注册请填写企业名称', 'err');
+
+        const btn = $('#rg-submit');
+        btn.disabled = true;
+        btn.textContent = '注册中…';
         try {
-          const res = await service.mailRegister(payload);
+          const res = await service.phoneRegister({
+            phone,
+            password,
+            captchaId,
+            captchaCode,
+            nickname: ($('#rg-nickname').value || '').trim(),
+            company: ($('#rg-company').value || '').trim(),
+            profession: ($('#rg-profession').value || '').trim(),
+            industry: $('#rg-industry').value || '',
+            city: ($('#rg-city').value || '').trim(),
+            wechatId: ($('#rg-wechat').value || '').trim(),
+            accountType,
+            invite: query.invite,
+          });
           store.token = res.token;
           store.user = res.user;
           await ctx.refreshMe();
-          ui.toast('注册成功，欢迎加入！', 'ok');
-          // 企业 / 个人都引导去完成实名认证
-          ctx.nav(`#/verify${query.redirect ? `?redirect=${encodeURIComponent(query.redirect)}` : ''}`);
+          ui.toast('注册成功', 'ok');
+          const redirect = query.redirect || '#/verify';
+          const to = redirect.startsWith('#') ? redirect : '#' + redirect;
+          ctx.nav(to);
         } catch (err) {
-          ui.toast(err.message, 'err');
+          ui.toast(err.message || '注册失败', 'err');
+          btn.disabled = false;
+          btn.textContent = '注册并登录';
+          await refreshCaptcha();
         }
       });
     },
