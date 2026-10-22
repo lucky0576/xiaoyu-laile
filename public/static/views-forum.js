@@ -2,16 +2,68 @@
  * 小鱼来了 — 论坛视图
  *
  * 路由：
- *   #/forums              板块总览
- *   #/forum/:slug         板块内帖子列表
+ *   #/forums              板块总览（热门板块横向滚动 + 最新讨论两列卡片）
+ *   #/forum/:slug         板块内帖子（两列卡片，与首页「最新发布」一致）
  *   #/post/:id            帖子详情
  *   #/post/new?forum=xxx  发帖
+ *
+ * 版式复用首页的 home-sec-head / home-scroll / home-tile / home-list2 / home-item，
+ * 保证与「热门行业」「最新发布」完全一致。
  */
 
 import { service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 
 const FORUM_ICON_FALLBACK = '💬';
+
+const TILE_GRAD = [
+  'linear-gradient(135deg,#dbeafe,#bfdbfe)',
+  'linear-gradient(135deg,#ffedd5,#fed7aa)',
+  'linear-gradient(135deg,#dcfce7,#bbf7d0)',
+  'linear-gradient(135deg,#ede9fe,#ddd6fe)',
+  'linear-gradient(135deg,#cffafe,#a5f3fc)',
+  'linear-gradient(135deg,#fce7f3,#fbcfe8)',
+];
+
+function clip(s, n) {
+  const t = String(s || '').replace(/\s+/g, ' ').trim();
+  return t.length > n ? `${t.slice(0, n)}…` : t;
+}
+
+/* ------------------------------------------------------------------ */
+/* 板块方块（同「热门行业」）                                            */
+/* ------------------------------------------------------------------ */
+function forumTile(f, i) {
+  return `<a class="home-tile" href="#/forum/${ui.esc(f.slug)}">
+    <div class="art" style="background:${TILE_GRAD[i % TILE_GRAD.length]}">${f.icon || FORUM_ICON_FALLBACK}</div>
+    <div class="t">${ui.esc(f.name)}</div>
+    <div class="d">${ui.esc(f.postCount ? `${f.postCount} 帖` : '查看讨论')}</div>
+  </a>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* 帖子卡片（同「最新发布」）                                            */
+/* ------------------------------------------------------------------ */
+function postCard(p, i) {
+  const firstImg = (p.images || [])[0];
+  const cover = firstImg
+    ? `<img src="/files/${ui.esc(firstImg)}/view" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.style.display='none'">`
+    : `<span style="font-size:26px">${p.forumIcon || FORUM_ICON_FALLBACK}</span>`;
+
+  return `<a class="home-item" href="#/post/${ui.esc(p.id)}">
+    <div class="cover" ${firstImg ? '' : `style="background:${TILE_GRAD[i % TILE_GRAD.length]}"`}>
+      ${cover}
+      ${p.pinned ? '<span class="badge2">置顶</span>' : ''}
+    </div>
+    <div class="body">
+      <div class="t">${ui.esc(clip(p.title, 40))}</div>
+      <div class="m">
+        <span>${ui.esc(p.forumName || '')}</span>
+        <span>${ui.fmtRelative(p.createdAt)}</span>
+      </div>
+    </div>
+  </a>`;
+}
 
 /* ================================================================== */
 /* 板块总览                                                             */
@@ -25,55 +77,34 @@ export async function renderForums(ctx, query) {
   const forums = listRes.forums || [];
   const ov = ovRes || {};
 
-  const forumCard = (f) => `<a class="fm-card" href="#/forum/${ui.esc(f.slug)}">
-      <div class="fm-ico">${f.icon || FORUM_ICON_FALLBACK}</div>
-      <div class="fm-main">
-        <div class="fm-name">${ui.esc(f.name)}</div>
-        <div class="fm-desc">${ui.esc(f.desc || '')}</div>
+  const tileHtml = `<div class="home-sec-head"><h2>热门板块</h2><span class="tiny dim">共 ${forums.length} 个</span></div>
+    <div class="home-panel" style="padding:0">
+      <div class="home-scroll">
+        ${forums.map((f, i) => forumTile(f, i)).join('')}
       </div>
-      <div class="fm-count"><b>${f.postCount || 0}</b><span>帖</span></div>
-    </a>`;
+    </div>`;
 
-  const recentCard = (p) => `<a class="po-row" href="#/post/${ui.esc(p.id)}">
-      <div class="po-row-main">
-        <div class="po-row-t">${ui.esc(p.title)}</div>
-        <div class="po-row-m">
-          <span class="po-forum">${p.forumIcon || ''} ${ui.esc(p.forumName || '')}</span>
-          <span>${ui.esc(p.authorName || '')}</span>
-          <span>${ui.fmtRelative(p.createdAt)}</span>
-          <span>👍 ${p.likeCount || 0}</span>
-          <span>💬 ${p.commentCount || 0}</span>
-        </div>
-      </div>
-    </a>`;
+  const recentHtml = `<div class="home-sec-head"><h2>最新讨论</h2><a href="#/forum/solar">全部 ›</a></div>
+    <div class="home-list2">
+      ${(ov.recent || []).length
+        ? ov.recent.map((p, i) => postCard(p, i)).join('')
+        : ui.emptyState('💬', '还没有人发帖，来发第一个')}
+    </div>`;
 
-  const groupsHtml = (listRes.groups || [])
-    .map((g) => `<div class="fm-group">
-        <div class="fm-group-t">${ui.esc(g.name)}</div>
-        <div class="fm-grid">${g.forums.map(forumCard).join('')}</div>
-      </div>`)
-    .join('');
+  const statsHtml = `<div class="home-stats">
+    <div><div class="n">${forums.length}</div><div class="l">行业板块</div></div>
+    <div><div class="n">${ov.totalPosts || 0}</div><div class="l">讨论帖</div></div>
+    <div><div class="n">${ov.todayPosts || 0}</div><div class="l">今日新增</div></div>
+  </div>`;
 
   return {
     title: '行业论坛',
-    content: `<div class="page">
-      <div class="fm-hero">
-        <div class="fm-hero-t">行业论坛</div>
-        <div class="fm-hero-s">光伏 · 储能 · 风电 · 工程 · 投资 · 算力 · 机器人 · AI · 无人机 …… 按行业分区讨论，只聊真问题。</div>
-        <div class="fm-stats">
-          <div><b>${forums.length}</b><span>个板块</span></div>
-          <div><b>${ov.totalPosts || 0}</b><span>个帖子</span></div>
-          <div><b>${ov.todayPosts || 0}</b><span>今日新增</span></div>
-        </div>
-        <button class="btn btn-primary btn-block mt12" id="fm-new">发帖</button>
-      </div>
-
-      ${(ov.recent || []).length ? `<div class="card mt12">
-        <div class="card-t">最新讨论</div>
-        ${(ov.recent || []).map(recentCard).join('')}
-      </div>` : ''}
-
-      ${groupsHtml}
+    content: `<div class="home-wrap">
+      <div class="home-sec-head"><h2>行业论坛</h2><button class="btn btn-sm btn-primary" id="fm-new">发帖</button></div>
+      <div class="small muted" style="margin:-6px 0 10px">光伏 · 储能 · 风电 · 工程 · 投资 · 算力 · 机器人 · AI · 无人机 …… 按行业分区，只聊真问题。</div>
+      ${statsHtml}
+      ${tileHtml}
+      ${recentHtml}
     </div>`,
     showBack: false,
     mount(root) {
@@ -89,8 +120,11 @@ export async function renderForums(ctx, query) {
 /* 板块帖子列表                                                          */
 /* ================================================================== */
 export async function renderForum(ctx, { slug, page = 1, sort = 'new' } = {}) {
-  const res = await service.forumPosts(slug, { page, pageSize: 20, sort }).catch((e) => ({ error: e }));
-  if (res?.error || !res?.forum) {
+  const [res, listRes] = await Promise.all([
+    service.forumPosts(slug, { page, pageSize: 20, sort }).catch(() => null),
+    service.forums().catch(() => ({ forums: [] })),
+  ]);
+  if (!res || !res.forum) {
     return {
       title: '板块不存在',
       content: ui.emptyState('🧭', '该板块不存在或已下线', '<a class="btn btn-primary mt16" href="#/forums">返回论坛</a>'),
@@ -99,48 +133,42 @@ export async function renderForum(ctx, { slug, page = 1, sort = 'new' } = {}) {
   }
   const f = res.forum;
   const items = res.items || [];
-
-  const row = (p) => `<a class="po-card" href="#/post/${ui.esc(p.id)}">
-      ${p.pinned ? '<span class="po-pin">置顶</span>' : ''}
-      <div class="po-card-t">${ui.esc(p.title)}</div>
-      <div class="po-card-x">${ui.esc(p.excerpt || '')}</div>
-      ${(p.images || []).length ? `<div class="po-imgs">${p.images.slice(0, 3).map((id) => `<img src="/files/${ui.esc(id)}/thumb" alt="" loading="lazy" onerror="this.style.display='none'">`).join('')}</div>` : ''}
-      <div class="po-card-m">
-        <span class="po-author">${ui.esc(p.authorName || '')}${p.authorVerified ? ' <i class="v-badge">✓</i>' : ''}</span>
-        <span>${ui.fmtRelative(p.createdAt)}</span>
-        <span>👍 ${p.likeCount || 0}</span>
-        <span>💬 ${p.commentCount || 0}</span>
-      </div>
-    </a>`;
+  const forums = listRes.forums || [];
 
   const pager = [];
   for (let i = 1; i <= Math.min(res.pages || 1, 10); i++) {
-    pager.push(`<a class="chip ${i === res.page ? 'active' : ''}" href="#/forum/${ui.esc(f.slug)}?page=${i}&sort=${sort}">${i}</a>`);
+    pager.push(
+      `<a class="chip ${i === res.page ? 'active' : ''}" href="#/forum/${ui.esc(f.slug)}?page=${i}&sort=${sort}">${i}</a>`
+    );
   }
 
   return {
     title: f.name,
-    content: `<div class="page">
-      <div class="fm-head">
-        <div class="fm-head-ico">${f.icon || FORUM_ICON_FALLBACK}</div>
-        <div>
-          <div class="fm-head-n">${ui.esc(f.name)}</div>
-          <div class="fm-head-d">${ui.esc(f.desc || '')}</div>
-          <div class="fm-head-m">${res.total} 帖 · ${(f.tags || []).map((t) => '#' + ui.esc(t)).join(' ')}</div>
-        </div>
+    content: `<div class="home-wrap">
+      <div class="home-sec-head">
+        <h2>${f.icon || FORUM_ICON_FALLBACK} ${ui.esc(f.name)}</h2>
+        <button class="btn btn-sm btn-primary" id="fp-new">发帖</button>
+      </div>
+      <div class="small muted" style="margin:-6px 0 10px">${ui.esc(f.desc || '')}</div>
+
+      <div class="chips scroll mb12">
+        <a class="chip ${sort !== 'hot' ? 'active' : ''}" href="#/forum/${ui.esc(f.slug)}?sort=new">最新</a>
+        <a class="chip ${sort === 'hot' ? 'active' : ''}" href="#/forum/${ui.esc(f.slug)}?sort=hot">最热</a>
+        <span class="tiny dim" style="align-self:center;margin-left:6px">${res.total} 帖</span>
       </div>
 
-      <div class="fm-bar">
-        <div class="chips scroll">
-          <a class="chip ${sort !== 'hot' ? 'active' : ''}" href="#/forum/${ui.esc(f.slug)}?sort=new">最新</a>
-          <a class="chip ${sort === 'hot' ? 'active' : ''}" href="#/forum/${ui.esc(f.slug)}?sort=hot">最热</a>
-        </div>
-        <button class="btn btn-primary btn-sm" id="fp-new">发帖</button>
+      <div class="home-list2">
+        ${items.length ? items.map((p, i) => postCard(p, i)).join('') : ui.emptyState('💬', '这个板块还没有帖子，来发第一个')}
       </div>
-
-      ${items.length ? items.map(row).join('') : ui.emptyState('💬', '这个板块还没有帖子，来发第一个')}
 
       ${res.pages > 1 ? `<div class="chips mt12">${pager.join('')}</div>` : ''}
+
+      <div class="home-sec-head mt16"><h2>切换板块</h2><a href="#/forums">全部 ›</a></div>
+      <div class="home-panel" style="padding:0">
+        <div class="home-scroll">
+          ${forums.map((x, i) => forumTile(x, i)).join('')}
+        </div>
+      </div>
     </div>`,
     showBack: true,
     mount(root) {
@@ -271,7 +299,9 @@ export async function renderPostNew(ctx, { forum } = {}) {
   const forums = listRes.forums || [];
   const current = forum || forums[0]?.slug || 'solar';
 
-  const opts = forums.map((f) => `<option value="${ui.esc(f.slug)}" ${f.slug === current ? 'selected' : ''}>${f.icon || ''} ${ui.esc(f.name)}</option>`).join('');
+  const opts = forums
+    .map((f) => `<option value="${ui.esc(f.slug)}" ${f.slug === current ? 'selected' : ''}>${f.icon || ''} ${ui.esc(f.name)}</option>`)
+    .join('');
 
   return {
     title: '发帖',
@@ -292,7 +322,7 @@ export async function renderPostNew(ctx, { forum } = {}) {
         <div class="field">
           <label>配图（选填，最多 9 张）</label>
           <input type="file" id="np-files" accept="image/*" multiple />
-          <div class="tiny dim mt6">封面与现场照片更容易被看到</div>
+          <div class="tiny dim mt6">有现场照片的帖子更容易被看到</div>
         </div>
         <div class="warn-note">🔒 正文中的手机号、微信、邮箱会自动隐藏，保护隐私。</div>
         <button class="btn btn-primary btn-block mt16" id="np-submit">发布</button>
