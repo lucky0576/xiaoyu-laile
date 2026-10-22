@@ -12,6 +12,7 @@ import * as viewsLive from './views-live.js';
 import * as viewsForum from './views-forum.js';
 import * as viewsBindings from './views-bindings.js';
 import * as viewsInvest from './views-invest.js';
+import * as viewsAdminInvest from './views-admin-invest.js';
 
 const appEl = document.getElementById('app');
 
@@ -277,6 +278,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderAdmin(ctx, query);
     case 'admin-ai':
       return viewsAccount.renderAdminAi(ctx, query);
+    case 'admin-invest':
+      return viewsAdminInvest.renderAdminInvest(ctx, query);
     case 'chat':
       return viewsChat.renderChat(ctx, { roomId: p1, ...query });
     case 'join':

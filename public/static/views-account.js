@@ -1485,6 +1485,14 @@ export async function renderAdmin(ctx) {
   const s = overview.stats || {};
 
   const html = `<div class="page">
+      <a class="card card-pad mb12" href="#/admin-invest" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+        <div style="font-size:26px">💰</div>
+        <div style="flex:1">
+          <div class="strong">投资管理</div>
+          <div class="tiny dim">查看投资意向、核验打款凭证、签发股权证</div>
+        </div>
+        <span class="dim">›</span>
+      </a>
     <div class="card card-pad">
       <div class="strong mb12">平台数据</div>
       <div class="stat-row">
