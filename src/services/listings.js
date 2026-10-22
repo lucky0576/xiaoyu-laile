@@ -171,7 +171,13 @@ export function listingBrief(l) {
   if (!l) return null;
   // l.files 存的是文件 ID 数组，必须先解析成文件记录再判断
   const fileRecords = listFiles(l.files || []);
-  const cover = fileRecords.find((f) => f.id === l.coverId) || fileRecords.find((f) => f.kind === 'image');
+  const realCover = fileRecords.find((f) => f.id === l.coverId) || fileRecords.find((f) => f.kind === 'image');
+  // 发布时自动生成的封面不在 l.files 里，单独兜底
+  const autoCover =
+    !realCover && l.coverUrl
+      ? { id: l.coverFileId || '', url: l.coverUrl, kind: 'image', name: '自动生成封面', auto: true }
+      : null;
+  const cover = realCover || autoCover;
   return {
     id: l.id,
     category: l.category,
