@@ -138,6 +138,15 @@ export const FORUMS = [
     desc: '巡检、测绘、植保、物流无人机与低空经济政策。',
     tags: ['巡检', '测绘', '植保', '低空经济'],
   },
+  {
+    slug: 'evtol',
+    name: '飞行汽车',
+    icon: '🚁',
+    group: 'tech',
+    order: 15,
+    desc: 'eVTOL、低空出行、适航认证、空域管理、起降场建设与商业化路径。',
+    tags: ['eVTOL', '低空出行', '适航认证', '空域管理', '起降场'],
+  },
 ];
 
 export const FORUMS_BY_SLUG = Object.fromEntries(FORUMS.map((f) => [f.slug, f]));

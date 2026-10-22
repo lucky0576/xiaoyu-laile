@@ -105,6 +105,7 @@ export const INDUSTRIES = [
       { id: 'payload', name: '任务载荷' },
       { id: 'uav-training', name: '无人机培训' },
       { id: 'low-altitude', name: '低空经济' },
+      { id: 'flying-car', name: '飞行汽车' },
       { id: 'uav-operation', name: '无人机服务运营' }
     ]
   },
@@ -752,6 +753,7 @@ export const INDUSTRIES = [
       { id: 'ground-service', name: '地面服务' },
       { id: 'low-altitude-economy', name: '低空经济' },
       { id: 'evtol', name: 'eVTOL' },
+      { id: 'flying-car-aviation', name: '飞行汽车' },
       { id: 'aviation-catering', name: '航空食品' },
       { id: 'air-traffic', name: '空管服务' }
     ]
