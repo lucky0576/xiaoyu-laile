@@ -539,6 +539,24 @@ export async function renderDetail(ctx, params) {
   const currentStage = (pipeline || []).find((s) => s.current) || (pipeline || [])[0] || null;
 
   /* ---------------- 商务条件卡片 ---------------- */
+  /* AI 自动补充的信息要素 */
+  const autoInfoCard = (ai) => {
+    if (!ai) return '';
+    const hl = Array.isArray(ai.highlights) ? ai.highlights : [];
+    const facts = Array.isArray(ai.keyFacts) ? ai.keyFacts : [];
+    const tags = Array.isArray(ai.tags) ? ai.tags : [];
+    if (!hl.length && !facts.length) return '';
+    return `<div class="card card-pad mb12" id="auto-info">
+      <div class="row between mb8">
+        <div class="strong">🧩 补充信息要素</div>
+        <span class="tiny dim">${ai.source === 'ai' ? 'AI 自动提炼' : '自动提取'}</span>
+      </div>
+      ${hl.length ? `<div class="auto-hl">${hl.map((h) => `<div class="auto-hl-item"><i>·</i>${ui.esc(h)}</div>`).join('')}</div>` : ''}
+      ${facts.length ? `<div class="auto-facts">${facts.map((f) => `<div class="auto-fact"><span>${ui.esc(f.label)}</span><b>${ui.esc(f.value)}</b></div>`).join('')}</div>` : ''}
+      ${tags.length ? `<div class="chips mt10">${tags.map((t) => `<span class="chip soft">${ui.esc(t)}</span>`).join('')}</div>` : ''}
+    </div>`;
+  };
+
   const termsCard = termRows.length ? `<div class="card card-pad mb12">
     <div class="strong mb8">💰 商务条件</div>
     <div class="kv-table">
@@ -704,6 +722,8 @@ export async function renderDetail(ctx, params) {
   };
 
   const images = files.filter((f) => f.kind === 'image');
+  // 没有上传图片时，用发布时自动生成的封面兜底
+  const heroSrc = images[0] && images[0].url ? images[0].url : listing.coverUrl || '';
   const others = files.filter((f) => f.kind !== 'image');
   const dec = files.filter((f) => ['pdf', 'word', 'ppt', 'excel', 'cad', 'archive'].includes(f.kind));
 
@@ -854,8 +874,8 @@ export async function renderDetail(ctx, params) {
   </div>`;
 
   const html = `<div class="page flush">
-    ${images.length ? `
-      <div class="hero"><img id="hero-img" src="${ui.esc(ui.safeUrl(images[0].url))}" alt=""></div>
+    ${heroSrc ? `
+      <div class="hero"><img id="hero-img" src="${ui.esc(ui.safeUrl(heroSrc))}" alt=""></div>
       ${images.length > 1 ? `<div class="gallery">${images.map((f, i) => `<img src="${ui.esc(ui.safeUrl(f.url))}" data-idx="${i}" class="${i === 0 ? 'active' : ''}" alt="">`).join('')}</div>` : ''}
     ` : `<div class="hero hero-empty">
       <div style="font-size:46px">${categoryIcon(listing.category)}</div>
@@ -899,6 +919,8 @@ export async function renderDetail(ctx, params) {
           </div>` : ''}
 
           ${listing.aiVisible && listing.ai ? aiCardHtml(listing.ai) : ''}
+
+          ${listing.gated ? '' : autoInfoCard(listing.autoInfo)}
 
           ${projectBlock}
           ${eventBlock}

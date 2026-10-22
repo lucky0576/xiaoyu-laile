@@ -116,6 +116,8 @@ export function listingPublic(l, viewer = null, opts = {}) {
     typeName: l.typeName || typeNameOf(l.category, l.type),
     title: mask(l.title),
     subtitle: mask(l.subtitle),
+    // AI 自动补充的要素同样要过一遍联系方式脱敏
+    autoInfo: l.autoInfo ? (isOwner || isAdmin ? l.autoInfo : maskDeep(l.autoInfo)) : null,
 
     // 未登录访客拿不到任何附件
     // l.files 存的是文件 ID 数组，必须解析成记录，否则 filePublic(字符串)

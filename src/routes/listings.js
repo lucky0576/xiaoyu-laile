@@ -8,6 +8,8 @@ import {
 } from './_util.js';
 import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
 import { saveUploads, filePublic, getFile } from '../services/files.js';
+import { generateCoverFile } from '../services/cover.js';
+import { generateAutoInfo } from '../services/auto-info.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
 import db from '../store/db.js';
@@ -160,6 +162,36 @@ export default function registerListingRoutes(app) {
     for (const f of files) db.collection('files').update(f.id, { listingId: doc.id });
 
     const created = listings().get(doc.id);
+
+      // 发布时自动补全：无图生成封面 + AI 提炼补充信息要素
+      if (bool(body.publish) && !bool(body.skipAuto)) {
+        try {
+          const fresh = listings().get(created.id);
+          const autoPatch = {};
+          if (!fresh.coverUrl) {
+            const cover = await generateCoverFile(
+              {
+                title: fresh.title,
+                category: fresh.category,
+                city: fresh.cities && fresh.cities[0] ? fresh.cities[0].name : "",
+                industry: fresh.industries && fresh.industries[0] ? fresh.industries[0].name : "",
+                kindLabel: fresh.typeName || "",
+              },
+              { ownerId: user.id, listingId: fresh.id }
+            );
+            if (cover) {
+              autoPatch.coverUrl = cover.url;
+              autoPatch.coverFileId = cover.id;
+              db.collection("files").update(cover.id, { listingId: fresh.id });
+            }
+          }
+          autoPatch.autoInfo = await generateAutoInfo(fresh);
+          listings().update(fresh.id, autoPatch);
+        } catch (err) {
+          console.error("[listings] 自动补全失败:", err.message);
+        }
+      }
+
     // 允许创建即发布
     if (bool(body.publish)) {
       const published = await listingsSvc.publishListing(created.id, user, { days: num(body.durationDays, 30) });
