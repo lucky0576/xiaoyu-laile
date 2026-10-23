@@ -514,6 +514,14 @@ export const service = {
   feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
   feedTranscribe: (fd, opts) => api.upload('/api/feeds/transcribe', fd, opts),
 
+  providers: (query) => api.get('/api/providers', query),
+  providerMeta: () => api.get('/api/providers/meta'),
+  myProvider: () => api.get('/api/providers/me'),
+  provider: (id) => api.get(`/api/providers/${id}`),
+  providerApply: (body) => api.post('/api/providers/apply', body),
+  adminProviders: (query) => api.get('/api/admin/providers', query),
+  adminReviewProvider: (id, body) => api.post(`/api/admin/providers/${id}/review`, body),
+
   adminVision: () => api.get('/api/admin/vision'),
   saveAdminVision: (body) => api.put('/api/admin/vision', body),
   testAdminVision: (body) => api.post('/api/admin/vision/test', body || {}),

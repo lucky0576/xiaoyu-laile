@@ -10,6 +10,7 @@ import registerForumRoutes from './forums.js';
 import registerInvestRoutes from './invest.js';
 import registerTagRoutes from './tags.js';
 import registerAdminRoutes from './admin.js';
+import registerProviderRoutes from './providers.js';
 
 export default function registerRoutes(app) {
   registerCoreRoutes(app);
@@ -21,5 +22,6 @@ export default function registerRoutes(app) {
   registerInvestRoutes(app);
   registerTagRoutes(app);
   registerAdminRoutes(app);
+  registerProviderRoutes(app);
   return app;
 }

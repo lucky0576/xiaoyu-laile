@@ -10,6 +10,7 @@ import * as viewsChat from './views-chat.js';
 import * as viewsMeeting from './views-meeting.js';
 import * as viewsLive from './views-live.js';
 import * as viewsShorts from './views-shorts.js';
+import * as viewsProvider from './views-provider.js';
 import * as viewsForum from './views-forum.js';
 import * as viewsBindings from './views-bindings.js';
 import * as viewsInvest from './views-invest.js';
@@ -328,6 +329,10 @@ async function resolveView({ segs, query }) {
       return viewsMeeting.renderJoin(ctx, { ...query, n: p1 || query.n });
     case 'meeting':
       return viewsMeeting.renderMeeting(ctx, { id: p1, ...query });
+    case 'provider':
+      return viewsProvider.renderProvider(ctx, { tab: p1 || query.tab || '' });
+    case 'admin-providers':
+      return viewsProvider.renderAdminProviders(ctx, { status: query.status === undefined ? 'pending' : query.status });
     case 'shorts':
       return viewsShorts.renderShorts(ctx, { id: p1 || query.id || '' });
     case 'feeds':

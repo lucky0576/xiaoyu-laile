@@ -151,6 +151,8 @@ export async function renderHome(ctx, query) {
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '通讯录', d: '导入并邀请好友', art: '📇', href: '#/contacts', i: 5, auth: true },
     { t: '短视频', d: '上下滑动 · 沉浸观看', art: '🎬', href: '#/shorts', i: 6 },
+    { t: '发布信息', d: '项目 · 短视频 · 直播', art: '✍️', href: '#/publish', i: 8, auth: true },
+    { t: '成为服务商', d: 'EPC · 设计 · 施工 · 设备', art: '🤝', href: '#/provider', i: 9 },
     { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 7 },
   ];
   const gridHtml = `<div class="home-grid">

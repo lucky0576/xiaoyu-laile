@@ -964,3 +964,58 @@ body.shorts-mode #wx-tip { display: none !important; }
   border: 1px solid var(--line);
   background: #0b1020;
 }
+
+
+/* ================================================================== */
+/* 成为服务商                                                          */
+/* ================================================================== */
+.sp-hero {
+  background: linear-gradient(135deg, #123a6b 0%, #1f5fa8 100%);
+  border-radius: 18px;
+  padding: 22px 20px;
+  color: #fff;
+}
+.sp-hero-t { font-size: 21px; font-weight: 800; }
+.sp-hero-s { font-size: 12.5px; line-height: 1.75; margin-top: 8px; opacity: .93; }
+.sp-hero .chip {
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  border-color: transparent;
+}
+.sp-hero .chip.active {
+  background: #fff;
+  color: #123a6b;
+  font-weight: 700;
+}
+
+.sp-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.sp-item:last-child { border-bottom: none; }
+.sp-logo {
+  width: 44px; height: 44px; flex: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  color: #1f5fa8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800;
+}
+.sp-body { min-width: 0; flex: 1; }
+.sp-name { font-size: 13.5px; font-weight: 700; }
+.sp-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.sp-tag {
+  font-size: 10.5px;
+  background: #eef6ff;
+  color: #1f5fa8;
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.sp-tag.gray { background: #f4f6f8; color: var(--muted); }
+.sp-intro {
+  font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 6px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.sp-contact { font-size: 11.5px; color: var(--text-2); margin-top: 6px; }
