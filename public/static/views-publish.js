@@ -146,8 +146,13 @@ async function renderPublishMedia(ctx, type, taxonomy) {
       <div class="strong mb8">2. ${isLive ? '创建直播间' : '上传短视频'}</div>
 
       <div class="field">
-        <label>标题 <span class="tiny dim">（必填）</span></label>
+        <div class="row between" style="align-items:baseline">
+          <label>标题 <span class="tiny dim">（留空则由 AI 生成）</span></label>
+          <button class="btn btn-sm btn-outline" id="pm-ai" type="button" style="font-size:11.5px;padding:3px 10px">🤖 AI 生成</button>
+        </div>
         <input class="input" id="pm-title" maxlength="80" placeholder="${isLive ? '例如：东营 200MW 光伏项目现场直播' : '例如：200MW 光伏电站现场实拍'}">
+        <div class="tiny dim mt6 hide" id="pm-ai-hint"></div>
+        <div class="chips mt8 hide" id="pm-ai-alts"></div>
       </div>
       <div class="field">
         <label>副标题 <span class="tiny dim">（选填）</span></label>
@@ -217,7 +222,103 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         const drop = $('#pm-drop');
         const input = $('#pm-video-input');
 
-        const setVideo = (f) => {
+        let videoMeta = null;
+        let autoCover = null;
+
+        /* 解析视频：时长 / 分辨率 + 抽一帧做封面 */
+        const probeVideo = (file) => new Promise((resolve) => {
+          const v = document.createElement('video');
+          v.preload = 'auto';
+          v.muted = true;
+          v.playsInline = true;
+          v.src = URL.createObjectURL(file);
+          const done = (val) => {
+            try { URL.revokeObjectURL(v.src); } catch {}
+            resolve(val);
+          };
+          v.onloadeddata = () => {
+            try {
+              v.currentTime = Math.min(1, (v.duration || 2) / 3);
+            } catch {
+              done({ duration: v.duration || 0, width: v.videoWidth || 0, height: v.videoHeight || 0, frame: null });
+            }
+          };
+          v.onseeked = () => {
+            let frame = null;
+            try {
+              const c = document.createElement('canvas');
+              c.width = v.videoWidth || 640;
+              c.height = v.videoHeight || 360;
+              c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+              frame = c;
+            } catch { /* 跨域或解码失败就不抽帧 */ }
+            done({ duration: v.duration || 0, width: v.videoWidth || 0, height: v.videoHeight || 0, frame });
+          };
+          v.onerror = () => done({ duration: 0, width: 0, height: 0, frame: null });
+          setTimeout(() => done({ duration: v.duration || 0, width: v.videoWidth || 0, height: v.videoHeight || 0, frame: null }), 6000);
+        });
+
+        const canvasToBlob = (canvas) => new Promise((resolve) => {
+          try { canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.86); } catch { resolve(null); }
+        });
+
+        /* 调后端 AI 生成标题 */
+        const genTitle = async (force = false) => {
+          const hintEl = $('#pm-ai-hint');
+          const altEl = $('#pm-ai-alts');
+          const btn = $('#pm-ai');
+          const titleEl = $('#pm-title');
+          const descVal = ($('#pm-desc')?.value || '').trim();
+          if (!videoFile && !isLive) {
+            if (hintEl) { hintEl.classList.remove('hide'); hintEl.textContent = '先选择视频，AI 会读取视频信息生成标题'; }
+            return;
+          }
+          if (!force && titleEl.value.trim()) return;
+
+          btn.disabled = true;
+          btn.textContent = '生成中…';
+          if (hintEl) { hintEl.classList.remove('hide'); hintEl.textContent = '正在解析视频并生成标题…'; }
+          try {
+            const r = await service.feedAiTitle({
+              kind: type,
+              filename: videoFile ? videoFile.name : '',
+              durationSec: Math.round(videoMeta?.duration || 0),
+              width: videoMeta?.width || 0,
+              height: videoMeta?.height || 0,
+              text: descVal,
+            });
+            if (r.title) titleEl.value = r.title;
+            if (r.subtitle && !$('#pm-subtitle').value.trim()) $('#pm-subtitle').value = r.subtitle;
+
+            const meta = [];
+            if (videoMeta?.duration) meta.push(`时长 ${Math.round(videoMeta.duration)} 秒`);
+            if (videoMeta?.width) meta.push(`${videoMeta.width}×${videoMeta.height}`);
+            if (hintEl) {
+              hintEl.textContent = `${meta.length ? '已解析 ' + meta.join(' · ') + '，' : ''}${r.source === 'ai' ? 'AI 已生成标题，可直接修改' : '已用规则引擎生成标题（AI 暂不可用）'}`;
+            }
+
+            // 备选标题
+            if (altEl && (r.alternatives || []).length) {
+              altEl.classList.remove('hide');
+              altEl.innerHTML = (r.alternatives || [])
+                .map((a) => `<a class="chip" data-alt="${ui.esc(a.title)}">${ui.esc(a.title)}</a>`)
+                .join('');
+              altEl.querySelectorAll('[data-alt]').forEach((el) =>
+                el.addEventListener('click', () => {
+                  titleEl.value = el.dataset.alt;
+                  altEl.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === el));
+                })
+              );
+            }
+          } catch (err) {
+            if (hintEl) hintEl.textContent = `生成失败：${err.message || '请手动填写标题'}`;
+          } finally {
+            btn.disabled = false;
+            btn.textContent = '🤖 AI 生成';
+          }
+        };
+
+        const setVideo = async (f) => {
           if (!f) return;
           if (!/^video\//.test(f.type)) return ui.toast('请选择视频文件', 'err');
           videoFile = f;
@@ -225,6 +326,19 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           const url = URL.createObjectURL(f);
           $('#pm-video-preview').innerHTML = `<video src="${url}" controls playsinline style="width:100%;border-radius:12px;max-height:320px;background:#000"></video>`;
           if (status) status.textContent = '';
+
+          // 解析 + 抽帧
+          videoMeta = await probeVideo(f);
+          if (videoMeta?.frame && !coverFile) {
+            const blob = await canvasToBlob(videoMeta.frame);
+            if (blob) {
+              autoCover = new File([blob], `${(f.name || 'video').replace(/\.[^.]+$/, '')}-cover.jpg`, { type: 'image/jpeg' });
+              $('#pm-video-preview').insertAdjacentHTML('beforeend',
+                `<div class="tiny dim mt6">已自动截取封面帧（也可以自己上传封面替换）</div>`);
+            }
+          }
+          // 标题为空时自动生成
+          if (!$('#pm-title').value.trim()) await genTitle();
         };
 
         $('#pm-video-btn').addEventListener('click', () => input.click());
@@ -240,6 +354,8 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         $('#pm-cover-input').addEventListener('change', (e) => {
           coverFile = e.target.files[0] || null;
         });
+
+        $('#pm-ai').addEventListener('click', () => genTitle(true));
       } else {
         $('#pm-pass-on').addEventListener('change', (e) => {
           $('#pm-pass-field').classList.toggle('hide', !e.target.checked);
@@ -248,8 +364,13 @@ async function renderPublishMedia(ctx, type, taxonomy) {
 
       $('#pm-submit').addEventListener('click', async (e) => {
         const btn = e.currentTarget;
-        const title = ($('#pm-title').value || '').trim();
-        if (!title) return ui.toast('请填写标题', 'err');
+        let title = ($('#pm-title').value || '').trim();
+        if (!title) {
+          // 留空则现场生成一次
+          await genTitle(true);
+          title = ($('#pm-title').value || '').trim();
+        }
+        if (!title) return ui.toast('请填写标题，或点「AI 生成」', 'err');
         if (!isLive && !videoFile) return ui.toast('请选择短视频文件', 'err');
 
         btn.disabled = true;
@@ -267,7 +388,8 @@ async function renderPublishMedia(ctx, type, taxonomy) {
             if (withPass) fd.append('password', ($('#pm-pass').value || '').trim());
           } else {
             if (videoFile) fd.append('file', videoFile, videoFile.name);
-            if (coverFile) fd.append('file', coverFile, coverFile.name);
+            const coverToSend = coverFile || autoCover;
+            if (coverToSend) fd.append('file', coverToSend, coverToSend.name);
           }
 
           const r = await service.createFeed(fd, {

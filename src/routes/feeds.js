@@ -98,6 +98,55 @@ export default function registerFeedRoutes(app) {
     return data(res, await feedsSvc.liveInfo(req.params.id, user));
   });
 
+  /** 短视频 / 直播：根据视频元信息 + 用户描述生成标题 */
+  app.post('/api/feeds/ai-title', async (req, res) => {
+    const user = authUser(req);
+    if (!user) return fail(res, '请先登录', 401, 'login_required');
+
+    const filename = str(req.body?.filename, 200);
+    const durationSec = Math.max(0, Math.min(36000, num(req.body?.durationSec, 0)));
+    const width = Math.max(0, Math.min(20000, num(req.body?.width, 0)));
+    const height = Math.max(0, Math.min(20000, num(req.body?.height, 0)));
+    const hint = str(req.body?.text, 2000);
+    const industry = str(req.body?.industry, 40);
+    const kind = String(req.body?.kind) === 'live' ? 'live' : 'short';
+
+    // 拼一段「可读的视频描述」给 AI：模型只有文本能力，
+    // 所以把能解析到的客观信息 + 用户描述一起交给它
+    const parts = [];
+    parts.push(kind === 'live' ? '这是一场即将开始的直播。' : '这是一条上传的短视频。');
+    if (filename) parts.push(`视频文件名：${filename}`);
+    if (durationSec) {
+      const m = Math.floor(durationSec / 60);
+      const s = Math.round(durationSec % 60);
+      parts.push(`视频时长：${m > 0 ? `${m} 分 ${s} 秒` : `${s} 秒`}`);
+    }
+    if (width && height) parts.push(`视频分辨率：${width}×${height}`);
+    if (industry) parts.push(`所属行业：${industry}`);
+    if (hint) parts.push(`发布者补充说明：${hint}`);
+    const text = parts.join('\n');
+
+    try {
+      const ai = (await import('../services/ai.js')).default;
+      const out = await ai.generateTitles({
+        text,
+        filename,
+        categoryName: kind === 'live' ? '直播' : '短视频',
+      });
+      return data(res, {
+        title: out.title || '',
+        subtitle: out.subtitle || '',
+        keywords: out.keywords || [],
+        alternatives: out.alternatives || [],
+        source: out.source || 'local',
+        note: out.note || '',
+        parsed: { filename, durationSec, width, height },
+      });
+    } catch (err) {
+      return fail(res, `标题生成失败：${err.message}`, 500, 'ai_failed');
+    }
+  });
+
   app.post('/api/feeds/:id/live/start', async (req, res) => {
     const user = mustAuth(req);
     const { feed, meeting } = await feedsSvc.startLive(req.params.id, user, {

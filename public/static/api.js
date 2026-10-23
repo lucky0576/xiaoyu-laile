@@ -511,6 +511,7 @@ export const service = {
   startLive: (id, body) => api.post(`/api/feeds/${id}/live/start`, body || {}),
   endLive: (id) => api.post(`/api/feeds/${id}/live/end`, {}),
   feedShare: (id) => api.get(`/api/feeds/${id}/share`),
+  feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
 
   adminOverview: () => api.get('/api/admin/overview'),
   adminQualifications: (status) => api.get('/api/admin/qualifications', { status }),
