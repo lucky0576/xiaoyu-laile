@@ -119,6 +119,159 @@ function htmlToText(html, { max = 40000 } = {}) {
   return { title, text };
 }
 
+/** 从 HTML 里挑出内容图片的绝对地址 */
+export function extractImageUrls(html, pageUrl, { max = 8 } = {}) {
+  const out = [];
+  const seen = new Set();
+  const src = String(html || '');
+
+  const push = (raw) => {
+    if (!raw || out.length >= max) return;
+    let s = String(raw).trim();
+    if (!s || s.startsWith('data:')) return;
+    // srcset 取第一段
+    if (s.includes(' ')) s = s.split(/\s+/)[0];
+    let abs = '';
+    try {
+      abs = new URL(s, pageUrl).toString();
+    } catch {
+      return;
+    }
+    if (!/^https?:/i.test(abs)) return;
+    if (/\.svg(\?|$)/i.test(abs)) return; // 卡片图用不了，正文里多的是图标
+    if (/\.(gif|webp|bmp)(\?|$)/i.test(abs) && false) return;
+    if (seen.has(abs)) return;
+    seen.add(abs);
+    out.push(abs);
+  };
+
+  // og:image 优先级最高（通常是封面/主图）
+  const ogRe = /<meta[^>]+property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/gi;
+  let m;
+  while ((m = ogRe.exec(src))) push(m[1]);
+  const ogRe2 = /<meta[^>]+content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/gi;
+  while ((m = ogRe2.exec(src))) push(m[1]);
+
+  // img 标签：src / data-src / data-original / srcset
+  const imgRe = /<img\b[^>]*>/gi;
+  while ((m = imgRe.exec(src)) && out.length < max) {
+    const tag = m[0];
+    const pick = (re) => {
+      const x = re.exec(tag);
+      return x ? x[1] : '';
+    };
+    push(
+      pick(/\bsrc\s*=\s*["']([^"']+)["']/i) ||
+        pick(/\bdata-src\s*=\s*["']([^"']+)["']/i) ||
+        pick(/\bdata-original\s*=\s*["']([^"']+)["']/i) ||
+        pick(/\bsrcset\s*=\s*["']([^"']+)["']/i),
+    );
+  }
+
+  return out.slice(0, max);
+}
+
+/** 读图片尺寸（只处理 png / jpeg / gif / webp 常见头） */
+function imageSize(buf) {
+  try {
+    // PNG: IHDR
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf.length >= 24) {
+      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    }
+    // GIF
+    if (buf[0] === 0x47 && buf[1] === 0x49 && buf.length >= 10) {
+      return { w: buf.readUInt16LE(6), h: buf.readUInt16LE(8) };
+    }
+    // WebP (VP8X / VP8 / VP8L)
+    if (buf[0] === 0x52 && buf[1] === 0x49 && buf.length >= 30) {
+      const fmt = buf.toString('latin1', 12, 16);
+      if (fmt === 'VP8X') {
+        const wv = buf.readUIntLE(24, 3) + 1;
+        const hv = buf.readUIntLE(27, 3) + 1;
+        return { w: wv, h: hv };
+      }
+      if (fmt === 'VP8 ') {
+        return { w: buf.readUInt16LE(26) & 0x3fff, h: buf.readUInt16LE(28) & 0x3fff };
+      }
+    }
+    // JPEG: 扫 SOF0..SOF3 / SOF5..SOF15
+    if (buf[0] === 0xff && buf[1] === 0xd8) {
+      let i = 2;
+      while (i + 9 < buf.length) {
+        if (buf[i] !== 0xff) { i++; continue; }
+        const marker = buf[i + 1];
+        if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue; }
+        const len = buf.readUInt16BE(i + 2);
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+          return { h: buf.readUInt16BE(i + 5), w: buf.readUInt16BE(i + 7) };
+        }
+        i += 2 + len;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** 下载一张图片，返回 Buffer 与推断出的 mime/扩展名 */
+export async function downloadImage(url, referer = '') {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        ...(referer ? { Referer: referer } : {}),
+      },
+    });
+    if (!res.ok) return null;
+
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct && !ct.startsWith('image/')) return null;
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 3 * 1024 || buf.length > 4 * 1024 * 1024) return null;
+
+    // 按文件头判类型，比 Content-Type 可靠
+    let ext = 'jpg';
+    let mime = 'image/jpeg';
+    if (buf[0] === 0x89 && buf[1] === 0x50) {
+      ext = 'png';
+      mime = 'image/png';
+    } else if (buf[0] === 0x47 && buf[1] === 0x49) {
+      ext = 'gif';
+      mime = 'image/gif';
+    } else if (buf[0] === 0x52 && buf[1] === 0x49 && buf[8] === 0x57) {
+      ext = 'webp';
+      mime = 'image/webp';
+    } else if (buf[0] === 0xff && buf[1] === 0xd8) {
+      ext = 'jpg';
+      mime = 'image/jpeg';
+    } else {
+      return null; // 不是认识的图片格式
+    }
+
+    // 过滤 logo / 图标 / 追踪像素：正文配图一般至少 320×200
+    const size = imageSize(buf);
+    if (size) {
+      if (size.w < 320 || size.h < 200) return null;
+      // 极端长条图（分隔线、装饰条）也排除
+      if (size.w / size.h > 8 || size.h / size.w > 8) return null;
+    }
+
+    return { buffer: buf, ext, mime, width: size?.w || 0, height: size?.h || 0 };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * 抓取并抽取网页正文。
  * @param {string} rawUrl
@@ -207,6 +360,9 @@ export async function fetchWebpage(rawUrl) {
       text,
       chars: text.length,
       host: u.hostname,
+      // 页面里的图片地址，路由层会下载下来存成附件
+      imageUrls: extractImageUrls(html, u.toString(), { max: 8 }),
+      rawHtml: html,
     };
   } catch (err) {
     if (err.name === 'AbortError') return { ok: false, note: '抓取超时，请稍后重试' };
@@ -216,4 +372,4 @@ export async function fetchWebpage(rawUrl) {
   }
 }
 
-export default { fetchWebpage, htmlToText };
+export default { fetchWebpage, htmlToText, extractImageUrls, downloadImage };

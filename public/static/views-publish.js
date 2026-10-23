@@ -159,6 +159,18 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         <input class="input" id="pm-subtitle" maxlength="120" placeholder="一句话补充，会显示在首页轮播">
       </div>
 
+      <div class="url-import mb12">
+        <div class="row between mb6">
+          <div class="strong" style="font-size:13px">🔗 从链接导入</div>
+          <span class="tiny dim">自动生成标题</span>
+        </div>
+        <div class="row gap8" style="align-items:center">
+          <input class="input grow" id="pm-url-src" maxlength="800" placeholder="粘贴相关新闻 / 公告 / 公众号文章链接">
+          <button class="btn btn-sm btn-primary" id="pm-url-import" type="button" style="flex:none">导入</button>
+        </div>
+        <div class="tiny dim mt6" id="pm-url-tip">抓取网页正文，用 AI 生成标题与副标题</div>
+      </div>
+
       ${isLive ? `
         <div class="field">
           <label>直播简介 <span class="tiny dim">（选填）</span></label>
@@ -490,6 +502,41 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         });
 
         $('#pm-ai').addEventListener('click', () => genTitle(true));
+
+        /* 从链接导入：抓正文 → AI 生成标题副标题 */
+        const pmUrlBtn = $('#pm-url-import');
+        if (pmUrlBtn) {
+          pmUrlBtn.addEventListener('click', async () => {
+            const u = ($('#pm-url-src')?.value || '').trim();
+            const tip = $('#pm-url-tip');
+            const say = (m, c) => { if (tip) { tip.textContent = m || ''; tip.style.color = c || ''; } };
+            if (!u) { say('请先粘贴链接', '#c0392b'); return; }
+            if (!/^https?:\/\//i.test(u)) { say('链接要以 http:// 或 https:// 开头', '#c0392b'); return; }
+
+            pmUrlBtn.disabled = true;
+            pmUrlBtn.textContent = '抓取中…';
+            say('正在抓取并解析…');
+            try {
+              const r = await service.aiFetchUrl(u);
+              if (!r || !r.ok) { say(r?.note || '解析失败', '#c0392b'); return; }
+              say(`✅ 已解析 ${r.chars} 字，正在生成标题…`, '#0e8f5f');
+
+              // 用抓到的正文请求 AI 生成标题
+              const gen = await service.feedAiTitle({ text: (r.text || '').slice(0, 1800), filename: r.title || '', kind: isLive ? 'live' : 'short' });
+              const t = gen?.titles || {};
+              if (t.title) $('#pm-title').value = t.title;
+              if (t.subtitle) $('#pm-subtitle').value = t.subtitle;
+              if (isLive && t.desc && $('#pm-desc')) $('#pm-desc').value = t.desc;
+              say(t.title ? `✅ 已生成标题：${t.title}` : '已导入正文，可手动填写标题', '#0e8f5f');
+              ui.toast('链接已导入', 'ok');
+            } catch (err) {
+              say(err.message || '导入失败', '#c0392b');
+            } finally {
+              pmUrlBtn.disabled = false;
+              pmUrlBtn.textContent = '导入';
+            }
+          });
+        }
       } else {
         $('#pm-pass-on').addEventListener('change', (e) => {
           $('#pm-pass-field').classList.toggle('hide', !e.target.checked);
@@ -1633,18 +1680,32 @@ export async function renderPublish(ctx, params) {
               return;
             }
             importedText = r.text || '';
+
+            // 网页里的图片自动变成附件
+            let addedImgs = 0;
+            if (Array.isArray(r.files) && r.files.length) {
+              const have = new Set(uploaded.map((f) => f.id));
+              const add = r.files.filter((f) => f && f.id && !have.has(f.id));
+              if (add.length) {
+                uploaded = [...uploaded, ...add];
+                renderFiles();
+                addedImgs = add.length;
+              }
+            }
+
             // 顺手把「相关链接」也填上（用户没填的话）
             const linkEl = $('#pub-link');
             if (linkEl && !linkEl.value.trim()) {
               linkEl.value = r.url || url;
               linkEl.dispatchEvent(new Event('input', { bubbles: true }));
             }
-            say(`✅ 已解析 ${r.chars} 字，点下面「第一步：AI 汇总资料」继续`, '#0e8f5f');
+            const imgTip = addedImgs ? `，并导入 ${addedImgs} 张图片` : '';
+            say(`✅ 已解析 ${r.chars} 字${imgTip}，点下面「第一步：AI 汇总资料」继续`, '#0e8f5f');
             if (box) {
               box.innerHTML = `<div class="url-import-result">
                 <div class="uir-head">📄 ${ui.esc(r.title || '已导入')}</div>
                 <div class="uir-body">${ui.esc((r.text || '').slice(0, 400))}${(r.text || '').length > 400 ? ' …' : ''}</div>
-                <div class="uir-foot">共 ${r.chars} 字 · 来自 ${ui.esc(r.host || '')}</div>
+                <div class="uir-foot">共 ${r.chars} 字${addedImgs ? ` · ${addedImgs} 张图片已加入附件` : ''} · 来自 ${ui.esc(r.host || '')}</div>
               </div>`;
             }
             ui.toast('链接已解析', 'ok');

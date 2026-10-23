@@ -478,13 +478,51 @@ export default function registerCoreRoutes(app) {
     const rl = rateLimit(`url:${clientIp(req)}`, 20, 60_000);
     if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
 
+    const user = authUser(req);
     const url = str(req.body?.url, 800);
     if (!url.trim()) return fail(res, '请填写链接', 400, 'empty');
 
     const webMod = await import('../lib/webpage.js');
     const r = await webMod.fetchWebpage(url);
     if (!r.ok) return data(res, r);
-    return data(res, r);
+
+    // 把页面里的图片下载下来，注册成普通附件，
+    // 前端拿到 fileIds 直接当作「已上传的图片」用
+    const fsMod = await import('node:fs');
+    const osMod = await import('node:os');
+    const pathMod = await import('node:path');
+    const filesMod = await import('../services/files.js');
+
+    const saved = [];
+    const urls = Array.isArray(r.imageUrls) ? r.imageUrls.slice(0, 6) : [];
+    for (let i = 0; i < urls.length; i++) {
+      const img = await webMod.downloadImage(urls[i], r.url);
+      if (!img) continue;
+      let tmp = '';
+      try {
+        tmp = pathMod.join(osMod.tmpdir(), 'xyll-url-' + Date.now() + '-' + i + '.' + img.ext);
+        fsMod.writeFileSync(tmp, img.buffer);
+        const rec = await filesMod.registerStoredFile({
+          srcPath: tmp,
+          name: '网页图片-' + (i + 1) + '.' + img.ext,
+          mime: img.mime,
+          opts: { ownerId: user?.id || 'guest', role: 'attachment' },
+        });
+        saved.push(filesMod.filePublic(rec));
+      } catch (err) {
+        console.error('[fetch-url] 保存网页图片失败:', urls[i], err && err.message);
+        try { if (tmp) fsMod.unlinkSync(tmp); } catch { /* ignore */ }
+      }
+    }
+
+    const raw = String(r.rawHtml || '');
+    const out = { ...r };
+    delete out.rawHtml;
+    delete out.imageUrls;
+    out.files = saved;
+    out.imageCount = saved.length;
+    void raw;
+    return data(res, out);
   });
 
   /** 从一段文字里识别联系人 / 电话 / 微信 / 企业名 */
