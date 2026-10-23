@@ -194,6 +194,19 @@ function readCapStore(id) {
   };
 }
 
+
+/** 合并 override 时忽略 undefined 与空字符串，避免把已保存的配置覆盖掉 */
+function mergeOverride(base, override) {
+  const out = { ...base };
+  if (override && typeof override === 'object') {
+    for (const [k, v] of Object.entries(override)) {
+      if (v === undefined || v === null || v === '') continue;
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 export function effectiveVisionConfig() {
   const stored = readCapStore(VISION_ID);
   const envKey = String(config.vision?.apiKey || '').trim();
@@ -286,7 +299,7 @@ export function saveAsrSettings(input = {}) {
 
 /** 测试视觉：发一张 1x1 图，确认 key 可用 */
 export async function testVisionConnection(override = {}) {
-  const eff = { ...effectiveVisionConfig(), ...override };
+  const eff = mergeOverride(effectiveVisionConfig(), override);
   const key = String(eff.apiKey || '').trim();
   if (!key) return { ok: false, message: '还没有填写 key' };
   try {
@@ -324,7 +337,7 @@ export async function testVisionConnection(override = {}) {
 
 /** 测试语音：只校验 key 格式与接口可达，不传音频 */
 export async function testAsrConnection(override = {}) {
-  const eff = { ...effectiveAsrConfig(), ...override };
+  const eff = mergeOverride(effectiveAsrConfig(), override);
   const key = String(eff.apiKey || '').trim();
   if (!key) return { ok: false, message: '还没有填写 key' };
   try {

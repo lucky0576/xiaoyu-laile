@@ -1214,7 +1214,11 @@ ${input.filename ? `\n主要附件：${input.filename}` : ''}
 /* ------------------------------------------------------------------ */
 
 export function visionConfigured() {
-  return Boolean(config.vision && (config.vision && config.vision.apiKey));
+  try {
+    return settingsSvc.effectiveVisionConfig().enabled;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -1244,7 +1248,7 @@ export async function visionDescribe({ images = [], prompt = '' } = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.vision.apiKey}`,
+        Authorization: `Bearer ${eff.apiKey}`,
       },
       body: JSON.stringify({
         model: eff.model,
@@ -1280,7 +1284,11 @@ export async function visionDescribe({ images = [], prompt = '' } = {}) {
 /* ------------------------------------------------------------------ */
 
 export function asrConfigured() {
-  return Boolean(config.asr && (config.asr && config.asr.apiKey));
+  try {
+    return settingsSvc.effectiveAsrConfig().enabled;
+  } catch {
+    return false;
+  }
 }
 
 export async function speechToText(audio, filename = 'audio.wav') {
@@ -1298,7 +1306,7 @@ export async function speechToText(audio, filename = 'audio.wav') {
 
     const res = await fetch(`${eff.baseUrl}/audio/transcriptions`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${config.asr.apiKey}` },
+      headers: { Authorization: `Bearer ${eff.apiKey}` },
       body: fd,
       signal: ctrl.signal,
     });

@@ -294,6 +294,69 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           try { canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.86); } catch { resolve(null); }
         });
 
+        /* 把 Float32 采样写成 16-bit PCM WAV */
+        const encodeWav = (samples, sampleRate) => {
+          const len = samples.length;
+          const buf = new ArrayBuffer(44 + len * 2);
+          const view = new DataView(buf);
+          const writeStr = (off, s) => {
+            for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+          };
+          writeStr(0, 'RIFF');
+          view.setUint32(4, 36 + len * 2, true);
+          writeStr(8, 'WAVE');
+          writeStr(12, 'fmt ');
+          view.setUint32(16, 16, true);
+          view.setUint16(20, 1, true);      // PCM
+          view.setUint16(22, 1, true);      // 单声道
+          view.setUint32(24, sampleRate, true);
+          view.setUint32(28, sampleRate * 2, true);
+          view.setUint16(32, 2, true);
+          view.setUint16(34, 16, true);
+          writeStr(36, 'data');
+          view.setUint32(40, len * 2, true);
+          let off = 44;
+          for (let i = 0; i < len; i++) {
+            const s = Math.max(-1, Math.min(1, samples[i]));
+            view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+            off += 2;
+          }
+          return new Blob([buf], { type: 'audio/wav' });
+        };
+
+        /* 从视频里解码音频，降采样到 16k 单声道，最多取 180 秒 */
+        const extractAudio = async (file) => {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          let ctx = null;
+          try {
+            ctx = new AC();
+            const ab = await file.arrayBuffer();
+            const audioBuf = await ctx.decodeAudioData(ab.slice(0));
+
+            const src = audioBuf.getChannelData(0);
+            const srcRate = audioBuf.sampleRate;
+            const targetRate = 16000;
+            const maxSamples = targetRate * 180;
+            const ratio = srcRate / targetRate;
+            const outLen = Math.min(Math.floor(src.length / ratio), maxSamples);
+            const out = new Float32Array(outLen);
+            // 简单线性重采样
+            for (let i = 0; i < outLen; i++) {
+              const pos = i * ratio;
+              const i0 = Math.floor(pos);
+              const i1 = Math.min(i0 + 1, src.length - 1);
+              const frac = pos - i0;
+              out[i] = src[i0] * (1 - frac) + src[i1] * frac;
+            }
+            return { blob: encodeWav(out, targetRate), seconds: Math.round(audioBuf.duration || 0), truncated: (audioBuf.duration || 0) > 180 };
+          } catch {
+            return null;
+          } finally {
+            try { ctx && ctx.close(); } catch {}
+          }
+        };
+
         /* 调后端 AI 生成标题 */
         const genTitle = async (force = false) => {
           const hintEl = $('#pm-ai-hint');
@@ -310,7 +373,27 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           btn.disabled = true;
           btn.textContent = '生成中…';
           if (hintEl) { hintEl.classList.remove('hide'); hintEl.textContent = '正在解析视频并生成标题…'; }
+          let transcript = '';
           try {
+            // 先尝试转写音频（只有短视频才有音频）
+            if (videoFile && !isLive) {
+              if (hintEl) hintEl.textContent = '正在提取音频并转写…';
+              try {
+                const aud = await extractAudio(videoFile);
+                if (aud && aud.blob && aud.blob.size > 2000) {
+                  const fd2 = new FormData();
+                  fd2.append('file', aud.blob, 'audio.wav');
+                  const tr = await service.feedTranscribe(fd2).catch(() => null);
+                  if (tr && tr.text) {
+                    transcript = tr.text;
+                    if (hintEl) hintEl.textContent = `已转写 ${aud.seconds} 秒语音，正在生成标题…`;
+                  } else if (tr && tr.note) {
+                    if (hintEl) hintEl.textContent = `音频未转写（${tr.note}），继续生成标题…`;
+                  }
+                }
+              } catch { /* 没音频就跳过 */ }
+            }
+
             const r = await service.feedAiTitle({
               kind: type,
               filename: videoFile ? videoFile.name : '',
@@ -319,7 +402,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
               height: videoMeta?.height || 0,
               text: descVal,
               frames: (videoMeta?.frames || []).slice(0, 3),
-              transcript: '',
+              transcript,
             });
             if (r.title) titleEl.value = r.title;
             if (r.subtitle && !$('#pm-subtitle').value.trim()) $('#pm-subtitle').value = r.subtitle;
@@ -332,6 +415,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
               const bits = [];
               if (meta.length) bits.push('已解析 ' + meta.join(' · '));
               if (parsed.frames) bits.push(`识别了 ${parsed.frames} 帧画面`);
+              if (parsed.transcript) bits.push(`转写了 ${parsed.transcript.length} 字语音`);
               hintEl.textContent = `${bits.length ? bits.join('，') + '，' : ''}${r.source === 'ai' ? 'AI 已生成标题，可直接修改' : '已用规则引擎生成标题（AI 暂不可用）'}`;
               if (parsed.visionNote && !parsed.vision) {
                 hintEl.textContent += `（视觉未启用：${parsed.visionNote}）`;
