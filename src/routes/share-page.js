@@ -78,9 +78,9 @@ function renderMeta({ title, desc, image, url, redirectHash }) {
     `<meta name="twitter:title" content="${esc(title)}" />`,
     `<meta name="twitter:description" content="${d}" />`,
     img ? `<meta name="twitter:image" content="${img}" />` : '',
-    redirectHash
-      ? `<script>try{if(location.hash.indexOf('${redirectHash}')<0)location.replace('/${redirectHash}')}catch(e){}</script>`
-      : '',
+    // 注意：这里**不能** location.replace 到 hash 路由。
+    // 微信转发时抓取的是 # 前面的地址，一旦跳成 / 就只剩通用标题。
+    // 正确做法是让前端在渲染时自己补上 hash，路径保持 /s/xxx 不变。
   ]
     .filter(Boolean)
     .join('\n  ');

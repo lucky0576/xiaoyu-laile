@@ -58,6 +58,19 @@ function parseHash() {
 
 export function nav(hash) {
   const next = hash.startsWith('#') ? hash : `#${hash}`;
+
+  // 从分享短链 /s/:id、/v/:id 进来的页面，路径要一直保持原样，
+  // 这样微信转发时的卡片信息才对得上（微信只抓 # 前面的地址）。
+  // 用户在站内跳转到别的页面时，才把路径还原成 /。
+  if (location.pathname && location.pathname !== '/') {
+    try {
+      history.replaceState(null, '', `/${next}`);
+      return render();
+    } catch {
+      /* 失败就走下面常规流程 */
+    }
+  }
+
   if (location.hash === next) {
     render();
   } else {
@@ -492,10 +505,16 @@ async function boot() {
     state.user = null;
   }
 
-  // 支持微信 OAuth 回跳：/#/login?wechat_code=xxx
-  const route = parseHash();
+  // 从分享短链 /s/:id、/v/:id 进来时，路径保留不动（微信靠它抓卡片信息），
+  // 这里只把内部 hash 路由对齐到对应页面。
+  const shareMatch = /^\/(s|v)\/([A-Za-z0-9_-]{4,80})\/?$/.exec(location.pathname || '');
+  if (shareMatch && !location.hash) {
+    location.hash = shareMatch[1] === 's'
+      ? `#/detail/${shareMatch[2]}`
+      : `#/live/${shareMatch[2]}`;
+  }
+
   await render();
-  void route;
 }
 
 boot();
