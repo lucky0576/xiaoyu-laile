@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta http-equiv="refresh" content="3" />
+<title>小鱼来了 · 正在更新</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #f5f8fc;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    color: #16202e;
+  }
+  .box {
+    background: #fff;
+    border-radius: 20px;
+    padding: 36px 32px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(24, 60, 120, .10);
+  }
+  .logo { font-size: 52px; line-height: 1; }
+  .title { font-size: 19px; font-weight: 800; margin-top: 14px; }
+  .desc { font-size: 13px; color: #6b7c95; line-height: 1.8; margin-top: 10px; }
+  .bar {
+    height: 4px; background: #e8eef6; border-radius: 999px;
+    overflow: hidden; margin-top: 22px;
+  }
+  .bar i {
+    display: block; height: 100%; width: 40%; border-radius: 999px;
+    background: linear-gradient(90deg, #0b74ff, #00a9c2);
+    animation: slide 1.2s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+  .tip { font-size: 12px; color: #8a9bb5; margin-top: 16px; }
+  a { color: #0b74ff; text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="logo">🐟</div>
+    <div class="title">小鱼来了 · 正在更新</div>
+    <div class="desc">
+      服务正在做一次快速升级，通常 <b>3 秒内</b>完成。<br />
+      页面会自动刷新，你也可以手动点下面的按钮。
+    </div>
+    <div class="bar"><i></i></div>
+    <div style="margin-top: 20px">
+      <a href="/" onclick="location.reload();return false;">立即刷新</a>
+    </div>
+    <div class="tip">如果你的操作数据没有保存，刷新后请重新提交一次</div>
+  </div>
+  <script>
+    // 3 秒后自动重试；连续失败会逐步放慢，避免打爆刚起来的服务
+    let n = 0;
+    const retry = () => {
+      n++;
+      const wait = Math.min(3000 + n * 1500, 15000);
+      setTimeout(async () => {
+        try {
+          const r = await fetch('/api/health', { cache: 'no-store' });
+          if (r.ok) location.reload();
+          else retry();
+        } catch {
+          retry();
+        }
+      }, wait);
+    };
+    retry();
+  </script>
+</body>
+</html>
