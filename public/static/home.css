@@ -1145,3 +1145,13 @@ body.shorts-mode #wx-tip { display: none !important; }
   .home-promo-list { flex-direction: row; }
   .home-promo { flex: 1; }
 }
+
+
+/* 发布页：标题区（放在 AI 生成之后） */
+.pub-title-box {
+  background: #f7fbff;
+  border: 1px solid #e2ecf9;
+  border-radius: 14px;
+  padding: 14px;
+}
+.pub-title-box .field:last-of-type { margin-bottom: 6px; }

@@ -580,15 +580,7 @@ export async function renderPublish(ctx, params) {
     </div>
 
     <div class="card card-pad mt12">
-      <div class="strong mb8">2. 输入标题与内容 或 导入文件</div>
-      <div class="field">
-        <label>标题 <span class="tiny dim">（可留空，AI 会帮你生成）</span></label>
-        <input class="input" id="pub-title" maxlength="120" placeholder="一句话说清这条信息，例如：山东东营 200MW 渔光互补光伏电站 EPC 总承包招标" value="${ui.esc(editing?.title || '')}">
-      </div>
-      <div class="field">
-        <label>副标题 <span class="tiny dim">（选填）</span></label>
-        <input class="input" id="pub-subtitle" maxlength="200" placeholder="补充说明金额、规模、期限等关键信息" value="${ui.esc(editing?.subtitle || '')}">
-      </div>
+      <div class="strong mb8">2. 输入内容 或 导入文件</div>
 
       <div class="field">
         <label>相关链接 <span class="tiny dim">（选填，官网 / 招标公告 / 网盘 / 公众号文章等）</span></label>
@@ -696,6 +688,22 @@ export async function renderPublish(ctx, params) {
 
       <button class="btn btn-primary btn-block mt12" id="pub-ai" disabled>🤖 第二步：生成项目信息（主副标题 + 解析）</button>
       <div class="tiny dim center mt4" id="pub-ai-lock">请先完成第一步的资料汇总</div>
+
+      <div class="pub-title-box mt16">
+        <div class="row between mb8">
+          <div class="strong" style="font-size:13.5px">📝 发布标题</div>
+          <span class="tiny dim">AI 生成，可直接改</span>
+        </div>
+        <div class="field">
+          <label>主标题</label>
+          <input class="input" id="pub-title" maxlength="120" placeholder="点上面「第二步」自动生成，也可以自己写" value="${ui.esc(editing?.title || '')}">
+        </div>
+        <div class="field">
+          <label>副标题 <span class="tiny dim">（选填）</span></label>
+          <input class="input" id="pub-subtitle" maxlength="200" placeholder="补充说明金额、规模、期限等关键信息" value="${ui.esc(editing?.subtitle || '')}">
+        </div>
+        <div class="tiny dim">这两项会作为信息标题显示，不填也能发布（会自动取正文首行）。</div>
+      </div>
 
       <div id="pub-ai-result" class="mt12"></div>
     </div>
