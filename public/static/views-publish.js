@@ -118,6 +118,179 @@ export async function filesFromDataTransfer(dt) {
   return out;
 }
 
+
+/* ================================================================== */
+/* 发布页 —— 短视频 / 直播                                              */
+/* ================================================================== */
+async function renderPublishMedia(ctx, type, taxonomy) {
+  const isLive = type === 'live';
+  const catGrid = `
+    <div class="cat-grid">
+      ${(taxonomy.categories || []).map((c) => `<a class="cat-card" href="#/publish?category=${c.id}">
+        <div class="ico">${c.icon}</div><div class="name">${ui.esc(c.name)}</div>
+        <div class="desc">${ui.esc((c.types || []).slice(0, 2).map((t) => t.name).join('/'))}</div>
+      </a>`).join('')}
+      ${MEDIA_BLOCKS.map((m) => `<a class="cat-card ${m.id === type ? 'active' : ''}" href="#/publish?category=${m.id}" style="${m.id === type ? 'border-color:var(--brand);background:var(--brand-050)' : ''}">
+        <div class="ico">${m.icon}</div><div class="name">${ui.esc(m.name)}</div>
+        <div class="desc">${ui.esc(m.desc)}</div>
+      </a>`).join('')}
+    </div>`;
+
+  const html = `<div class="page">
+    <div class="card card-pad">
+      <div class="strong mb8">1. 选择发布板块</div>
+      ${catGrid}
+    </div>
+
+    <div class="card card-pad mt12">
+      <div class="strong mb8">2. ${isLive ? '创建直播间' : '上传短视频'}</div>
+
+      <div class="field">
+        <label>标题 <span class="tiny dim">（必填）</span></label>
+        <input class="input" id="pm-title" maxlength="80" placeholder="${isLive ? '例如：东营 200MW 光伏项目现场直播' : '例如：200MW 光伏电站现场实拍'}">
+      </div>
+      <div class="field">
+        <label>副标题 <span class="tiny dim">（选填）</span></label>
+        <input class="input" id="pm-subtitle" maxlength="120" placeholder="一句话补充，会显示在首页轮播">
+      </div>
+
+      ${isLive ? `
+        <div class="field">
+          <label>直播简介 <span class="tiny dim">（选填）</span></label>
+          <textarea class="textarea" id="pm-desc" rows="3" maxlength="2000" placeholder="这场直播会讲什么？观众可以提前了解"></textarea>
+        </div>
+        <div class="row between">
+          <span class="small">设置观看密码</span>
+          <label class="switch"><input type="checkbox" id="pm-pass-on"><span class="slider"></span></label>
+        </div>
+        <div class="field hide" id="pm-pass-field">
+          <label>观看密码</label>
+          <input class="input" id="pm-pass" maxlength="8" placeholder="观众进入直播间需要输入">
+        </div>
+        <div class="warn-note mt12">
+          创建后会进入直播间，点「开始直播」才会向观众推流。<br>
+          直播时长上限 8 小时，结束后可查看回放与 AI 纪要。
+        </div>
+      ` : `
+        <div class="upload-zone" id="pm-drop">
+          <div class="upload-zone-ico">🎬</div>
+          <div class="upload-zone-main" id="pm-video-hint">把短视频拖到这里，或点下面选择</div>
+          <div class="upload-zone-sub">MP4 / MOV / WebM，建议 1080p 以内、单条 200MB 以内</div>
+          <div class="row gap8 mt12" style="justify-content:center">
+            <button class="btn btn-sm btn-outline" id="pm-video-btn" type="button">📎 选择视频</button>
+          </div>
+        </div>
+        <input type="file" id="pm-video-input" accept="video/*" style="display:none">
+        <div id="pm-video-preview" class="mt8"></div>
+
+        <div class="field mt12">
+          <label>视频简介 <span class="tiny dim">（选填）</span></label>
+          <textarea class="textarea" id="pm-desc" rows="3" maxlength="2000" placeholder="介绍一下这条视频讲什么"></textarea>
+        </div>
+
+        <div class="field">
+          <label>封面图 <span class="tiny dim">（选填，不传自动截取）</span></label>
+          <input type="file" id="pm-cover-input" accept="image/*" class="input">
+        </div>
+      `}
+
+      <button class="btn btn-primary btn-block mt16" id="pm-submit" style="height:48px;font-size:15px">
+        ${isLive ? '📡 创建直播间' : '🎬 发布短视频'}
+      </button>
+      <div class="tiny dim center mt8" id="pm-status"></div>
+    </div>
+  </div>`;
+
+  return {
+    title: isLive ? '发布直播' : '发布短视频',
+    content: html,
+    showBack: true,
+    noTab: false,
+    activeTab: 'publish',
+    mount(root) {
+      const $ = (s) => root.querySelector(s);
+      const status = $('#pm-status');
+      let videoFile = null;
+      let coverFile = null;
+
+      if (!isLive) {
+        const drop = $('#pm-drop');
+        const input = $('#pm-video-input');
+
+        const setVideo = (f) => {
+          if (!f) return;
+          if (!/^video\//.test(f.type)) return ui.toast('请选择视频文件', 'err');
+          videoFile = f;
+          $('#pm-video-hint').innerHTML = `已选择：<b>${ui.esc(f.name)}</b>（${(f.size / 1024 / 1024).toFixed(1)} MB）`;
+          const url = URL.createObjectURL(f);
+          $('#pm-video-preview').innerHTML = `<video src="${url}" controls playsinline style="width:100%;border-radius:12px;max-height:320px;background:#000"></video>`;
+          if (status) status.textContent = '';
+        };
+
+        $('#pm-video-btn').addEventListener('click', () => input.click());
+        input.addEventListener('change', () => setVideo(input.files[0]));
+        drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragging'); });
+        drop.addEventListener('dragleave', () => drop.classList.remove('dragging'));
+        drop.addEventListener('drop', (e) => {
+          e.preventDefault();
+          drop.classList.remove('dragging');
+          setVideo(e.dataTransfer.files[0]);
+        });
+
+        $('#pm-cover-input').addEventListener('change', (e) => {
+          coverFile = e.target.files[0] || null;
+        });
+      } else {
+        $('#pm-pass-on').addEventListener('change', (e) => {
+          $('#pm-pass-field').classList.toggle('hide', !e.target.checked);
+        });
+      }
+
+      $('#pm-submit').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const title = ($('#pm-title').value || '').trim();
+        if (!title) return ui.toast('请填写标题', 'err');
+        if (!isLive && !videoFile) return ui.toast('请选择短视频文件', 'err');
+
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = isLive ? '创建中…' : '上传中…';
+        try {
+          const fd = new FormData();
+          fd.append('type', type);
+          fd.append('title', title);
+          fd.append('subtitle', ($('#pm-subtitle').value || '').trim());
+          fd.append('description', ($('#pm-desc').value || '').trim());
+          if (isLive) {
+            const withPass = $('#pm-pass-on').checked;
+            fd.append('usePassword', withPass ? '1' : '0');
+            if (withPass) fd.append('password', ($('#pm-pass').value || '').trim());
+          } else {
+            if (videoFile) fd.append('file', videoFile, videoFile.name);
+            if (coverFile) fd.append('file', coverFile, coverFile.name);
+          }
+
+          const r = await service.createFeed(fd, {
+            onPhase: (p) => { if (status) status.textContent = p; },
+          });
+          ui.toast(isLive ? '直播间已创建' : '短视频已发布', 'ok');
+          ctx.nav(`#/live/${r.feed.id}`);
+        } catch (err) {
+          ui.toast(err.message || '发布失败', 'err');
+          btn.disabled = false;
+          btn.textContent = oldText;
+        }
+      });
+    },
+  };
+}
+
+/* 短视频 / 直播：属于 feeds 集合，与项目类 listings 是两套模型，单独走一个表单 */
+const MEDIA_BLOCKS = [
+  { id: 'short', icon: '🎬', name: '短视频', desc: '上传视频，首页轮播展示' },
+  { id: 'live', icon: '📡', name: '直播', desc: '建直播间，实时推流互动' },
+];
+
 export async function renderPublish(ctx, params) {
   if (!isLoggedIn()) {
     ctx.nav(`#/login?redirect=${encodeURIComponent('#/publish')}`);
@@ -127,6 +300,12 @@ export async function renderPublish(ctx, params) {
   const taxonomy = ctx.state.taxonomy || {};
   const editing = params.edit ? await service.listing(params.edit).then((r) => r.listing).catch(() => null) : null;
   const category = editing?.category || params.category || 'project';
+
+  // 短视频 / 直播走独立表单
+  if (category === 'short' || category === 'live') {
+    return renderPublishMedia(ctx, category, taxonomy);
+  }
+
   const cat = (taxonomy.categories || []).find((c) => c.id === category) || { types: [] };
 
   const html = `<div class="page">
@@ -136,6 +315,10 @@ export async function renderPublish(ctx, params) {
         ${(taxonomy.categories || []).map((c) => `<a class="cat-card ${c.id === category ? 'active' : ''}" href="#/publish?category=${c.id}" style="${c.id === category ? 'border-color:var(--brand);background:var(--brand-050)' : ''}">
           <div class="ico">${c.icon}</div><div class="name">${ui.esc(c.name)}</div>
           <div class="desc">${ui.esc((c.types || []).slice(0, 2).map((t) => t.name).join('/'))}</div>
+        </a>`).join('')}
+        ${MEDIA_BLOCKS.map((m) => `<a class="cat-card ${m.id === category ? 'active' : ''}" href="#/publish?category=${m.id}" style="${m.id === category ? 'border-color:var(--brand);background:var(--brand-050)' : ''}">
+          <div class="ico">${m.icon}</div><div class="name">${ui.esc(m.name)}</div>
+          <div class="desc">${ui.esc(m.desc)}</div>
         </a>`).join('')}
       </div>
     </div>
