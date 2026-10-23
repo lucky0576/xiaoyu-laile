@@ -150,7 +150,7 @@ export async function renderHome(ctx, query) {
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '通讯录', d: '导入并邀请好友', art: '📇', href: '#/contacts', i: 5, auth: true },
-    { t: '短视频', d: '现场实拍 · 项目讲解', art: '🎬', href: '#/feeds', i: 6 },
+    { t: '短视频', d: '上下滑动 · 沉浸观看', art: '🎬', href: '#/shorts', i: 6 },
     { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 7 },
   ];
   const gridHtml = `<div class="home-grid">
@@ -176,7 +176,7 @@ export async function renderHome(ctx, query) {
   </div>`;
 
   /* ---------------- 短视频 ---------------- */
-  const shortCard = (v) => `<a class="short-card" href="#/live/${ui.esc(v.id)}">
+  const shortCard = (v) => `<a class="short-card" href="#/shorts/${ui.esc(v.id)}">
     <div class="short-thumb">
       ${v.coverUrl
         ? `<img src="${ui.esc(ui.safeUrl(v.coverUrl))}" alt="" loading="lazy">`
@@ -193,7 +193,7 @@ export async function renderHome(ctx, query) {
 
   const shortHtml = shorts.length ? `<div class="home-sec-head">
       <h2>🎬 短视频</h2>
-      <a href="#/feeds">全部 ›</a>
+      <a href="#/shorts">刷起来 ›</a>
     </div>
     <div class="home-scroll home-shorts">
       ${shorts.map(shortCard).join('')}

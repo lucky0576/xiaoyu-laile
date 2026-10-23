@@ -9,6 +9,7 @@ import * as viewsAccount from './views-account.js';
 import * as viewsChat from './views-chat.js';
 import * as viewsMeeting from './views-meeting.js';
 import * as viewsLive from './views-live.js';
+import * as viewsShorts from './views-shorts.js';
 import * as viewsForum from './views-forum.js';
 import * as viewsBindings from './views-bindings.js';
 import * as viewsInvest from './views-invest.js';
@@ -327,6 +328,8 @@ async function resolveView({ segs, query }) {
       return viewsMeeting.renderJoin(ctx, { ...query, n: p1 || query.n });
     case 'meeting':
       return viewsMeeting.renderMeeting(ctx, { id: p1, ...query });
+    case 'shorts':
+      return viewsShorts.renderShorts(ctx, { id: p1 || query.id || '' });
     case 'feeds':
       return viewsLive.renderFeeds(ctx, { type: query.type || '' });
     case 'live':
