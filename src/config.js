@@ -99,6 +99,28 @@ export const config = {
   sessionSecret: persistentSecret(),
   sessionDays: num('SESSION_DAYS', 30),
 
+  /* ---------------------------------------------------------------- */
+  /* 视觉理解：智谱 GLM-4V-Flash（完全免费）                              */
+  /*   用于短视频抽帧识别画面内容                                        */
+  /* ---------------------------------------------------------------- */
+  vision: {
+    baseUrl: env('VISION_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, ''),
+    apiKey: env('ZHIPU_API_KEY', ''),
+    model: env('VISION_MODEL', 'glm-4v-flash'),
+    timeoutMs: num('VISION_TIMEOUT_MS', 45000),
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* 语音转写：硅基流动 SenseVoiceSmall                                  */
+  /*   用于短视频/直播音频转文字                                         */
+  /* ---------------------------------------------------------------- */
+  asr: {
+    baseUrl: env('ASR_BASE_URL', 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''),
+    apiKey: env('SILICONFLOW_API_KEY', ''),
+    model: env('ASR_MODEL', 'FunAudioLLM/SenseVoiceSmall'),
+    timeoutMs: num('ASR_TIMEOUT_MS', 90000),
+  },
+
   /** 上传限制 */
   maxUploadBytes: num('MAX_UPLOAD_BYTES', 512 * 1024 * 1024), // 512MB，支持视频
   maxJsonBytes: num('MAX_JSON_BYTES', 8 * 1024 * 1024),

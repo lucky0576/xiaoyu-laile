@@ -10,6 +10,7 @@
  * 所有对外函数都会在返回值里带上 `source` 字段：'ai' 或 'local'。
  */
 import { effectiveAiConfig } from './settings.js';
+import { config } from '../config.js';
 import { kindOf, listFiles } from './files.js';
 
 /**
@@ -1207,6 +1208,115 @@ ${input.filename ? `\n主要附件：${input.filename}` : ''}
 /* ------------------------------------------------------------------ */
 /* 对外：生成主副标题                                                    */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* 视觉理解（智谱 GLM-4V-Flash，免费）                                  */
+/* ------------------------------------------------------------------ */
+
+export function visionConfigured() {
+  return Boolean(config.vision && (config.vision && config.vision.apiKey));
+}
+
+/**
+ * 看图：把若干帧（data URL 或公网 URL）交给视觉模型描述画面。
+ */
+export async function visionDescribe({ images = [], prompt = '' } = {}) {
+  const list = (images || []).filter(Boolean).slice(0, 6);
+  if (!list.length) return { ok: false, text: '', note: '没有可分析的画面' };
+  if (!visionConfigured()) return { ok: false, text: '', note: '未配置视觉模型' };
+
+  const ask =
+    prompt ||
+    '这是一条短视频的若干画面截图（按时间顺序）。请用中文简洁描述：\n' +
+      '1. 画面里的主要对象和场景（人、设备、地点、工程类型等）\n' +
+      '2. 如果是施工现场/产品/场地，说清是什么类型\n' +
+      '3. 一句话总结这条视频在讲什么\n' +
+      '只输出 3 行以内的纯文本，不要编号，不要客套。';
+
+  const content = [{ type: 'text', text: ask }];
+  for (const url of list) content.push({ type: 'image_url', image_url: { url } });
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), (config.vision && config.vision.timeoutMs) || 45000);
+  try {
+    const res = await fetch(`${(config.vision && config.vision.baseUrl)}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.vision.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: (config.vision && config.vision.model),
+        messages: [{ role: 'user', content }],
+        temperature: 0.3,
+        max_tokens: 400,
+      }),
+      signal: ctrl.signal,
+    });
+    const txt = await res.text();
+    if (!res.ok) return { ok: false, text: '', note: `视觉模型 ${res.status}：${txt.slice(0, 200)}` };
+    let json = {};
+    try { json = JSON.parse(txt); } catch { return { ok: false, text: '', note: '返回不是 JSON' }; }
+    const out = json && json.choices && json.choices[0] && json.choices[0].message
+      ? json.choices[0].message.content
+      : '';
+    const text =
+      typeof out === 'string'
+        ? out.trim()
+        : Array.isArray(out)
+          ? out.map((x) => (typeof x === 'string' ? x : (x && x.text) || '')).join(' ').trim()
+          : '';
+    return { ok: Boolean(text), text };
+  } catch (err) {
+    return { ok: false, text: '', note: `视觉模型调用失败：${err.message}` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 语音转写（硅基流动 SenseVoice）                                      */
+/* ------------------------------------------------------------------ */
+
+export function asrConfigured() {
+  return Boolean(config.asr && (config.asr && config.asr.apiKey));
+}
+
+export async function speechToText(audio, filename = 'audio.wav') {
+  if (!audio || !audio.length) return { ok: false, text: '', note: '没有音频' };
+  if (!asrConfigured()) return { ok: false, text: '', note: '未配置语音转写' };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), (config.asr && config.asr.timeoutMs) || 90000);
+  try {
+    const fd = new FormData();
+    fd.append('model', (config.asr && config.asr.model));
+    fd.append('file', new Blob([audio]), filename);
+    fd.append('response_format', 'json');
+
+    const res = await fetch(`${(config.asr && config.asr.baseUrl)}/audio/transcriptions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.asr.apiKey}` },
+      body: fd,
+      signal: ctrl.signal,
+    });
+    const txt = await res.text();
+    if (!res.ok) return { ok: false, text: '', note: `语音转写 ${res.status}：${txt.slice(0, 200)}` };
+    let text = '';
+    try {
+      const json = JSON.parse(txt);
+      text = String(json.text || json.transcription || '').trim();
+    } catch {
+      text = String(txt || '').trim();
+    }
+    return { ok: Boolean(text), text };
+  } catch (err) {
+    return { ok: false, text: '', note: `语音转写失败：${err.message}` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function generateTitles(input) {
   const local = await localTitles(input);
   if (!aiConfigured()) return local;
@@ -1548,6 +1658,10 @@ export function aiStatus() {
 }
 
 export default {
+  visionDescribe,
+  speechToText,
+  visionConfigured,
+  asrConfigured,
   summarizeProject,
   localSummary,
   generateTitles,

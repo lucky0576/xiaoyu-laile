@@ -4,7 +4,8 @@
 import { data, fail, str, num, bool, authUser, mustAuth, baseUrl } from './_util.js';
 import { httpError } from '../http/app.js';
 import feedsSvc from '../services/feeds.js';
-import { saveUploads, filePublic } from '../services/files.js';
+import fs from 'node:fs';
+import { saveUploads, filePublic, deleteFile } from '../services/files.js';
 
 export default function registerFeedRoutes(app) {
   /* ---------------------------------------------------------------- */
@@ -111,6 +112,12 @@ export default function registerFeedRoutes(app) {
     const industry = str(req.body?.industry, 40);
     const kind = String(req.body?.kind) === 'live' ? 'live' : 'short';
 
+    // 前端抽的画面帧（data URL），交给视觉模型识别
+    const frames = Array.isArray(req.body?.frames)
+      ? req.body.frames.filter((x) => typeof x === 'string' && x.startsWith('data:image')).slice(0, 4)
+      : [];
+    const transcript = str(req.body?.transcript, 4000);
+
     // 拼一段「可读的视频描述」给 AI：模型只有文本能力，
     // 所以把能解析到的客观信息 + 用户描述一起交给它
     const parts = [];
@@ -124,6 +131,25 @@ export default function registerFeedRoutes(app) {
     if (width && height) parts.push(`视频分辨率：${width}×${height}`);
     if (industry) parts.push(`所属行业：${industry}`);
     if (hint) parts.push(`发布者补充说明：${hint}`);
+    // 视觉识别：把画面内容也交给 AI
+    let visionText = '';
+    let visionNote = '';
+    if (frames.length) {
+      try {
+        const aiMod = await import('../services/ai.js');
+        const v = await aiMod.visionDescribe({ images: frames });
+        if (v.ok) {
+          visionText = v.text;
+          parts.push(`视频画面内容（视觉识别）：\n${visionText}`);
+        } else {
+          visionNote = v.note || '';
+        }
+      } catch (err) {
+        visionNote = err.message;
+      }
+    }
+    if (transcript) parts.push(`视频语音内容（转写）：\n${transcript}`);
+
     const text = parts.join('\n');
 
     try {
@@ -140,10 +166,48 @@ export default function registerFeedRoutes(app) {
         alternatives: out.alternatives || [],
         source: out.source || 'local',
         note: out.note || '',
-        parsed: { filename, durationSec, width, height },
+        parsed: {
+          filename,
+          durationSec,
+          width,
+          height,
+          frames: frames.length,
+          vision: visionText || '',
+          visionNote: visionNote || '',
+          transcript: transcript || '',
+        },
       });
     } catch (err) {
       return fail(res, `标题生成失败：${err.message}`, 500, 'ai_failed');
+    }
+  });
+
+  /** 短视频音频转文字（硅基流动 SenseVoice） */
+  app.post('/api/feeds/transcribe', async (req, res) => {
+    const user = authUser(req);
+    if (!user) return fail(res, '请先登录', 401, 'login_required');
+
+    const uploaded = await saveUploads(req, { ownerId: user.id });
+    if (!uploaded.length) return fail(res, '没有收到音频', 400, 'no_audio');
+    const f = uploaded[0];
+    if (f.kind !== 'audio' && f.kind !== 'video') {
+      return fail(res, '请上传音频文件', 400, 'bad_type');
+    }
+    let buf;
+    try {
+      buf = fs.readFileSync(f.path);
+    } catch (err) {
+      return fail(res, `读取音频失败：${err.message}`, 500, 'read_failed');
+    }
+    try {
+      const aiMod = await import('../services/ai.js');
+      const out = await aiMod.speechToText(buf, f.name || 'audio.wav');
+      // 转写完就删掉临时音频，不留垃圾
+      try { deleteFile(f.id); } catch { /* ignore */ }
+      if (!out.ok) return data(res, { text: '', note: out.note || '转写失败' });
+      return data(res, { text: out.text });
+    } catch (err) {
+      return fail(res, `转写失败：${err.message}`, 500, 'asr_failed');
     }
   });
 

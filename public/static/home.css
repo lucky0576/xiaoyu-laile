@@ -949,3 +949,18 @@ body.shorts-mode #wx-tip { display: none !important; }
 .short-info { bottom: calc(30px + var(--safe-b, 0px)); }
 .short-side { bottom: calc(118px + var(--safe-b, 0px)); }
 .shorts-topbar { top: calc(12px + var(--safe-t, 0px)); }
+
+/* 短视频抽帧预览 */
+.parsed-frames {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.parsed-frames img {
+  width: 72px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #0b1020;
+}

@@ -225,37 +225,69 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         let videoMeta = null;
         let autoCover = null;
 
-        /* 解析视频：时长 / 分辨率 + 抽一帧做封面 */
+        /* 解析视频：时长 / 分辨率 + 抽 3 帧（10% / 50% / 90% 处） */
         const probeVideo = (file) => new Promise((resolve) => {
           const v = document.createElement('video');
           v.preload = 'auto';
           v.muted = true;
           v.playsInline = true;
           v.src = URL.createObjectURL(file);
-          const done = (val) => {
+
+          const result = { duration: 0, width: 0, height: 0, frames: [], frame: null, coverCanvas: null };
+          const timeouts = [];
+          let finished = false;
+
+          const finish = () => {
+            if (finished) return;
+            finished = true;
+            timeouts.forEach(clearTimeout);
             try { URL.revokeObjectURL(v.src); } catch {}
-            resolve(val);
+            result.frame = result.coverCanvas;
+            resolve(result);
           };
-          v.onloadeddata = () => {
-            try {
-              v.currentTime = Math.min(1, (v.duration || 2) / 3);
-            } catch {
-              done({ duration: v.duration || 0, width: v.videoWidth || 0, height: v.videoHeight || 0, frame: null });
-            }
+
+          const drawTo = (w, h, quality) => {
+            const c = document.createElement('canvas');
+            // 控制体积：长边不超过 720
+            const scale = Math.min(1, 720 / Math.max(w || 1, h || 1));
+            c.width = Math.max(1, Math.round((w || 640) * scale));
+            c.height = Math.max(1, Math.round((h || 360) * scale));
+            c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+            return c;
           };
-          v.onseeked = () => {
-            let frame = null;
-            try {
-              const c = document.createElement('canvas');
-              c.width = v.videoWidth || 640;
-              c.height = v.videoHeight || 360;
-              c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-              frame = c;
-            } catch { /* 跨域或解码失败就不抽帧 */ }
-            done({ duration: v.duration || 0, width: v.videoWidth || 0, height: v.videoHeight || 0, frame });
+
+          v.onloadedmetadata = () => {
+            result.duration = v.duration || 0;
+            result.width = v.videoWidth || 0;
+            result.height = v.videoHeight || 0;
+            // 三帧按 10% / 50% / 90% 取，短视频也保证不重复
+            const dur = result.duration || 0;
+            const marks = dur > 1
+              ? [dur * 0.1, dur * 0.5, dur * 0.9]
+              : [0, 0, 0];
+            let idx = 0;
+            const seekNext = () => {
+              if (idx >= marks.length) return;
+              try { v.currentTime = Math.min(marks[idx], Math.max(0, dur - 0.05)); } catch { finish(); }
+            };
+            v.onseeked = () => {
+              try {
+                const c = drawTo(result.width, result.height);
+                if (!result.coverCanvas) result.coverCanvas = c;
+                try {
+                  result.frames.push(c.toDataURL('image/jpeg', 0.72));
+                } catch { /* 跨域等异常忽略 */ }
+              } catch { /* ignore */ }
+              idx += 1;
+              if (idx >= marks.length) finish();
+              else seekNext();
+            };
+            seekNext();
           };
-          v.onerror = () => done({ duration: 0, width: 0, height: 0, frame: null });
-          setTimeout(() => done({ duration: v.duration || 0, width: v.videoWidth || 0, height: v.videoHeight || 0, frame: null }), 6000);
+
+          v.onerror = () => finish();
+          // 兜底：6 秒还没抽完就放弃
+          timeouts.push(setTimeout(finish, 6000));
         });
 
         const canvasToBlob = (canvas) => new Promise((resolve) => {
@@ -286,6 +318,8 @@ async function renderPublishMedia(ctx, type, taxonomy) {
               width: videoMeta?.width || 0,
               height: videoMeta?.height || 0,
               text: descVal,
+              frames: (videoMeta?.frames || []).slice(0, 3),
+              transcript: '',
             });
             if (r.title) titleEl.value = r.title;
             if (r.subtitle && !$('#pm-subtitle').value.trim()) $('#pm-subtitle').value = r.subtitle;
@@ -294,7 +328,14 @@ async function renderPublishMedia(ctx, type, taxonomy) {
             if (videoMeta?.duration) meta.push(`时长 ${Math.round(videoMeta.duration)} 秒`);
             if (videoMeta?.width) meta.push(`${videoMeta.width}×${videoMeta.height}`);
             if (hintEl) {
-              hintEl.textContent = `${meta.length ? '已解析 ' + meta.join(' · ') + '，' : ''}${r.source === 'ai' ? 'AI 已生成标题，可直接修改' : '已用规则引擎生成标题（AI 暂不可用）'}`;
+              const parsed = r.parsed || {};
+              const bits = [];
+              if (meta.length) bits.push('已解析 ' + meta.join(' · '));
+              if (parsed.frames) bits.push(`识别了 ${parsed.frames} 帧画面`);
+              hintEl.textContent = `${bits.length ? bits.join('，') + '，' : ''}${r.source === 'ai' ? 'AI 已生成标题，可直接修改' : '已用规则引擎生成标题（AI 暂不可用）'}`;
+              if (parsed.visionNote && !parsed.vision) {
+                hintEl.textContent += `（视觉未启用：${parsed.visionNote}）`;
+              }
             }
 
             // 备选标题
@@ -329,6 +370,15 @@ async function renderPublishMedia(ctx, type, taxonomy) {
 
           // 解析 + 抽帧
           videoMeta = await probeVideo(f);
+          // 展示抽到的画面，让用户看到 AI 识别依据
+          if ((videoMeta?.frames || []).length) {
+            $('#pm-video-preview').insertAdjacentHTML('beforeend',
+              `<div class="parsed-frames">${videoMeta.frames
+                .map((u) => `<img src="${u}" alt="">`)
+                .join('')}</div>
+              <div class="tiny dim mt4">已抽取 3 帧画面，AI 会据此识别内容</div>`);
+          }
+
           if (videoMeta?.frame && !coverFile) {
             const blob = await canvasToBlob(videoMeta.frame);
             if (blob) {
