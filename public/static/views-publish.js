@@ -128,7 +128,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
     <div class="cat-grid">
       ${(taxonomy.categories || []).map((c) => `<a class="cat-card" href="#/publish?category=${c.id}">
         <div class="ico">${c.icon}</div><div class="name">${ui.esc(c.name)}</div>
-        <div class="desc">${ui.esc((c.types || []).slice(0, 2).map((t) => t.name).join('/'))}</div>
+        <div class="desc">${ui.esc(c.desc || (c.types || []).slice(0, 2).map((t) => t.name).join('/'))}</div>
       </a>`).join('')}
       ${MEDIA_BLOCKS.map((m) => `<a class="cat-card ${m.id === type ? 'active' : ''}" href="#/publish?category=${m.id}" style="${m.id === type ? 'border-color:var(--brand);background:var(--brand-050)' : ''}">
         <div class="ico">${m.icon}</div><div class="name">${ui.esc(m.name)}</div>

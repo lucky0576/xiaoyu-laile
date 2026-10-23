@@ -1006,20 +1006,24 @@ export const TRADE_TYPES = [
  * ------------------------------------------------------------------ */
 
 export const EVENT_TYPES = [
-  { id: 'competition', name: '赛事', icon: '🏆' },
-  { id: 'course', name: '课程', icon: '📚' },
-  { id: 'training', name: '培训', icon: '🎯' },
-  { id: 'forum', name: '论坛', icon: '💬' },
-  { id: 'summit', name: '峰会', icon: '🎤' },
-  { id: 'exhibition', name: '展会', icon: '🏢' },
-  { id: 'roadshow', name: '路演', icon: '🚀' },
-  { id: 'salon', name: '沙龙', icon: '☕' },
-  { id: 'investment-promotion', name: '招商会', icon: '📢' },
-  { id: 'press-conference', name: '发布会', icon: '📣' },
-  { id: 'public-welfare', name: '公益活动', icon: '❤️' },
-  { id: 'business-promotion', name: '业务推广', icon: '📈' },
-  { id: 'other', name: '其他', icon: '📌' }
+  { id: 'exhibition', name: '展会', icon: '🏢', desc: '行业展会、博览会，看产品、找供应商、谈代理' },
+  { id: 'salon', name: '沙龙', icon: '☕', desc: '小圈子深度交流，主题分享 + 自由聊' },
+  { id: 'forum', name: '论坛', icon: '💬', desc: '行业论坛、圆桌对话、政策解读' },
+  { id: 'competition', name: '赛事', icon: '🏆', desc: '创新创业大赛、技能比武、体育赛事' },
+  { id: 'course', name: '课程', icon: '📚', desc: '系统课、训练营、认证班，按课时授课' },
+  { id: 'game', name: '游戏', icon: '🎮', desc: '桌游、剧本杀、电竞、棋牌，玩着把关系处了' },
+  { id: 'dinner', name: '饭局', icon: '🍽️', desc: '商务宴请、行业饭局，边吃边聊项目' },
+  { id: 'team-building', name: '团建', icon: '🎉', desc: '企业团建、户外拓展、部门出游' },
+  { id: 'summit', name: '峰会', icon: '🎤', desc: '大型峰会，多位嘉宾、多个分会场' },
+  { id: 'training', name: '培训', icon: '🎯', desc: '短期技能培训、内训、专项辅导' },
+  { id: 'roadshow', name: '路演', icon: '🚀', desc: '项目路演、融资对接、投资人见面' },
+  { id: 'investment-promotion', name: '招商会', icon: '📢', desc: '招商引资推介、园区政策宣讲' },
+  { id: 'press-conference', name: '发布会', icon: '📣', desc: '新品发布、战略发布、媒体见面' },
+  { id: 'public-welfare', name: '公益活动', icon: '❤️', desc: '公益志愿、慈善募捐、社区服务' },
+  { id: 'business-promotion', name: '业务推广', icon: '📈', desc: '产品推广、客户答谢、渠道招募' },
+  { id: 'other', name: '其他', icon: '📌', desc: '以上未覆盖的其他活动' }
 ]
+
 
 /* ------------------------------------------------------------------ *
  * 4.5 BOUNTY_TYPES —— 悬赏类型
@@ -1061,10 +1065,16 @@ export const BOUNTY_ELIGIBILITY = [
  * ------------------------------------------------------------------ */
 
 export const CATEGORIES = [
-  { id: 'project', name: '项目', icon: '📁', types: PROJECT_TYPES },
-  { id: 'bounty', name: '悬赏', icon: '🎯', types: BOUNTY_TYPES },
-  { id: 'event', name: '活动', icon: '🎪', types: EVENT_TYPES },
-  { id: 'trade', name: '贸易', icon: '🤝', types: TRADE_TYPES }
+  { id: 'project', name: '项目', icon: '📁', desc: '投资 · 融资 · EPC · 招投标', types: PROJECT_TYPES },
+  { id: 'bounty', name: '悬赏', icon: '🎯', desc: '技术 · 方案 · 资源 · 人才', types: BOUNTY_TYPES },
+  {
+    id: 'event',
+    name: '活动',
+    icon: '🎪',
+    desc: '展会 · 沙龙 · 赛事 · 饭局 · 团建',
+    types: EVENT_TYPES,
+  },
+  { id: 'trade', name: '贸易', icon: '🤝', desc: '采购 · 供应 · 委托加工', types: TRADE_TYPES }
 ]
 
 /* ------------------------------------------------------------------ *
