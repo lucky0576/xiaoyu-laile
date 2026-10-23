@@ -42,8 +42,12 @@ export async function openInviteSheet(payload) {
       <button class="btn grow" id="invite-save">保存邀请卡</button>
     </div>
     <div class="row gap8 mt8">
-      <button class="btn grow" id="invite-link">复制链接</button>
+      <button class="btn btn-primary grow" id="invite-wechat">💚 转发到微信</button>
       <button class="btn grow" id="invite-native">系统分享</button>
+    </div>
+    <div class="row gap8 mt8">
+      <button class="btn grow" id="invite-link">复制链接</button>
+      <button class="btn grow" id="invite-sms">复制会议号</button>
     </div>
     ${isWechatBrowser() ? '<div class="tiny dim center mt8">在微信内点右上角「···」可直接转发给好友或分享到朋友圈</div>' : ''}`;
 
@@ -70,6 +74,72 @@ export async function openInviteSheet(payload) {
       sheet.querySelector('#invite-link').addEventListener('click', async () => {
         const ok = await ui.copyText(payload.url);
         ui.toast(ok ? '链接已复制' : '复制失败', ok ? 'ok' : 'err');
+      });
+
+      /* ---------------- 转发到微信（文字 + 链接） ---------------- */
+      sheet.querySelector('#invite-wechat').addEventListener('click', async () => {
+        const text = modes[modeIdx]?.text || '';
+        // 微信内：设置分享卡片后引导用户点右上角
+        if (isWechatBrowser()) {
+          try {
+            const cfg = await service.wechatJsConfig(payload.url);
+            const wx = window.wx;
+            if (cfg && cfg.appId && wx) {
+              wx.config({
+                debug: false,
+                appId: cfg.appId,
+                timestamp: cfg.timestamp,
+                nonceStr: cfg.nonceStr,
+                signature: cfg.signature,
+                jsApiList: ['updateAppMessageShareData', 'updateTimelineShareData'],
+              });
+              const shareData = {
+                title: `${title} · 会议邀请`,
+                desc: text.replace(/\n/g, ' ').slice(0, 100),
+                link: payload.url,
+                imgUrl: location.origin + '/static/icon-512.png',
+              };
+              wx.ready(() => {
+                wx.updateAppMessageShareData({ ...shareData, success() {} });
+                wx.updateTimelineShareData({ title: shareData.title, link: shareData.link, imgUrl: shareData.imgUrl });
+              });
+            }
+          } catch {
+            /* 没配公众号也不影响复制 */
+          }
+          const ok = await ui.copyText(text);
+          ui.toast(ok ? '文案已复制，点右上角「···」转发给微信好友' : '请长按文案手动复制', ok ? 'ok' : 'err');
+          return;
+        }
+
+        // 微信外：复制文案 + 给扫码引导
+        const copied = await ui.copyText(text);
+        ui.openSheet({
+          title: '转发到微信',
+          content: `<div class="invite-card">
+              <div class="t">${ui.esc(title)}</div>
+              <div class="h">${ui.esc(isMeeting ? (payload.hostName || '') + ' 邀请你参加会议' : '邀请你加入群聊')}</div>
+              ${isMeeting && payload.number ? `<div class="p">会议号</div><div class="n">${ui.esc(payload.number)}</div>` : ''}
+              <img src="${ui.esc(payload.qr)}" alt="二维码">
+              <div class="tip">用手机微信「扫一扫」打开，再点右上角「···」转发给好友</div>
+            </div>
+            <div class="share-preview mt12">${ui.esc(text)}</div>
+            <div class="row gap8 mt12">
+              <button class="btn btn-primary grow" id="wx-copy-again">再复制一次文案</button>
+            </div>
+            <div class="tiny dim center mt8">${copied ? '文案已复制到剪贴板，可直接粘贴到微信' : '请长按上方文案手动复制'}</div>`,
+          onMount(sheet2) {
+            sheet2.querySelector('#wx-copy-again').addEventListener('click', async () => {
+              const ok = await ui.copyText(text);
+              ui.toast(ok ? '已复制' : '复制失败', ok ? 'ok' : 'err');
+            });
+          },
+        });
+      });
+
+      sheet.querySelector('#invite-sms').addEventListener('click', async () => {
+        const ok = await ui.copyText(isMeeting ? String(payload.number || '') : payload.url);
+        ui.toast(ok ? '会议号已复制' : '复制失败', ok ? 'ok' : 'err');
       });
 
       sheet.querySelector('#invite-native').addEventListener('click', async () => {
@@ -313,6 +383,15 @@ function mountLobby(host, ctx, id, m) {
     </div>
     <div class="lobby-mic-bar"><i id="lb-level"></i></div>
 
+    <div id="lb-media-err" class="media-err hide">
+      <div class="media-err-t">⚠️ 无法打开摄像头/麦克风</div>
+      <div class="media-err-b" id="lb-media-err-text"></div>
+      <div class="row gap8 mt8">
+        <button class="btn btn-sm btn-primary grow" id="lb-media-retry">重试</button>
+        <button class="btn btn-sm grow" id="lb-media-skip">静音静画加入</button>
+      </div>
+    </div>
+
     <div class="field mt16">
       <label>入会昵称</label>
       <input class="input" id="lb-name" maxlength="20" value="${ui.esc(userName)}">
@@ -341,6 +420,11 @@ function mountLobby(host, ctx, id, m) {
     }
     const v = $('#lb-video');
     if (v) v.srcObject = null;
+  };
+
+  const hideMediaErr = () => {
+    const box = $('#lb-media-err');
+    if (box) box.classList.add('hide');
   };
 
   const refreshUi = () => {
@@ -382,10 +466,31 @@ function mountLobby(host, ctx, id, m) {
       micOn = false;
       camOn = false;
       refreshUi();
-      ui.toast(err.name === 'NotAllowedError' ? '未获得摄像头/麦克风权限，可用「仅音频」或直接加入' : err.message, 'err');
+      const box = $('#lb-media-err');
+      const txt = $('#lb-media-err-text');
+      if (box && txt) {
+        txt.textContent = mediaErrorHint(err);
+        box.classList.remove('hide');
+      }
+      ui.toast('摄像头/麦克风打开失败', 'err');
     }
     refreshUi();
+    if (previewStream) hideMediaErr();
   };
+
+  $('#lb-media-retry')?.addEventListener('click', async () => {
+    micOn = true;
+    await startPreview();
+    if (previewStream) ui.toast('设备已就绪', 'ok');
+  });
+  $('#lb-media-skip')?.addEventListener('click', () => {
+    micOn = false;
+    camOn = false;
+    stopPreview();
+    refreshUi();
+    hideMediaErr();
+    ui.toast('已静音静画进入，入会后可随时开启', '');
+  });
 
   $('#lb-back').addEventListener('click', () => ctx.nav('#/chat'));
   $('#lb-mic').addEventListener('click', () => { micOn = !micOn; startPreview(); });
@@ -721,8 +826,38 @@ async function mountRoom(host, ctx, id, meeting, initial = {}) {
     if (!room.localStream) {
       try {
         await room.startMedia({ audio: true, video: state.camOn });
-      } catch {
-        ui.toast('未能获取摄像头/麦克风，可加入后手动开启', 'err');
+      } catch (err) {
+        ui.toast(mediaErrorHint(err), 'err');
+        const bar = document.createElement('div');
+        bar.className = 'media-err mt8';
+        bar.innerHTML = `<div class="media-err-t">⚠️ 无法打开摄像头/麦克风</div>
+          <div class="media-err-b">${ui.esc(mediaErrorHint(err))}</div>
+          <div class="row gap8 mt8">
+            <button class="btn btn-sm btn-primary grow" id="room-media-retry">重试</button>
+            <button class="btn btn-sm grow" id="room-media-close">知道了</button>
+          </div>`;
+        const stage = host.querySelector('.mt-stage');
+        if (stage) stage.parentElement.appendChild(bar);
+        bar.querySelector('#room-media-close')?.addEventListener('click', () => bar.remove());
+        bar.querySelector('#room-media-retry')?.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          btn.textContent = '重试中…';
+          try {
+            await room.startMedia({ audio: true, video: state.camOn });
+            const audio = room.localStream?.getAudioTracks()[0];
+            if (audio) audio.enabled = state.micOn;
+            const video = room.localStream?.getVideoTracks()[0];
+            if (video) video.enabled = state.camOn;
+            bar.remove();
+            renderGrid();
+            ui.toast('设备已就绪', 'ok');
+          } catch (err2) {
+            btn.disabled = false;
+            btn.textContent = '重试';
+            ui.toast(mediaErrorHint(err2), 'err');
+          }
+        });
       }
     }
     const audio = room.localStream?.getAudioTracks()[0];
@@ -986,6 +1121,22 @@ async function mountRoom(host, ctx, id, meeting, initial = {}) {
 
   renderGrid();
   updateControls();
+}
+
+/* 把 getUserMedia 的异常翻译成用户能照着做的提示 */
+function mediaErrorHint(err) {
+  const n = (err && err.name) || '';
+  if (n === 'NotAllowedError' || n === 'PermissionDeniedError' || n === 'SecurityError') {
+    return '浏览器拒绝了摄像头/麦克风权限。请点地址栏左侧的「锁」图标 → 把「摄像头」「麦克风」改为允许 → 刷新页面';
+  }
+  if (n === 'NotFoundError' || n === 'DevicesNotFoundError' || n === 'OverconstrainedError') {
+    return '没有检测到可用的摄像头或麦克风，请确认设备已连接（台式机需要外接摄像头）';
+  }
+  if (n === 'NotReadableError' || n === 'TrackStartError') {
+    return '摄像头/麦克风被其他程序占用（例如其他会议软件、录屏工具），请关闭后点重试';
+  }
+  if (n === 'AbortError') return '设备启动被中断，请点重试';
+  return (err && err.message) || '无法访问摄像头/麦克风';
 }
 
 /* 供 CSS 选择器使用：转义用户 id 里的特殊字符 */

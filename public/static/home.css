@@ -500,3 +500,15 @@
 }
 .pub-file-thumb .pub-file-x { position: absolute; top: 2px; right: 2px; }
 .pub-file-chip .pub-file-x { background: #d8e2ee; color: #55627a; }
+
+/* 会议：设备权限错误提示条 */
+.media-err {
+  background: #fff6f6;
+  border: 1px solid #ffd6d6;
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+.media-err-t { font-size: 13px; font-weight: 700; color: #c0392b; }
+.media-err-b { font-size: 12px; color: #7a4a44; line-height: 1.7; margin-top: 6px; }
+.media-err.hide { display: none; }

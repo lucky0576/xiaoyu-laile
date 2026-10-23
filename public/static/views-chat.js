@@ -44,7 +44,7 @@ export async function renderChat(ctx, params) {
           <div class="avatar">📹</div>
           <div class="item-body">
             <div class="item-title">${ui.esc(m.title)}
-              <span class="badge ${m.status === 'live' ? 'danger' : m.status === 'ended' ? 'gray' : ''}">${m.status === 'live' ? '进行中' : m.status === 'ended' ? '已结束' : '待开始'}</span>
+              <span class="badge ${m.status === 'live' ? 'danger' : m.status === 'ended' ? 'gray' : ''}">${m.status === 'live' ? '进行中' : m.status === 'ended' ? '已结束' : '预约中'}</span>
               ${m.number ? `<span class="badge gray">${ui.esc(m.number)}</span>` : ''}
             </div>
             <div class="item-sub">${ui.esc(ui.fmtDate(m.startAt, true))} · ${m.participantCount} 人参会${m.joinedCount ? ` · ${m.joinedCount} 人在会` : ''}</div>
@@ -77,20 +77,75 @@ export async function renderChat(ctx, params) {
     async mount(root) {
       root.querySelector('#ct-join-meeting')?.addEventListener('click', () => ctx.nav('#/join'));
       root.querySelector('#ct-new-meeting')?.addEventListener('click', async () => {
-        const title = await ui.promptDialog({ title: '发起会议', label: '会议主题', value: '项目沟通会', okText: '创建' });
-        if (!title) return;
-        const usePassword = await ui.confirmDialog({
-          title: '需要入会密码吗？',
-          message: '设置密码后，参会人需要输入密码才能加入（更安全）。',
-          okText: '设置密码',
-          cancelText: '不需要',
+        ui.openSheet({
+          title: '发起 / 预约会议',
+          content: `<div class="field">
+              <label>会议主题</label>
+              <input class="input" id="nm-title" maxlength="120" value="项目沟通会">
+            </div>
+            <div class="field">
+              <label>开始时间 <span class="tiny dim">（留空 = 立即开会）</span></label>
+              <input class="input" id="nm-start" type="datetime-local">
+            </div>
+            <div class="row gap8">
+              <div class="field grow">
+                <label>时长（分钟）</label>
+                <input class="input" id="nm-dur" type="number" min="15" max="480" value="60">
+              </div>
+              <div class="field grow">
+                <label>入会密码 <span class="tiny dim">选填</span></label>
+                <input class="input" id="nm-pass" maxlength="8" placeholder="留空则无密码">
+              </div>
+            </div>
+            <div class="field">
+              <label>会议议程 <span class="tiny dim">选填</span></label>
+              <textarea class="input" id="nm-agenda" rows="2" maxlength="500" placeholder="例如：1. 项目背景 2. 造价确认 3. 下一步分工"></textarea>
+            </div>
+            <div class="tiny dim">预约会议会出现在「我的会议」里，到点前可随时进入，也会通知参会人。</div>
+            <button class="btn btn-primary btn-block mt12" id="nm-create">创建会议</button>`,
+          onMount(sheet, close) {
+            const btn = sheet.querySelector('#nm-create');
+            btn.addEventListener('click', async () => {
+              const title = (sheet.querySelector('#nm-title').value || '').trim() || '项目沟通会';
+              const startRaw = sheet.querySelector('#nm-start').value || '';
+              const dur = Math.max(15, Math.min(480, Number(sheet.querySelector('#nm-dur').value) || 60));
+              const pass = (sheet.querySelector('#nm-pass').value || '').trim();
+              const agenda = (sheet.querySelector('#nm-agenda').value || '').trim();
+
+              let startAt = '';
+              if (startRaw) {
+                const dt = new Date(startRaw);
+                if (Number.isNaN(dt.getTime())) return ui.toast('开始时间格式不对', 'err');
+                if (dt.getTime() < Date.now() - 60_000) return ui.toast('开始时间不能早于现在', 'err');
+                startAt = dt.toISOString();
+              }
+
+              btn.disabled = true;
+              btn.textContent = '创建中…';
+              try {
+                const res = await service.createMeeting({
+                  title,
+                  startAt: startAt || undefined,
+                  durationMin: dur,
+                  agenda,
+                  usePassword: Boolean(pass),
+                  password: pass,
+                });
+                close();
+                if (startAt) {
+                  ui.toast('会议已预约，可在「我的会议」查看', 'ok');
+                  ctx.nav('#/chat', { replace: true });
+                } else {
+                  ctx.nav(`#/meeting/${res.meeting.id}`);
+                }
+              } catch (err) {
+                ui.toast(err.message || '创建失败', 'err');
+                btn.disabled = false;
+                btn.textContent = '创建会议';
+              }
+            });
+          },
         });
-        try {
-          const res = await service.createMeeting({ title, durationMin: 60, usePassword });
-          ctx.nav(`#/meeting/${res.meeting.id}`);
-        } catch (err) {
-          ui.toast(err.message, 'err');
-        }
       });
       root.querySelector('#ct-new-room')?.addEventListener('click', async () => {
         const name = await ui.promptDialog({ title: '创建群聊', label: '群聊名称', placeholder: '例如：光伏项目对接群', okText: '创建' });
