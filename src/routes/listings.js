@@ -131,6 +131,15 @@ export default function registerListingRoutes(app) {
   app.post('/api/listings', async (req, res) => {
     const user = mustAuth(req);
     const body = req.body || {};
+
+    // 链接先校验，别等 createListing 落库了才抛错（会留下孤儿记录）
+    if (body.link !== undefined) {
+      const raw = String(body.link || '').trim().slice(0, 500);
+      if (raw && !/^https?:\/\/[^\s<>"']+$/i.test(raw)) {
+        throw httpError(400, '链接必须以 http:// 或 https:// 开头');
+      }
+    }
+
     const uploaded = await saveUploads(req, { ownerId: user.id, listingId: '' });
     // 复用前端预先上传的文件（配合 /api/files）
     const reused = list(body.fileIds).map((fid) => getFile(fid)).filter(Boolean);
@@ -156,12 +165,10 @@ export default function registerListingRoutes(app) {
     if (category === 'trade') patch.trade = { ...doc.trade, ...buildTrade(body) };
     if (category === 'project') patch.project = { ...doc.project, ...buildProject(body) };
     if (category === 'bounty') patch.bounty = { ...doc.bounty, ...buildBounty(body) };
-    // 相关链接（可选）：外部网页 / 官网 / 网盘等，只接受 http(s)
+    // 相关链接（可选）：外部网页 / 官网 / 网盘等
+    // 合法性已在入口校验过，这里只做落库
     if (body.link !== undefined) {
-      const raw = String(body.link || '').trim().slice(0, 500);
-      if (!raw) patch.link = '';
-      else if (/^https?:\/\/[^\s<>"']+$/i.test(raw)) patch.link = raw;
-      else throw httpError(400, '链接必须以 http:// 或 https:// 开头');
+      patch.link = String(body.link || '').trim().slice(0, 500);
     }
 
     // 内容段落（可选）：发布时可以加多段文字 + 图片
