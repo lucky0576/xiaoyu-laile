@@ -172,7 +172,8 @@ export function verifyServerSignature({ signature, timestamp, nonce, echostr }) 
  *  - link ：链接 + 标题文字（JS-SDK / 直接复制）
  */
 export function buildSharePayload({ listing, baseUrl }) {
-  const url = listing.shareUrl || `${baseUrl}/#/detail/${listing.id}`;
+  // 用路径式短链，微信/QQ 抓取时服务端才能吐出项目专属的 title / og 标签
+  const url = listing.shareUrl || `${baseUrl}/s/${listing.id}`;
   const title = listing.shareTitle || listing.title || '小鱼来了';
 
   /* ---------- 项目信息（结构化字段 + AI 提取的关键要素） ---------- */
