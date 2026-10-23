@@ -941,7 +941,8 @@ export async function renderDetail(ctx, params) {
             <div class="tiny dim center mt8" id="ai-req-hint"></div>
           </div>` : ''}
 
-          ${isOwner ? '<div id="ai-access-panel"></div>' : ''}
+          ${(isOwner || isAdmin) ? '<div id="file-access-panel"></div>' : ''}
+          ${(isOwner || isAdmin) ? '<div id="ai-access-panel"></div>' : ''}
 
           ${listing.gated ? '' : autoInfoCard(listing.autoInfo)}
 
@@ -956,7 +957,19 @@ export async function renderDetail(ctx, params) {
             <div class="small" style="white-space:pre-wrap;word-break:break-word;color:var(--text-2)">${ui.esc(listing.text || '（发布方未填写正文）')}</div>
           </div>
 
-          ${files.length ? (fileLocked ? `<div class="card card-pad" id="project-files">
+          ${listing.fileLocked ? `<div class="card card-pad" id="project-files">
+            <div class="file-locked">
+              <div class="file-locked-ico">🔐</div>
+              <div class="file-locked-txt">
+                <div class="strong">项目文件（${listing.fileCount || 0} 个）· 需发布方授权</div>
+                <div class="tiny dim mt4">项目资料默认仅发布方可见。管理员可直接查看；其他用户需向发布方申请，通过后才能打开。</div>
+              </div>
+            </div>
+            <div class="row gap8 mt12">
+              <button class="btn btn-primary grow" id="file-req" ${listing.fileRequested ? 'disabled' : ''}>${listing.fileRequested ? '已申请，等待发布方处理' : '申请查看文件'}</button>
+            </div>
+            <div class="tiny dim center mt8" id="file-req-hint">${listing.fileRequested ? '发布方处理后会通知你' : ''}</div>
+          </div>` : files.length ? (fileLocked ? `<div class="card card-pad" id="project-files">
             <div class="file-locked">
               <div class="file-locked-ico">🔒</div>
               <div class="file-locked-txt">
@@ -1062,6 +1075,87 @@ export async function renderDetail(ctx, params) {
     async mount(root) {
       const $ = (s) => root.querySelector(s);
 
+      /* ---------------- 附件查看授权 ---------------- */
+      const fileReqBtn = root.querySelector('#file-req');
+      if (fileReqBtn && !fileReqBtn.disabled) {
+        fileReqBtn.addEventListener('click', async () => {
+          fileReqBtn.disabled = true;
+          fileReqBtn.textContent = '提交中…';
+          try {
+            const r = await api.post(`/api/listings/${listing.id}/file-access/request`, {});
+            if (r.status === 'granted') {
+              ui.toast('你已有查看权限，刷新即可', 'ok');
+              setTimeout(() => ctx.nav(`#/detail/${listing.id}`, { replace: true }), 800);
+              return;
+            }
+            fileReqBtn.textContent = '已申请，等待发布方处理';
+            const hint = root.querySelector('#file-req-hint');
+            if (hint) hint.textContent = '发布方处理后会通知你';
+            ui.toast('申请已提交，等待发布方同意', 'ok');
+          } catch (err) {
+            ui.toast(err.message || '申请失败', 'err');
+            fileReqBtn.disabled = false;
+            fileReqBtn.textContent = '申请查看文件';
+          }
+        });
+      }
+
+      // 发布方：待处理附件申请
+      const filePanel = root.querySelector('#file-access-panel');
+      if (filePanel && (isOwner || isAdmin)) {
+        try {
+          const rr = await api.get(`/api/listings/${listing.id}/file-access/requests`);
+          const items = rr.items || [];
+          if (items.length) {
+            filePanel.innerHTML = `<div class="card card-pad mb12">
+              <div class="row between mb8">
+                <div class="strong">📁 附件查看权限</div>
+                <span class="badge ${rr.pendingCount ? 'warn' : 'gray'}">待处理 ${rr.pendingCount} / 已授权 ${rr.grantedCount}</span>
+              </div>
+              ${items.map((it) => `<div class="ai-grant-row">
+                <div>
+                  <div class="ai-grant-name">${ui.esc(it.name)}${it.company ? ` <span class="tiny dim">${ui.esc(it.company)}</span>` : ''}</div>
+                  <div class="tiny dim">${it.status === 'pending' ? '申请中' : it.status === 'approved' ? '已授权' : '已拒绝'} · ${String(it.at || '').slice(0, 16).replace('T', ' ')}</div>
+                </div>
+                <div class="row gap6">
+                  ${it.granted
+                    ? `<button class="btn btn-sm" data-frevoke="${ui.esc(it.userId)}">撤销</button>`
+                    : `<button class="btn btn-sm btn-primary" data-fallow="${ui.esc(it.userId)}">同意</button>
+                       <button class="btn btn-sm" data-fdeny="${ui.esc(it.userId)}">拒绝</button>`}
+                </div>
+              </div>`).join('')}
+            </div>`;
+
+            const frespond = async (userId, agree) => {
+              try {
+                await api.post(`/api/listings/${listing.id}/file-access/${encodeURIComponent(userId)}/respond`, { agree });
+                ui.toast(agree ? '已同意' : '已拒绝', 'ok');
+                ctx.nav(`#/detail/${listing.id}`, { replace: true });
+              } catch (err) {
+                ui.toast(err.message || '操作失败', 'err');
+              }
+            };
+            filePanel.querySelectorAll('[data-fallow]').forEach((b) => b.addEventListener('click', () => frespond(b.dataset.fallow, true)));
+            filePanel.querySelectorAll('[data-fdeny]').forEach((b) => b.addEventListener('click', () => frespond(b.dataset.fdeny, false)));
+            filePanel.querySelectorAll('[data-frevoke]').forEach((b) =>
+              b.addEventListener('click', async () => {
+                const ok = await ui.confirmDialog({ title: '撤销权限', message: '撤销后对方将不能查看项目文件', danger: true, okText: '撤销' });
+                if (!ok) return;
+                try {
+                  await api.post(`/api/listings/${listing.id}/file-access/${encodeURIComponent(b.dataset.frevoke)}/revoke`, {});
+                  ui.toast('已撤销', 'ok');
+                  ctx.nav(`#/detail/${listing.id}`, { replace: true });
+                } catch (err) {
+                  ui.toast(err.message || '操作失败', 'err');
+                }
+              })
+            );
+          }
+        } catch {
+          /* 忽略 */
+        }
+      }
+
       /* ---------------- AI 解析授权 ---------------- */
       const aiReqBtn = root.querySelector('#ai-req');
       if (aiReqBtn) {
@@ -1095,7 +1189,7 @@ export async function renderDetail(ctx, params) {
 
       // 发布方：待处理申请
       const panel = root.querySelector('#ai-access-panel');
-      if (panel && isOwner) {
+      if (panel && (isOwner || isAdmin)) {
         try {
           const rr = await api.get(`/api/listings/${listing.id}/ai-access/requests`);
           const items = rr.items || [];

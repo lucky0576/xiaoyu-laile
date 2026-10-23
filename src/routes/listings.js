@@ -683,6 +683,108 @@ export default function registerListingRoutes(app) {
     return data(res, { ok: true, agree });
   });
 
+
+  /* ---------------------------------------------------------------- */
+  /* 附件查看授权                                                      */
+  /*   默认只有发布方和管理员能看；其他人申请后由发布方决定              */
+  /* ---------------------------------------------------------------- */
+
+  /** 申请查看附件 */
+  app.post('/api/listings/:id/file-access/request', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+
+    const r = listingsSvc.requestFileAccess(l.id, user);
+    if (!r) throw httpError(404, '信息不存在');
+
+    if (r.first && l.ownerId && l.ownerId !== user.id) {
+      notifySvc.notify({
+        userId: l.ownerId,
+        type: 'system',
+        title: `有人申请查看项目附件：${String(l.title).slice(0, 20)}`,
+        body: `${user.nickname || '某位用户'} 申请查看该信息的附件，请到详情页处理。`,
+        link: `#/detail/${l.id}`,
+      });
+    }
+
+    return data(res, { status: r.status, repeat: Boolean(r.repeat) });
+  });
+
+  /** 我的附件授权状态 */
+  app.get('/api/listings/:id/file-access', (req, res) => {
+    const user = authUser(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    const isOwner = Boolean(user && user.id === l.ownerId);
+    const isAdmin = Boolean(user && user.isAdmin);
+    const granted = Boolean(user && (l.fileGrants || []).includes(user.id));
+    const pending = Boolean(
+      user && (l.fileRequests || []).some((x) => x.userId === user.id && x.status === 'pending')
+    );
+    return data(res, { isOwner, isAdmin, granted, pending, visible: isOwner || isAdmin || granted });
+  });
+
+  /** 发布方：附件申请列表 */
+  app.get('/api/listings/:id/file-access/requests', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    if (l.ownerId !== user.id && !user.isAdmin) return fail(res, '只有发布方可以查看', 403, 'forbidden');
+
+    const reqs = (l.fileRequests || []).slice().sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    const grants = l.fileGrants || [];
+    return data(res, {
+      items: reqs.map((r) => ({
+        userId: r.userId,
+        name: r.name || '用户',
+        company: r.company || '',
+        status: r.status,
+        at: r.at,
+        respondedAt: r.respondedAt || '',
+        note: r.note || '',
+        granted: grants.includes(r.userId),
+      })),
+      pendingCount: reqs.filter((r) => r.status === 'pending').length,
+      grantedCount: grants.length,
+    });
+  });
+
+  /** 发布方：同意 / 拒绝 */
+  app.post('/api/listings/:id/file-access/:userId/respond', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    if (l.ownerId !== user.id && !user.isAdmin) return fail(res, '只有发布方可以操作', 403, 'forbidden');
+
+    const agree = bool(req.body?.agree);
+    const note = str(req.body?.note, 200);
+    const r = listingsSvc.respondFileAccess(l.id, req.params.userId, agree, note);
+    if (!r || !r.ok) return fail(res, (r && r.reason) || '操作失败', 400, 'bad_request');
+
+    notifySvc.notify({
+      userId: req.params.userId,
+      type: 'system',
+      title: agree ? '附件查看申请已通过' : '附件查看申请未通过',
+      body: agree
+        ? `发布方已同意你查看「${String(l.title).slice(0, 20)}」的项目附件`
+        : note || '发布方暂未同意你查看该项目的附件',
+      link: `#/detail/${l.id}`,
+    });
+
+    return data(res, { ok: true, agree });
+  });
+
+  /** 发布方：撤销权限 */
+  app.post('/api/listings/:id/file-access/:userId/revoke', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    if (l.ownerId !== user.id && !user.isAdmin) return fail(res, '只有发布方可以操作', 403, 'forbidden');
+    listingsSvc.revokeFileAccess(l.id, req.params.userId);
+    return data(res, { ok: true });
+  });
+
   /** 发布方：撤销某人的查看权限 */
   app.post('/api/listings/:id/ai-access/:userId/revoke', (req, res) => {
     const user = mustAuth(req);

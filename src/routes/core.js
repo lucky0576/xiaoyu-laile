@@ -144,9 +144,20 @@ export default function registerCoreRoutes(app) {
     if (!f) throw httpError(404, '文件不存在');
     if (!fs.existsSync(f.path)) throw httpError(410, '文件已被清理');
 
-    // 保密文件：服务端拦截，没有密码根本不下发字节（不是前端遮罩）
     const ownerListing = f.listingId ? db.collection('listings').get(f.listingId) : null;
     const viewer = authUser(req);
+
+    // 项目附件：需要发布方授权（发布方本人 / 管理员 / 已授权用户除外）
+    // 注意：封面（含发布时自动生成的封面）不算附件，不受此限制
+    const filePermission = listingsSvc.canViewFile(f, viewer);
+    if (!filePermission.allowed) {
+      if (filePermission.reason === 'login_required') {
+        throw httpError(401, '登录后可申请查看附件', 'login_required');
+      }
+      throw httpError(403, '该附件需要发布方授权才能查看', 'file_need_approval');
+    }
+
+    // 保密文件：服务端拦截，没有密码根本不下发字节（不是前端遮罩）
     const access = filesecure.canAccessFile(ownerListing, { viewer, token: String(req.query.t || '') });
     if (!access.allowed) {
       throw httpError(403, '该文件已加密，请输入查看密码', 'file_locked');

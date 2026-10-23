@@ -84,6 +84,10 @@ export function listingPublic(l, viewer = null, opts = {}) {
 
   // 规则 2：AI 解析默认是发布方的内部参考。
   //        其他人需要发布方授权（l.aiGrants 记录已授权用户），未授权时只给主副标题。
+  // 附件授权（与 AI 解析授权相互独立）
+  const fileAccessGranted = Boolean(viewer && Array.isArray(l.fileGrants) && l.fileGrants.includes(viewer.id));
+  const fileUnlocked = Boolean(isOwner || isAdmin || fileAccessGranted);
+
   const aiGranted = Boolean(viewer && Array.isArray(l.aiGrants) && l.aiGrants.includes(viewer.id));
   const aiVisible = isOwner || isAdmin || aiGranted;
   const aiLocked = Boolean(l.ai && !aiVisible);
@@ -136,7 +140,14 @@ export function listingPublic(l, viewer = null, opts = {}) {
     // 未登录访客拿不到任何附件
     // l.files 存的是文件 ID 数组，必须解析成记录，否则 filePublic(字符串)
     // 会对字符串做解构，产出 {"0":"f","1":"_",...} 这种垃圾对象，前端渲染不出来
-    fileList: signedIn ? listFiles(l.files || []).map(filePublic) : [],
+    // 附件需要发布方授权才能查看；发布方 / 管理员 / 已授权用户才拿得到列表
+    fileList: signedIn && fileUnlocked ? listFiles(l.files || []).map(filePublic) : [],
+    fileVisible: fileUnlocked,
+    fileLocked: Boolean((l.files || []).length && !fileUnlocked),
+    fileGranted: fileAccessGranted,
+    fileRequested: Boolean(viewer && (l.fileRequests || []).some((r) => r.userId === viewer.id)),
+    fileRequestCount: (l.fileRequests || []).filter((r) => r.status === 'pending').length,
+    fileCount: (l.files || []).length,
 
     // 未登录只下发摘要级别的正文
     text: mask(signedIn ? l.text : summary.slice(0, 80)),
@@ -1482,7 +1493,98 @@ export function revokeAiAccess(listingId, targetUserId) {
   return listings().update(listingId, { aiGrants: grants });
 }
 
+/* ------------------------------------------------------------------ */
+/* 附件查看授权                                                        */
+/* ------------------------------------------------------------------ */
+
+/** 申请查看项目附件 */
+export function requestFileAccess(listingId, user) {
+  const l = listings().get(listingId);
+  if (!l) return null;
+  if (l.ownerId === user.id || user.isAdmin) return { status: 'owner' };
+  if ((l.fileGrants || []).includes(user.id)) return { status: 'granted' };
+
+  const reqs = Array.isArray(l.fileRequests) ? l.fileRequests.slice() : [];
+  const exist = reqs.find((r) => r.userId === user.id);
+  if (exist) {
+    if (exist.status === 'rejected') {
+      exist.status = 'pending';
+      exist.at = new Date().toISOString();
+      listings().update(listingId, { fileRequests: reqs });
+      return { status: 'pending', repeat: true };
+    }
+    return { status: exist.status === 'approved' ? 'granted' : 'pending' };
+  }
+
+  reqs.push({
+    userId: user.id,
+    name: user.nickname || '用户',
+    company: user.company || '',
+    status: 'pending',
+    at: new Date().toISOString(),
+  });
+  listings().update(listingId, { fileRequests: reqs });
+  return { status: 'pending', first: true };
+}
+
+/** 发布方：同意 / 拒绝附件查看申请 */
+export function respondFileAccess(listingId, targetUserId, agree, note = '') {
+  const l = listings().get(listingId);
+  if (!l) return null;
+
+  const reqs = Array.isArray(l.fileRequests) ? l.fileRequests.slice() : [];
+  const r = reqs.find((x) => x.userId === targetUserId);
+  if (!r) return { ok: false, reason: '找不到该申请' };
+
+  const grants = Array.isArray(l.fileGrants) ? l.fileGrants.slice() : [];
+  if (agree) {
+    r.status = 'approved';
+    r.respondedAt = new Date().toISOString();
+    if (!grants.includes(targetUserId)) grants.push(targetUserId);
+  } else {
+    r.status = 'rejected';
+    r.respondedAt = new Date().toISOString();
+    r.note = String(note || '').slice(0, 200);
+  }
+  const updated = listings().update(listingId, { fileRequests: reqs, fileGrants: grants });
+  return { ok: true, listing: updated, targetUserId, agree };
+}
+
+/** 发布方：撤销附件查看权限 */
+export function revokeFileAccess(listingId, targetUserId) {
+  const l = listings().get(listingId);
+  if (!l) return null;
+  const grants = (l.fileGrants || []).filter((id) => id !== targetUserId);
+  return listings().update(listingId, { fileGrants: grants });
+}
+
+/**
+ * 服务端校验：某个文件能不能给这个 viewer 看。
+ * 只有「该信息的上传附件」需要授权；封面（含自动生成封面）不受限。
+ */
+export function canViewFile(fileRecord, viewer) {
+  if (!fileRecord) return { allowed: false, reason: 'not_found' };
+  const listingId = fileRecord.listingId;
+  if (!listingId) return { allowed: true };
+  const l = listings().get(listingId);
+  if (!l) return { allowed: true };
+
+  // 不是这条信息的附件（例如自动生成封面）→ 放行
+  const isAttachment = Array.isArray(l.files) && l.files.includes(fileRecord.id);
+  if (!isAttachment) return { allowed: true };
+
+  if (!viewer) return { allowed: false, reason: 'login_required' };
+  if (viewer.id === l.ownerId) return { allowed: true };
+  if (viewer.isAdmin) return { allowed: true };
+  if (Array.isArray(l.fileGrants) && l.fileGrants.includes(viewer.id)) return { allowed: true };
+  return { allowed: false, reason: 'need_approval' };
+}
+
 export default {
+  requestFileAccess,
+  respondFileAccess,
+  revokeFileAccess,
+  canViewFile,
   requestAiAccess,
   respondAiAccess,
   revokeAiAccess,
