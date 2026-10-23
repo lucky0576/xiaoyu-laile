@@ -970,10 +970,14 @@ export async function renderDetail(ctx, params) {
             ${listing.blocks.map((b, i) => `<div class="detail-block">
               <div class="detail-block-t">段落 ${i + 1}</div>
               ${b.text ? `<div class="detail-block-b">${ui.nl2br(ui.esc(b.text))}</div>` : ''}
-              ${(b.images || []).length ? `<div class="detail-block-imgs">
-                ${b.images.map((fid) => {
+              ${(b.files || b.images || []).length ? `<div class="detail-block-imgs">
+                ${(b.files || b.images || []).map((fid) => {
                   const rec = (listing.fileList || []).find((x) => x.id === fid);
+                  const isImg = rec ? rec.kind === 'image' : true;
                   const url = rec ? ui.safeUrl(rec.url) : `/files/${ui.esc(fid)}/view`;
+                  if (!isImg) {
+                    return `<a class="chip" href="${ui.esc(url)}" target="_blank" rel="noopener">📎 ${ui.esc((rec && rec.name) || '附件')}</a>`;
+                  }
                   return `<img src="${ui.esc(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`;
                 }).join('')}
               </div>` : ''}

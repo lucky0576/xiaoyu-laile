@@ -179,7 +179,7 @@ export async function renderPublish(ctx, params) {
           <div class="strong">📝 内容段落（可选）</div>
           <span class="tiny dim">可加多段，每段独立配图</span>
         </div>
-        <div class="tiny dim mb12">正文写不下的细节、分项说明、图纸照片，可以分成多段补充，详情页按顺序展示。</div>
+        <div class="tiny dim mb12">正文写不下的细节、分项说明、图纸附件，可以分成多段补充，每段可拖入文件，详情页按顺序展示。</div>
         <div id="pub-blocks"></div>
         <button class="btn btn-sm btn-outline btn-block mt8" id="pub-block-add" type="button">＋ 添加一个段落</button>
       </div>
@@ -1092,24 +1092,38 @@ export async function renderPublish(ctx, params) {
       const blocks = [];
       const blocksHost = $('#pub-blocks');
 
+      const blockFileHtml = (f, bi, fi) => {
+        const rm = `<i class="pub-file-x" data-brm="${bi}:${fi}">×</i>`;
+        if (f.kind === 'image') {
+          return `<div class="pub-file-thumb">
+            <img src="${ui.esc(ui.safeUrl(f.url))}" alt="">
+            ${rm}
+          </div>`;
+        }
+        return `<span class="pub-file-chip">📎 ${ui.esc(f.name || '附件')}${rm}</span>`;
+      };
+
       const renderBlocks = () => {
         if (!blocksHost) return;
         blocksHost.innerHTML = blocks
           .map(
-            (b, i) => `<div class="pub-block" data-bi="${i}">
+            (b, i) => `<div class="pub-block" data-bi="${i}" data-bdrop="${i}">
               <div class="row between mb6">
                 <span class="tiny dim">段落 ${i + 1}</span>
-                <button class="btn btn-sm" data-bdel="${i}" type="button" style="color:var(--danger)">删除</button>
+                <button class="btn btn-sm" data-bdel="${i}" type="button" style="color:var(--danger)">删除段落</button>
               </div>
               <textarea class="input" data-btext="${i}" rows="3" maxlength="4000" placeholder="这一段的文字说明">${ui.esc(b.text || '')}</textarea>
-              <div class="row gap8 mt6" style="align-items:center">
-                <button class="btn btn-sm btn-outline" data-bpick="${i}" type="button">🖼️ 添加图片</button>
-                <span class="tiny dim" data-bstatus="${i}">${b.images.length ? b.images.length + ' 张图片' : '未选图片'}</span>
+              <div class="pub-drop mt6" data-bdropzone="${i}">
+                <div class="pub-drop-hint">📎 把文件拖到这里，或点下面按钮选择</div>
+                <div class="row gap8 mt6" style="align-items:center;justify-content:center">
+                  <button class="btn btn-sm btn-outline" data-bpick="${i}" type="button">选择文件</button>
+                  <span class="tiny dim" data-bstatus="${i}">${b.files.length ? b.files.length + ' 个文件' : '未添加文件'}</span>
+                </div>
               </div>
-              <div class="row wrap gap8 mt6" data-bimgs="${i}">
-                ${b.images.map((f) => `<img src="${ui.esc(ui.safeUrl(f.url))}" alt="" class="pub-block-img">`).join('')}
+              <div class="row wrap gap8 mt6" data-bfiles="${i}">
+                ${b.files.map((f, fi) => blockFileHtml(f, i, fi)).join('')}
               </div>
-              <input type="file" accept="image/*" multiple data-bfile="${i}" style="display:none">
+              <input type="file" multiple data-bfile="${i}" style="display:none">
             </div>`
           )
           .join('');
@@ -1117,7 +1131,7 @@ export async function renderPublish(ctx, params) {
 
       const addBlock = () => {
         if (blocks.length >= 10) return ui.toast('最多添加 10 个段落', 'err');
-        blocks.push({ text: '', images: [] });
+        blocks.push({ text: '', files: [] });
         renderBlocks();
       };
 
@@ -1134,6 +1148,12 @@ export async function renderPublish(ctx, params) {
           blocks.splice(Number(del.dataset.bdel), 1);
           return renderBlocks();
         }
+        const rm = e.target.closest('[data-brm]');
+        if (rm) {
+          const [bi, fi] = rm.dataset.brm.split(':').map(Number);
+          blocks[bi].files.splice(fi, 1);
+          return renderBlocks();
+        }
         const pick = e.target.closest('[data-bpick]');
         if (pick) {
           const input = blocksHost.querySelector(`[data-bfile="${pick.dataset.bpick}"]`);
@@ -1142,26 +1162,57 @@ export async function renderPublish(ctx, params) {
         }
       });
 
+      /** 往某个段落添加一批文件 */
+      const addFilesToBlock = async (i, fileList) => {
+        const list = [...(fileList || [])];
+        if (!list.length) return;
+        const st = blocksHost.querySelector(`[data-bstatus="${i}"]`);
+        if (st) st.textContent = `上传中 0/${list.length}…`;
+        let ok = 0;
+        for (const f of list.slice(0, 20 - blocks[i].files.length)) {
+          try {
+            const res = await api.uploadFile(f);
+            const rec = (res.files && res.files[0]) || res.file;
+            if (rec) {
+              blocks[i].files.push(rec);
+              ok++;
+            }
+          } catch (err) {
+            ui.toast(`${f.name} 上传失败`, 'err');
+          }
+          if (st) st.textContent = `上传中 ${ok}/${list.length}…`;
+        }
+        renderBlocks();
+        if (ok) ui.toast(`已添加 ${ok} 个文件`, 'ok');
+      };
+
       blocksHost?.addEventListener('change', async (e) => {
         const idx = e.target.dataset && e.target.dataset.bfile;
         if (idx === undefined) return;
-        const i = Number(idx);
-        const files = [...(e.target.files || [])];
-        if (!files.length) return;
-        const st = blocksHost.querySelector(`[data-bstatus="${i}"]`);
-        if (st) st.textContent = '上传中…';
-        try {
-          for (const f of files.slice(0, 9 - blocks[i].images.length)) {
-            const res = await api.uploadFile(f);
-            const rec = (res.files && res.files[0]) || res.file;
-            if (rec) blocks[i].images.push(rec);
-          }
-          renderBlocks();
-          ui.toast('图片已添加', 'ok');
-        } catch (err) {
-          ui.toast(err.message || '上传失败', 'err');
-          renderBlocks();
-        }
+        await addFilesToBlock(Number(idx), e.target.files);
+      });
+
+      /* 拖拽文件到段落 */
+      blocksHost?.addEventListener('dragover', (e) => {
+        const zone = e.target.closest('[data-bdropzone]');
+        if (!zone) return;
+        e.preventDefault();
+        zone.classList.add('dragging');
+      });
+      blocksHost?.addEventListener('dragleave', (e) => {
+        const zone = e.target.closest('[data-bdropzone]');
+        if (zone) zone.classList.remove('dragging');
+      });
+      blocksHost?.addEventListener('drop', async (e) => {
+        const zone = e.target.closest('[data-bdropzone]');
+        if (!zone) return;
+        e.preventDefault();
+        zone.classList.remove('dragging');
+        const bi = Number(zone.dataset.bdropzone);
+        if (Number.isNaN(bi)) return;
+        const dt = e.dataTransfer;
+        if (!dt || !dt.files || !dt.files.length) return;
+        await addFilesToBlock(bi, dt.files);
       });
 
       /* ---------------- 位置 ---------------- */
@@ -1244,8 +1295,8 @@ export async function renderPublish(ctx, params) {
           publish: publishNow ? '1' : '0',
           blocks: JSON.stringify(
             blocks
-              .map((b) => ({ text: (b.text || '').trim(), images: b.images.map((f) => f.id) }))
-              .filter((b) => b.text || b.images.length)
+              .map((b) => ({ text: (b.text || '').trim(), files: b.files.map((f) => f.id) }))
+              .filter((b) => b.text || b.files.length)
           ),
           location: $('#pub-use-loc')?.checked
             ? JSON.stringify({

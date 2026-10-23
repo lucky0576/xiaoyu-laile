@@ -164,13 +164,21 @@ export default function registerListingRoutes(app) {
           const now = new Date().toISOString();
           patch.blocks = raw
             .slice(0, 20)
-            .map((b) => ({
-              id: `bk_${Math.random().toString(36).slice(2, 10)}`,
-              text: String(b && b.text ? b.text : '').slice(0, 4000),
-              images: (Array.isArray(b && b.images) ? b.images : []).slice(0, 9).map(String),
-              at: now,
-            }))
-            .filter((b) => b.text || b.images.length);
+            .map((b) => {
+              // 兼容两种字段名：files 优先，旧数据用 images
+              const list = Array.isArray(b && b.files)
+                ? b.files
+                : Array.isArray(b && b.images)
+                  ? b.images
+                  : [];
+              return {
+                id: `bk_${Math.random().toString(36).slice(2, 10)}`,
+                text: String(b && b.text ? b.text : '').slice(0, 4000),
+                files: list.slice(0, 20).map(String),
+                at: now,
+              };
+            })
+            .filter((b) => b.text || b.files.length);
         }
       } catch {
         /* 段落格式错误不影响发布 */

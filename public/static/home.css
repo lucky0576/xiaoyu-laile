@@ -459,3 +459,44 @@
   width: 100%; aspect-ratio: 1; object-fit: cover;
   border-radius: 10px; background: #f1f5fa; border: 1px solid var(--line);
 }
+
+/* 发布页：段落文件拖拽区 */
+.pub-drop {
+  border: 1px dashed #c9d8ea;
+  border-radius: 10px;
+  padding: 12px 10px;
+  background: #f8fbfe;
+  transition: border-color .15s, background .15s;
+}
+.pub-drop.dragging {
+  border-color: var(--brand);
+  background: #eef6ff;
+  border-style: solid;
+}
+.pub-drop-hint { font-size: 12px; color: var(--muted); text-align: center; }
+
+.pub-file-thumb {
+  position: relative;
+  width: 64px; height: 64px;
+  border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--line);
+  background: #f1f5fa;
+}
+.pub-file-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.pub-file-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; padding: 5px 9px;
+  background: #f4f7fb; border: 1px solid var(--line);
+  border-radius: 8px; max-width: 240px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.pub-file-x {
+  font-style: normal; cursor: pointer;
+  width: 16px; height: 16px; line-height: 15px; text-align: center;
+  border-radius: 50%; background: rgba(0,0,0,.45); color: #fff;
+  font-size: 12px; flex: none;
+}
+.pub-file-thumb .pub-file-x { position: absolute; top: 2px; right: 2px; }
+.pub-file-chip .pub-file-x { background: #d8e2ee; color: #55627a; }
