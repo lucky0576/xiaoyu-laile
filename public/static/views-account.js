@@ -1724,7 +1724,7 @@ export async function renderAdminAi(ctx) {
       <div id="ai-result" class="mt12"></div>
     </div>
 
-    ${capCard('vis', '👁️ 视觉理解（看画面）', visInfo, '智谱 GLM-4V-Flash —— 完全免费', 'https://open.bigmodel.cn/api/paas/v4', 'glm-4v-flash', '在 bigmodel.cn 注册 → 控制台 → API Key → 复制<b>完整</b>的 key（形如 <code>xxxxxxxx.yyyyyyyy</code>，中间有个点）')}
+    ${capCard('vis', '👁️ 视觉理解（看画面）', visInfo, '推荐：直接用硅基流动的视觉模型（和语音共用一个 key）', 'https://api.siliconflow.cn/v1', 'Qwen/Qwen3-VL-8B-Instruct', '方案 A（推荐）：接口填 <code>https://api.siliconflow.cn/v1</code>，模型填 <code>Qwen/Qwen3-VL-8B-Instruct</code>，key 用下面语音那个硅基流动 key 即可，<b>一个 key 两件事</b>。<br>方案 B：用智谱，接口 <code>https://open.bigmodel.cn/api/paas/v4</code>，模型 <code>glm-4v-flash</code>，key 形如 <code>xxxxxxxx.yyyyyyyy</code>（中间有个点，要注意复制完整）')}
 
     ${capCard('asr', '🎧 语音转写（听声音）', asrInfo, '硅基流动 SenseVoice —— 注册送额度', 'https://api.siliconflow.cn/v1', 'FunAudioLLM/SenseVoiceSmall', '在 siliconflow.cn 注册 → 控制台 → API 密钥 → 新建，形如 <code>sk-xxxx</code>')}
 

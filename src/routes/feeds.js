@@ -114,7 +114,7 @@ export default function registerFeedRoutes(app) {
 
     // 前端抽的画面帧（data URL），交给视觉模型识别
     const frames = Array.isArray(req.body?.frames)
-      ? req.body.frames.filter((x) => typeof x === 'string' && x.startsWith('data:image')).slice(0, 4)
+      ? req.body.frames.filter((x) => typeof x === 'string' && (x.startsWith('data:image') || x.startsWith('http'))).slice(0, 4)
       : [];
     const transcript = str(req.body?.transcript, 4000);
 
