@@ -573,3 +573,94 @@
 @media (max-width: 480px) {
   .topic-grid { grid-template-columns: 1fr; }
 }
+
+
+/* ================================================================== */
+/* 横向栏：统一「看不到就滑动」                                          */
+/* ================================================================== */
+
+/* 通用横滑容器：隐藏滚动条、支持惯性、右侧渐隐提示可滑动 */
+.hscroll,
+.home-scroll,
+.chips.scroll,
+.tabbar.scrollable {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+}
+.hscroll::-webkit-scrollbar,
+.home-scroll::-webkit-scrollbar,
+.chips.scroll::-webkit-scrollbar,
+.tabbar.scrollable::-webkit-scrollbar {
+  display: none;
+}
+
+/* 右侧渐隐：暗示右边还有内容 */
+.hscroll,
+.home-scroll,
+.chips.scroll {
+  position: relative;
+  padding-right: 18px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0) calc(100% - 26px), rgba(255, 255, 255, .95) 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+/* 滑到最右时渐隐消失（由 JS 加 .at-end） */
+.hscroll.at-end,
+.home-scroll.at-end,
+.chips.scroll.at-end {
+  background-image: none;
+}
+
+/* ---------------- 会议控制栏：单行横滑 ---------------- */
+.mt-bar {
+  flex:none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 8px 10px calc(8px + var(--safe-b));
+  background: #1b1f27;
+  border-top: 1px solid #262b35;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.mt-bar::-webkit-scrollbar { display: none; }
+.mt-btn { flex: none; }
+
+/* ---------------- 分区标题：右侧说明不被挤压 ---------------- */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.section-head > span,
+.section-head > .tiny {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+}
+
+/* ---------------- 列表标题行：徽标不挤压标题 ---------------- */
+.item-title { flex-wrap: wrap; row-gap: 4px; }
+
+/* ---------------- 底部导航：多于 5 项时可滑动 ---------------- */
+.tabbar.scrollable {
+  display: flex;
+  justify-content: center;
+  grid-template-columns: none;
+}
+.tabbar.scrollable a {
+  flex: 0 0 auto;
+  min-width: 66px;
+}

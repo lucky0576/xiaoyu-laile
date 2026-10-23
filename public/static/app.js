@@ -84,6 +84,38 @@ function topbarAuth() {
     <a href="#/me" aria-label="我的" style="flex:none">${ui.avatarHtml(state.user, 'sm')}</a>`;
 }
 
+/* ------------------------------------------------------------------ */
+/* 横向栏：滑到最右时去掉渐隐提示                                        */
+/* ------------------------------------------------------------------ */
+export function bindHScroll(root = document) {
+  const els = root.querySelectorAll('.hscroll, .home-scroll, .chips.scroll');
+  els.forEach((el) => {
+    const sync = () => {
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+      el.classList.toggle('at-end', atEnd);
+    };
+    if (el.scrollWidth <= el.clientWidth + 4) {
+      el.classList.add('at-end');
+    }
+    el.addEventListener('scroll', sync, { passive: true });
+    // 内容异步渲染后再同步一次
+    setTimeout(sync, 300);
+  });
+}
+
+/* 底部导航项过多时改为可横向滑动 */
+function syncTabbar() {
+  const bar = document.querySelector('.tabbar');
+  if (!bar) return;
+  const links = bar.querySelectorAll('a');
+  bar.style.gridTemplateColumns = '';
+  if (links.length > 5) {
+    bar.classList.add('scrollable');
+  } else {
+    bar.classList.remove('scrollable');
+  }
+}
+
 export function shell({ title = '', content = '', activeTab = '', showBack = false, actions = '', noTab = false, fullscreen = false, cls = '' } = {}) {
   const isHome = activeTab === 'home';
   const titleText = title || state.site?.name || '小鱼来了';
@@ -143,6 +175,7 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
 /* 交互绑定                                                            */
 /* ------------------------------------------------------------------ */
 function bindShell(root) {
+  try { bindHScroll(root); syncTabbar(); } catch { /* ignore */ }
   root.querySelector('#nav-back')?.addEventListener('click', () => back());
 }
 
