@@ -145,18 +145,22 @@ async function renderPublishMedia(ctx, type, taxonomy) {
     <div class="card card-pad mt12">
       <div class="strong mb8">2. ${isLive ? '创建直播间' : '上传短视频'}</div>
 
-      <div class="field">
-        <div class="row between" style="align-items:baseline">
-          <label>标题 <span class="tiny dim">（留空则由 AI 生成）</span></label>
+      <div class="pub-title-box mt12">
+        <div class="row between mb8">
+          <div class="strong" style="font-size:13.5px">📝 发布标题</div>
           <button class="btn btn-sm btn-outline" id="pm-ai" type="button" style="font-size:11.5px;padding:3px 10px">🤖 AI 生成</button>
         </div>
-        <input class="input" id="pm-title" maxlength="80" placeholder="${isLive ? '例如：东营 200MW 光伏项目现场直播' : '例如：200MW 光伏电站现场实拍'}">
-        <div class="tiny dim mt6 hide" id="pm-ai-hint"></div>
-        <div class="chips mt8 hide" id="pm-ai-alts"></div>
-      </div>
-      <div class="field">
-        <label>副标题 <span class="tiny dim">（选填）</span></label>
-        <input class="input" id="pm-subtitle" maxlength="120" placeholder="一句话补充，会显示在首页轮播">
+        <div class="field">
+          <label>主标题</label>
+          <input class="input" id="pm-title" maxlength="80" placeholder="${isLive ? '例如：东营 200MW 光伏项目现场直播' : '例如：200MW 光伏电站现场实拍'}">
+          <div class="tiny dim mt6 hide" id="pm-ai-hint"></div>
+          <div class="chips mt8 hide" id="pm-ai-alts"></div>
+        </div>
+        <div class="field">
+          <label>副标题 <span class="tiny dim">（选填）</span></label>
+          <input class="input" id="pm-subtitle" maxlength="120" placeholder="一句话补充，会显示在首页轮播">
+        </div>
+        <div class="tiny dim">这两项会作为信息标题显示，留空由 AI 生成。</div>
       </div>
 
       <div class="url-import mb12">
