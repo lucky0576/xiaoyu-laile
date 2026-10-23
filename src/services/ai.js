@@ -1383,6 +1383,83 @@ export async function ocrImages({ images = [], prompt = '', perImage = 6 } = {})
   return { ok: true, text: out.join('\n\n'), count: done, total: list.length, partial: done < list.length };
 }
 
+
+/* ------------------------------------------------------------------ */
+/* 从一段文字里提取联系信息                                            */
+/* ------------------------------------------------------------------ */
+
+/** 先用正则捞手机号/微信号，可靠且免费；姓名与企业名再交给模型 */
+function regexContact(text) {
+  const t = String(text || '');
+  // 手机号：允许中间有空格或横线
+  const phoneM =
+    t.match(/(?:\+?86[-\s]?)?(1[3-9]\d)[-\s]?(\d{4})[-\s]?(\d{4})/) ||
+    t.match(/(0\d{2,3})[-\s]?(\d{7,8})/);
+  const phone = phoneM ? phoneM.slice(1).filter(Boolean).join('') : '';
+
+  let wechat = '';
+  const wxLabel = t.match(/(?:微信|wechat|weixin|vx|v信|威信)[号：:\s]*([A-Za-z][-_A-Za-z0-9]{5,19})/i);
+  if (wxLabel) wechat = wxLabel[1];
+
+  // 「微信同号」「微信同手机」这类说法，直接把手机号当微信号
+  if (!wechat && phone && /微信[^。；;，,\n]{0,6}(同号|同手机|即手机|同)/.test(t)) {
+    wechat = phone;
+  }
+
+  return { phone, wechat };
+}
+
+export async function extractContactInfo({ text = '' } = {}) {
+  const src = String(text || '').trim().slice(0, 2000);
+  if (!src) return { ok: false, note: '没有可识别的文字', name: '', phone: '', wechat: '', company: '' };
+
+  const rx = regexContact(src);
+
+  if (!aiConfigured()) {
+    return { ok: Boolean(rx.phone || rx.wechat), ...rx, name: '', company: '', source: 'regex' };
+  }
+
+  const user = `从下面这段文字里提取联系信息。只输出 JSON，不要解释：
+{"name":"联系人姓名","phone":"手机号或座机号","wechat":"微信号","company":"企业全称"}
+
+规则：
+1. 找不到的字段给空字符串，不要编造；
+2. name 只填人名（如「张工」「李经理」「王总」），不要带职务后缀之外的修饰；
+3. company 填完整的企业/单位名称，没有就留空；
+4. phone 优先手机号，保留 11 位数字，不要带空格横线；
+5. wechat 只填微信号本身，不要把手机号当微信号。
+
+文字：
+"""${src}"""`;
+
+  try {
+    const raw = await chat(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: user },
+      ],
+      { json: true, temperature: 0.1 },
+    );
+    const j = extractJson(raw) || {};
+    const out = {
+      name: String(j.name || '').trim().slice(0, 20),
+      phone: String(j.phone || '').replace(/[^\d]/g, '').slice(0, 20) || rx.phone,
+      wechat: String(j.wechat || '').trim().slice(0, 40) || rx.wechat,
+      company: String(j.company || '').trim().slice(0, 60),
+      source: 'ai',
+    };
+    const ok = Boolean(out.name || out.phone || out.wechat || out.company);
+    return { ok, ...out, note: ok ? '' : '没识别到联系信息' };
+  } catch (err) {
+    return {
+      ok: Boolean(rx.phone || rx.wechat),
+      name: '', company: '', ...rx,
+      source: 'regex',
+      note: `AI 识别失败，已用规则提取：${err.message}`,
+    };
+  }
+}
+
 export function asrConfigured() {
   try {
     return settingsSvc.effectiveAsrConfig().enabled;
@@ -1768,6 +1845,7 @@ export function aiStatus() {
 }
 
 export default {
+  extractContactInfo,
   ocrImages,
   visionDescribe,
   speechToText,

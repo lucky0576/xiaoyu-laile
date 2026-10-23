@@ -721,6 +721,19 @@ export async function renderPublish(ctx, params) {
 
       <div id="pub-cat-fields"></div>
 
+      <div class="contact-ai mb12">
+        <div class="row between mb6">
+          <div class="strong" style="font-size:13px">📇 粘贴文字，自动填联系人</div>
+          <span class="tiny dim">AI 识别</span>
+        </div>
+        <textarea class="input" id="pub-contact-src" rows="2" maxlength="2000"
+          placeholder="把名片、微信签名、聊天记录，或带联系方式的文字粘到这里，例如：&#10;联系人 张工 13800001234 微信 zhanggong888 山东鲁能新能源工程有限公司"></textarea>
+        <div class="row gap8 mt8" style="align-items:center">
+          <button class="btn btn-sm btn-primary" id="pub-contact-ai" type="button">🤖 识别并填入</button>
+          <span class="tiny dim" id="pub-contact-ai-tip"></span>
+        </div>
+      </div>
+
       <div class="field">
         <label>联系人</label>
         <input class="input" id="pub-contact-name" placeholder="称呼" value="${ui.esc(editing?.contact?.name || ctx.state.user?.nickname || '')}">
@@ -1564,6 +1577,66 @@ export async function renderPublish(ctx, params) {
         durationDays = Number(chip.dataset.days);
         root.querySelectorAll('#pub-duration-chips .chip').forEach((el) => el.classList.toggle('active', el === chip));
       });
+
+      /* ---------------- 联系人智能识别 ---------------- */
+      const contactAiBtn = $('#pub-contact-ai');
+      if (contactAiBtn) {
+        const tip = $('#pub-contact-ai-tip');
+        const say = (msg, color) => {
+          if (!tip) return;
+          tip.textContent = msg || '';
+          tip.style.color = color || '';
+        };
+
+        contactAiBtn.addEventListener('click', async () => {
+          const src = ($('#pub-contact-src')?.value || '').trim();
+          if (!src) { say('请先粘贴一段文字', '#c0392b'); return; }
+
+          contactAiBtn.disabled = true;
+          contactAiBtn.textContent = '识别中…';
+          say('正在识别…');
+          try {
+            const r = await service.aiContact(src);
+            if (!r || !r.ok) {
+              say(r?.note || '没识别到联系信息', '#c0392b');
+              return;
+            }
+            const setIfEmpty = (sel, val) => {
+              if (!val) return false;
+              const el = $(sel);
+              if (!el) return false;
+              if (!el.value.trim()) { el.value = val; return true; }
+              return false;
+            };
+            let filled = 0;
+            if (setIfEmpty('#pub-contact-name', r.name)) filled++;
+            if (setIfEmpty('#pub-phone', r.phone)) filled++;
+            if (setIfEmpty('#pub-wechat', r.wechat)) filled++;
+            if (setIfEmpty('#pub-company', r.company)) filled++;
+
+            const parts = [];
+            if (r.name) parts.push(`联系人 ${r.name}`);
+            if (r.phone) parts.push(`电话 ${r.phone}`);
+            if (r.wechat) parts.push(`微信 ${r.wechat}`);
+            if (r.company) parts.push(`企业 ${r.company}`);
+
+            if (filled) {
+              say(`✅ 已填入：${parts.join(' · ')}`, '#0e8f5f');
+              ui.toast('已自动填入联系信息', 'ok');
+            } else if (parts.length) {
+              // 字段原本就有内容，不覆盖
+              say(`识别到：${parts.join(' · ')}（原有内容未覆盖）`, '');
+            } else {
+              say('没识别到联系信息', '#c0392b');
+            }
+          } catch (err) {
+            say(err.message || '识别失败', '#c0392b');
+          } finally {
+            contactAiBtn.disabled = false;
+            contactAiBtn.textContent = '🤖 识别并填入';
+          }
+        });
+      }
 
       /* ---------------- 内容段落 ---------------- */
       const blocks = [];

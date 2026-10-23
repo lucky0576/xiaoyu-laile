@@ -473,6 +473,18 @@ export default function registerCoreRoutes(app) {
     });
   });
 
+  /** 从一段文字里识别联系人 / 电话 / 微信 / 企业名 */
+  app.post('/api/ai/contact', async (req, res) => {
+    const rl = rateLimit(`aic:${clientIp(req)}`, 30, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const text = str(req.body?.text, 2000);
+    if (!text.trim()) return fail(res, '请先粘贴一段包含联系方式的文字', 400, 'empty');
+
+    const r = await ai.extractContactInfo({ text });
+    return data(res, r);
+  });
+
   /* ---------------------------------------------------------------- */
   /* 实时事件流（SSE）                                                  */
   /* ---------------------------------------------------------------- */

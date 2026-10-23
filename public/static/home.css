@@ -1224,3 +1224,17 @@ body.shorts-mode #wx-tip { display: none !important; }
 @media (min-width: 720px) {
   .home-shorts-dots { display: none; }
 }
+
+
+/* 发布页：联系人智能识别 */
+.contact-ai {
+  background: #f7fbff;
+  border: 1px solid #e2ecf9;
+  border-radius: 12px;
+  padding: 12px;
+}
+.contact-ai textarea {
+  background: #fff;
+  resize: vertical;
+  min-height: 62px;
+}
