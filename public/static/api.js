@@ -513,6 +513,7 @@ export const service = {
   feedShare: (id) => api.get(`/api/feeds/${id}/share`),
   feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
   aiContact: (text) => api.post('/api/ai/contact', { text }),
+  aiFetchUrl: (url) => api.post('/api/ai/fetch-url', { url }),
   feedTranscribe: (fd, opts) => api.upload('/api/feeds/transcribe', fd, opts),
 
   providers: (query) => api.get('/api/providers', query),

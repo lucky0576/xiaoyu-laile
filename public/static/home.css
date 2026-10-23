@@ -1238,3 +1238,25 @@ body.shorts-mode #wx-tip { display: none !important; }
   resize: vertical;
   min-height: 62px;
 }
+
+
+/* 发布页：从链接导入 */
+.url-import {
+  background: #f7fbff;
+  border: 1px solid #e2ecf9;
+  border-radius: 12px;
+  padding: 12px;
+}
+.url-import .input { background: #fff; }
+.url-import-result {
+  background: #fff;
+  border: 1px solid #e2ecf9;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.uir-head { font-size: 12.5px; font-weight: 700; color: #1f5fa8; }
+.uir-body {
+  font-size: 12px; color: var(--text-2); line-height: 1.65; margin-top: 6px;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.uir-foot { font-size: 11px; color: var(--muted); margin-top: 6px; }

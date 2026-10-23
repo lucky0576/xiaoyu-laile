@@ -473,6 +473,20 @@ export default function registerCoreRoutes(app) {
     });
   });
 
+  /** 导入链接：抓取网页并抽出正文 */
+  app.post('/api/ai/fetch-url', async (req, res) => {
+    const rl = rateLimit(`url:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const url = str(req.body?.url, 800);
+    if (!url.trim()) return fail(res, '请填写链接', 400, 'empty');
+
+    const webMod = await import('../lib/webpage.js');
+    const r = await webMod.fetchWebpage(url);
+    if (!r.ok) return data(res, r);
+    return data(res, r);
+  });
+
   /** 从一段文字里识别联系人 / 电话 / 微信 / 企业名 */
   app.post('/api/ai/contact', async (req, res) => {
     const rl = rateLimit(`aic:${clientIp(req)}`, 30, 60_000);

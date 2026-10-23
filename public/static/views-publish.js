@@ -587,6 +587,19 @@ export async function renderPublish(ctx, params) {
         <input class="input" id="pub-link" maxlength="500" placeholder="https://" value="${ui.esc(editing?.link || '')}">
         <div class="tiny dim mt4" id="pub-link-hint">以 http:// 或 https:// 开头，发布后会显示成可点击的链接</div>
       </div>
+
+      <div class="url-import mb12">
+        <div class="row between mb6">
+          <div class="strong" style="font-size:13px">🔗 从链接导入正文</div>
+          <span class="tiny dim">自动抓取并解析</span>
+        </div>
+        <div class="row gap8" style="align-items:center">
+          <input class="input grow" id="pub-url-src" maxlength="800" placeholder="粘贴招标公告 / 新闻 / 公众号文章链接">
+          <button class="btn btn-sm btn-primary" id="pub-url-import" type="button" style="flex:none">导入</button>
+        </div>
+        <div class="tiny dim mt6" id="pub-url-tip">抓取后会解析出正文，接着点「第一步：AI 汇总资料」即可</div>
+        <div id="pub-url-result" class="mt8"></div>
+      </div>
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
 山东东营 200MW 渔光互补光伏电站 EPC 总承包招标
 总投资约 8.6 亿元，工期 14 个月
@@ -1504,8 +1517,9 @@ export async function renderPublish(ctx, params) {
       };
 
       $('#pub-summarize').addEventListener('click', async () => {
-        const text = $('#pub-text').value.trim();
-        if (!text && !uploaded.length) return ui.toast('请先输入文字内容或导入文件', 'err');
+        const rawText = $('#pub-text').value.trim();
+        const text = importedText ? `${rawText}\n\n【从链接导入的正文】\n${importedText}` : rawText;
+        if (!text && !uploaded.length) return ui.toast('请先输入文字、导入文件或链接', 'err');
         const btn = $('#pub-summarize');
         btn.disabled = true;
         btn.textContent = 'AI 正在汇总资料…';
@@ -1528,7 +1542,8 @@ export async function renderPublish(ctx, params) {
 
       /* ---------------- 第二步：生成项目信息 ---------------- */
       $('#pub-ai').addEventListener('click', async () => {
-        const text = $('#pub-text').value.trim();
+        const rawText2 = $('#pub-text').value.trim();
+        const text = importedText ? `${rawText2}\n\n【从链接导入的正文】\n${importedText}` : rawText2;
         if (!text && !uploaded.length) return ui.toast('请先输入文字内容或导入文件', 'err');
         const btn = $('#pub-ai');
         btn.disabled = true;
@@ -1589,6 +1604,58 @@ export async function renderPublish(ctx, params) {
         durationDays = Number(chip.dataset.days);
         root.querySelectorAll('#pub-duration-chips .chip').forEach((el) => el.classList.toggle('active', el === chip));
       });
+
+      /* ---------------- 从链接导入正文 ---------------- */
+      let importedText = '';
+      const urlBtn = $('#pub-url-import');
+      if (urlBtn) {
+        const tip = $('#pub-url-tip');
+        const box = $('#pub-url-result');
+        const say = (msg, color) => {
+          if (!tip) return;
+          tip.textContent = msg || '';
+          tip.style.color = color || '';
+        };
+
+        urlBtn.addEventListener('click', async () => {
+          const url = ($('#pub-url-src')?.value || '').trim();
+          if (!url) { say('请先粘贴链接', '#c0392b'); return; }
+          if (!/^https?:\/\//i.test(url)) { say('链接要以 http:// 或 https:// 开头', '#c0392b'); return; }
+
+          urlBtn.disabled = true;
+          urlBtn.textContent = '抓取中…';
+          say('正在抓取网页并解析正文…');
+          if (box) box.innerHTML = '';
+          try {
+            const r = await service.aiFetchUrl(url);
+            if (!r || !r.ok) {
+              say(r?.note || '解析失败', '#c0392b');
+              return;
+            }
+            importedText = r.text || '';
+            // 顺手把「相关链接」也填上（用户没填的话）
+            const linkEl = $('#pub-link');
+            if (linkEl && !linkEl.value.trim()) {
+              linkEl.value = r.url || url;
+              linkEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            say(`✅ 已解析 ${r.chars} 字，点下面「第一步：AI 汇总资料」继续`, '#0e8f5f');
+            if (box) {
+              box.innerHTML = `<div class="url-import-result">
+                <div class="uir-head">📄 ${ui.esc(r.title || '已导入')}</div>
+                <div class="uir-body">${ui.esc((r.text || '').slice(0, 400))}${(r.text || '').length > 400 ? ' …' : ''}</div>
+                <div class="uir-foot">共 ${r.chars} 字 · 来自 ${ui.esc(r.host || '')}</div>
+              </div>`;
+            }
+            ui.toast('链接已解析', 'ok');
+          } catch (err) {
+            say(err.message || '抓取失败', '#c0392b');
+          } finally {
+            urlBtn.disabled = false;
+            urlBtn.textContent = '导入';
+          }
+        });
+      }
 
       /* ---------------- 联系人智能识别 ---------------- */
       const contactAiBtn = $('#pub-contact-ai');
