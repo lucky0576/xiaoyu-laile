@@ -340,7 +340,25 @@ export default function registerCoreRoutes(app) {
     const category = ['project', 'bounty', 'event', 'trade'].includes(body.category) ? body.category : 'project';
     // 附件正文要尽量完整地交给 AI：长文档由 summarizeProject 分块处理，
     // 这里不要先截断（旧值 14000 会把 3 万字的 PDF 砍掉一半以上）
-    const fileText = aggregateText(files, 200000);
+    let fileText = aggregateText(files, 200000);
+
+    // 只上传了图片（微信截图 / 文件截图 / 照片）时，文档正文是空的，
+    // 这里用视觉模型把图里的文字读出来，否则 AI 什么都不知道。
+    const images = files.filter((f) => f && f.kind === 'image' && f.url);
+    if (images.length && fileText.trim().length < 200) {
+      try {
+        const aiMod = await import('../services/ai.js');
+        const ocr = await aiMod.ocrImages({
+          images: images.slice(0, 6).map((f) => `${baseUrl(req)}${f.url}`),
+        });
+        if (ocr.ok && ocr.text) {
+          fileText = `${fileText ? fileText + '\n\n' : ''}【图片文字识别（共 ${ocr.count} 张）】\n${ocr.text}`;
+        }
+      } catch {
+        /* OCR 失败不影响主流程 */
+      }
+    }
+
     return {
       user,
       files,

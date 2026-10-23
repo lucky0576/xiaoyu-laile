@@ -1283,6 +1283,43 @@ export async function visionDescribe({ images = [], prompt = '' } = {}) {
 /* 语音转写（硅基流动 SenseVoice）                                      */
 /* ------------------------------------------------------------------ */
 
+
+/* ------------------------------------------------------------------ */
+/* 图片文字识别（OCR）                                                  */
+/*   只上传了图片（微信截图 / 文件截图 / 照片）时用：                    */
+/*   让视觉模型把图里的文字逐字读出来，拼进 fileText 再交给标题/解析模型  */
+/* ------------------------------------------------------------------ */
+
+const OCR_PROMPT =
+  '这是一份项目资料中的图片（可能是微信聊天截图、文件截图、报价单、图纸或照片）。请：\n' +
+  '1. 把图中所有可见文字逐字提取出来，保持原有先后顺序和分段，不要总结、不要改写、不要漏行；\n' +
+  '2. 如果有表格，按「字段：值」的形式逐行列出；\n' +
+  '3. 如果图中几乎没有文字，就用一两句话描述画面里是什么；\n' +
+  '4. 只输出提取到的内容本身，不要加「以下是文字」这类开场白。';
+
+/**
+ * 批量识别图片里的文字。
+ * @param {{ images: string[], prompt?: string, perImage?: number }} input
+ * @returns {Promise<{ ok: boolean, text: string, count: number, note?: string }>}
+ */
+export async function ocrImages({ images = [], prompt = '', perImage = 6 } = {}) {
+  const list = (images || []).filter(Boolean).slice(0, Math.max(1, Math.min(9, perImage)));
+  if (!list.length) return { ok: false, text: '', count: 0, note: '没有图片' };
+  if (!visionConfigured()) return { ok: false, text: '', count: 0, note: '未配置视觉模型' };
+
+  const out = [];
+  let done = 0;
+  for (let i = 0; i < list.length; i++) {
+    const r = await visionDescribe({ images: [list[i]], prompt: prompt || OCR_PROMPT });
+    if (r.ok && r.text) {
+      done += 1;
+      out.push(`【图片 ${i + 1}】\n${r.text}`);
+    }
+  }
+  if (!out.length) return { ok: false, text: '', count: 0, note: '图片里没有识别到可用内容' };
+  return { ok: true, text: out.join('\n\n'), count: done };
+}
+
 export function asrConfigured() {
   try {
     return settingsSvc.effectiveAsrConfig().enabled;
@@ -1668,6 +1705,7 @@ export function aiStatus() {
 }
 
 export default {
+  ocrImages,
   visionDescribe,
   speechToText,
   visionConfigured,
