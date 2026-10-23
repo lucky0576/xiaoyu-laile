@@ -522,6 +522,10 @@ export async function renderDetail(ctx, params) {
 
   const cases = casesRes?.cases || null;
 
+  // 权限判断：isOwner 来自接口返回，isAdmin 从当前登录用户取
+  const isAdmin = Boolean(ctx.state.user?.isAdmin);
+
+
   // 本地已有解锁令牌时先验证一次，避免每次刷新都重输密码。
   // 令牌过期或无效就清掉，让用户重新输入。
   if (listing.fileSecret?.enabled && !listing.fileSecret.unlocked) {
