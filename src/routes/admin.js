@@ -200,4 +200,43 @@ export default function registerAdminRoutes(app) {
       apiKey: b.apiKey,
     }));
   });
+
+  /* 视觉 / 语音：管理端在线配置 */
+  app.get('/api/admin/vision', (req, res) => {
+    requireAdmin(req);
+    return data(res, settingsSvc.visionSettingsPublic());
+  });
+
+  app.put('/api/admin/vision', (req, res) => {
+    requireAdmin(req);
+    const b = req.body || {};
+    return data(res, settingsSvc.saveVisionSettings({ baseUrl: b.baseUrl, model: b.model, apiKey: b.apiKey }));
+  });
+
+  app.post('/api/admin/vision/test', async (req, res) => {
+    requireAdmin(req);
+    const rl = rateLimit(`vtest:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) return fail(res, `测试过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    const b = req.body || {};
+    return data(res, await settingsSvc.testVisionConnection({ baseUrl: b.baseUrl, model: b.model, apiKey: b.apiKey }));
+  });
+
+  app.get('/api/admin/asr', (req, res) => {
+    requireAdmin(req);
+    return data(res, settingsSvc.asrSettingsPublic());
+  });
+
+  app.put('/api/admin/asr', (req, res) => {
+    requireAdmin(req);
+    const b = req.body || {};
+    return data(res, settingsSvc.saveAsrSettings({ baseUrl: b.baseUrl, model: b.model, apiKey: b.apiKey }));
+  });
+
+  app.post('/api/admin/asr/test', async (req, res) => {
+    requireAdmin(req);
+    const rl = rateLimit(`atest:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) return fail(res, `测试过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    const b = req.body || {};
+    return data(res, await settingsSvc.testAsrConnection({ baseUrl: b.baseUrl, model: b.model, apiKey: b.apiKey }));
+  });
 }

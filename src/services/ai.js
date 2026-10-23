@@ -9,7 +9,7 @@
  *
  * 所有对外函数都会在返回值里带上 `source` 字段：'ai' 或 'local'。
  */
-import { effectiveAiConfig } from './settings.js';
+import settingsSvc, { effectiveAiConfig } from './settings.js';
 import { config } from '../config.js';
 import { kindOf, listFiles } from './files.js';
 
@@ -1236,17 +1236,18 @@ export async function visionDescribe({ images = [], prompt = '' } = {}) {
   const content = [{ type: 'text', text: ask }];
   for (const url of list) content.push({ type: 'image_url', image_url: { url } });
 
+  const eff = settingsSvc.effectiveVisionConfig();
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), (config.vision && config.vision.timeoutMs) || 45000);
+  const timer = setTimeout(() => ctrl.abort(), eff.timeoutMs || 45000);
   try {
-    const res = await fetch(`${(config.vision && config.vision.baseUrl)}/chat/completions`, {
+    const res = await fetch(`${eff.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.vision.apiKey}`,
       },
       body: JSON.stringify({
-        model: (config.vision && config.vision.model),
+        model: eff.model,
         messages: [{ role: 'user', content }],
         temperature: 0.3,
         max_tokens: 400,
@@ -1286,15 +1287,16 @@ export async function speechToText(audio, filename = 'audio.wav') {
   if (!audio || !audio.length) return { ok: false, text: '', note: '没有音频' };
   if (!asrConfigured()) return { ok: false, text: '', note: '未配置语音转写' };
 
+  const eff = settingsSvc.effectiveAsrConfig();
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), (config.asr && config.asr.timeoutMs) || 90000);
+  const timer = setTimeout(() => ctrl.abort(), eff.timeoutMs || 90000);
   try {
     const fd = new FormData();
-    fd.append('model', (config.asr && config.asr.model));
+    fd.append('model', eff.model);
     fd.append('file', new Blob([audio]), filename);
     fd.append('response_format', 'json');
 
-    const res = await fetch(`${(config.asr && config.asr.baseUrl)}/audio/transcriptions`, {
+    const res = await fetch(`${eff.baseUrl}/audio/transcriptions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.asr.apiKey}` },
       body: fd,

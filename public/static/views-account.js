@@ -1609,6 +1609,42 @@ export async function renderAdmin(ctx) {
  * 在线配置 AI 接口 —— 不用改 .env，也不用重启服务。
  * 默认就是 DeepSeek（OpenAI 兼容协议），填个 Key 即可。
  */
+
+/* 能力配置卡：视觉 / 语音通用 */
+function capCard(prefix, title, info, priceNote, defUrl, defModel, hintHtml) {
+  const on = Boolean(info?.hasApiKey);
+  return `<div class="card card-pad mt12">
+    <div class="row between mb8">
+      <div class="strong">${title}</div>
+      <span class="badge ${on ? 'accent' : 'gray'}">${on ? '已配置' : '未配置'}</span>
+    </div>
+    <div class="step-hint mb12">
+      ${ui.esc(priceNote)}
+      <div class="tiny dim mt4">${hintHtml}</div>
+    </div>
+
+    <div class="field">
+      <label>接口地址</label>
+      <input class="input" id="${prefix}-baseurl" value="${ui.esc(info?.baseUrl || defUrl)}">
+    </div>
+    <div class="field">
+      <label>模型</label>
+      <input class="input" id="${prefix}-model" value="${ui.esc(info?.model || defModel)}">
+    </div>
+    <div class="field">
+      <label>API Key ${on ? '<span class="tiny dim">（留空表示不修改）</span>' : ''}</label>
+      <input class="input" id="${prefix}-key" type="password" autocomplete="off"
+        placeholder="${on ? ui.esc(info?.apiKeyHint || '已保存') : '粘贴完整 key'}">
+    </div>
+
+    <div class="row gap8 mt12" style="flex-wrap:wrap">
+      <button class="btn btn-outline" id="${prefix}-test" type="button">🔌 测试</button>
+      <button class="btn btn-primary grow" id="${prefix}-save" type="button">保存</button>
+    </div>
+    <div id="${prefix}-result" class="mt12"></div>
+  </div>`;
+}
+
 export async function renderAdminAi(ctx) {
   if (!isLoggedIn()) {
     ctx.nav('#/login?redirect=%23/admin-ai');
@@ -1619,8 +1655,12 @@ export async function renderAdminAi(ctx) {
   }
 
   let info = null;
+  let visInfo = null;
+  let asrInfo = null;
   try {
     info = await service.adminAi();
+    visInfo = await service.adminVision().catch(() => null);
+    asrInfo = await service.adminAsr().catch(() => null);
   } catch (err) {
     return {
       title: 'AI 设置',
@@ -1683,6 +1723,10 @@ export async function renderAdminAi(ctx) {
 
       <div id="ai-result" class="mt12"></div>
     </div>
+
+    ${capCard('vis', '👁️ 视觉理解（看画面）', visInfo, '智谱 GLM-4V-Flash —— 完全免费', 'https://open.bigmodel.cn/api/paas/v4', 'glm-4v-flash', '在 bigmodel.cn 注册 → 控制台 → API Key → 复制<b>完整</b>的 key（形如 <code>xxxxxxxx.yyyyyyyy</code>，中间有个点）')}
+
+    ${capCard('asr', '🎧 语音转写（听声音）', asrInfo, '硅基流动 SenseVoice —— 注册送额度', 'https://api.siliconflow.cn/v1', 'FunAudioLLM/SenseVoiceSmall', '在 siliconflow.cn 注册 → 控制台 → API 密钥 → 新建，形如 <code>sk-xxxx</code>')}
 
     <div class="card card-pad mt12">
       <div class="strong mb8">当前状态</div>
@@ -1767,6 +1811,53 @@ export async function renderAdminAi(ctx) {
           btn.textContent = '保存';
         }
       });
+
+      /* ---- 视觉 / 语音 通用保存 + 测试 ---- */
+      const bindCap = (prefix, saveFn, testFn) => {
+        const $b = (s) => root.querySelector(s);
+        const result = root.querySelector(`#${prefix}-result`);
+        const show = (html) => { if (result) result.innerHTML = html; };
+        const collect = () => ({
+          baseUrl: ($b(`#${prefix}-baseurl`)?.value || '').trim(),
+          model: ($b(`#${prefix}-model`)?.value || '').trim(),
+          apiKey: ($b(`#${prefix}-key`)?.value || '').trim(),
+        });
+
+        $b(`#${prefix}-test`)?.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          btn.textContent = '测试中…';
+          show('<div class="tiny dim">正在连接…</div>');
+          try {
+            const r = await testFn(collect());
+            show(r.ok
+              ? `<div class="file-unlocked-tip">✅ ${ui.esc(r.message || '连接正常')}</div>`
+              : `<div class="warn-note">❌ ${ui.esc(r.message || '连接失败')}</div>`);
+          } catch (err) {
+            show(`<div class="warn-note">❌ ${ui.esc(err.message)}</div>`);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = '🔌 测试';
+          }
+        });
+
+        $b(`#${prefix}-save`)?.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          btn.textContent = '保存中…';
+          try {
+            await saveFn(collect());
+            ui.toast('已保存，立即生效', 'ok');
+            ctx.refresh ? ctx.refresh() : window.location.reload();
+          } catch (err) {
+            ui.toast(err.message, 'err');
+            btn.disabled = false;
+            btn.textContent = '保存';
+          }
+        });
+      };
+      bindCap('vis', (b) => service.saveAdminVision(b), (b) => service.testAdminVision(b));
+      bindCap('asr', (b) => service.saveAdminAsr(b), (b) => service.testAdminAsr(b));
 
       $('#ai-clear')?.addEventListener('click', async (e) => {
         const ok = await ui.confirmDialog({ title: '清除 AI 配置', message: '清除后回到内置规则引擎，确定吗？' });

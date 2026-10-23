@@ -512,6 +512,14 @@ export const service = {
   endLive: (id) => api.post(`/api/feeds/${id}/live/end`, {}),
   feedShare: (id) => api.get(`/api/feeds/${id}/share`),
   feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
+  feedTranscribe: (fd, opts) => api.upload('/api/feeds/transcribe', fd, opts),
+
+  adminVision: () => api.get('/api/admin/vision'),
+  saveAdminVision: (body) => api.put('/api/admin/vision', body),
+  testAdminVision: (body) => api.post('/api/admin/vision/test', body || {}),
+  adminAsr: () => api.get('/api/admin/asr'),
+  saveAdminAsr: (body) => api.put('/api/admin/asr', body),
+  testAdminAsr: (body) => api.post('/api/admin/asr/test', body || {}),
 
   adminOverview: () => api.get('/api/admin/overview'),
   adminQualifications: (status) => api.get('/api/admin/qualifications', { status }),

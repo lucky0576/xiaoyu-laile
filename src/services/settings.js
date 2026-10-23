@@ -15,6 +15,8 @@ import { config } from '../config.js';
 const settings = () => db.collection('settings');
 
 const AI_ID = 'ai';
+const VISION_ID = 'vision';
+const ASR_ID = 'asr';
 
 /** 代码默认值（DeepSeek 兼容 OpenAI 协议） */
 const DEFAULTS = {
@@ -176,4 +178,174 @@ export async function testAiConnection(override = {}) {
   }
 }
 
-export default { effectiveAiConfig, aiSettingsPublic, saveAiSettings, clearAiSettings, testAiConnection };
+
+/* ------------------------------------------------------------------ */
+/* 视觉 / 语音：在线配置                                               */
+/* ------------------------------------------------------------------ */
+
+function readCapStore(id) {
+  const rec = settings().get(id);
+  if (!rec || typeof rec !== 'object') return {};
+  return {
+    baseUrl: String(rec.baseUrl || '').trim(),
+    model: String(rec.model || '').trim(),
+    apiKey: String(rec.apiKey || '').trim(),
+    updatedAt: String(rec.updatedAt || ''),
+  };
+}
+
+export function effectiveVisionConfig() {
+  const stored = readCapStore(VISION_ID);
+  const envKey = String(config.vision?.apiKey || '').trim();
+  const apiKey = stored.apiKey || envKey;
+  return {
+    baseUrl: stored.baseUrl || config.vision?.baseUrl || 'https://open.bigmodel.cn/api/paas/v4',
+    model: stored.model || config.vision?.model || 'glm-4v-flash',
+    apiKey,
+    timeoutMs: config.vision?.timeoutMs || 45000,
+    enabled: Boolean(apiKey),
+    source: stored.apiKey ? 'online' : envKey ? 'env' : 'none',
+  };
+}
+
+export function effectiveAsrConfig() {
+  const stored = readCapStore(ASR_ID);
+  const envKey = String(config.asr?.apiKey || '').trim();
+  const apiKey = stored.apiKey || envKey;
+  return {
+    baseUrl: stored.baseUrl || config.asr?.baseUrl || 'https://api.siliconflow.cn/v1',
+    model: stored.model || config.asr?.model || 'FunAudioLLM/SenseVoiceSmall',
+    apiKey,
+    timeoutMs: config.asr?.timeoutMs || 90000,
+    enabled: Boolean(apiKey),
+    source: stored.apiKey ? 'online' : envKey ? 'env' : 'none',
+  };
+}
+
+function capPublic(eff, stored, label, hint) {
+  return {
+    label,
+    hint,
+    baseUrl: eff.baseUrl,
+    model: eff.model,
+    hasApiKey: Boolean(eff.apiKey),
+    apiKeyHint: eff.apiKey ? `${eff.apiKey.slice(0, 6)}…${eff.apiKey.slice(-4)}` : '',
+    source: eff.source,
+    updatedAt: stored.updatedAt || '',
+  };
+}
+
+export function visionSettingsPublic() {
+  const stored = readCapStore(VISION_ID);
+  return capPublic(
+    effectiveVisionConfig(),
+    stored,
+    '视觉理解（看图）',
+    '智谱 GLM-4V-Flash：完全免费。用于识别短视频画面内容。注册 bigmodel.cn 获取 key。',
+  );
+}
+
+export function asrSettingsPublic() {
+  const stored = readCapStore(ASR_ID);
+  return capPublic(
+    effectiveAsrConfig(),
+    stored,
+    '语音转写（听声）',
+    '硅基流动 SenseVoice：注册送额度。用于把视频音频转成文字。注册 siliconflow.cn 获取 key。',
+  );
+}
+
+function saveCap(id, input) {
+  const cur = readCapStore(id);
+  const next = {
+    baseUrl: input.baseUrl === undefined ? cur.baseUrl || '' : String(input.baseUrl || '').trim(),
+    model: input.model === undefined ? cur.model || '' : String(input.model || '').trim(),
+    apiKey: cur.apiKey || '',
+    updatedAt: cur.updatedAt || '',
+  };
+  if (input.apiKey !== undefined) {
+    const raw = String(input.apiKey || '').trim();
+    if (raw === '-') next.apiKey = '';
+    else if (raw) next.apiKey = raw;
+  }
+  next.updatedAt = new Date().toISOString();
+  const existing = settings().get(id);
+  if (existing) settings().update(id, { ...next, id });
+  else settings().insert({ id, ...next });
+}
+
+export function saveVisionSettings(input = {}) {
+  saveCap(VISION_ID, input);
+  return visionSettingsPublic();
+}
+
+export function saveAsrSettings(input = {}) {
+  saveCap(ASR_ID, input);
+  return asrSettingsPublic();
+}
+
+/** 测试视觉：发一张 1x1 图，确认 key 可用 */
+export async function testVisionConnection(override = {}) {
+  const eff = { ...effectiveVisionConfig(), ...override };
+  const key = String(eff.apiKey || '').trim();
+  if (!key) return { ok: false, message: '还没有填写 key' };
+  try {
+    const res = await fetch(`${String(eff.baseUrl).replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: eff.model || 'glm-4v-flash',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: '这是测试，回一个字：好' },
+            { type: 'image_url', image_url: { url: 'https://xiaoyulaile.online/static/icon-192.png' } },
+          ],
+        }],
+        max_tokens: 20,
+      }),
+    });
+    const txt = await res.text();
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const j = JSON.parse(txt);
+        msg = (j.error && (j.error.message || j.error.code)) || msg;
+      } catch { /* ignore */ }
+      return { ok: false, message: `验证失败：${msg}` };
+    }
+    const j = JSON.parse(txt);
+    const out = j?.choices?.[0]?.message?.content;
+    return { ok: true, message: `连接成功，模型返回：${String(out || '').slice(0, 30)}` };
+  } catch (err) {
+    return { ok: false, message: `验证失败：${err.message}` };
+  }
+}
+
+/** 测试语音：只校验 key 格式与接口可达，不传音频 */
+export async function testAsrConnection(override = {}) {
+  const eff = { ...effectiveAsrConfig(), ...override };
+  const key = String(eff.apiKey || '').trim();
+  if (!key) return { ok: false, message: '还没有填写 key' };
+  try {
+    const res = await fetch(`${String(eff.baseUrl).replace(/\/+$/, '')}/models`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (res.ok) return { ok: true, message: '连接成功，key 可用' };
+    if (res.status === 401 || res.status === 403) return { ok: false, message: '验证失败：key 无效或已过期' };
+    return { ok: false, message: `验证失败：HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, message: `验证失败：${err.message}` };
+  }
+}
+
+export default {
+  effectiveVisionConfig,
+  effectiveAsrConfig,
+  visionSettingsPublic,
+  asrSettingsPublic,
+  saveVisionSettings,
+  saveAsrSettings,
+  testVisionConnection,
+  testAsrConnection,
+  effectiveAiConfig, aiSettingsPublic, saveAiSettings, clearAiSettings, testAiConnection };
