@@ -56,6 +56,10 @@ export async function renderHome(ctx, query) {
     service.feeds({ featured: true, limit: 6 }).catch(() => ({ items: [] })),
   ]);
 
+  // 短视频单独拉一组（首页「短视频」横滑区）
+  const shortsRes = await service.feeds({ type: 'short', limit: 10 }).catch(() => ({ items: [] }));
+  const shorts = shortsRes.items || [];
+
   const tax = ctx.state.taxonomy || {};
   const industries = (tax.industries || []).slice(0, 12);
   const logged = Boolean(ctx.state.user);
@@ -146,7 +150,8 @@ export async function renderHome(ctx, query) {
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '通讯录', d: '导入并邀请好友', art: '📇', href: '#/contacts', i: 5, auth: true },
-    { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 6 },
+    { t: '短视频', d: '现场实拍 · 项目讲解', art: '🎬', href: '#/feeds', i: 6 },
+    { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 7 },
   ];
   const gridHtml = `<div class="home-grid">
     ${entries.map((e) => `<a class="home-card" href="${e.href}" data-auth="${e.auth ? '1' : ''}">
@@ -169,6 +174,30 @@ export async function renderHome(ctx, query) {
     </div>
     <div class="home-scroll" id="home-rec"></div>
   </div>`;
+
+  /* ---------------- 短视频 ---------------- */
+  const shortCard = (v) => `<a class="short-card" href="#/live/${ui.esc(v.id)}">
+    <div class="short-thumb">
+      ${v.coverUrl
+        ? `<img src="${ui.esc(ui.safeUrl(v.coverUrl))}" alt="" loading="lazy">`
+        : `<div class="short-ph">🎬</div>`}
+      <span class="short-play">▶</span>
+      <span class="short-tag">短视频</span>
+    </div>
+    <div class="short-t">${ui.esc(v.title || '')}</div>
+    <div class="short-m">
+      <span>👁 ${v.stats?.views || 0}</span>
+      <span>❤ ${v.stats?.likes || 0}</span>
+    </div>
+  </a>`;
+
+  const shortHtml = shorts.length ? `<div class="home-sec-head">
+      <h2>🎬 短视频</h2>
+      <a href="#/feeds">全部 ›</a>
+    </div>
+    <div class="home-scroll home-shorts">
+      ${shorts.map(shortCard).join('')}
+    </div>` : '';
 
   /* ---------------- 热门行业 ---------------- */
   const industryHtml = `<div class="home-sec-head"><h2>热门行业</h2><a href="#/list/project">全部 ›</a></div>
@@ -242,6 +271,7 @@ export async function renderHome(ctx, query) {
     ${gridHtml}
     ${loginStrip}
     ${recHtml}
+    ${shortHtml}
     ${industryHtml}
     ${latestHtml}
     ${casesHtml}

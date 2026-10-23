@@ -664,3 +664,70 @@
   flex: 0 0 auto;
   min-width: 66px;
 }
+
+/* ---------------- 首页：短视频横滑区 ---------------- */
+.home-shorts {
+  display: flex;
+  gap: 10px;
+  padding: 4px 2px 8px;
+}
+.short-card {
+  flex: 0 0 150px;
+  width: 150px;
+  text-decoration: none;
+  color: inherit;
+}
+.short-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #2c3e58, #1b2432);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.short-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.short-ph { font-size: 34px; opacity: .7; }
+.short-play {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .48);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  padding-left: 2px;
+  backdrop-filter: blur(2px);
+}
+.short-tag {
+  position: absolute;
+  left: 6px; top: 6px;
+  font-size: 9.5px; font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, .42);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.short-t {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.short-m {
+  display: flex;
+  gap: 10px;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
