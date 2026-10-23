@@ -589,6 +589,12 @@ export async function renderPublish(ctx, params) {
         <label>副标题 <span class="tiny dim">（选填）</span></label>
         <input class="input" id="pub-subtitle" maxlength="200" placeholder="补充说明金额、规模、期限等关键信息" value="${ui.esc(editing?.subtitle || '')}">
       </div>
+
+      <div class="field">
+        <label>相关链接 <span class="tiny dim">（选填，官网 / 招标公告 / 网盘 / 公众号文章等）</span></label>
+        <input class="input" id="pub-link" maxlength="500" placeholder="https://" value="${ui.esc(editing?.link || '')}">
+        <div class="tiny dim mt4" id="pub-link-hint">以 http:// 或 https:// 开头，发布后会显示成可点击的链接</div>
+      </div>
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
 山东东营 200MW 渔光互补光伏电站 EPC 总承包招标
 总投资约 8.6 亿元，工期 14 个月
@@ -1271,6 +1277,30 @@ export async function renderPublish(ctx, params) {
       };
       $('#pub-text')?.addEventListener('input', checkContacts);
       $('#pub-title')?.addEventListener('input', checkContacts);
+
+      /* 链接实时校验提示 */
+      const linkEl = $('#pub-link');
+      if (linkEl) {
+        const checkLink = () => {
+          const hint = $('#pub-link-hint');
+          if (!hint) return;
+          const v = linkEl.value.trim();
+          if (!v) {
+            hint.textContent = '以 http:// 或 https:// 开头，发布后会显示成可点击的链接';
+            hint.style.color = '';
+            return;
+          }
+          if (/^https?:\/\/[^\s]+$/i.test(v)) {
+            hint.textContent = '✅ 链接格式正确';
+            hint.style.color = '#0e8f5f';
+          } else {
+            hint.textContent = '⚠️ 需要以 http:// 或 https:// 开头';
+            hint.style.color = '#c0392b';
+          }
+        };
+        linkEl.addEventListener('input', checkLink);
+        checkLink();
+      }
       checkContacts();
 
       $('#pub-import').addEventListener('click', () => $('#pub-file-input').click());
@@ -1717,6 +1747,7 @@ export async function renderPublish(ctx, params) {
           text,
           title,
           subtitle,
+          link: ($('#pub-link')?.value || '').trim(),
           type: $('#pub-type')?.value || '',
           durationDays,
           fileIds: uploaded.map((f) => f.id),

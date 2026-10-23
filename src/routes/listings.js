@@ -156,6 +156,14 @@ export default function registerListingRoutes(app) {
     if (category === 'trade') patch.trade = { ...doc.trade, ...buildTrade(body) };
     if (category === 'project') patch.project = { ...doc.project, ...buildProject(body) };
     if (category === 'bounty') patch.bounty = { ...doc.bounty, ...buildBounty(body) };
+    // 相关链接（可选）：外部网页 / 官网 / 网盘等，只接受 http(s)
+    if (body.link !== undefined) {
+      const raw = String(body.link || '').trim().slice(0, 500);
+      if (!raw) patch.link = '';
+      else if (/^https?:\/\/[^\s<>"']+$/i.test(raw)) patch.link = raw;
+      else throw httpError(400, '链接必须以 http:// 或 https:// 开头');
+    }
+
     // 内容段落（可选）：发布时可以加多段文字 + 图片
     if (body.blocks) {
       try {

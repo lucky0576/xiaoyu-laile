@@ -1019,3 +1019,36 @@ body.shorts-mode #wx-tip { display: none !important; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .sp-contact { font-size: 11.5px; color: var(--text-2); margin-top: 6px; }
+
+
+/* ---------------- 详情页：相关链接 ---------------- */
+.detail-link {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+  background: #f6f9fe;
+  border: 1px solid #e2ecf9;
+  border-radius: 12px;
+  padding: 12px;
+}
+.detail-link:active { background: #eef5ff; }
+.detail-link-ico {
+  flex: none;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: #e4efff;
+  color: #1f5fa8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+}
+.detail-link-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.detail-link-domain {
+  font-size: 13px; font-weight: 700; color: #1f5fa8;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.detail-link-url {
+  font-size: 11.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

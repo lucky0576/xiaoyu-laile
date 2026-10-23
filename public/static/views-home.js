@@ -904,6 +904,19 @@ export async function renderDetail(ctx, params) {
       </div>`
     : '';
 
+  /* 外部相关链接 */
+  const linkBlock = listing.link ? `<div class="card card-pad" id="detail-link">
+    <div class="strong mb8">🔗 相关链接</div>
+    <a class="detail-link" href="${ui.esc(ui.safeUrl(listing.link))}" target="_blank" rel="noopener noreferrer nofollow">
+      <span class="detail-link-ico">↗</span>
+      <span class="detail-link-body">
+        <span class="detail-link-domain">${ui.esc((() => { try { return new URL(listing.link).hostname; } catch { return '外部链接'; } })())}</span>
+        <span class="detail-link-url">${ui.esc(listing.link)}</span>
+      </span>
+    </a>
+    <div class="tiny dim mt8">该链接指向平台外部网站，请注意甄别内容真实性</div>
+  </div>` : '';
+
   const contactBlock = `<div class="card card-pad">
     <div class="strong mb8">📞 联系方式</div>
     ${listing.contact?.hidden
@@ -994,6 +1007,7 @@ export async function renderDetail(ctx, params) {
           ${eventBlock}
           ${tradeBlock}
           ${bountyBlock}
+          ${linkBlock}
           ${contactBlock}
 
           <div class="card card-pad">

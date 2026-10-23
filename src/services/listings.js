@@ -122,6 +122,8 @@ export function listingPublic(l, viewer = null, opts = {}) {
     typeName: l.typeName || typeNameOf(l.category, l.type),
     title: mask(l.title),
     subtitle: mask(l.subtitle),
+    // 外部链接：只下发合法 http(s) 地址，避免 javascript: 之类
+    link: /^https?:\/\//i.test(String(l.link || '')) ? String(l.link) : '',
     // AI 自动补充的要素同样要过一遍联系方式脱敏
     autoInfo: l.autoInfo ? (isOwner || isAdmin ? l.autoInfo : maskDeep(l.autoInfo)) : null,
 
