@@ -151,10 +151,28 @@ export async function renderHome(ctx, query) {
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '通讯录', d: '导入并邀请好友', art: '📇', href: '#/contacts', i: 5, auth: true },
     { t: '短视频', d: '上下滑动 · 沉浸观看', art: '🎬', href: '#/shorts', i: 6 },
-    { t: '发布信息', d: '项目 · 短视频 · 直播', art: '✍️', href: '#/publish', i: 8, auth: true },
-    { t: '成为服务商', d: 'EPC · 设计 · 施工 · 设备', art: '🤝', href: '#/provider', i: 9 },
     { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 7 },
   ];
+  /* ---------------- 两条独立横栏：发布 / 成为服务商 ---------------- */
+  const promoHtml = `<div class="home-promo-list">
+    <a class="home-promo promo-publish" href="#/publish" data-auth="1">
+      <div class="promo-ico">✍️</div>
+      <div class="promo-body">
+        <div class="promo-t">发布信息</div>
+        <div class="promo-d">项目 · 短视频 · 直播，AI 自动生成标题与解析</div>
+      </div>
+      <div class="promo-go">去发布 ›</div>
+    </a>
+    <a class="home-promo promo-provider" href="#/provider">
+      <div class="promo-ico">🤝</div>
+      <div class="promo-body">
+        <div class="promo-t">成为服务商</div>
+        <div class="promo-d">EPC · 设计 · 施工 · 设备 · 运维 · 咨询，免费入驻</div>
+      </div>
+      <div class="promo-go">免费入驻 ›</div>
+    </a>
+  </div>`;
+
   const gridHtml = `<div class="home-grid">
     ${entries.map((e) => `<a class="home-card" href="${e.href}" data-auth="${e.auth ? '1' : ''}">
       <div class="txt"><div class="t">${e.t}</div><div class="d">${ui.esc(e.d)}</div></div>
@@ -271,6 +289,7 @@ export async function renderHome(ctx, query) {
     ${noticeHtml}
     ${bannerHtml}
     ${gridHtml}
+    ${promoHtml}
     ${loginStrip}
     ${recHtml}
     ${shortHtml}

@@ -1052,3 +1052,96 @@ body.shorts-mode #wx-tip { display: none !important; }
   font-size: 11.5px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+
+/* ================================================================== */
+/* 首页：发布 / 成为服务商 两条独立横栏                                 */
+/* ================================================================== */
+.home-promo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.home-promo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  transition: transform .12s ease;
+}
+.home-promo:active { transform: scale(.988); }
+
+.promo-publish {
+  background: linear-gradient(115deg, #1b5fd0 0%, #2f8bf5 55%, #47a8ff 100%);
+  box-shadow: 0 6px 20px rgba(31, 95, 208, .22);
+}
+.promo-provider {
+  background: linear-gradient(115deg, #0f7a5a 0%, #14a172 55%, #22bb86 100%);
+  box-shadow: 0 6px 20px rgba(15, 122, 90, .2);
+}
+
+/* 右上角装饰圆 */
+.home-promo::after {
+  content: '';
+  position: absolute;
+  right: -24px;
+  top: -34px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .10);
+}
+
+.promo-ico {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  backdrop-filter: blur(4px);
+}
+
+.promo-body { min-width: 0; flex: 1; }
+.promo-t {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.promo-d {
+  font-size: 11.5px;
+  line-height: 1.5;
+  opacity: .9;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promo-go {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, .92);
+  border-radius: 999px;
+  padding: 6px 13px;
+  position: relative;
+  z-index: 1;
+}
+.promo-publish .promo-go { color: #1b5fd0; }
+.promo-provider .promo-go { color: #0f7a5a; }
+
+@media (min-width: 720px) {
+  .home-promo-list { flex-direction: row; }
+  .home-promo { flex: 1; }
+}
