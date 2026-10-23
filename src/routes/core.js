@@ -342,34 +342,62 @@ export default function registerCoreRoutes(app) {
     // 这里不要先截断（旧值 14000 会把 3 万字的 PDF 砍掉一半以上）
     let fileText = aggregateText(files, 200000);
 
-    // 只上传了图片（微信截图 / 文件截图 / 照片）时，文档正文是空的，
-    // 这里用视觉模型把图里的文字读出来，否则 AI 什么都不知道。
-    const images = files.filter((f) => f && f.kind === 'image' && f.url);
-    if (images.length && fileText.trim().length < 200) {
+    // 把要交给视觉模型的图片收集起来：
+    //   1) 直接上传的图片（微信截图 / 照片）
+    //   2) PPT / PDF 里内嵌的图片（截图、图表、扫描页）
+    // 两者合并，最多 6 张，避免费用和时间失控。
+    const fsMod0 = await import('node:fs');
+    const docImgMod = await import('../lib/docimage.js');
+
+    const visualQueue = []; // { label, dataUrl }
+
+    // 1) 直接上传的图片
+    for (const f of files) {
+      if (!f || f.kind !== 'image' || !f.url) continue;
+      try {
+        const st = fsMod0.statSync(f.path);
+        if (st.size <= 2 * 1024 * 1024) {
+          const buf = fsMod0.readFileSync(f.path);
+          visualQueue.push({
+            label: f.name || '图片',
+            dataUrl: `data:${f.mime || 'image/jpeg'};base64,${buf.toString('base64')}`,
+          });
+        } else {
+          visualQueue.push({ label: f.name || '图片', dataUrl: `${baseUrl(req)}${f.url}` });
+        }
+      } catch {
+        visualQueue.push({ label: f.name || '图片', dataUrl: `${baseUrl(req)}${f.url}` });
+      }
+    }
+
+    // 2) PPT / PDF 内嵌图片
+    let docImgCount = 0;
+    for (const f of files) {
+      const ext = String(f && f.name || '').toLowerCase();
+      if (!/\.(pptx|pptm|ppsx|ppsm|pdf)$/.test(ext)) continue;
+      try {
+        const buf = fsMod0.readFileSync(f.path);
+        const imgs = docImgMod.extractDocImages(buf, f.name, { max: 6 });
+        for (const im of imgs) {
+          const dataUrl = docImgMod.toDataUrl(im);
+          if (dataUrl) {
+            visualQueue.push({ label: `${f.name} · ${im.name}`, dataUrl });
+            docImgCount += 1;
+          }
+        }
+      } catch {
+        /* 抠图失败不影响文本解析 */
+      }
+    }
+
+    const images = visualQueue.slice(0, 6);
+    if (images.length && fileText.trim().length < 4000) {
       try {
         const aiMod = await import('../services/ai.js');
-        // 优先用 base64 直传：视觉模型不用再回源下载我们的图片，
-        // 实测能把单张图从 50 秒降到十几秒。
-        const fsMod = await import('node:fs');
-        const imgs = [];
-        for (const f of images.slice(0, 6)) {
-          let payload = '';
-          try {
-            const st = fsMod.statSync(f.path);
-            // 超过 2MB 就不再 base64（请求体太大反而更慢），退回用 URL
-            if (st.size <= 2 * 1024 * 1024) {
-              const buf = fsMod.readFileSync(f.path);
-              const mime = f.mime || 'image/jpeg';
-              payload = `data:${mime};base64,${buf.toString('base64')}`;
-            }
-          } catch {
-            /* 读不到就走 URL */
-          }
-          imgs.push(payload || `${baseUrl(req)}${f.url}`);
-        }
-        const ocr = await aiMod.ocrImages({ images: imgs });
+        const ocr = await aiMod.ocrImages({ images: images.map((x) => x.dataUrl) });
         if (ocr.ok && ocr.text) {
-          fileText = `${fileText ? fileText + '\n\n' : ''}【图片文字识别（共 ${ocr.count} 张）】\n${ocr.text}`;
+          const from = docImgCount ? `，其中 ${docImgCount} 张来自 PPT/PDF` : '';
+          fileText = `${fileText ? fileText + '\n\n' : ''}【图片文字识别（共 ${ocr.count} 张${from}）】\n${ocr.text}`;
         }
       } catch {
         /* OCR 失败不影响主流程 */
