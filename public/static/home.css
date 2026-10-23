@@ -338,3 +338,23 @@
 @media (max-width: 520px) {
   .auto-facts { grid-template-columns: 1fr; }
 }
+
+/* AI 解析授权 */
+.ai-locked { border-style: dashed; background: #fbfcfe; }
+.ai-grant-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 0; border-bottom: 1px dashed var(--line);
+}
+.ai-grant-row:last-child { border-bottom: none; }
+.ai-grant-name { font-size: 13px; font-weight: 700; }
+
+/* 详情页位置 */
+.detail-loc {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f2f7fd; border: 1px solid #dce8f6;
+  border-radius: 10px; padding: 7px 12px;
+  font-size: 12.5px; color: var(--text);
+}
+.detail-loc-ico { font-size: 14px; }
+.detail-loc a { color: var(--brand); text-decoration: none; margin-left: 4px; }
+.detail-loc .badge { margin-left: 6px; }

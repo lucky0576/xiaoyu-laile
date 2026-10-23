@@ -384,6 +384,11 @@ export const service = {
 
   listings: (query) => api.get('/api/listings', query),
   listing: (id) => api.get(`/api/listings/${id}`),
+  requestAiAccess: (id) => api.post(`/api/listings/${id}/ai-access/request`, {}),
+  aiAccessStatus: (id) => api.get(`/api/listings/${id}/ai-access`),
+  aiAccessRequests: (id) => api.get(`/api/listings/${id}/ai-access/requests`),
+  respondAiAccess: (id, userId, body) => api.post(`/api/listings/${id}/ai-access/${encodeURIComponent(userId)}/respond`, body),
+  revokeAiAccess: (id, userId) => api.post(`/api/listings/${id}/ai-access/${encodeURIComponent(userId)}/revoke`, {}),
   myListings: (query) => api.get('/api/my/listings', query),
   mySummary: () => api.get('/api/my/listings/summary'),
   myOverview: () => api.get('/api/my/overview'),

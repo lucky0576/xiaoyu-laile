@@ -82,9 +82,11 @@ export function listingPublic(l, viewer = null, opts = {}) {
   //        未登录只给一段摘要做预览，正文、附件、商务条件、资质要求一律不下发。
   const gated = !signedIn;
 
-  // 规则 2：AI 可靠性分析是发布方的内部参考，只有发布方和管理员可见。
-  //        其他人（包括已登录用户）只能看到 AI 生成的主副标题。
-  const aiVisible = isOwner || isAdmin;
+  // 规则 2：AI 解析默认是发布方的内部参考。
+  //        其他人需要发布方授权（l.aiGrants 记录已授权用户），未授权时只给主副标题。
+  const aiGranted = Boolean(viewer && Array.isArray(l.aiGrants) && l.aiGrants.includes(viewer.id));
+  const aiVisible = isOwner || isAdmin || aiGranted;
+  const aiLocked = Boolean(l.ai && !aiVisible);
   const ai = aiVisible ? l.ai : (signedIn && l.ai ? { titles: l.ai.titles, source: l.ai.source } : null);
   // AI 摘要/要点是从原文生成的，原文里的手机号会原样带出来，必须一起遮蔽。
   // 注意 titles 是 { main, sub, keywords } 对象，不能直接当字符串处理
@@ -118,6 +120,18 @@ export function listingPublic(l, viewer = null, opts = {}) {
     subtitle: mask(l.subtitle),
     // AI 自动补充的要素同样要过一遍联系方式脱敏
     autoInfo: l.autoInfo ? (isOwner || isAdmin ? l.autoInfo : maskDeep(l.autoInfo)) : null,
+
+    // AI 解析授权状态：未授权时前端展示「申请查看」
+    aiVisible,
+    aiLocked,
+    aiGranted,
+    aiRequested: Boolean(viewer && (l.aiRequests || []).some((r) => r.userId === viewer.id)),
+    aiRequestCount: (l.aiRequests || []).filter((r) => r.status === 'pending').length,
+
+    // 位置：未公开时只有发布方 / 管理员可见
+    location: l.location && (l.location.public || isOwner || isAdmin) ? l.location : null,
+    locationPublic: Boolean(l.location && l.location.public),
+    hasLocation: Boolean(l.location && (l.location.lat || l.location.address)),
 
     // 未登录访客拿不到任何附件
     // l.files 存的是文件 ID 数组，必须解析成记录，否则 filePublic(字符串)
@@ -1402,7 +1416,76 @@ export function platformStats() {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* AI 解析授权                                                          */
+/* ------------------------------------------------------------------ */
+
+/** 申请查看 AI 解析 */
+export function requestAiAccess(listingId, user) {
+  const l = listings().get(listingId);
+  if (!l) return null;
+  if (l.ownerId === user.id) return { status: 'owner' };
+  if ((l.aiGrants || []).includes(user.id)) return { status: 'granted' };
+
+  const reqs = Array.isArray(l.aiRequests) ? l.aiRequests.slice() : [];
+  const exist = reqs.find((r) => r.userId === user.id);
+  if (exist) {
+    if (exist.status === 'rejected') {
+      // 被拒后再次申请，重置为待处理
+      exist.status = 'pending';
+      exist.at = new Date().toISOString();
+      listings().update(listingId, { aiRequests: reqs });
+      return { status: 'pending', repeat: true };
+    }
+    return { status: exist.status === 'approved' ? 'granted' : 'pending' };
+  }
+
+  reqs.push({
+    userId: user.id,
+    name: user.nickname || '用户',
+    company: user.company || '',
+    status: 'pending',
+    at: new Date().toISOString(),
+  });
+  listings().update(listingId, { aiRequests: reqs });
+  return { status: 'pending', first: true };
+}
+
+/** 发布方：同意 / 拒绝 */
+export function respondAiAccess(listingId, targetUserId, agree, note = '') {
+  const l = listings().get(listingId);
+  if (!l) return null;
+
+  const reqs = Array.isArray(l.aiRequests) ? l.aiRequests.slice() : [];
+  const r = reqs.find((x) => x.userId === targetUserId);
+  if (!r) return { ok: false, reason: '找不到该申请' };
+
+  const grants = Array.isArray(l.aiGrants) ? l.aiGrants.slice() : [];
+  if (agree) {
+    r.status = 'approved';
+    r.respondedAt = new Date().toISOString();
+    if (!grants.includes(targetUserId)) grants.push(targetUserId);
+  } else {
+    r.status = 'rejected';
+    r.respondedAt = new Date().toISOString();
+    r.note = String(note || '').slice(0, 200);
+  }
+  const updated = listings().update(listingId, { aiRequests: reqs, aiGrants: grants });
+  return { ok: true, listing: updated, targetUserId, agree };
+}
+
+/** 发布方：撤销某人的查看权限 */
+export function revokeAiAccess(listingId, targetUserId) {
+  const l = listings().get(listingId);
+  if (!l) return null;
+  const grants = (l.aiGrants || []).filter((id) => id !== targetUserId);
+  return listings().update(listingId, { aiGrants: grants });
+}
+
 export default {
+  requestAiAccess,
+  respondAiAccess,
+  revokeAiAccess,
   createListing,
   updateListing,
   regenerateAI,

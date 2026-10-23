@@ -174,6 +174,29 @@ export async function renderPublish(ctx, params) {
       <div id="pub-files" class="row wrap gap8 mt8"></div>
       <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 文本），据此生成标题并解析项目。</div>
 
+      <div class="card card-pad mt12">
+        <div class="row between">
+          <div class="strong">📍 位置（可选）</div>
+          <label class="switch"><input type="checkbox" id="pub-use-loc" ${editing?.location ? 'checked' : ''}><span class="slider"></span></label>
+        </div>
+        <div class="tiny dim mt4">可以只给自己留个记录，也可以公开到详情页方便对方线下对接。</div>
+        <div id="pub-loc-body" class="${editing?.location ? '' : 'hide'} mt12">
+          <div class="row gap8">
+            <button class="btn btn-sm btn-outline" id="pub-loc-get" type="button">📡 获取当前位置</button>
+            <span class="tiny dim" id="pub-loc-status" style="align-self:center"></span>
+          </div>
+          <div class="field mt8">
+            <label>地址 <span class="tiny dim">（可手填）</span></label>
+            <input class="input" id="pub-address" maxlength="200" placeholder="如：上海市黄浦区人民广场" value="${ui.esc(editing?.location?.address || '')}">
+          </div>
+          <div class="row between">
+            <span class="small">对其他人公开位置</span>
+            <label class="switch"><input type="checkbox" id="pub-loc-public" ${editing?.location?.public ? 'checked' : ''}><span class="slider"></span></label>
+          </div>
+          <div class="tiny dim mt4">关闭时仅你和管理员可见，用于线下对接前自己确认。</div>
+        </div>
+      </div>
+
       <div class="secret-box mt12">
         <div class="row between">
           <div class="strong">🔒 文件保密</div>
@@ -1055,6 +1078,38 @@ export async function renderPublish(ctx, params) {
         root.querySelectorAll('#pub-duration-chips .chip').forEach((el) => el.classList.toggle('active', el === chip));
       });
 
+      /* ---------------- 位置 ---------------- */
+      let pubGeo = { lat: 0, lng: 0 };
+      const useLocEl = $('#pub-use-loc');
+      const locBody = $('#pub-loc-body');
+      useLocEl?.addEventListener('change', () => locBody.classList.toggle('hide', !useLocEl.checked));
+
+      if (editing?.location?.lat) pubGeo = { lat: editing.location.lat, lng: editing.location.lng };
+      if (pubGeo.lat) {
+        const st = $('#pub-loc-status');
+        if (st) st.textContent = `已记录坐标 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}`;
+      }
+
+      $('#pub-loc-get')?.addEventListener('click', () => {
+        const st = $('#pub-loc-status');
+        if (!navigator.geolocation) {
+          if (st) st.textContent = '当前浏览器不支持定位，请手动填写地址';
+          return;
+        }
+        if (st) st.textContent = '定位中…';
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            pubGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            if (st) st.textContent = `已定位 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}（可再手填地址）`;
+            ui.toast('已获取当前位置', 'ok');
+          },
+          (err) => {
+            if (st) st.textContent = err.code === 1 ? '定位被拒绝，请手动填写地址' : '定位失败，请手动填写地址';
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
+      });
+
       /* ---------------- 提交 ---------------- */
       const submit = async (publishNow) => {
         if (busy) return;
@@ -1101,6 +1156,14 @@ export async function renderPublish(ctx, params) {
             ttlHours: Number($('#pub-secret-ttl')?.value) || 6,
           },
           publish: publishNow ? '1' : '0',
+          location: $('#pub-use-loc')?.checked
+            ? JSON.stringify({
+                public: Boolean($('#pub-loc-public')?.checked),
+                lat: pubGeo.lat || 0,
+                lng: pubGeo.lng || 0,
+                address: ($('#pub-address')?.value || '').trim(),
+              })
+            : '',
           ...catFields,
         };
 

@@ -897,6 +897,13 @@ export async function renderDetail(ctx, params) {
           <h1 class="detail-title">${ui.esc(listing.title)}</h1>
           ${listing.subtitle ? `<div class="detail-sub">${ui.esc(listing.subtitle)}</div>` : ''}
 
+          ${listing.location && (listing.location.address || listing.location.lat) ? `<div class="detail-loc mt8">
+            <span class="detail-loc-ico">📍</span>
+            <span>${ui.esc(listing.location.address || `${listing.location.lat.toFixed(4)}, ${listing.location.lng.toFixed(4)}`)}</span>
+            ${listing.location.lat ? `<a class="tiny" href="https://uri.amap.com/marker?position=${listing.location.lng},${listing.location.lat}&name=${encodeURIComponent(listing.title || '')}" target="_blank" rel="noopener">在地图中查看</a>` : ''}
+            ${!listing.locationPublic ? '<span class="badge gray">仅自己可见</span>' : ''}
+          </div>` : ''}
+
           <div class="row gap12 mt12 tiny dim" style="flex-wrap:wrap">
             <span>👁 ${listing.views || 0} 浏览</span>
             <span>💬 ${listing.commentCount || 0} 留言</span>
@@ -919,6 +926,22 @@ export async function renderDetail(ctx, params) {
           </div>` : ''}
 
           ${listing.aiVisible && listing.ai ? aiCardHtml(listing.ai) : ''}
+          ${!listing.aiVisible && listing.aiLocked ? `<div class="card card-pad mb12 ai-locked" id="ai-locked">
+            <div class="row between mb8">
+              <div class="strong">🤖 AI 项目解析</div>
+              <span class="badge gray">需发布方授权</span>
+            </div>
+            <div class="small muted" style="line-height:1.8">
+              发布方对该项目做了 AI 解析（可靠性评分、项目要素、风险提示、建议补充），
+              默认仅发布方可见。如需查看，可向发布方申请。
+            </div>
+            <div class="row gap8 mt12">
+              <button class="btn btn-primary grow" id="ai-req">申请查看解析</button>
+            </div>
+            <div class="tiny dim center mt8" id="ai-req-hint"></div>
+          </div>` : ''}
+
+          ${isOwner ? '<div id="ai-access-panel"></div>' : ''}
 
           ${listing.gated ? '' : autoInfoCard(listing.autoInfo)}
 
@@ -1037,7 +1060,95 @@ export async function renderDetail(ctx, params) {
     noTab: false,
     activeTab: listing.category,
     async mount(root) {
-      /* 图片切换 */
+      const $ = (s) => root.querySelector(s);
+
+      /* ---------------- AI 解析授权 ---------------- */
+      const aiReqBtn = root.querySelector('#ai-req');
+      if (aiReqBtn) {
+        if (listing.aiRequested) {
+          aiReqBtn.disabled = true;
+          aiReqBtn.textContent = '已申请，等待发布方处理';
+          const hint = root.querySelector('#ai-req-hint');
+          if (hint) hint.textContent = '发布方处理后你会收到通知';
+        }
+        aiReqBtn.addEventListener('click', async () => {
+          aiReqBtn.disabled = true;
+          aiReqBtn.textContent = '提交中…';
+          try {
+            const r = await api.post(`/api/listings/${listing.id}/ai-access/request`, {});
+            if (r.status === 'granted') {
+              ui.toast('你已有查看权限，刷新即可', 'ok');
+              setTimeout(() => ctx.nav(`#/detail/${listing.id}`, { replace: true }), 800);
+              return;
+            }
+            aiReqBtn.textContent = '已申请，等待发布方处理';
+            const hint = root.querySelector('#ai-req-hint');
+            if (hint) hint.textContent = '发布方处理后你会收到通知';
+            ui.toast('申请已提交，等待发布方同意', 'ok');
+          } catch (err) {
+            ui.toast(err.message || '申请失败', 'err');
+            aiReqBtn.disabled = false;
+            aiReqBtn.textContent = '申请查看解析';
+          }
+        });
+      }
+
+      // 发布方：待处理申请
+      const panel = root.querySelector('#ai-access-panel');
+      if (panel && isOwner) {
+        try {
+          const rr = await api.get(`/api/listings/${listing.id}/ai-access/requests`);
+          const items = rr.items || [];
+          if (items.length) {
+            panel.innerHTML = `<div class="card card-pad mb12">
+              <div class="row between mb8">
+                <div class="strong">🔐 AI 解析查看权限</div>
+                <span class="badge ${rr.pendingCount ? 'warn' : 'gray'}">待处理 ${rr.pendingCount} / 已授权 ${rr.grantedCount}</span>
+              </div>
+              ${items.map((it) => `<div class="ai-grant-row">
+                <div>
+                  <div class="ai-grant-name">${ui.esc(it.name)}${it.company ? ` <span class="tiny dim">${ui.esc(it.company)}</span>` : ''}</div>
+                  <div class="tiny dim">${it.status === 'pending' ? '申请中' : it.status === 'approved' ? '已授权' : '已拒绝'} · ${String(it.at || '').slice(0, 16).replace('T', ' ')}</div>
+                </div>
+                <div class="row gap6">
+                  ${it.granted
+                    ? `<button class="btn btn-sm" data-revoke="${ui.esc(it.userId)}">撤销</button>`
+                    : `<button class="btn btn-sm btn-primary" data-allow="${ui.esc(it.userId)}">同意</button>
+                       <button class="btn btn-sm" data-deny="${ui.esc(it.userId)}">拒绝</button>`}
+                </div>
+              </div>`).join('')}
+            </div>`;
+
+            const respond = async (userId, agree) => {
+              try {
+                await api.post(`/api/listings/${listing.id}/ai-access/${encodeURIComponent(userId)}/respond`, { agree });
+                ui.toast(agree ? '已同意' : '已拒绝', 'ok');
+                ctx.nav(`#/detail/${listing.id}`, { replace: true });
+              } catch (err) {
+                ui.toast(err.message || '操作失败', 'err');
+              }
+            };
+            panel.querySelectorAll('[data-allow]').forEach((b) => b.addEventListener('click', () => respond(b.dataset.allow, true)));
+            panel.querySelectorAll('[data-deny]').forEach((b) => b.addEventListener('click', () => respond(b.dataset.deny, false)));
+            panel.querySelectorAll('[data-revoke]').forEach((b) =>
+              b.addEventListener('click', async () => {
+                const ok = await ui.confirmDialog({ title: '撤销权限', message: '撤销后对方将看不到 AI 解析', danger: true, okText: '撤销' });
+                if (!ok) return;
+                try {
+                  await api.post(`/api/listings/${listing.id}/ai-access/${encodeURIComponent(b.dataset.revoke)}/revoke`, {});
+                  ui.toast('已撤销', 'ok');
+                  ctx.nav(`#/detail/${listing.id}`, { replace: true });
+                } catch (err) {
+                  ui.toast(err.message || '操作失败', 'err');
+                }
+              })
+            );
+          }
+        } catch {
+          /* 忽略：拿不到就显示原有内容 */
+        }
+      }
+
       root.querySelector('.gallery')?.addEventListener('click', (e) => {
         const img = e.target.closest('img[data-idx]');
         if (!img) return;

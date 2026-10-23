@@ -156,6 +156,23 @@ export default function registerListingRoutes(app) {
     if (category === 'trade') patch.trade = { ...doc.trade, ...buildTrade(body) };
     if (category === 'project') patch.project = { ...doc.project, ...buildProject(body) };
     if (category === 'bounty') patch.bounty = { ...doc.bounty, ...buildBounty(body) };
+    // 发布位置（可选）：用户勾选才收录，public 决定是否对其他人可见
+    if (body.location) {
+      try {
+        const loc = typeof body.location === 'string' ? JSON.parse(body.location) : body.location;
+        if (loc && (loc.lat || loc.address)) {
+          patch.location = {
+            public: Boolean(loc.public),
+            lat: Number(loc.lat) || 0,
+            lng: Number(loc.lng) || 0,
+            address: String(loc.address || '').slice(0, 200),
+          };
+        }
+      } catch {
+        /* 位置解析失败不影响发布 */
+      }
+    }
+
     if (Object.keys(patch).length) listings().update(doc.id, patch);
 
     // 回填文件的归属
@@ -572,5 +589,107 @@ export default function registerListingRoutes(app) {
         return left > 0 && left < 3 * 86400_000;
       }).length,
     });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* AI 解析授权                                                       */
+  /*   默认只有发布方可见；其他人申请后由发布方决定是否开放              */
+  /* ---------------------------------------------------------------- */
+
+  /** 申请查看 AI 解析 */
+  app.post('/api/listings/:id/ai-access/request', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+
+    const r = listingsSvc.requestAiAccess(l.id, user);
+    if (!r) throw httpError(404, '信息不存在');
+
+    // 首次申请时通知发布方
+    if (r.first && l.ownerId && l.ownerId !== user.id) {
+      notifySvc.notify({
+        userId: l.ownerId,
+        type: 'system',
+        title: `有人申请查看 AI 解析：${String(l.title).slice(0, 20)}`,
+        body: `${user.nickname || '某位用户'} 申请查看该信息的 AI 项目解析，请到详情页处理。`,
+        link: `#/detail/${l.id}`,
+      });
+    }
+
+    return data(res, { status: r.status, repeat: Boolean(r.repeat) });
+  });
+
+  /** 我的 AI 解析授权状态 */
+  app.get('/api/listings/:id/ai-access', (req, res) => {
+    const user = authUser(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    const isOwner = Boolean(user && user.id === l.ownerId);
+    const isAdmin = Boolean(user && user.isAdmin);
+    const granted = Boolean(user && (l.aiGrants || []).includes(user.id));
+    const pending = Boolean(
+      user && (l.aiRequests || []).some((x) => x.userId === user.id && x.status === 'pending')
+    );
+    return data(res, { isOwner, isAdmin, granted, pending, visible: isOwner || isAdmin || granted });
+  });
+
+  /** 发布方：查看申请列表 */
+  app.get('/api/listings/:id/ai-access/requests', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    if (l.ownerId !== user.id && !user.isAdmin) return fail(res, '只有发布方可以查看', 403, 'forbidden');
+
+    const reqs = (l.aiRequests || []).slice().sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    const grants = l.aiGrants || [];
+    return data(res, {
+      items: reqs.map((r) => ({
+        userId: r.userId,
+        name: r.name || '用户',
+        company: r.company || '',
+        status: r.status,
+        at: r.at,
+        respondedAt: r.respondedAt || '',
+        note: r.note || '',
+        granted: grants.includes(r.userId),
+      })),
+      pendingCount: reqs.filter((r) => r.status === 'pending').length,
+      grantedCount: grants.length,
+    });
+  });
+
+  /** 发布方：同意 / 拒绝某个申请 */
+  app.post('/api/listings/:id/ai-access/:userId/respond', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    if (l.ownerId !== user.id && !user.isAdmin) return fail(res, '只有发布方可以操作', 403, 'forbidden');
+
+    const agree = bool(req.body?.agree);
+    const note = str(req.body?.note, 200);
+    const r = listingsSvc.respondAiAccess(l.id, req.params.userId, agree, note);
+    if (!r || !r.ok) return fail(res, (r && r.reason) || '操作失败', 400, 'bad_request');
+
+    notifySvc.notify({
+      userId: req.params.userId,
+      type: 'system',
+      title: agree ? 'AI 解析查看申请已通过' : 'AI 解析查看申请未通过',
+      body: agree
+        ? `发布方已同意你查看「${String(l.title).slice(0, 20)}」的 AI 项目解析`
+        : note || '发布方暂未同意你查看该项目的 AI 解析',
+      link: `#/detail/${l.id}`,
+    });
+
+    return data(res, { ok: true, agree });
+  });
+
+  /** 发布方：撤销某人的查看权限 */
+  app.post('/api/listings/:id/ai-access/:userId/revoke', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    if (l.ownerId !== user.id && !user.isAdmin) return fail(res, '只有发布方可以操作', 403, 'forbidden');
+    listingsSvc.revokeAiAccess(l.id, req.params.userId);
+    return data(res, { ok: true });
   });
 }
