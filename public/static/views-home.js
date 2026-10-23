@@ -215,8 +215,15 @@ export async function renderHome(ctx, query) {
       <h2>🎬 短视频</h2>
       <a href="#/shorts">刷起来 ›</a>
     </div>
-    <div class="home-scroll home-shorts">
-      ${shorts.map(shortCard).join('')}
+    <div class="home-shorts-wrap">
+      <div class="home-shorts" id="home-shorts">
+        ${shorts.map(shortCard).join('')}
+      </div>
+      ${shorts.length > 1
+        ? `<div class="home-shorts-dots" id="home-shorts-dots">
+            ${shorts.map((_, i) => `<i class="${i === 0 ? 'on' : ''}" data-sdot="${i}"></i>`).join('')}
+          </div>`
+        : ''}
     </div>` : '';
 
   /* ---------------- 热门行业 ---------------- */
@@ -318,6 +325,32 @@ export async function renderHome(ctx, query) {
     showBack: false,
     noTab: false,
     async mount(root) {
+      /* 短视频横滑：一屏一个，指示点联动 */
+      (() => {
+        const box = root.querySelector('#home-shorts');
+        const dots = [...root.querySelectorAll('#home-shorts-dots i')];
+        if (!box || !dots.length) return;
+        let cur = 0;
+        const sync = () => {
+          const cards = [...box.querySelectorAll('.short-card')];
+          if (!cards.length) return;
+          const w = cards[0].offsetWidth + 12;
+          const i = Math.max(0, Math.min(cards.length - 1, Math.round(box.scrollLeft / w)));
+          if (i !== cur) {
+            cur = i;
+            dots.forEach((d, k) => d.classList.toggle('on', k === i));
+          }
+        };
+        box.addEventListener('scroll', sync, { passive: true });
+        dots.forEach((d, i) =>
+          d.addEventListener('click', () => {
+            const cards = [...box.querySelectorAll('.short-card')];
+            const card = cards[i];
+            if (card) box.scrollTo({ left: card.offsetLeft - box.offsetLeft, behavior: 'smooth' });
+          }),
+        );
+      })();
+
       /* 轮播：短视频 / 直播 */
       const banner = root.querySelector('#home-banner');
       if (banner) {

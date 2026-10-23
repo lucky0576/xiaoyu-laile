@@ -1155,3 +1155,72 @@ body.shorts-mode #wx-tip { display: none !important; }
   padding: 14px;
 }
 .pub-title-box .field:last-of-type { margin-bottom: 6px; }
+
+
+/* ---------------- 首页短视频：一屏一个，滑动查看 ---------------- */
+.home-shorts-wrap {
+  margin-top: 10px;
+}
+
+.home-shorts {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.home-shorts::-webkit-scrollbar { display: none; }
+
+/* 手机（默认）：一张占满一屏 */
+.short-card {
+  flex: 0 0 100%;
+  width: 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+/* 桌面：卡片收窄到 320px，一屏能看两三张，仍然可滑 */
+@media (min-width: 720px) {
+  .short-card { flex: 0 0 320px; width: 320px; }
+}
+
+/* 缩略图：保持 3:4，但限制最大高度，避免桌面端过高 */
+.short-thumb {
+  aspect-ratio: 3 / 4;
+  max-height: min(62vh, 470px);
+}
+
+.short-t {
+  font-size: 14px;
+  -webkit-line-clamp: 2;
+  margin-top: 8px;
+}
+.short-m { font-size: 11.5px; }
+
+/* 指示点 */
+.home-shorts-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.home-shorts-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #d3dde9;
+  transition: width .18s, background .18s;
+  cursor: pointer;
+}
+.home-shorts-dots i.on {
+  width: 18px;
+  background: var(--brand);
+}
+
+@media (min-width: 720px) {
+  .home-shorts-dots { display: none; }
+}
