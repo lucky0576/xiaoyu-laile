@@ -276,8 +276,10 @@ export default function registerCoreRoutes(app) {
   /* ---------------------------------------------------------------- */
   app.get('/api/wechat/share-config', async (req, res) => {
     const id = String(req.query.id || '');
-    const listing = id ? listingsSvc.getListing(id) : null;
-    if (!listing) throw httpError(404, '信息不存在');
+    const raw = id ? listingsSvc.getListing(id) : null;
+    if (!raw) throw httpError(404, '信息不存在');
+    // 用 listingPublic 视图：typeName 已解析成中文，autoInfo 也在里面
+    const listing = listingsSvc.listingPublic(raw, authUser(req));
     const pageUrl = String(req.query.url || `${baseUrl(req)}/#/detail/${id}`);
     const cfg = await wechat.buildWechatShare({ listing, baseUrl: baseUrl(req), pageUrl });
     return data(res, cfg);

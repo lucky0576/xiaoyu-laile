@@ -15,6 +15,7 @@ import crypto from 'node:crypto';
 import { config, wechatConfigured } from '../config.js';
 import { httpError } from '../http/app.js';
 import { listFiles } from './files.js';
+import { maskContacts } from '../lib/contact-mask.js';
 
 const API = 'https://api.weixin.qq.com';
 
@@ -173,45 +174,112 @@ export function verifyServerSignature({ signature, timestamp, nonce, echostr }) 
 export function buildSharePayload({ listing, baseUrl }) {
   const url = listing.shareUrl || `${baseUrl}/#/detail/${listing.id}`;
   const title = listing.shareTitle || listing.title || '小鱼来了';
-  const desc =
-    listing.shareDesc ||
-    listing.subtitle ||
-    listing?.ai?.summary?.slice(0, 60) ||
-    '项目 / 活动 / 贸易信息，尽在小鱼来了';
 
+  /* ---------- 项目信息（结构化字段 + AI 提取的关键要素） ---------- */
+  const bits = [];
+
+  const city = listing.cities && listing.cities[0] ? listing.cities[0].name : '';
+  if (city) {
+    bits.push(`📍 ${city.replace(/市$/, '')}`);
+  }
+
+  // 类型名：优先中文；如果还是英文 ID 就不显示
+  const rawType = String(listing.typeName || '').trim();
+  const typeName = /^[\x00-\xff]+$/.test(rawType) ? '' : rawType;
+  if (typeName) bits.push(`🤝 ${typeName}`);
+
+  // AI 提取的关键要素（金额、规模、周期等），取前 2 条最能说明问题的
+  const facts = (listing.autoInfo && Array.isArray(listing.autoInfo.keyFacts))
+    ? listing.autoInfo.keyFacts
+    : [];
+  const SKIP_LABELS = ['联系人', '联系方式', '电话', '微信'];
+  let factCount = 0;
+  for (const f of facts) {
+    if (factCount >= 2) break;
+    const label = String(f.label || '').trim();
+    const value = String(f.value || '').trim();
+    if (!label || !value) continue;
+    if (SKIP_LABELS.some((s) => label.includes(s))) continue;   // 联系方式不进分享文案
+    if (value.length > 18) continue;                              // 太长的描述不要
+    bits.push(`${label} ${value}`);
+    factCount++;
+  }
+
+  // 兜底：结构化金额
+  if (factCount === 0) {
+    const proj = listing.project || {};
+    const trade = listing.trade || {};
+    const bounty = listing.bounty || {};
+    const amount = proj.investAmount || trade.price || bounty.reward || '';
+    if (amount) bits.push(`💰 ${amount}`);
+  }
+
+  const industry = listing.industries && listing.industries[0] ? listing.industries[0].name : '';
+  if (industry && industry !== typeName && bits.length < 4) bits.push(`🏭 ${industry}`);
+
+  /* ---------- 正文摘要（去联系方式） ---------- */
+  const rawText = String(listing.text || listing.ai?.summary || '').replace(/\s+/g, ' ').trim();
+  const bodySnippet = rawText ? maskContacts(rawText).text.slice(0, 70) : '';
+
+  /* ---------- 组装描述 ---------- */
+  let infoLine = bits.join(' · ');
+  if (infoLine.length > 60) infoLine = `${infoLine.slice(0, 59)}…`;
+  let desc = String(listing.shareDesc || '').trim();
+  if (!desc) {
+    desc = [infoLine, bodySnippet].filter(Boolean).join('　');
+  }
+  if (!desc) {
+    desc = listing.subtitle || '项目 / 活动 / 贸易信息，尽在小鱼来了';
+  }
+  // 微信分享卡片摘要过长会被截断，控制在 100 字内
+  if (desc.length > 100) desc = `${desc.slice(0, 99)}…`;
+
+  /* ---------- 封面图 ---------- */
   // listing.files 是文件 ID 数组；listing.fileList（已解析）优先。
-  // 直接把 ID 当对象用会拿不到封面图。
   const fileRecords = Array.isArray(listing.fileList) && listing.fileList.length
     ? listing.fileList
     : listFiles(listing.files || []);
   const coverFile = fileRecords.find((f) => f.id === listing.coverId)
     || fileRecords.find((f) => f.kind === 'image');
-  const imgUrl = coverFile ? `${baseUrl}${coverFile.url}` : `${baseUrl}/static/share-default.png`;
+  // 没有上传图片时，用发布时自动生成的封面
+  const imgPath = coverFile ? coverFile.url : listing.coverUrl || '';
+  const imgUrl = imgPath ? `${baseUrl}${imgPath}` : `${baseUrl}/static/icon-512.png`;
+
+  /* ---------- 分享文案（纯文字 / 海报 / 链接 三种） ---------- */
+  const plainLines = [title];
+  if (infoLine) plainLines.push(infoLine);
+  if (bodySnippet) plainLines.push(bodySnippet);
+
+  const bodyText = plainLines.join('\n');
+  const swipeTip = '—— 小鱼来了｜让每一条好项目，都被对的人看见';
 
   return {
     url,
     title,
     desc,
     imgUrl,
+    // 前端分享面板要用到的结构化信息
+    infoLine,
+    bodySnippet,
     qr: `${baseUrl}/api/share/qrcode?text=${encodeURIComponent(url)}`,
     modes: [
       {
         id: 'text',
         name: '纯文字',
         desc: '只给一段文案，不带图片和链接，可粘贴到任何地方',
-        text: `${title}\n${desc}\n—— 小鱼来了`,
+        text: `${bodyText}\n${swipeTip}`,
       },
       {
         id: 'image',
         name: '文字 + 图片',
         desc: '生成带二维码的海报图，适合发朋友圈、微信群',
-        text: `${title}\n${desc}\n长按识别二维码查看详情 →`,
+        text: `${bodyText}\n长按识别二维码查看详情 →`,
       },
       {
         id: 'link',
         name: '文字 + 链接',
         desc: '直接分享网页链接，微信内自动展示标题、摘要与封面图',
-        text: `${title}\n${desc}\n${url}`,
+        text: `${bodyText}\n${url}`,
       },
     ],
   };
