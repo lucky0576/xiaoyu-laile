@@ -348,9 +348,26 @@ export default function registerCoreRoutes(app) {
     if (images.length && fileText.trim().length < 200) {
       try {
         const aiMod = await import('../services/ai.js');
-        const ocr = await aiMod.ocrImages({
-          images: images.slice(0, 6).map((f) => `${baseUrl(req)}${f.url}`),
-        });
+        // 优先用 base64 直传：视觉模型不用再回源下载我们的图片，
+        // 实测能把单张图从 50 秒降到十几秒。
+        const fsMod = await import('node:fs');
+        const imgs = [];
+        for (const f of images.slice(0, 6)) {
+          let payload = '';
+          try {
+            const st = fsMod.statSync(f.path);
+            // 超过 2MB 就不再 base64（请求体太大反而更慢），退回用 URL
+            if (st.size <= 2 * 1024 * 1024) {
+              const buf = fsMod.readFileSync(f.path);
+              const mime = f.mime || 'image/jpeg';
+              payload = `data:${mime};base64,${buf.toString('base64')}`;
+            }
+          } catch {
+            /* 读不到就走 URL */
+          }
+          imgs.push(payload || `${baseUrl(req)}${f.url}`);
+        }
+        const ocr = await aiMod.ocrImages({ images: imgs });
         if (ocr.ok && ocr.text) {
           fileText = `${fileText ? fileText + '\n\n' : ''}【图片文字识别（共 ${ocr.count} 张）】\n${ocr.text}`;
         }

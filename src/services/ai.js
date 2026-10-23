@@ -1241,42 +1241,78 @@ export async function visionDescribe({ images = [], prompt = '' } = {}) {
   for (const url of list) content.push({ type: 'image_url', image_url: { url } });
 
   const eff = settingsSvc.effectiveVisionConfig();
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), eff.timeoutMs || 45000);
-  try {
-    const res = await fetch(`${eff.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${eff.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: eff.model,
-        messages: [{ role: 'user', content }],
-        temperature: 0.3,
-        max_tokens: 400,
-      }),
-      signal: ctrl.signal,
-    });
-    const txt = await res.text();
-    if (!res.ok) return { ok: false, text: '', note: `视觉模型 ${res.status}：${txt.slice(0, 200)}` };
-    let json = {};
-    try { json = JSON.parse(txt); } catch { return { ok: false, text: '', note: '返回不是 JSON' }; }
-    const out = json && json.choices && json.choices[0] && json.choices[0].message
-      ? json.choices[0].message.content
-      : '';
-    const text =
-      typeof out === 'string'
-        ? out.trim()
-        : Array.isArray(out)
-          ? out.map((x) => (typeof x === 'string' ? x : (x && x.text) || '')).join(' ').trim()
-          : '';
-    return { ok: Boolean(text), text };
-  } catch (err) {
-    return { ok: false, text: '', note: `视觉模型调用失败：${err.message}` };
-  } finally {
-    clearTimeout(timer);
+
+  // 共享/免费模型在高峰期经常返回 503（模型过载）或 429（限流）。
+  // 这里按「主模型 → 备用模型」跑两轮，中间指数退避，
+  // 不要一次失败就当没有内容。
+  const models = [eff.model, ...(eff.fallbackModels || [])].filter(Boolean);
+  const attempts = [...models, ...models]; // 两轮
+
+  const notes = [];
+  for (let i = 0; i < attempts.length; i++) {
+    const model = attempts[i];
+    const isLast = i === attempts.length - 1;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), eff.timeoutMs || 60000);
+    try {
+      const res = await fetch(`${eff.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${eff.apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content }],
+          temperature: 0.3,
+          max_tokens: 400,
+        }),
+        signal: ctrl.signal,
+      });
+      const txt = await res.text();
+
+      if (!res.ok) {
+        const retryable = res.status === 429 || res.status >= 500;
+        notes.push(`${model} ${res.status}`);
+        if (retryable && !isLast) {
+          await new Promise((r) => setTimeout(r, Math.min(1200 * (i + 1), 5000)));
+          continue;
+        }
+        return { ok: false, text: '', note: `视觉模型 ${res.status}：${txt.slice(0, 200)}` };
+      }
+
+      let json = {};
+      try {
+        json = JSON.parse(txt);
+      } catch {
+        notes.push(`${model} 非 JSON`);
+        if (!isLast) { await new Promise((r) => setTimeout(r, 800)); continue; }
+        return { ok: false, text: '', note: '返回不是 JSON' };
+      }
+
+      const out = json && json.choices && json.choices[0] && json.choices[0].message
+        ? json.choices[0].message.content
+        : '';
+      const text =
+        typeof out === 'string'
+          ? out.trim()
+          : Array.isArray(out)
+            ? out.map((x) => (typeof x === 'string' ? x : (x && x.text) || '')).join(' ').trim()
+            : '';
+      if (text) return { ok: true, text, model };
+      notes.push(`${model} 空内容`);
+      if (!isLast) { await new Promise((r) => setTimeout(r, 800)); continue; }
+      return { ok: false, text: '', note: '模型返回空内容' };
+    } catch (err) {
+      notes.push(`${model} ${err.name === 'AbortError' ? '超时' : err.message}`);
+      if (!isLast) { await new Promise((r) => setTimeout(r, 800)); continue; }
+      return { ok: false, text: '', note: `视觉模型调用失败：${err.message}` };
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
+  return { ok: false, text: '', note: `视觉模型全部失败（${notes.slice(-3).join('；')}）` };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1307,17 +1343,44 @@ export async function ocrImages({ images = [], prompt = '', perImage = 6 } = {})
   if (!list.length) return { ok: false, text: '', count: 0, note: '没有图片' };
   if (!visionConfigured()) return { ok: false, text: '', count: 0, note: '未配置视觉模型' };
 
+  // 并发 3 张：既提速，又不至于一上来就把限流打满
+  const CONCURRENCY = 3;
+  const results = new Array(list.length).fill(null);
+  const notes = [];
+  let cursor = 0;
+
+  const worker = async () => {
+    while (cursor < list.length) {
+      const i = cursor++;
+      const r = await visionDescribe({ images: [list[i]], prompt: prompt || OCR_PROMPT });
+      if (r.ok && r.text) results[i] = r.text;
+      else if (r.note) notes.push(r.note);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, list.length) }, () => worker()),
+  );
+
   const out = [];
   let done = 0;
-  for (let i = 0; i < list.length; i++) {
-    const r = await visionDescribe({ images: [list[i]], prompt: prompt || OCR_PROMPT });
-    if (r.ok && r.text) {
+  results.forEach((txt, i) => {
+    if (txt) {
       done += 1;
-      out.push(`【图片 ${i + 1}】\n${r.text}`);
+      out.push(`【图片 ${i + 1}】\n${txt}`);
     }
+  });
+
+  if (!out.length) {
+    return {
+      ok: false,
+      text: '',
+      count: 0,
+      total: list.length,
+      note: `图片识别全部失败（共 ${list.length} 张）：${notes.slice(0, 2).join('；') || '未知原因'}`,
+    };
   }
-  if (!out.length) return { ok: false, text: '', count: 0, note: '图片里没有识别到可用内容' };
-  return { ok: true, text: out.join('\n\n'), count: done };
+  return { ok: true, text: out.join('\n\n'), count: done, total: list.length, partial: done < list.length };
 }
 
 export function asrConfigured() {

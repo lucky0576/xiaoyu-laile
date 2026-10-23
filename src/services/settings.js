@@ -213,7 +213,8 @@ export function effectiveVisionConfig() {
   const apiKey = stored.apiKey || envKey;
   return {
     baseUrl: stored.baseUrl || config.vision?.baseUrl || 'https://open.bigmodel.cn/api/paas/v4',
-    model: stored.model || config.vision?.model || 'glm-4v-flash',
+    model: stored.model || config.vision?.model || 'Qwen/Qwen3-VL-30B-A3B-Instruct',
+    fallbackModels: config.vision?.fallbackModels || [],
     apiKey,
     timeoutMs: config.vision?.timeoutMs || 45000,
     enabled: Boolean(apiKey),

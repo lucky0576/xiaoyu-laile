@@ -106,8 +106,16 @@ export const config = {
   vision: {
     baseUrl: env('VISION_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, ''),
     apiKey: env('ZHIPU_API_KEY', ''),
-    model: env('VISION_MODEL', 'glm-4v-flash'),
-    timeoutMs: num('VISION_TIMEOUT_MS', 45000),
+    model: env('VISION_MODEL', 'Qwen/Qwen3-VL-30B-A3B-Instruct'),
+    timeoutMs: num('VISION_TIMEOUT_MS', 60000),
+    // 主模型过载（503）或限流（429）时依次降级尝试
+    fallbackModels: env(
+      'VISION_FALLBACK_MODELS',
+      'Qwen/Qwen3-VL-30B-A3B-Instruct,Qwen/Qwen3-VL-32B-Instruct',
+    )
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
   },
 
   /* ---------------------------------------------------------------- */
