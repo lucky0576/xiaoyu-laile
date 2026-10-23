@@ -219,12 +219,14 @@ export async function renderHome(ctx, query) {
     </div>` : '';
 
   /* ---------------- 统计 ---------------- */
-  const statsHtml = `<div class="home-stats">
+  /* 平台统计只对管理员展示（运营数据不外露） */
+  const isAdminViewer = Boolean(ctx.state.user?.isAdmin);
+  const statsHtml = isAdminViewer ? `<div class="home-stats">
     <div><div class="n">${stats.published || 0}</div><div class="l">在线信息</div></div>
     <div><div class="n">${stats.users || 0}</div><div class="l">注册用户</div></div>
     <div><div class="n">${(tax.industries || []).length}</div><div class="l">细分行业</div></div>
     <div><div class="n">${ctx.state.site?.helper?.cities || 0}</div><div class="l">覆盖城市</div></div>
-  </div>`;
+  </div>` : '';
 
   const loginStrip = logged ? '' : `<a class="login-banner mt12" href="#/login">
     <div class="grow">
