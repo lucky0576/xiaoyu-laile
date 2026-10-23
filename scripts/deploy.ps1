@@ -1,4 +1,4 @@
-# Deploy helper (Windows / PowerShell)
+﻿# Deploy helper (Windows / PowerShell)
 #
 # Usage:
 #   .\scripts\deploy.ps1                       # auto: upload changed files, restart only if backend changed

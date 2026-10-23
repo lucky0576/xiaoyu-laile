@@ -1,23 +1,25 @@
-# 全站冒烟测试
+﻿# 全站冒烟测试 (smoke test)
 #
-# 用法：
-#   .\scripts\smoke-test.ps1              # 普通用户视角
-#   .\scripts\smoke-test.ps1 -AsAdmin     # 管理员视角
-#   .\scripts\smoke-test.ps1 -All         # 两种视角都跑
+# 用法:
+#   .\scripts\smoke-test.ps1              # normal user view
+#   .\scripts\smoke-test.ps1 -AsAdmin     # admin view
+#   .\scripts\smoke-test.ps1 -All         # both
 #
-# 除控制台错误外，还会检查页面是否渲染了「出错了」错误页
-# —— 只看控制台是查不出这类问题的（错误被 error boundary 吃掉了）。
+# Checks console errors AND whether the page rendered the framework
+# error boundary ("出错了" / "... is not defined"). Console-only checks
+# miss these because the error boundary swallows them.
 
 param(
   [switch]$AsAdmin,
   [switch]$All
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $Py = 'C:\Users\Administrator\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
 $Verify = Join-Path $Root 'video\cdp_verify.py'
 $Base = 'https://xiaoyulaile.online'
+$env:PYTHONIOENCODING = 'utf-8'
 
 $Common = @(
   '#/home',
@@ -33,7 +35,7 @@ $Common = @(
   '#/publish?category=project'
 )
 
-$AdminOnly = @('#/admin', '#/admin-invest', '#/admin-ai', '#/wechat-setup')
+$AdminExtra = @('#/admin', '#/admin-invest', '#/admin-ai', '#/wechat-setup')
 
 function Login($account, $password) {
   $body = @{ account = $account; password = $password } | ConvertTo-Json
@@ -41,13 +43,13 @@ function Login($account, $password) {
   return $r.data.token
 }
 
-function Sweep($title, $token, $urls) {
+function Sweep($label, $token, $pages) {
   Write-Host ''
-  Write-Host "=== $title ===" -ForegroundColor Cyan
+  Write-Host "=== $label ===" -ForegroundColor Cyan
   Get-Process msedge -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Seconds 2
-  $args = @($Verify, $token) + $urls
-  & $Py @args 2>&1 | ForEach-Object { Write-Host "  $_" }
+  Start-Sleep -Seconds 3
+  $pyArgs = @($Verify, $token) + $pages
+  & $Py @pyArgs 2>&1 | ForEach-Object { Write-Host "  $_" }
   return $LASTEXITCODE
 }
 
@@ -55,12 +57,12 @@ $fail = 0
 
 if ($All -or -not $AsAdmin) {
   $t = Login '13800001234' 'demo123456'
-  $fail += Sweep '普通用户视角' $t $Common
+  $fail += Sweep 'NORMAL USER' $t $Common
 }
 
 if ($All -or $AsAdmin) {
   $t = Login '13456693544' 'weilan0576'
-  $fail += Sweep '管理员视角' $t ($Common + $AdminOnly)
+  $fail += Sweep 'ADMIN' $t ($Common + $AdminExtra)
 }
 
 Write-Host ''
