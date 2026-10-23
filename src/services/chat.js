@@ -341,6 +341,11 @@ export function createMeeting({
   usePassword = false,
   mode = 'meeting',
 }) {
+  // 会议时长上限：普通会议最长 60 分钟，直播不受此限（统一夹取，不抛错）
+  const maxMin = mode === 'live' ? 480 : 60;
+  const safeDuration = Math.max(5, Math.min(maxMin, Number(durationMin) || 60));
+
+
   let room = roomId ? rooms().get(roomId) : null;
   if (roomId && !room) throw httpError(404, '群聊不存在');
 
@@ -387,7 +392,8 @@ export function createMeeting({
     hostId: host.id,
     hostName: host.nickname,
     startAt: startAt || new Date().toISOString(),
-    durationMin: Number(durationMin) || 60,
+    // 会议时长上限 60 分钟（直播模式不受此限）
+    durationMin: safeDuration,
     status: 'scheduled',
     provider: config.meeting.provider,
     joinUrl: '',

@@ -116,7 +116,10 @@ export default function registerChatRoutes(app) {
       host: user,
       title: str(req.body?.title, 120) || '项目对接会议',
       startAt: str(req.body?.startAt, 40) || new Date().toISOString(),
-      durationMin: num(req.body?.durationMin, 60),
+      durationMin: Math.min(
+        String(req.body?.mode) === 'live' ? 480 : 60,
+        num(req.body?.durationMin, 60),
+      ),
       participantIds: list(req.body?.participantIds),
       agenda: str(req.body?.agenda, 1000),
       usePassword: bool(req.body?.usePassword),

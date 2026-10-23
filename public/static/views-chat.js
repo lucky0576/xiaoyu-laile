@@ -89,8 +89,8 @@ export async function renderChat(ctx, params) {
             </div>
             <div class="row gap8">
               <div class="field grow">
-                <label>时长（分钟）</label>
-                <input class="input" id="nm-dur" type="number" min="15" max="480" value="60">
+                <label>时长（分钟）<span class="tiny dim">最长 60</span></label>
+                <input class="input" id="nm-dur" type="number" min="15" max="60" value="60">
               </div>
               <div class="field grow">
                 <label>入会密码 <span class="tiny dim">选填</span></label>
@@ -101,14 +101,16 @@ export async function renderChat(ctx, params) {
               <label>会议议程 <span class="tiny dim">选填</span></label>
               <textarea class="input" id="nm-agenda" rows="2" maxlength="500" placeholder="例如：1. 项目背景 2. 造价确认 3. 下一步分工"></textarea>
             </div>
-            <div class="tiny dim">预约会议会出现在「我的会议」里，到点前可随时进入，也会通知参会人。</div>
+            <div class="tiny dim">预约会议会出现在「我的会议」里，到点前可随时进入，也会通知参会人。<br>单场会议最长 <b>60 分钟</b>。</div>
             <button class="btn btn-primary btn-block mt12" id="nm-create">创建会议</button>`,
           onMount(sheet, close) {
             const btn = sheet.querySelector('#nm-create');
             btn.addEventListener('click', async () => {
               const title = (sheet.querySelector('#nm-title').value || '').trim() || '项目沟通会';
               const startRaw = sheet.querySelector('#nm-start').value || '';
-              const dur = Math.max(15, Math.min(480, Number(sheet.querySelector('#nm-dur').value) || 60));
+              const durRaw = Number(sheet.querySelector('#nm-dur').value) || 60;
+              if (durRaw > 60) return ui.toast('会议时长不能超过 60 分钟', 'err');
+              const dur = Math.max(15, Math.min(60, durRaw));
               const pass = (sheet.querySelector('#nm-pass').value || '').trim();
               const agenda = (sheet.querySelector('#nm-agenda').value || '').trim();
 
