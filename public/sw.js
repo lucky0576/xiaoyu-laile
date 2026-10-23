@@ -2,10 +2,10 @@
    作用：让浏览器认定本站"可安装"（安卓 Chrome 的硬性要求）
    策略：静态资源网络优先 + 缓存兜底；API 一律不缓存，永远走网络。 */
 
-const VERSION = 'xyll-v1';
+const VERSION = 'xyll-v2';
 const STATIC_CACHE = VERSION + '-static';
 const PRECACHE = [
-  '/',
+  '/?v=2',
   '/static/manifest.webmanifest',
   '/static/icon-192.png',
   '/static/icon-512.png',

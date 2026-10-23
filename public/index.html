@@ -19,6 +19,8 @@
 <meta name="apple-mobile-web-app-title" content="小鱼来了" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="application-name" content="小鱼来了" />
+<link rel="preconnect" href="https://xiaoyulaile.online" crossorigin />
+<link rel="dns-prefetch" href="//xiaoyulaile.online" />
 <link rel="stylesheet" href="/static/styles.css" />
 <link rel="stylesheet" href="/static/home.css" />
 <link rel="stylesheet" href="/static/live.css" />
@@ -52,6 +54,65 @@
       close.addEventListener('click', function () { tip.style.display = 'none'; });
     }
     setTimeout(function () { if (tip) tip.style.display = 'none'; }, 15000);
+  } catch (e) {}
+})();
+</script>
+<!-- 添加到桌面引导：装到桌面后，下次点图标直接全屏打开，不再经浏览器中转 -->
+<div id="install-bar" style="display:none;position:fixed;left:10px;right:10px;bottom:78px;z-index:99998;background:#fff;color:#16202e;padding:12px 46px 12px 14px;border-radius:14px;font-size:13px;line-height:1.6;box-shadow:0 8px 28px rgba(24,60,120,.18);border:1px solid #e6edf7;">
+  <div style="font-weight:800;margin-bottom:2px;">安装到桌面，打开更方便</div>
+  <div style="color:#6b7c95;font-size:12px;">装好后点图标即开，不再出现浏览器提示</div>
+  <div id="install-go" style="margin-top:10px;display:inline-block;background:#0b74ff;color:#fff;font-weight:700;font-size:13px;padding:7px 18px;border-radius:9px;cursor:pointer;">立即安装</div>
+  <div id="install-close" style="position:absolute;right:6px;top:6px;width:30px;height:30px;line-height:28px;text-align:center;font-size:20px;color:#9aabc2;cursor:pointer;">×</div>
+</div>
+<script>
+(function () {
+  try {
+    var isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+    var bar = document.getElementById('install-bar');
+    var KEY = 'xyll_install_dismissed';
+    if (!bar || isWeChat) return;                       // 微信内不支持安装，不打扰
+    if (localStorage.getItem(KEY)) return;              // 用户已经关过
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return; // 已装
+
+    var deferred = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferred = e;
+      bar.style.display = 'block';
+    });
+    // iOS 没有 beforeinstallprompt，用 Safari 判断给出手动引导
+    var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isIOS && !navigator.standalone) {
+      setTimeout(function () { bar.style.display = 'block'; }, 2500);
+      var go = document.getElementById('install-go');
+      if (go) {
+        go.textContent = '查看安装方法';
+        go.addEventListener('click', function () {
+          alert('点底部「分享」按钮 → 选择「添加到主屏幕」');
+        });
+      }
+    }
+
+    document.getElementById('install-close').addEventListener('click', function () {
+      bar.style.display = 'none';
+      localStorage.setItem(KEY, '1');
+    });
+    var btn = document.getElementById('install-go');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.finally(function () {
+          deferred = null;
+          bar.style.display = 'none';
+          localStorage.setItem(KEY, '1');
+        });
+      });
+    }
+    window.addEventListener('appinstalled', function () {
+      bar.style.display = 'none';
+      localStorage.setItem(KEY, '1');
+    });
   } catch (e) {}
 })();
 </script>
