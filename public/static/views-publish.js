@@ -175,6 +175,16 @@ export async function renderPublish(ctx, params) {
       <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 文本），据此生成标题并解析项目。</div>
 
       <div class="card card-pad mt12">
+        <div class="row between mb8">
+          <div class="strong">📝 内容段落（可选）</div>
+          <span class="tiny dim">可加多段，每段独立配图</span>
+        </div>
+        <div class="tiny dim mb12">正文写不下的细节、分项说明、图纸照片，可以分成多段补充，详情页按顺序展示。</div>
+        <div id="pub-blocks"></div>
+        <button class="btn btn-sm btn-outline btn-block mt8" id="pub-block-add" type="button">＋ 添加一个段落</button>
+      </div>
+
+      <div class="card card-pad mt12">
         <div class="row between">
           <div class="strong">📍 位置（可选）</div>
           <label class="switch"><input type="checkbox" id="pub-use-loc" ${editing?.location ? 'checked' : ''}><span class="slider"></span></label>
@@ -1078,6 +1088,82 @@ export async function renderPublish(ctx, params) {
         root.querySelectorAll('#pub-duration-chips .chip').forEach((el) => el.classList.toggle('active', el === chip));
       });
 
+      /* ---------------- 内容段落 ---------------- */
+      const blocks = [];
+      const blocksHost = $('#pub-blocks');
+
+      const renderBlocks = () => {
+        if (!blocksHost) return;
+        blocksHost.innerHTML = blocks
+          .map(
+            (b, i) => `<div class="pub-block" data-bi="${i}">
+              <div class="row between mb6">
+                <span class="tiny dim">段落 ${i + 1}</span>
+                <button class="btn btn-sm" data-bdel="${i}" type="button" style="color:var(--danger)">删除</button>
+              </div>
+              <textarea class="input" data-btext="${i}" rows="3" maxlength="4000" placeholder="这一段的文字说明">${ui.esc(b.text || '')}</textarea>
+              <div class="row gap8 mt6" style="align-items:center">
+                <button class="btn btn-sm btn-outline" data-bpick="${i}" type="button">🖼️ 添加图片</button>
+                <span class="tiny dim" data-bstatus="${i}">${b.images.length ? b.images.length + ' 张图片' : '未选图片'}</span>
+              </div>
+              <div class="row wrap gap8 mt6" data-bimgs="${i}">
+                ${b.images.map((f) => `<img src="${ui.esc(ui.safeUrl(f.url))}" alt="" class="pub-block-img">`).join('')}
+              </div>
+              <input type="file" accept="image/*" multiple data-bfile="${i}" style="display:none">
+            </div>`
+          )
+          .join('');
+      };
+
+      const addBlock = () => {
+        if (blocks.length >= 10) return ui.toast('最多添加 10 个段落', 'err');
+        blocks.push({ text: '', images: [] });
+        renderBlocks();
+      };
+
+      $('#pub-block-add')?.addEventListener('click', addBlock);
+
+      blocksHost?.addEventListener('input', (e) => {
+        const i = e.target.dataset && e.target.dataset.btext;
+        if (i !== undefined) blocks[Number(i)].text = e.target.value;
+      });
+
+      blocksHost?.addEventListener('click', async (e) => {
+        const del = e.target.closest('[data-bdel]');
+        if (del) {
+          blocks.splice(Number(del.dataset.bdel), 1);
+          return renderBlocks();
+        }
+        const pick = e.target.closest('[data-bpick]');
+        if (pick) {
+          const input = blocksHost.querySelector(`[data-bfile="${pick.dataset.bpick}"]`);
+          input?.click();
+          return;
+        }
+      });
+
+      blocksHost?.addEventListener('change', async (e) => {
+        const idx = e.target.dataset && e.target.dataset.bfile;
+        if (idx === undefined) return;
+        const i = Number(idx);
+        const files = [...(e.target.files || [])];
+        if (!files.length) return;
+        const st = blocksHost.querySelector(`[data-bstatus="${i}"]`);
+        if (st) st.textContent = '上传中…';
+        try {
+          for (const f of files.slice(0, 9 - blocks[i].images.length)) {
+            const res = await api.uploadFile(f);
+            const rec = (res.files && res.files[0]) || res.file;
+            if (rec) blocks[i].images.push(rec);
+          }
+          renderBlocks();
+          ui.toast('图片已添加', 'ok');
+        } catch (err) {
+          ui.toast(err.message || '上传失败', 'err');
+          renderBlocks();
+        }
+      });
+
       /* ---------------- 位置 ---------------- */
       let pubGeo = { lat: 0, lng: 0 };
       const useLocEl = $('#pub-use-loc');
@@ -1156,6 +1242,11 @@ export async function renderPublish(ctx, params) {
             ttlHours: Number($('#pub-secret-ttl')?.value) || 6,
           },
           publish: publishNow ? '1' : '0',
+          blocks: JSON.stringify(
+            blocks
+              .map((b) => ({ text: (b.text || '').trim(), images: b.images.map((f) => f.id) }))
+              .filter((b) => b.text || b.images.length)
+          ),
           location: $('#pub-use-loc')?.checked
             ? JSON.stringify({
                 public: Boolean($('#pub-loc-public')?.checked),

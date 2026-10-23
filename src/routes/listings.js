@@ -156,6 +156,27 @@ export default function registerListingRoutes(app) {
     if (category === 'trade') patch.trade = { ...doc.trade, ...buildTrade(body) };
     if (category === 'project') patch.project = { ...doc.project, ...buildProject(body) };
     if (category === 'bounty') patch.bounty = { ...doc.bounty, ...buildBounty(body) };
+    // 内容段落（可选）：发布时可以加多段文字 + 图片
+    if (body.blocks) {
+      try {
+        const raw = typeof body.blocks === 'string' ? JSON.parse(body.blocks) : body.blocks;
+        if (Array.isArray(raw)) {
+          const now = new Date().toISOString();
+          patch.blocks = raw
+            .slice(0, 20)
+            .map((b) => ({
+              id: `bk_${Math.random().toString(36).slice(2, 10)}`,
+              text: String(b && b.text ? b.text : '').slice(0, 4000),
+              images: (Array.isArray(b && b.images) ? b.images : []).slice(0, 9).map(String),
+              at: now,
+            }))
+            .filter((b) => b.text || b.images.length);
+        }
+      } catch {
+        /* 段落格式错误不影响发布 */
+      }
+    }
+
     // 发布位置（可选）：用户勾选才收录，public 决定是否对其他人可见
     if (body.location) {
       try {
@@ -362,6 +383,12 @@ export default function registerListingRoutes(app) {
   /* ---------------------------------------------------------------- */
   app.post('/api/listings/:id/follow-ups', async (req, res) => {
     const user = mustAuth(req);
+    // 内容更新只允许发布方（管理员可代操作）追加
+    const target = listingsSvc.getListing(req.params.id);
+    if (!target) throw httpError(404, '信息不存在');
+    if (target.ownerId !== user.id && !user.isAdmin) {
+      return fail(res, '只有发布方可以追加内容更新', 403, 'forbidden');
+    }
     const files = await saveUploads(req, { ownerId: user.id, listingId: req.params.id, role: 'followup' });
     const entry = listingsSvc.addFollowUp(req.params.id, user, {
       text: str(req.body?.text || req.body?.content, 4000),

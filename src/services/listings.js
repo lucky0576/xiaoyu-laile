@@ -165,7 +165,15 @@ export function listingPublic(l, viewer = null, opts = {}) {
       : null,
 
     // 后续跟进、协议、他人资质提交都属于项目内部信息
-    followUps: isMember ? (l.followUps || []) : [],
+    // 内容更新（发布方追加的文字 + 文件）
+    // 已登录用户可见；附件解析成文件记录，前端才能渲染图片
+    followUps: signedIn
+      ? (l.followUps || []).map((f) => ({
+          ...f,
+          text: mask(f.text || ''),
+          fileList: listFiles(f.files || []).map(filePublic),
+        }))
+      : [],
     agreements: isMember ? (l.agreements || []) : [],
     qualificationSubmissions: [], // 统一走 /qualification 接口按权限返回
 

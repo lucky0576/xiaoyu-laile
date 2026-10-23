@@ -500,6 +500,12 @@ export async function renderSearch(ctx, query) {
 /* ================================================================== */
 /* 详情页                                                              */
 /* ================================================================== */
+/* 内容更新里的附件：优先用后端解析好的 fileList，兼容只有 id 的旧数据 */
+function fuFilesOf(fu) {
+  if (Array.isArray(fu.fileList) && fu.fileList.length) return fu.fileList;
+  return [];
+}
+
 export async function renderDetail(ctx, params) {
   const id = params.id;
   if (!id) return { title: '信息不存在', content: ui.emptyState('🧭', '信息不存在'), showBack: true };
@@ -957,6 +963,21 @@ export async function renderDetail(ctx, params) {
             <div class="small" style="white-space:pre-wrap;word-break:break-word;color:var(--text-2)">${ui.esc(listing.text || '（发布方未填写正文）')}</div>
           </div>
 
+          ${(listing.blocks || []).length ? `<div class="card card-pad">
+            <div class="strong mb8">📝 内容段落（${listing.blocks.length}）</div>
+            ${listing.blocks.map((b, i) => `<div class="detail-block">
+              <div class="detail-block-t">段落 ${i + 1}</div>
+              ${b.text ? `<div class="detail-block-b">${ui.nl2br(ui.esc(b.text))}</div>` : ''}
+              ${(b.images || []).length ? `<div class="detail-block-imgs">
+                ${b.images.map((fid) => {
+                  const rec = (listing.fileList || []).find((x) => x.id === fid);
+                  const url = rec ? ui.safeUrl(rec.url) : `/files/${ui.esc(fid)}/view`;
+                  return `<img src="${ui.esc(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`;
+                }).join('')}
+              </div>` : ''}
+            </div>`).join('')}
+          </div>` : ''}
+
           ${listing.fileLocked ? `<div class="card card-pad" id="project-files">
             <div class="file-locked">
               <div class="file-locked-ico">🔐</div>
@@ -999,12 +1020,22 @@ export async function renderDetail(ctx, params) {
           </div>` : '')}
 
           ${listing.followUps?.length ? `<div class="card card-pad">
-            <div class="strong mb8">📌 后续跟进（${listing.followUps.length}）</div>
+            <div class="strong mb8">📌 内容更新（${listing.followUps.length}）</div>
             ${listing.followUps.slice().reverse().map((f) => `<div style="border-bottom:1px dashed var(--line);padding:8px 0">
               <div class="tiny dim">${ui.esc(f.byName || '')} · ${ui.esc(ui.fmtDate(f.at, true))}</div>
               <div class="small" style="white-space:pre-wrap">${ui.esc(f.text || '')}</div>
+              ${(f.files || []).length ? `<div class="row wrap gap8 mt8">
+                ${fuFilesOf(f).map((rec) => {
+                  if (rec.kind === 'image') {
+                    return `<a href="${ui.esc(ui.safeUrl(rec.url))}" target="_blank" rel="noopener">
+                      <img src="${ui.esc(ui.safeUrl(rec.url))}" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
+                    </a>`;
+                  }
+                  return `<a class="chip" href="${ui.esc(ui.safeUrl(rec.url))}" target="_blank" rel="noopener">📎 ${ui.esc(rec.name || '附件')}</a>`;
+                }).join('')}
+              </div>` : ''}
             </div>`).join('')}
-            <button class="btn btn-sm btn-outline mt8" id="btn-add-followup">+ 新增后续</button>
+            ${isOwner || isAdmin ? '<button class="btn btn-sm btn-outline mt8" id="btn-add-followup">+ 追加内容（文字 + 文件）</button>' : ''}
           </div>` : ''}
 
           ${termsCard}
@@ -1433,17 +1464,46 @@ export async function renderDetail(ctx, params) {
       /* 新增后续 */
       root.querySelector('#btn-add-followup')?.addEventListener('click', async () => {
         if (!ctx.requireLogin()) return;
-        const text = await ui.promptDialog({ title: '新增后续', label: '记录本次跟进内容', multiline: true, okText: '提交' });
-        if (!text) return;
-        try {
-          const fd = new FormData();
-          fd.append('text', text);
-          await service.addFollowUp(listing.id, fd);
-          ui.toast('已记录', 'ok');
-          ctx.nav(`#/detail/${listing.id}`);
-        } catch (err) {
-          ui.toast(err.message, 'err');
-        }
+
+        await new Promise((resolve) => {
+          ui.openSheet({
+            title: '追加内容更新',
+            content: `<div class="field">
+                <label>文字内容</label>
+                <textarea class="input" id="fu-text" rows="5" maxlength="4000" placeholder="补充说明、进展、变更事项等"></textarea>
+              </div>
+              <div class="field">
+                <label>导入文件 / 图片（可多选）</label>
+                <input type="file" id="fu-files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.dwg">
+                <div class="tiny dim mt6">支持图片、PDF、Word、Excel、PPT、CAD 等，单个不超过 50MB</div>
+              </div>
+              <button class="btn btn-primary btn-block mt12" id="fu-submit">发布更新</button>`,
+            onMount(sheet, close) {
+              const btn = sheet.querySelector('#fu-submit');
+              btn.addEventListener('click', async () => {
+                const text = (sheet.querySelector('#fu-text').value || '').trim();
+                const files = [...(sheet.querySelector('#fu-files').files || [])];
+                if (!text && !files.length) return ui.toast('请填写文字或选择文件', 'err');
+                btn.disabled = true;
+                btn.textContent = '上传中…';
+                try {
+                  const fd = new FormData();
+                  fd.append('text', text);
+                  for (const f of files) fd.append('file', f, f.name);
+                  await service.addFollowUp(listing.id, fd);
+                  ui.toast('已发布更新', 'ok');
+                  close();
+                  ctx.nav(`#/detail/${listing.id}`, { replace: true });
+                  resolve();
+                } catch (err) {
+                  ui.toast(err.message || '发布失败', 'err');
+                  btn.disabled = false;
+                  btn.textContent = '发布更新';
+                }
+              });
+            },
+          });
+        });
       });
 
       /* ---------------- 案例参考 + 自动配图 ---------------- */
