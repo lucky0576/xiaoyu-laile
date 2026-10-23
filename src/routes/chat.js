@@ -16,7 +16,16 @@ export default function registerChatRoutes(app) {
   /* ================================================================ */
   app.get('/api/chat/rooms', (req, res) => {
     const user = mustAuth(req);
-    return data(res, { items: chatSvc.listRooms(user.id) });
+    // 话题群（固定、所有人可见）与会话分开返回
+    try {
+      chatSvc.ensureTopicRooms();
+    } catch {
+      /* 初始化失败不影响主流程 */
+    }
+    return data(res, {
+      items: chatSvc.listRooms(user.id),
+      topics: chatSvc.listTopicRooms(user.id),
+    });
   });
 
   app.post('/api/chat/rooms', (req, res) => {
@@ -36,8 +45,14 @@ export default function registerChatRoutes(app) {
 
   app.get('/api/chat/rooms/:id', (req, res) => {
     const user = authUser(req);
-    const room = chatSvc.getRoom(req.params.id);
+    let room = chatSvc.getRoom(req.params.id);
     if (!room) throw httpError(404, '群聊不存在');
+
+    // 话题群：任何人打开即自动加入
+    if (room.type === 'topic' && user) {
+      room = chatSvc.joinTopicRoom(room.id, user);
+    }
+
     const isMember = (room.members || []).some((m) => m.userId === user?.id);
     if (!isMember && !user?.isAdmin) throw httpError(403, '您不在该群聊中');
     return data(res, { room: chatSvc.roomPublic(room, user.id) });

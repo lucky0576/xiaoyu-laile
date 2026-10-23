@@ -12,6 +12,7 @@
  *   - AI 自动生成会议纪要与双方后续跟进事项，并发送双方确认
  */
 import crypto from 'node:crypto';
+import { TOPIC_ROOMS } from '../data/topics.js';
 import db, { newId } from '../store/db.js';
 import { httpError } from '../http/app.js';
 import hub from './hub.js';
@@ -32,6 +33,86 @@ const listingsCol = () => db.collection('listings');
 /* ------------------------------------------------------------------ */
 function memberOf(room, userId) {
   return (room.members || []).find((m) => m.userId === userId);
+}
+
+/* ------------------------------------------------------------------ */
+/* 固定话题群                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 确保话题群存在（幂等）。slug 存 meta.slug，重复调用不会重复创建。
+ * 返回 { created, total }
+ */
+export function ensureTopicRooms() {
+  const admin = users().find((u) => u.isAdmin) || users().first();
+  let created = 0;
+  for (const t of TOPIC_ROOMS) {
+    const exist = rooms().findOne((r) => r.type === 'topic' && r.meta && r.meta.slug === t.slug);
+    if (exist) continue;
+    rooms().insert({
+      id: newId('room'),
+      type: 'topic',
+      name: t.name,
+      ownerId: admin ? admin.id : '',
+      listingId: '',
+      targetId: '',
+      members: [],
+      meta: { slug: t.slug, icon: t.icon, desc: t.desc, official: true },
+      messageCount: 0,
+      lastMessage: null,
+      createdAt: new Date().toISOString(),
+    });
+    created++;
+  }
+  return { created, total: TOPIC_ROOMS.length };
+}
+
+/** 所有话题群（带当前用户的成员/未读状态） */
+export function listTopicRooms(userId) {
+  const all = rooms().find((r) => r.type === 'topic');
+  const order = new Map(TOPIC_ROOMS.map((t, i) => [t.slug, i]));
+  return all
+    .sort((a, b) => {
+      const oa = order.has(a.meta && a.meta.slug) ? order.get(a.meta.slug) : 999;
+      const ob = order.has(b.meta && b.meta.slug) ? order.get(b.meta.slug) : 999;
+      return oa - ob;
+    })
+    .map((r) => {
+      const p = roomPublic(r, userId);
+      return {
+        id: p.id,
+        name: p.name,
+        icon: (p.meta && p.meta.icon) || '💬',
+        desc: (p.meta && p.meta.desc) || '',
+        slug: (p.meta && p.meta.slug) || '',
+        isMember: p.isMember,
+        unread: p.unread,
+        memberCount: p.memberCount,
+        messageCount: p.messageCount || 0,
+        lastMessage: p.lastMessage ? { text: String(p.lastMessage.text || '').slice(0, 60), at: p.lastMessage.at } : null,
+      };
+    });
+}
+
+/** 加入话题群（幂等）。返回 room */
+export function joinTopicRoom(roomId, user) {
+  const room = rooms().get(roomId);
+  if (!room) throw httpError(404, '群聊不存在');
+  if (room.type !== 'topic') throw httpError(400, '只有话题群支持自由加入');
+  if (memberOf(room, user.id)) return room;
+
+  const members = [
+    ...(room.members || []),
+    {
+      userId: user.id,
+      name: user.nickname || '成员',
+      avatar: user.avatar || '',
+      role: 'member',
+      joinedAt: new Date().toISOString(),
+      lastReadAt: new Date().toISOString(),
+    },
+  ];
+  return rooms().update(roomId, { members });
 }
 
 export function ensureRoom({ type = 'group', name, ownerId, listingId = '', targetId = '', memberIds = [], meta = {} }) {
@@ -89,7 +170,7 @@ export function roomPublic(room, viewerId) {
 
 export function listRooms(userId) {
   return rooms()
-    .find((r) => memberOf(r, userId))
+    .find((r) => memberOf(r, userId) && r.type !== 'topic')
     .sort((a, b) =>
       String(b.lastMessage?.at || b.createdAt).localeCompare(String(a.lastMessage?.at || a.createdAt)),
     )
@@ -973,6 +1054,9 @@ export function inviteContact(userId, contactId, { message = '' } = {}) {
 }
 
 export default {
+  ensureTopicRooms,
+  listTopicRooms,
+  joinTopicRoom,
   ensureRoom,
   getRoom,
   listRooms,

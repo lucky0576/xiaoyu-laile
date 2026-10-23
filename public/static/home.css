@@ -512,3 +512,64 @@
 .media-err-t { font-size: 13px; font-weight: 700; color: #c0392b; }
 .media-err-b { font-size: 12px; color: #7a4a44; line-height: 1.7; margin-top: 6px; }
 .media-err.hide { display: none; }
+
+/* ---------------- 消息页：会议 / 群聊分区 ---------------- */
+.ct-group-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .3px;
+  margin-bottom: 8px;
+}
+
+/* 话题群网格 */
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  margin-top: 10px;
+}
+.topic-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  padding: 12px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 1px 6px rgba(24, 60, 120, .05);
+  transition: transform .12s, box-shadow .12s;
+}
+.topic-card:active { transform: scale(.985); }
+.topic-ico {
+  font-size: 22px;
+  line-height: 1;
+  flex: none;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: #f4f8fd;
+  border-radius: 10px;
+}
+.topic-body { min-width: 0; flex: 1; }
+.topic-name {
+  font-size: 13.5px; font-weight: 700;
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+}
+.topic-joined {
+  font-size: 9.5px; font-weight: 600;
+  background: #eafaf0; color: #0e8f5f;
+  border-radius: 5px; padding: 1px 5px;
+}
+.topic-desc {
+  font-size: 11px; color: var(--muted);
+  line-height: 1.5; margin-top: 3px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.topic-meta { font-size: 10.5px; color: #9aabc2; margin-top: 5px; }
+
+@media (max-width: 480px) {
+  .topic-grid { grid-template-columns: 1fr; }
+}
