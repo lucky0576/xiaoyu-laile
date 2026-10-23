@@ -1569,6 +1569,14 @@ export function canViewFile(fileRecord, viewer) {
   const l = listings().get(listingId);
   if (!l) return { allowed: true };
 
+  // 封面图必须公开：上传图被设为封面时它同时出现在 files 里，
+  // 自动生成的封面则不在 files 里。两种情况都要放行，否则首页会裂图。
+  const isCover =
+    (l.coverFileId && l.coverFileId === fileRecord.id) ||
+    (l.coverId && l.coverId === fileRecord.id) ||
+    (l.coverUrl && l.coverUrl === fileRecord.url);
+  if (isCover) return { allowed: true };
+
   // 不是这条信息的附件（例如自动生成封面）→ 放行
   const isAttachment = Array.isArray(l.files) && l.files.includes(fileRecord.id);
   if (!isAttachment) return { allowed: true };

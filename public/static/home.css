@@ -358,3 +358,73 @@
 .detail-loc-ico { font-size: 14px; }
 .detail-loc a { color: var(--brand); text-decoration: none; margin-left: 4px; }
 .detail-loc .badge { margin-left: 6px; }
+
+/* ================================================================== */
+/* 最新发布 / 项目案例：改为「缩略图 + 文字」的紧凑横排                  */
+/*   原来是大图竖排卡片，占屏太高                                    */
+/* ================================================================== */
+
+.home-list2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.home-item {
+  flex-direction: row;
+  align-items: stretch;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(24, 60, 120, .06);
+  border: 1px solid #eef2f7;
+  overflow: hidden;
+}
+
+.home-item .cover {
+  flex: 0 0 104px;
+  width: 104px;
+  height: auto;
+  min-height: 80px;
+  border-radius: 0;
+  position: relative;
+}
+
+.home-item .cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-item .cover .badge2 {
+  left: 5px;
+  top: 5px;
+  font-size: 9.5px;
+  padding: 1px 5px;
+}
+
+.home-item .body {
+  padding: 8px 11px 9px;
+  min-width: 0;
+}
+
+.home-item .t {
+  font-size: 12.8px;
+  line-height: 1.45;
+  font-weight: 700;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.home-item .m {
+  padding-top: 5px;
+  font-size: 10.5px;
+  gap: 4px;
+}
+
+@media (max-width: 420px) {
+  .home-list2 { grid-template-columns: 1fr; }
+  .home-item .cover { flex: 0 0 92px; width: 92px; }
+}
