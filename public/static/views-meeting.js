@@ -437,6 +437,15 @@ function mountLobby(host, ctx, id, m) {
 
   const startPreview = async () => {
     stopPreview();
+
+    // 麦克风和摄像头都关着时不能调 getUserMedia，
+    // 否则浏览器会抛 "At least one of audio and video must be requested"
+    if (!micOn && !camOn) {
+      hideMediaErr();
+      refreshUi();
+      return;
+    }
+
     try {
       previewStream = await navigator.mediaDevices.getUserMedia({ audio: micOn, video: camOn });
       const v = $('#lb-video');
@@ -1136,6 +1145,12 @@ function mediaErrorHint(err) {
     return '摄像头/麦克风被其他程序占用（例如其他会议软件、录屏工具），请关闭后点重试';
   }
   if (n === 'AbortError') return '设备启动被中断，请点重试';
+  if (/At least one of audio and video/i.test((err && err.message) || '')) {
+    return '请先打开麦克风或摄像头（两者都关时无法采集）';
+  }
+  if (n === 'TypeError') {
+    return '摄像头/麦克风权限设置异常，请刷新页面后重试';
+  }
   return (err && err.message) || '无法访问摄像头/麦克风';
 }
 

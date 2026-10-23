@@ -56,6 +56,10 @@ export class MeetingRoom {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('当前浏览器不支持音视频采集，请使用 Chrome / Edge / Safari 最新版');
     }
+    // 至少要要一路，否则浏览器会抛 "At least one of audio and video must be requested"
+    if (!audio && !video) {
+      throw Object.assign(new Error('请先打开麦克风或摄像头'), { name: 'NoMediaRequested' });
+    }
     this.localStream = await navigator.mediaDevices.getUserMedia({
       audio: audio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
       video: video ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
@@ -65,6 +69,7 @@ export class MeetingRoom {
 
   /** 只补采某一路（例如先入会只开音频，之后想开摄像头） */
   async ensureTrack(kind) {
+    if (kind !== 'audio' && kind !== 'video') return null;
     const has = this.localStream && this.localStream.getTracks().some((t) => t.kind === kind);
     if (has) return this.localStream.getTracks().find((t) => t.kind === kind);
     const extra = await navigator.mediaDevices.getUserMedia({ audio: kind === 'audio', video: kind === 'video' });
