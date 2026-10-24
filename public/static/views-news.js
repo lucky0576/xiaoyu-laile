@@ -1,0 +1,183 @@
+/**
+ * 小鱼来了 — 新闻资讯
+ *
+ * 后台每 3 小时抓一轮官方政策与行业媒体，
+ * 这里只负责展示：行业标签筛选 + 列表 + 正文阅读。
+ */
+
+import { service } from './api.js';
+import * as ui from './ui.js';
+
+const TAG_META = {
+  pv: { name: '光伏', icon: '☀️' },
+  storage: { name: '储能', icon: '🔋' },
+  wind: { name: '风电', icon: '🌬️' },
+  compute: { name: '算力', icon: '🖥️' },
+  ai: { name: '人工智能', icon: '🤖' },
+  robot: { name: '机器人', icon: '🦾' },
+  uav: { name: '无人机', icon: '🛩️' },
+  evtol: { name: '飞行汽车', icon: '🚁' },
+  hydrogen: { name: '氢能', icon: '💧' },
+  finance: { name: '投融资', icon: '💰' },
+  policy: { name: '政策', icon: '📜' },
+};
+
+function relTime(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (!t) return '';
+  const d = Date.now() - t;
+  if (d < 3600_000) return `${Math.max(1, Math.floor(d / 60_000))} 分钟前`;
+  if (d < 86400_000) return `${Math.floor(d / 3600_000)} 小时前`;
+  if (d < 7 * 86400_000) return `${Math.floor(d / 86400_000)} 天前`;
+  return new Date(t).toLocaleDateString('zh-CN');
+}
+
+function tagsHtml(tags = []) {
+  return (tags || [])
+    .slice(0, 4)
+    .map((id) => {
+      const m = TAG_META[id];
+      return m ? `<span class="news-tag">${m.icon} ${m.name}</span>` : '';
+    })
+    .join('');
+}
+
+function newsCard(n) {
+  return `<a class="news-card" href="#/news/${ui.esc(n.id)}">
+    <div class="news-card-main">
+      <div class="news-card-title">${ui.esc(n.title)}</div>
+      ${n.summary ? `<div class="news-card-sum">${ui.esc(n.summary)}</div>` : ''}
+      <div class="news-card-foot">
+        <span class="news-src">${ui.esc(n.sourceName || '')}</span>
+        <span class="news-dot">·</span>
+        <span>${relTime(n.publishedAt)}</span>
+        ${n.hot ? '<span class="news-hot">热点</span>' : ''}
+      </div>
+      ${(n.tags || []).length ? `<div class="news-tags">${tagsHtml(n.tags)}</div>` : ''}
+    </div>
+    <span class="news-card-arrow">›</span>
+  </a>`;
+}
+
+/* ------------------------------------------------------------------ */
+/* 列表页                                                              */
+/* ------------------------------------------------------------------ */
+
+export async function renderNews(ctx, query = {}) {
+  const tag = query.tag || '';
+  const q = query.q || '';
+
+  const [meta, list] = await Promise.all([
+    service.newsMeta().catch(() => ({ total: 0, tags: [] })),
+    service.newsList({ tag, q, size: 30, page: Number(query.page) || 1 }).catch(() => ({ items: [], total: 0 })),
+  ]);
+
+  const total = list?.total || 0;
+  const items = list?.items || [];
+
+  const tabHtml = [
+    `<a class="news-tab ${!tag && !q ? 'active' : ''}" href="#/news">全部 <i>${meta?.total || 0}</i></a>`,
+    ...(meta?.tags || [])
+      .filter((t) => t.count > 0)
+      .map(
+        (t) =>
+          `<a class="news-tab ${tag === t.id ? 'active' : ''}" href="#/news?tag=${t.id}">${t.icon} ${ui.esc(t.name)} <i>${t.count}</i></a>`,
+      ),
+  ].join('');
+
+  const body = items.length
+    ? items.map(newsCard).join('')
+    : `<div class="empty">${
+        meta?.total === 0
+          ? '资讯还在路上 —— 后台每 3 小时抓取一次官方政策与行业媒体，稍后再来看看'
+          : '这个分类下暂时没有资讯'
+      }</div>`;
+
+  return {
+    title: '新闻资讯',
+    activeTab: 'news',
+    showBack: false,
+    content: `<div class="page news-page">
+      <div class="news-hero">
+        <div class="news-hero-t">
+          <span class="news-hero-ico">📰</span>
+          <span>新闻资讯</span>
+        </div>
+        <div class="news-hero-d">自动抓取官方政策与行业媒体的最新动态，按你关注的行业分类</div>
+        <form class="news-search" id="news-search-form">
+          <input class="input" id="news-q" placeholder="搜标题关键词，如 储能 / 光伏 / 十五五" value="${ui.esc(q)}">
+          <button class="btn btn-sm btn-primary" type="submit">搜索</button>
+        </form>
+        ${total ? `<div class="news-hero-f">共 ${total} 条${meta?.lastAt ? ` · 最近更新 ${relTime(meta.lastAt)}` : ''}</div>` : ''}
+      </div>
+
+      <div class="news-tabs">${tabHtml}</div>
+      <div class="news-list">${body}</div>
+    </div>`,
+    mount(root) {
+      const form = root.querySelector('#news-search-form');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const v = (root.querySelector('#news-q')?.value || '').trim();
+          location.hash = v ? `#/news?q=${encodeURIComponent(v)}` : '#/news';
+        });
+      }
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* 详情页                                                              */
+/* ------------------------------------------------------------------ */
+
+export async function renderNewsDetail(ctx, { id }) {
+  let n = null;
+  try {
+    n = await service.newsDetail(id);
+  } catch {
+    n = null;
+  }
+
+  if (!n) {
+    return {
+      title: '资讯不存在',
+      content: '<div class="page"><div class="empty">这条资讯不存在或已下线</div></div>',
+    };
+  }
+
+  const paras = String(n.text || '')
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((p) => `<p>${ui.esc(p)}</p>`)
+    .join('');
+
+  return {
+    title: n.title,
+    showBack: true,
+    content: `<div class="page news-detail">
+      <div class="card card-pad">
+        <h1 class="news-detail-t">${ui.esc(n.title)}</h1>
+        <div class="news-detail-meta">
+          <span class="news-src">${ui.esc(n.sourceName || '')}</span>
+          <span class="news-dot">·</span>
+          <span>${new Date(n.publishedAt).toLocaleString('zh-CN')}</span>
+        </div>
+        ${(n.tags || []).length ? `<div class="news-tags mt8">${tagsHtml(n.tags)}</div>` : ''}
+      </div>
+
+      <div class="card card-pad mt12 news-body">${paras || '<p class="muted">正文抓取失败，请查看原文</p>'}</div>
+
+      <div class="card card-pad mt12">
+        <a class="btn btn-block" href="${ui.esc(ui.safeUrl(n.url || '#'))}" target="_blank" rel="noopener noreferrer nofollow">
+          🔗 查看原文（${ui.esc(n.sourceName || '来源')}）
+        </a>
+        <div class="tiny dim center mt8">原文版权归原作者所有，本站仅做摘要与索引</div>
+      </div>
+    </div>`,
+  };
+}
+
+export default { renderNews, renderNewsDetail };

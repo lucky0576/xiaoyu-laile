@@ -33,6 +33,8 @@ export const NOTIFY_TYPES = {
   qualification: '资质审核结果',
   contact_invite: '好友邀请',
   system: '系统消息',
+  news: '新闻资讯',
+
 };
 
 /** 信息里哪些字段变了值得通知关注人（键 → 中文名） */

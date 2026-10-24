@@ -17,6 +17,7 @@ import * as viewsInvest from './views-invest.js';
 import * as viewsAdminInvest from './views-admin-invest.js';
 import * as viewsTags from './views-tags.js';
 import * as viewsWechatSetup from './views-wechat-setup.js';
+import * as viewsNews from './views-news.js';
 
 const appEl = document.getElementById('app');
 
@@ -288,6 +289,10 @@ async function resolveView({ segs, query }) {
       return viewsHome.renderDetail(ctx, { id: p1, ...query });
     case 'cases':
       return viewsHome.renderCases(ctx, query);
+    case 'news':
+      return p1
+        ? viewsNews.renderNewsDetail(ctx, { id: p1 })
+        : viewsNews.renderNews(ctx, query);
     case 'user':
       return viewsHome.renderUser(ctx, { id: p1 });
     case 'publish':

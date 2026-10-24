@@ -11,6 +11,7 @@ import registerInvestRoutes from './invest.js';
 import registerTagRoutes from './tags.js';
 import registerAdminRoutes from './admin.js';
 import registerProviderRoutes from './providers.js';
+import registerNewsRoutes from './news.js';
 
 export default function registerRoutes(app) {
   registerCoreRoutes(app);
@@ -23,5 +24,6 @@ export default function registerRoutes(app) {
   registerTagRoutes(app);
   registerAdminRoutes(app);
   registerProviderRoutes(app);
+  registerNewsRoutes(app);
   return app;
 }

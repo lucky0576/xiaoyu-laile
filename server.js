@@ -12,6 +12,7 @@ import { registerStatic } from './src/http/static.js';
 import db from './src/store/db.js';
 import registerRoutes from './src/routes/index.js';
 import registerSharePageRoutes from './src/routes/share-page.js';
+import newsSvc from './src/services/news.js';
 import notifySvc from './src/services/notify.js';
 import { sweepOtps } from './src/services/auth.js';
 import chunksSvc from './src/services/chunks.js';
@@ -64,6 +65,20 @@ function startJobs() {
   run('expire', () => ({ expired: notifySvc.expireListings() }), 5 * 60_000);
   run('remind', () => ({ reminded: notifySvc.remindExpiring() }), 30 * 60_000);
   run('otp-sweep', () => ({ swept: sweepOtps() }), 60 * 60_000);
+
+  // 新闻资讯：启动 90 秒后先抓一轮，之后每 3 小时刷新
+  setTimeout(() => {
+    newsSvc
+      .refresh({ maxPerSource: 4, maxTotal: 12 })
+      .catch((err) => console.warn('[job:news] 首次抓取失败:', err.message));
+  }, 90_000).unref?.();
+
+  run('news', () => {
+    newsSvc
+      .refresh({ maxPerSource: 5, maxTotal: 16 })
+      .catch((err) => console.warn('[job:news] 失败:', err.message));
+    return {};
+  }, 3 * 60 * 60_000);
   // 清理超过 2 小时没传完的分片会话，避免数据目录被残片占满。
   // run() 只处理同步返回值，所以这里自己把 Promise 的成败都兜住，
   // 否则会变成 unhandled rejection。

@@ -96,6 +96,29 @@ function htmlToText(html, { max = 40000 } = {}) {
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
+    .replace(/&ldquo;|&rdquo;/gi, '"')
+    .replace(/&lsquo;|&rsquo;/gi, "'")
+    .replace(/&mdash;|&ndash;/gi, '—')
+    .replace(/&hellip;/gi, '…')
+    .replace(/&middot;/gi, '·')
+    .replace(/&bull;/gi, '•')
+    .replace(/&copy;/gi, '©')
+    .replace(/&reg;/gi, '®')
+    .replace(/&trade;/gi, '™')
+    .replace(/&deg;/gi, '°')
+    .replace(/&times;/gi, '×')
+    .replace(/&divide;/gi, '÷')
+    .replace(/&laquo;/gi, '«')
+    .replace(/&raquo;/gi, '»')
+    .replace(/&emsp;|&ensp;|&thinsp;/gi, ' ')
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, h) => {
+      try { return String.fromCodePoint(parseInt(h, 16)); } catch { return ''; }
+    })
+    .replace(/&#(\d{1,7});/g, (_, d) => {
+      try { return String.fromCodePoint(Number(d)); } catch { return ''; }
+    })
+    // 兜底：剩下的未知命名实体直接去掉，别让它出现在正文里
+    .replace(/&[a-zA-Z][a-zA-Z0-9]{1,10};/g, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&#(\d+);/g, (_, d) => {
       try { return String.fromCodePoint(Number(d)); } catch { return ''; }
@@ -209,6 +232,41 @@ export function stripContactAndAds(text) {
 
   // 压掉连续空行
   return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** 只取原始 HTML（不抽正文、不下载图片），给新闻列表页用 */
+export async function fetchHtml(rawUrl, { timeoutMs = 20000 } = {}) {
+  let u;
+  try {
+    u = new URL(String(rawUrl || '').trim());
+  } catch {
+    return { ok: false, note: '链接格式不正确' };
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return { ok: false, note: '只支持 http / https' };
+  if (isPrivateHost(u.hostname)) return { ok: false, note: '不允许访问内网地址' };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(u.toString(), {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+      },
+    });
+    if (!res.ok) return { ok: false, note: `HTTP ${res.status}` };
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { ok: true, html: decodeBody(buf, res.headers.get('content-type') || ''), url: u.toString() };
+  } catch (err) {
+    if (err.name === 'AbortError') return { ok: false, note: '超时' };
+    return { ok: false, note: err.message };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** 从 HTML 里挑出内容图片的绝对地址 */
@@ -472,4 +530,4 @@ export async function fetchWebpage(rawUrl) {
   }
 }
 
-export default { fetchWebpage, htmlToText, stripContactAndAds, extractImageUrls, downloadImage };
+export default { fetchWebpage, fetchHtml, htmlToText, stripContactAndAds, extractImageUrls, downloadImage };

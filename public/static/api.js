@@ -515,6 +515,10 @@ export const service = {
   aiContact: (text) => api.post('/api/ai/contact', { text }),
   aiFetchUrl: (url) => api.post('/api/ai/fetch-url', { url }),
   aiSplit: (fd, opts) => api.upload('/api/ai/split', fd, opts),
+  newsList: (query) => api.get('/api/news', query),
+  newsMeta: () => api.get('/api/news/meta'),
+  newsDetail: (id) => api.get(`/api/news/${id}`),
+  adminNewsRefresh: () => api.post('/api/admin/news/refresh', {}),
   aiTradeItems: (fd, opts) => api.upload('/api/ai/trade-items', fd, opts),
   feedTranscribe: (fd, opts) => api.upload('/api/feeds/transcribe', fd, opts),
 

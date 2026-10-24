@@ -151,6 +151,7 @@ export async function renderHome(ctx, query) {
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '通讯录', d: '导入并邀请好友', art: '📇', href: '#/contacts', i: 5, auth: true },
     { t: '短视频', d: '上下滑动 · 沉浸观看', art: '🎬', href: '#/shorts', i: 6 },
+    { t: '新闻资讯', d: '政策 · 行业动态', art: '📰', href: '#/news', i: 10 },
     { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 7 },
   ];
   /* ---------------- 两条独立横栏：发布 / 成为服务商 ---------------- */
