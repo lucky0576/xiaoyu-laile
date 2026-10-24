@@ -1719,3 +1719,34 @@ body.shorts-mode #wx-tip { display: none !important; }
   cursor: pointer; border-radius: 6px;
 }
 .pv-del:active { background: #eef2f7; color: #c0392b; }
+
+
+/* ---------------- 短视频：横屏视频自适应 ---------------- */
+/* 竖屏视频：铺满（contain 在 9:16 容器里正好撑满，不裁切） */
+/* 横屏视频：完整居中显示，背后加一层模糊的同图背景，避免大片死黑 */
+
+.short-slide[data-orient="landscape"]::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  background-image: var(--poster, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(.45) saturate(1.2);
+  transform: scale(1.15);
+  z-index: 0;
+}
+.short-slide[data-orient="landscape"] .short-video {
+  position: relative;
+  z-index: 1;
+  /* 横屏：最大化显示完整画面 */
+  object-fit: contain;
+  max-height: 78vh;
+}
+.short-slide[data-orient="landscape"] .short-side,
+.short-slide[data-orient="landscape"] .short-center-play {
+  z-index: 3;
+}
+
+/* 一般视频层，保证在背景之上 */
+.short-slide .short-video { position: relative; z-index: 1; }

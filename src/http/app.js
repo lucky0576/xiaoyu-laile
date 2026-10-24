@@ -307,18 +307,76 @@ export function createApp() {
       res.end();
       return res;
     };
+    /**
+     * 发送文件。
+     *
+     * 必须支持 HTTP Range（206 Partial Content）：
+     * 视频、音频、大 PDF 都靠它做流式播放和拖动进度条。
+     * 之前只声明了 Accept-Ranges: bytes 却从不处理 Range 头，
+     * 结果每次请求都返回完整文件 —— 一个 19MB 的视频要下载 96 秒，
+     * 浏览器必然卡死或直接播不了。
+     */
     res.sendFile = (file, mode = 'buffer') => {
       if (mode === 'stream') {
         const st = fs.statSync(file);
-        res.setHeader('Content-Length', st.size);
+        const size = st.size;
+        res.setHeader('Accept-Ranges', 'bytes');
+
+        const rangeHeader = req.headers.range;
+        if (rangeHeader) {
+          const m = /^bytes=(\d*)-(\d*)$/.exec(String(rangeHeader).trim());
+          if (m && (m[1] || m[2])) {
+            let start;
+            let end;
+            if (!m[1]) {
+              // bytes=-N 表示最后 N 字节
+              const suffix = parseInt(m[2], 10);
+              start = Math.max(0, size - suffix);
+              end = size - 1;
+            } else {
+              start = parseInt(m[1], 10);
+              end = m[2] ? parseInt(m[2], 10) : size - 1;
+            }
+
+            if (!Number.isFinite(start) || start < 0 || start >= size || start > end) {
+              res.statusCode = 416;
+              res.setHeader('Content-Range', `bytes */${size}`);
+              res.__handled = true;
+              res.end();
+              return res;
+            }
+            end = Math.min(end, size - 1);
+            const chunkSize = end - start + 1;
+
+            res.statusCode = 206;
+            res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+            res.setHeader('Content-Length', chunkSize);
+            res.__handled = true;
+
+            if (req.method === 'HEAD') { res.end(); return res; }
+
+            const part = fs.createReadStream(file, { start, end });
+            part.on('error', () => {
+              try { res.destroy(); } catch { /* ignore */ }
+            });
+            part.pipe(res);
+            return res;
+          }
+        }
+
+        // 没有 Range（或不合法）：整文件
+        res.setHeader('Content-Length', size);
+        res.__handled = true;
+        if (req.method === 'HEAD') { res.end(); return res; }
+
         const stream = fs.createReadStream(file);
         stream.on('error', () => {
           try { res.destroy(); } catch { /* ignore */ }
         });
-        res.__handled = true;
         stream.pipe(res);
         return res;
       }
+
       res.__handled = true;
       res.end(fs.readFileSync(file));
       return res;

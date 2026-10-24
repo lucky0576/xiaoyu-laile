@@ -177,7 +177,7 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
     }
   }
 
-  return filesCol().insert({
+  const record = filesCol().insert({
     id,
     ownerId: opts.ownerId || '',
     listingId: opts.listingId || '',
@@ -194,6 +194,13 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
     notes,
     createdAt: new Date().toISOString(),
   });
+
+  // 视频：上传后异步做 faststart / 降码率，不阻塞上传响应
+  if (kind === 'video') {
+    optimizeVideoAsync(record).catch(() => {});
+  }
+
+  return record;
 }
 
 export async function saveUpload(part, opts = {}) {
@@ -306,6 +313,149 @@ export function deleteFile(id) {
 }
 
 /** 汇总一组文件的文本，供 AI 使用 */
+
+/* ------------------------------------------------------------------ */
+/* 视频优化：faststart + 降码率                                         */
+/*                                                                     */
+/* 手机拍的视频有两个致命问题：                                         */
+/*   1. moov atom 在文件末尾 → 浏览器必须下完整个文件才能起播           */
+/*   2. 码率动辄 7~8 Mbps，跨境 1.6 Mbps 带宽根本跟不上，播放一直缓冲   */
+/*                                                                     */
+/* 这里在上传后异步跑 ffmpeg：                                         */
+/*   -c copy -movflags +faststart  只重封装（快、不损质量）              */
+/*   码率 >1.8 Mbps 时再转码：宽度≤720 / CRF 26 / AAC 96k 单声道        */
+/* 不阻塞上传响应；失败就保留原文件。                                    */
+/* ------------------------------------------------------------------ */
+
+let ffmpegOk = null;
+async function hasFfmpeg() {
+  if (ffmpegOk !== null) return ffmpegOk;
+  try {
+    const { execFile } = await import('node:child_process');
+    ffmpegOk = await new Promise((resolve) => {
+      execFile('ffmpeg', ['-version'], { timeout: 5000 }, (err) => resolve(!err));
+    });
+  } catch {
+    ffmpegOk = false;
+  }
+  return ffmpegOk;
+}
+
+function runFfmpeg(args, timeoutMs = 180000) {
+  return new Promise(async (resolve) => {
+    try {
+      const { execFile } = await import('node:child_process');
+      execFile('ffmpeg', args, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (err) => {
+        resolve(!err);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+function probeBitrate(file) {
+  return new Promise(async (resolve) => {
+    try {
+      const { execFile } = await import('node:child_process');
+      execFile(
+        'ffprobe',
+        ['-v', 'error', '-select_streams', 'v:0',
+         '-show_entries', 'stream=width,height,duration,bit_rate',
+         '-of', 'csv=p=0', file],
+        { timeout: 15000 },
+        (err, stdout) => {
+          if (err || !stdout) return resolve(null);
+          const p = String(stdout).trim().split(',');
+          resolve({
+            width: Number(p[0]) || 0,
+            height: Number(p[1]) || 0,
+            duration: Number(p[2]) || 0,
+            bitrate: Number(p[3]) || 0,
+          });
+        },
+      );
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/** 异步优化视频，不阻塞调用方 */
+export async function optimizeVideoAsync(record) {
+  if (!record || record.kind !== 'video' || !record.path) return;
+  let st;
+  try {
+    st = fs.statSync(record.path);
+  } catch {
+    return;
+  }
+  if (st.size < 300 * 1024) return; // 小于 300KB 不用管
+
+  if (!(await hasFfmpeg())) return;
+
+  const tmp = `${record.path}.opt.mp4`;
+  try {
+    const info = await probeBitrate(record.path);
+    const size = st.size;
+    // 用大小/时长估算真实码率，取较大值
+    let target = info?.bitrate || 0;
+    if (info?.duration > 0) {
+      const est = Math.round((size * 8) / info.duration);
+      if (est > target) target = est;
+    }
+
+    let ok = false;
+    if (target > 1800000) {
+      // 码率过高：转码 + faststart
+      ok = await runFfmpeg([
+        '-y', '-i', record.path,
+        '-c:v', 'libx264', '-crf', '26', '-preset', 'veryfast',
+        '-profile:v', 'high', '-level', '4.0',
+        '-vf', "scale='min(720,iw)':-2",
+        '-c:a', 'aac', '-b:a', '96k', '-ac', '1',
+        '-movflags', '+faststart', '-f', 'mp4', tmp,
+        '-loglevel', 'error', '-nostdin',
+      ]);
+    } else {
+      // 码率够低：只重封装做 faststart
+      ok = await runFfmpeg([
+        '-y', '-i', record.path,
+        '-c', 'copy', '-movflags', '+faststart', '-f', 'mp4', tmp,
+        '-loglevel', 'error', '-nostdin',
+      ]);
+    }
+
+    if (!ok) {
+      try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+      return;
+    }
+    const newSize = fs.statSync(tmp).size;
+    if (!newSize) {
+      fs.unlinkSync(tmp);
+      return;
+    }
+    // 转码后反而更大就保留原文件（只接受 faststart 版本的等价大小）
+    const isTranscoded = target > 1800000;
+    if (isTranscoded && newSize >= size) {
+      fs.unlinkSync(tmp);
+      return;
+    }
+    fs.renameSync(tmp, record.path);
+    const updated = { size: newSize, mtime: new Date().toISOString() };
+    try {
+      db.collection('files').update(record.id, updated);
+    } catch { /* ignore */ }
+    console.log(
+      `[video] ${record.name} 已优化 ${Math.round(size / 1024 / 1024)}MB -> ` +
+      `${Math.round(newSize / 1024 / 1024)}MB${isTranscoded ? '（转码）' : '（faststart）'}`,
+    );
+  } catch (err) {
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+    console.warn('[video] 优化失败:', record.name, err.message);
+  }
+}
+
 export function aggregateText(files = [], limit = 12000) {
   const parts = [];
   for (const f of files) {
@@ -331,4 +481,4 @@ export function pickCover(files = [], preferredId) {
   return files.find((f) => f.kind === 'image') || null;
 }
 
-export default { saveUpload, saveUploads, getFile, listFiles, deleteFile, kindOf, extOf, aggregateText, pickCover };
+export default { optimizeVideoAsync, saveUpload, saveUploads, getFile, listFiles, deleteFile, kindOf, extOf, aggregateText, pickCover };

@@ -47,7 +47,8 @@ export async function renderShorts(ctx, params) {
       class="short-video"
       src="${ui.esc(ui.safeUrl(f.videoUrl))}"
       poster="${ui.esc(ui.safeUrl(f.coverUrl || ''))}"
-      loop playsinline webkit-playsinline preload="auto"></video>
+      loop playsinline webkit-playsinline preload="auto"
+      data-poster="${ui.esc(ui.safeUrl(f.coverUrl || ''))}"></video>
 
     <div class="short-center-play" data-center="${i}">▶</div>
 
@@ -179,6 +180,23 @@ export async function renderShorts(ctx, params) {
                   syncMuteIcons();
                 }
               });
+            }
+            // 横屏视频：加标记，CSS 会给它加模糊背景并完整居中显示
+            const markOrientation = () => {
+              const vw = v.videoWidth || 0;
+              const vh = v.videoHeight || 0;
+              if (!vw || !vh) return;
+              el.dataset.orient = vw >= vh ? 'landscape' : 'portrait';
+              // 横屏视频的背景模糊图用封面
+              if (vw >= vh) {
+                const poster = v.dataset.poster || '';
+                if (poster) el.style.setProperty('--poster', 'url(' + JSON.stringify(poster) + ')');
+              }
+            };
+            markOrientation();
+            if (!v.dataset.orientBound) {
+              v.dataset.orientBound = '1';
+              v.addEventListener('loadedmetadata', markOrientation, { once: true });
             }
             el.classList.add('playing');
           } else {
