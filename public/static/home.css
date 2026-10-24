@@ -1948,3 +1948,24 @@ body.shorts-mode #wx-tip { display: none !important; }
 /* 「去看 / 进入」按钮文字颜色：不设会继承白色，白底白字看不见 */
 .promo-news .promo-go { color: #1f6fd0; }
 .promo-forum .promo-go { color: #6a4bd0; }
+
+/* ---------------- 窄屏顶栏压缩：logo + 融资 + 联系我 + 3 个图标 ---------------- */
+/* 390px 宽的手机放不下，会把右侧头像挤出屏幕，这里整体收窄 */
+@media (max-width: 440px) {
+  .topbar { gap: 6px; padding-inline: 10px; }
+  .topbar-brand { gap: 3px; min-width: 0; }
+  .topbar .title-link { font-size: 15px; letter-spacing: -.2px; }
+  .invest-pill,
+  .contact-pill {
+    height: 24px;
+    padding: 0 7px;
+    margin-left: 2px;
+    font-size: 11px;
+    gap: 1px;
+  }
+  .topbar .icon-btn { width: 34px; min-width: 34px; }
+}
+@media (max-width: 370px) {
+  .topbar .title-link { font-size: 14px; }
+  .invest-pill, .contact-pill { padding: 0 5px; font-size: 10.5px; }
+}
