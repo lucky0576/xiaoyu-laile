@@ -118,12 +118,61 @@
 </script>
 <script type="module" src="/static/app.js"></script>
 <script>
-/* 注册 Service Worker —— 安卓 Chrome 判定"可安装"的硬性条件 */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
+/* 注册 Service Worker —— 安卓 Chrome 判定"可安装"的硬性条件
+ *
+ * 这里做三件事，保证用户永远拿到最新前端：
+ *   1. updateViaCache:'none' —— sw.js 本身不走 HTTP 缓存，改完立刻生效
+ *   2. 每次加载主动 registration.update() —— 有新 SW 就用新的
+ *   3. 收到 SW 的 build-changed 消息 或 controllerchange 时自动刷新一次
+ *      （用 sessionStorage 防死循环，一次会话最多刷一次）
+ */
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+
+  var RELOAD_KEY = 'xyll_sw_reloaded';
+  var reloading = false;
+
+  function reloadOnce(reason) {
+    if (reloading) return;
+    if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
+    reloading = true;
+    sessionStorage.setItem(RELOAD_KEY, '1');
+    try { console.log('[sw] 检测到前端更新（' + reason + '），正在刷新…'); } catch (e) {}
+    location.reload();
+  }
+
+  // SW 主动通知：服务端 build 变了
+  navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e && e.data && e.data.type === 'build-changed') reloadOnce('build-changed');
   });
-}
+
+  // 新 SW 接管页面
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    reloadOnce('controllerchange');
+  });
+
+  window.addEventListener('load', function () {
+    navigator.serviceWorker
+      .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+      .then(function (reg) {
+        // 主动检查更新（Chrome 默认最多 24 小时才查一次，太慢了）
+        try { reg.update(); } catch (e) {}
+        // 页面从后台回到前台时再查一次
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') {
+            try { reg.update(); } catch (e) {}
+          }
+        });
+      })
+      .catch(function () {});
+
+    // 一次会话正常打开后清掉防刷标记，
+    // 这样下次真正有更新时还能再刷一次
+    setTimeout(function () {
+      try { sessionStorage.removeItem(RELOAD_KEY); } catch (e) {}
+    }, 15000);
+  });
+})();
 </script>
 </body>
 </html>
