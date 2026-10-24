@@ -864,49 +864,6 @@ export async function renderPublish(ctx, params) {
       </div>
     </div>
 
-    <div class="card card-pad mt12">
-      <div class="row between mb8">
-        <div class="strong">📇 联系方式</div>
-        <span class="tiny dim">选填 · 不公开显示</span>
-      </div>
-
-      <div class="contact-ai mb12">
-        <div class="row between mb6">
-          <div class="strong" style="font-size:13px">粘贴文字，自动填下面四项</div>
-          <span class="tiny dim">AI 识别</span>
-        </div>
-        <textarea class="input" id="pub-contact-src" rows="2" maxlength="2000"
-          placeholder="把名片、微信签名、聊天记录，或带联系方式的文字粘到这里，例如：&#10;联系人 张工 13800001234 微信 zhanggong888 山东鲁能新能源工程有限公司"></textarea>
-        <div class="row gap8 mt8" style="align-items:center;flex-wrap:wrap">
-          <button class="btn btn-sm btn-primary" id="pub-contact-ai" type="button">🤖 识别并填入</button>
-          <span class="tiny dim" id="pub-contact-ai-tip"></span>
-        </div>
-      </div>
-
-      <div class="row gap8">
-        <div class="field grow">
-          <label>联系人</label>
-          <input class="input" id="pub-contact-name" placeholder="称呼" value="${ui.esc(editing?.contact?.name || ctx.state.user?.nickname || '')}">
-        </div>
-        <div class="field grow">
-          <label>联系电话</label>
-          <input class="input" id="pub-phone" placeholder="手机号" value="${ui.esc(editing?.contact?.phone || ctx.state.user?.phone || '')}">
-        </div>
-      </div>
-      <div class="row gap8">
-        <div class="field grow">
-          <label>微信号</label>
-          <input class="input" id="pub-wechat" placeholder="选填" value="${ui.esc(editing?.contact?.wechat || ctx.state.user?.wechatId || '')}">
-        </div>
-        <div class="field grow">
-          <label>企业名称</label>
-          <input class="input" id="pub-company" placeholder="选填" value="${ui.esc(editing?.company || ctx.state.user?.company || '')}">
-        </div>
-      </div>
-      <div class="privacy-note">
-        🔒 <b>联系方式不会公开显示。</b>发布后只有你自己、管理员，以及已发起项目对接成为项目成员的人能看到电话与微信。
-      </div>
-    </div>
 
     <div class="card card-pad mt12">
       <div class="row between mb8">
@@ -965,6 +922,50 @@ export async function renderPublish(ctx, params) {
       <div class="strong mb8">5. 选择发布期限</div>
       <div class="chips" id="pub-duration-chips">
         ${(taxonomy.durations || []).map((d) => `<a class="chip ${d.days === 30 ? 'active' : ''}" data-days="${d.days}">${ui.esc(d.label)} · ${ui.esc(d.desc)}</a>`).join('')}
+      </div>
+    </div>
+
+    <div class="card card-pad mt12">
+      <div class="row between mb8">
+        <div class="strong">📇 联系方式</div>
+        <span class="tiny dim">选填 · 不公开显示</span>
+      </div>
+
+      <div class="contact-ai mb12">
+        <div class="row between mb6">
+          <div class="strong" style="font-size:13px">粘贴文字，自动填下面四项</div>
+          <span class="tiny dim">AI 识别</span>
+        </div>
+        <textarea class="input" id="pub-contact-src" rows="2" maxlength="2000"
+          placeholder="把名片、微信签名、聊天记录，或带联系方式的文字粘到这里，例如：&#10;联系人 张工 13800001234 微信 zhanggong888 山东鲁能新能源工程有限公司"></textarea>
+        <div class="row gap8 mt8" style="align-items:center;flex-wrap:wrap">
+          <button class="btn btn-sm btn-primary" id="pub-contact-ai" type="button">🤖 识别并填入</button>
+          <span class="tiny dim" id="pub-contact-ai-tip"></span>
+        </div>
+      </div>
+
+      <div class="row gap8">
+        <div class="field grow">
+          <label>联系人</label>
+          <input class="input" id="pub-contact-name" placeholder="称呼" value="${ui.esc(editing?.contact?.name || ctx.state.user?.nickname || '')}">
+        </div>
+        <div class="field grow">
+          <label>联系电话</label>
+          <input class="input" id="pub-phone" placeholder="手机号" value="${ui.esc(editing?.contact?.phone || ctx.state.user?.phone || '')}">
+        </div>
+      </div>
+      <div class="row gap8">
+        <div class="field grow">
+          <label>微信号</label>
+          <input class="input" id="pub-wechat" placeholder="选填" value="${ui.esc(editing?.contact?.wechat || ctx.state.user?.wechatId || '')}">
+        </div>
+        <div class="field grow">
+          <label>企业名称</label>
+          <input class="input" id="pub-company" placeholder="选填" value="${ui.esc(editing?.company || ctx.state.user?.company || '')}">
+        </div>
+      </div>
+      <div class="privacy-note">
+        🔒 <b>联系方式不会公开显示。</b>发布后只有你自己、管理员，以及已发起项目对接成为项目成员的人能看到电话与微信。
       </div>
     </div>
 
