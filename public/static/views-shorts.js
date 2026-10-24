@@ -47,7 +47,7 @@ export async function renderShorts(ctx, params) {
       class="short-video"
       src="${ui.esc(ui.safeUrl(f.videoUrl))}"
       poster="${ui.esc(ui.safeUrl(f.coverUrl || ''))}"
-      loop muted playsinline webkit-playsinline preload="metadata"></video>
+      loop playsinline webkit-playsinline preload="auto"></video>
 
     <div class="short-center-play" data-center="${i}">▶</div>
 
@@ -65,7 +65,7 @@ export async function renderShorts(ctx, params) {
         <span class="short-act-n">分享</span>
       </button>
       <button class="short-act" data-mute="${i}" aria-label="声音">
-        <span class="short-act-ico" data-muteico="${i}">🔇</span>
+        <span class="short-act-ico" data-muteico="${i}">🔊</span>
         <span class="short-act-n">声音</span>
       </button>
     </div>
@@ -113,8 +113,48 @@ export async function renderShorts(ctx, params) {
       const slides = () => [...feed.querySelectorAll('.short-slide')];
 
       let current = 0;
-      let muted = true;
+      // 默认**不静音**：进页面就带声音自动播
+      let muted = false;
+      // 浏览器会因为「没有用户交互」拦截有声播放，这里记下状态
+      let soundBlocked = false;
       const viewed = new Set();
+
+      /** 同步右侧静音图标 */
+      const syncMuteIcons = () => {
+        slides().forEach((el, i) => {
+          const ico = feed.querySelector(`[data-muteico="${i}"]`);
+          if (ico) ico.textContent = muted ? '🔇' : '🔊';
+        });
+      };
+
+      /** 浏览器拦了有声播放 → 显示一个轻提示 */
+      const showSoundTip = () => {
+        let tip = feed.querySelector('#shorts-sound-tip');
+        if (!tip) {
+          tip = document.createElement('div');
+          tip.id = 'shorts-sound-tip';
+          tip.className = 'shorts-sound-tip';
+          tip.innerHTML = '<span>🔊</span> 点击屏幕开启声音';
+          feed.appendChild(tip);
+        }
+        tip.classList.add('on');
+      };
+      const hideSoundTip = () => {
+        feed.querySelector('#shorts-sound-tip')?.classList.remove('on');
+      };
+
+      /** 用户第一次触摸/点击 → 解锁声音，之后所有视频都有声 */
+      const unlockSound = () => {
+        soundBlocked = false;
+        muted = false;
+        hideSoundTip();
+        const v = slides()[current]?.querySelector('video');
+        if (v) {
+          v.muted = false;
+          v.play().catch(() => {});
+        }
+        syncMuteIcons();
+      };
 
       root.querySelector('#shorts-back').addEventListener('click', () => {
         if (history.length > 1) history.back();
@@ -127,7 +167,19 @@ export async function renderShorts(ctx, params) {
           if (!v) return;
           if (k === i) {
             v.muted = muted;
-            v.play().catch(() => {});
+            const attempt = v.play();
+            if (attempt && typeof attempt.catch === 'function') {
+              attempt.catch((err) => {
+                // NotAllowedError：浏览器要求先有用户交互才能出声
+                if (err && err.name === 'NotAllowedError' && !v.muted) {
+                  soundBlocked = true;
+                  v.muted = true;
+                  v.play().catch(() => {});
+                  showSoundTip();
+                  syncMuteIcons();
+                }
+              });
+            }
             el.classList.add('playing');
           } else {
             v.pause();
@@ -228,14 +280,17 @@ export async function renderShorts(ctx, params) {
         const btn = e.target.closest('[data-mute]');
         if (!btn) return;
         muted = !muted;
+        soundBlocked = false;
+        hideSoundTip();
         slides().forEach((el) => {
           const v = el.querySelector('video');
-          if (v) v.muted = muted;
+          if (v) {
+            v.muted = muted;
+            // 从静音切到有声时，如果视频是暂停的，顺手播放
+            if (!muted && v.paused) v.play().catch(() => {});
+          }
         });
-        slides().forEach((el, i) => {
-          const ico = feed.querySelector(`[data-muteico="${i}"]`);
-          if (ico) ico.textContent = muted ? '🔇' : '🔊';
-        });
+        syncMuteIcons();
       });
 
       // 分享
@@ -288,9 +343,19 @@ export async function renderShorts(ctx, params) {
         }
       }, { passive: true });
 
-      // 初始播放第一个
+      // 任意一次触摸/点击就解锁声音（浏览器自动播放策略要求）
+      const onFirstGesture = () => {
+        unlockSound();
+        feed.removeEventListener('touchstart', onFirstGesture);
+        feed.removeEventListener('click', onFirstGesture);
+      };
+      feed.addEventListener('touchstart', onFirstGesture, { passive: true });
+      feed.addEventListener('click', onFirstGesture);
+
+      // 初始播放第一个（进页面即自动播）
       playSlide(0);
       feed.scrollTop = 0;
+      syncMuteIcons();
 
       // 离开页面时停掉所有视频，避免后台继续耗电
       return () => {

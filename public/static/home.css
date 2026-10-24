@@ -1657,3 +1657,29 @@ body.shorts-mode #wx-tip { display: none !important; }
   padding: 10px 12px; font-size: 12.5px; line-height: 1.6;
   text-align: left;
 }
+
+
+/* 短视频：声音解锁提示 */
+.shorts-sound-tip {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%) translateY(8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, .62);
+  color: #fff;
+  font-size: 12.5px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 30;
+  backdrop-filter: blur(6px);
+}
+.shorts-sound-tip.on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
