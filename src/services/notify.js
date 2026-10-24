@@ -34,6 +34,7 @@ export const NOTIFY_TYPES = {
   contact_invite: '好友邀请',
   system: '系统消息',
   news: '新闻资讯',
+  feedback: '留言',
 
 };
 

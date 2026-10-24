@@ -727,10 +727,12 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/bindings"><div class="avatar">🔗</div><div class="item-body"><div class="item-title">账号绑定</div><div class="item-sub">邮箱、公众号、抖音、通讯地址</div></div><span class="dim">›</span></a>
       <a class="item" href="#/tags"><div class="avatar">🏷️</div><div class="item-body"><div class="item-title">我的标签</div><div class="item-sub">城市、行业、业务类型、性格、爱好</div></div><span class="dim">›</span></a>
       <a class="item" href="#/invest"><div class="avatar">💰</div><div class="item-body"><div class="item-title">小鱼来了融资</div><div class="item-sub">种子轮认购中 · 查看计划与申请</div></div><span class="dim">›</span></a>
+      <a class="item" href="#/contact-us"><div class="avatar">📮</div><div class="item-body"><div class="item-title">联系我</div><div class="item-sub">向管理员提问，查看回复</div></div><span class="dim">›</span></a>
       <a class="item" href="#/referral"><div class="avatar">🎁</div><div class="item-body"><div class="item-title">推荐有礼</div><div class="item-sub">我的专属推荐码与二维码，推荐入驻自动进通讯录</div></div><span class="dim">›</span></a>
       <a class="item" href="#/membership"><div class="avatar">👑</div><div class="item-body"><div class="item-title">会员等级</div><div class="item-sub">蝌蚪 · 龙虾 · 电鳗 · 鲨鱼 · 鲸鱼</div></div><span class="dim">›</span></a>
       <a class="item" href="#/notifications"><div class="avatar">🔔</div><div class="item-body"><div class="item-title">消息通知</div><div class="item-sub">${data.unread || 0} 条未读</div></div><span class="dim">›</span></a>
       ${u.isAdmin ? '<a class="item" href="#/admin-ai"><div class="avatar">🤖</div><div class="item-body"><div class="item-title">AI 设置</div><div class="item-sub">绑定 DeepSeek 等大模型，提升汇总与解析质量</div></div><span class="dim">›</span></a>' : ''}
+      ${u.isAdmin ? '<a class="item" href="#/admin-feedback"><div class="avatar">📮</div><div class="item-body"><div class="item-title">留言管理</div><div class="item-sub">回复用户提问</div></div><span class="dim">›</span></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin"><div class="avatar">🛠️</div><div class="item-body"><div class="item-title">管理后台</div><div class="item-sub">资质审核、内容治理、平台数据</div></div><span class="dim">›</span></a>' : ''}
     </div>
 

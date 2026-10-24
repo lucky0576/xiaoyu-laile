@@ -19,6 +19,7 @@ import * as viewsTags from './views-tags.js';
 import * as viewsWechatSetup from './views-wechat-setup.js';
 import * as viewsNews from './views-news.js';
 import * as viewsReferral from './views-referral.js';
+import * as viewsFeedback from './views-feedback.js';
 
 const appEl = document.getElementById('app');
 
@@ -161,6 +162,7 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
     ${homeBtn}
     <div class="topbar-brand">
       ${titleEl}
+      <a class="contact-pill" href="#/contact-us" title="有问题？点这里给管理员留言">📮 联系我</a>
     </div>
     <span class="topbar-spacer"></span>
     ${actions}${actions ? '' : topbarAuth()}
@@ -291,6 +293,10 @@ async function resolveView({ segs, query }) {
       return viewsHome.renderCases(ctx, query);
     case 'referral':
       return viewsReferral.renderReferral(ctx);
+    case 'contact-us':
+      return viewsFeedback.renderContactUs(ctx);
+    case 'admin-feedback':
+      return viewsFeedback.renderAdminFeedback(ctx);
     case 'news':
       return p1
         ? viewsNews.renderNewsDetail(ctx, { id: p1 })
