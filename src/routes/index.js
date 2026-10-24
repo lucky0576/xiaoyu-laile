@@ -12,6 +12,7 @@ import registerTagRoutes from './tags.js';
 import registerAdminRoutes from './admin.js';
 import registerProviderRoutes from './providers.js';
 import registerNewsRoutes from './news.js';
+import registerReferralRoutes from './referral.js';
 
 export default function registerRoutes(app) {
   registerCoreRoutes(app);
@@ -25,5 +26,6 @@ export default function registerRoutes(app) {
   registerAdminRoutes(app);
   registerProviderRoutes(app);
   registerNewsRoutes(app);
+  registerReferralRoutes(app);
   return app;
 }

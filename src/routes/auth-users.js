@@ -23,10 +23,20 @@ import captchaSvc from '../services/captcha.js';
 import bindingsSvc from '../services/bindings.js';
 import { sendMail, mailTemplates, mailConfigured } from '../services/mail.js';
 import { INDUSTRIES, HELPER } from '../data/taxonomy.js';
+import referralSvc from '../services/referral.js';
 
 const users = () => db.collection('users');
 
+
 function applyInvite(newUser, inviteId) {
+  // 推荐码（6 位短码）优先走推荐流程：会写 invitedBy 并把新用户
+  // 自动加进推荐人的通讯录
+  const raw = String(inviteId || '').trim();
+  if (raw && /^[0-9A-Za-z]{4,10}$/.test(raw)) {
+    const inviterId = referralSvc.bindReferral(newUser, raw);
+    if (inviterId) return;
+  }
+
   if (!inviteId) return;
   const inviter = users().get(inviteId);
   if (!inviter) return;
@@ -147,7 +157,7 @@ export default function registerAuthUserRoutes(app) {
         accountType: str(req.body?.accountType, 20),
       });
       created = true;
-      applyInvite(user, req.body?.invite);
+      applyInvite(user, req.body?.ref || req.body?.invite);
     }
     return issueLogin(res, user, { created });
   });
@@ -190,7 +200,7 @@ export default function registerAuthUserRoutes(app) {
       city: str(req.body?.city, 60),
       accountType: str(req.body?.accountType, 20),
     });
-    applyInvite(user, req.body?.invite);
+    applyInvite(user, req.body?.ref || req.body?.invite);
     return issueLogin(res, user, { created: true });
   });
 
@@ -261,7 +271,7 @@ export default function registerAuthUserRoutes(app) {
       wechatId: str(req.body?.wechatId, 60),
       accountType: str(req.body?.accountType, 20),
     });
-    applyInvite(user, req.body?.invite);
+    applyInvite(user, req.body?.ref || req.body?.invite);
     if (mailConfigured()) {
       sendMail({ to: email, ...mailTemplates().welcome(user) }).catch(() => {});
     }
@@ -355,7 +365,7 @@ export default function registerAuthUserRoutes(app) {
         accountType: str(req.body?.accountType, 20),
       });
       created = true;
-      applyInvite(user, req.body?.invite);
+      applyInvite(user, req.body?.ref || req.body?.invite);
     } else {
       const patch = {};
       if (info.avatar && !user.avatar) patch.avatar = info.avatar;

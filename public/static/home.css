@@ -1060,6 +1060,7 @@ body.shorts-mode #wx-tip { display: none !important; }
 .home-promo-list {
   display: flex;
   flex-direction: column;
+  flex-wrap: wrap;      /* 通讯录条 100% 宽时会自动换到下一行 */
   gap: 10px;
   margin-top: 12px;
 }
@@ -1421,3 +1422,193 @@ body.shorts-mode #wx-tip { display: none !important; }
   margin: 0 0 14px;
 }
 .news-body p:last-child { margin-bottom: 0; }
+
+
+/* ================================================================== */
+/* 推荐有礼                                                            */
+/* ================================================================== */
+.ref-hero {
+  background: linear-gradient(135deg, #1b5fd0 0%, #2f8bf5 58%, #47a8ff 100%);
+  border-radius: 18px;
+  padding: 18px 16px 16px;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(31, 95, 208, .2);
+}
+.ref-hero-t { font-size: 19px; font-weight: 800; letter-spacing: .5px; }
+.ref-hero-d { font-size: 12px; line-height: 1.6; opacity: .92; margin-top: 6px; }
+
+.ref-code-box {
+  margin-top: 14px;
+  background: rgba(255, 255, 255, .96);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+  color: #16305c;
+}
+.ref-code-label { font-size: 11.5px; color: #7b8798; letter-spacing: 2px; }
+.ref-code {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  color: #0b74ff;
+  margin-top: 4px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.ref-qr { margin-top: 12px; text-align: center; }
+.ref-qr img {
+  /* 全局 img{display:block} 会让它左对齐，必须显式居中 */
+  display: block;
+  margin: 0 auto;
+  width: 168px; height: 168px;
+  border-radius: 10px;
+  border: 1px solid #e6ebf2;
+  background: #fff;
+}
+.ref-qr-cap { font-size: 11.5px; color: #7b8798; margin-top: 6px; }
+
+.ref-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.ref-actions .btn-primary { background: #fff; color: #1b5fd0; font-weight: 700; }
+.ref-actions .btn-outline { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.5); color: #fff; }
+.ref-link {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: .85;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.ref-stats {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.ref-stat {
+  flex: 1;
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(16, 32, 56, .06);
+}
+.ref-stat b { display: block; font-size: 26px; color: #0b74ff; font-weight: 800; }
+.ref-stat span { font-size: 11.5px; color: var(--muted); }
+
+.ref-users { display: flex; flex-direction: column; gap: 4px; }
+.ref-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0f3f7;
+}
+.ref-user:last-child { border-bottom: none; }
+.ref-ava {
+  flex: none; width: 36px; height: 36px; border-radius: 999px;
+  background: #e4efff; color: #1f5fa8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+}
+.ref-body { min-width: 0; flex: 1; }
+.ref-name { font-size: 13.5px; font-weight: 700; }
+.ref-meta {
+  font-size: 11.5px; color: var(--muted); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ref-how { display: flex; flex-direction: column; gap: 9px; }
+.ref-step {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: 12.5px; line-height: 1.6; color: var(--text-2);
+}
+.ref-step span {
+  flex: none; width: 19px; height: 19px; border-radius: 999px;
+  background: #e4efff; color: #1f5fa8;
+  font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* 注册页推荐码提示 */
+.ref-banner {
+  background: #fff8ec;
+  border: 1px solid #ffe0b2;
+  color: #a35c00;
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.ref-banner b { color: #d97706; letter-spacing: 1px; }
+
+/* ================================================================== */
+/* 首页底部：可展开的通讯录横栏                                          */
+/* ================================================================== */
+.home-contacts-bar {
+  /* 桌面端 .home-promo-list 是横向 flex，这里强制占满一整行，
+     让它排在两条 promo 下方（上下叠加） */
+  flex: 0 0 100%;
+  width: 100%;
+  margin-top: 10px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(16, 32, 56, .07);
+  overflow: hidden;
+}
+.hcb-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.hcb-ico {
+  flex: none;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: #f3e9ff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.hcb-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.hcb-t { font-size: 15px; font-weight: 800; color: var(--text); }
+.hcb-d {
+  font-size: 11.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hcb-arrow {
+  flex: none;
+  font-size: 11px;
+  color: #8fa0b5;
+  width: 24px; height: 24px;
+  border-radius: 999px;
+  background: #f2f5f9;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .18s;
+}
+.hcb-panel {
+  padding: 0 16px 14px;
+  border-top: 1px solid #f1f4f8;
+}
+.hcb-panel[hidden] { display: none; }
+.hcb-list { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; }
+.hcb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0;
+  text-decoration: none;
+  color: inherit;
+}
+.hcb-ava {
+  flex: none; width: 32px; height: 32px; border-radius: 999px;
+  background: #e4efff; color: #1f5fa8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.hcb-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.hcb-name { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+.hcb-meta {
+  font-size: 11px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tiny-badge { font-size: 9.5px; padding: 1px 5px; }

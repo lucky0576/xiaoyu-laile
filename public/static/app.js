@@ -18,6 +18,7 @@ import * as viewsAdminInvest from './views-admin-invest.js';
 import * as viewsTags from './views-tags.js';
 import * as viewsWechatSetup from './views-wechat-setup.js';
 import * as viewsNews from './views-news.js';
+import * as viewsReferral from './views-referral.js';
 
 const appEl = document.getElementById('app');
 
@@ -289,6 +290,8 @@ async function resolveView({ segs, query }) {
       return viewsHome.renderDetail(ctx, { id: p1, ...query });
     case 'cases':
       return viewsHome.renderCases(ctx, query);
+    case 'referral':
+      return viewsReferral.renderReferral(ctx);
     case 'news':
       return p1
         ? viewsNews.renderNewsDetail(ctx, { id: p1 })

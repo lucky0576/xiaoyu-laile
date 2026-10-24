@@ -29,7 +29,13 @@ export async function renderLogin(ctx, query) {
   }
 
   const wx = ctx.state.site?.wechat || {};
+  const refCode = String(query.ref || '').trim().toUpperCase();
+  const refBanner = refCode
+    ? `<div class="ref-banner">🎁 你正在通过推荐码 <b>${ui.esc(refCode)}</b> 注册，注册后会加入推荐人的通讯录</div>`
+    : '';
+
   const html = `<div class="page">
+    ${refBanner}
     <div class="center" style="padding:26px 0 10px">
       <div style="font-size:52px">🐟</div>
       <h1 style="font-size:22px;margin-top:8px">${ui.esc(ctx.state.site?.name || '小鱼来了')}</h1>
@@ -364,6 +370,7 @@ export async function renderRegister(ctx, query) {
             wechatId: ($('#rg-wechat').value || '').trim(),
             accountType,
             invite: query.invite,
+      ref: query.ref || '',
           });
           store.token = res.token;
           store.user = res.user;
@@ -719,6 +726,7 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/profile"><div class="avatar">⚙️</div><div class="item-body"><div class="item-title">资料与设置</div><div class="item-sub">头像、企业介绍、通知偏好</div></div><span class="dim">›</span></a>
       <a class="item" href="#/bindings"><div class="avatar">🔗</div><div class="item-body"><div class="item-title">账号绑定</div><div class="item-sub">邮箱、公众号、抖音、通讯地址</div></div><span class="dim">›</span></a>
       <a class="item" href="#/tags"><div class="avatar">🏷️</div><div class="item-body"><div class="item-title">我的标签</div><div class="item-sub">城市、行业、业务类型、性格、爱好</div></div><span class="dim">›</span></a>
+      <a class="item" href="#/referral"><div class="avatar">🎁</div><div class="item-body"><div class="item-title">推荐有礼</div><div class="item-sub">我的专属推荐码与二维码，推荐入驻自动进通讯录</div></div><span class="dim">›</span></a>
       <a class="item" href="#/membership"><div class="avatar">👑</div><div class="item-body"><div class="item-title">会员等级</div><div class="item-sub">蝌蚪 · 龙虾 · 电鳗 · 鲨鱼 · 鲸鱼</div></div><span class="dim">›</span></a>
       <a class="item" href="#/notifications"><div class="avatar">🔔</div><div class="item-body"><div class="item-title">消息通知</div><div class="item-sub">${data.unread || 0} 条未读</div></div><span class="dim">›</span></a>
       ${u.isAdmin ? '<a class="item" href="#/admin-ai"><div class="avatar">🤖</div><div class="item-body"><div class="item-title">AI 设置</div><div class="item-sub">绑定 DeepSeek 等大模型，提升汇总与解析质量</div></div><span class="dim">›</span></a>' : ''}
