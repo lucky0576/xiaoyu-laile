@@ -1683,3 +1683,39 @@ body.shorts-mode #wx-tip { display: none !important; }
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+
+/* 短视频：多选列表 */
+.pm-video-list { display: flex; flex-direction: column; gap: 6px; }
+.pm-video-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #f7fbff;
+  border: 1px solid #e2ecf9;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+.pv-idx {
+  flex: none;
+  width: 18px; height: 18px;
+  border-radius: 999px;
+  background: #e4efff; color: #1f5fa8;
+  font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.pv-name {
+  min-width: 0; flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text); font-weight: 600;
+}
+.pv-size { flex: none; color: var(--muted); font-size: 11.5px; }
+.pv-del {
+  flex: none;
+  width: 22px; height: 22px;
+  border: none; background: none;
+  color: #a8b4c4; font-size: 13px;
+  cursor: pointer; border-radius: 6px;
+}
+.pv-del:active { background: #eef2f7; color: #c0392b; }

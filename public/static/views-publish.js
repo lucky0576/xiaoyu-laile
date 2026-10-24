@@ -196,12 +196,13 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         <div class="upload-zone" id="pm-drop">
           <div class="upload-zone-ico">🎬</div>
           <div class="upload-zone-main" id="pm-video-hint">把短视频拖到这里，或点下面选择</div>
-          <div class="upload-zone-sub">MP4 / MOV / WebM，建议 1080p 以内、单条 200MB 以内</div>
+          <div class="upload-zone-sub">MP4 / MOV / WebM，建议 1080p 以内、单条 200MB 以内 · <b>一次最多 3 条</b></div>
           <div class="row gap8 mt12" style="justify-content:center">
-            <button class="btn btn-sm btn-outline" id="pm-video-btn" type="button">📎 选择视频</button>
+            <button class="btn btn-sm btn-outline" id="pm-video-btn" type="button">📎 选择视频（最多 3 条）</button>
           </div>
         </div>
-        <input type="file" id="pm-video-input" accept="video/*" style="display:none">
+        <input type="file" id="pm-video-input" accept="video/*" multiple style="display:none">
+        <div id="pm-video-list" class="pm-video-list mt8"></div>
         <div id="pm-video-preview" class="mt8"></div>
 
         <div class="field mt12">
@@ -233,6 +234,9 @@ async function renderPublishMedia(ctx, type, taxonomy) {
       const status = $('#pm-status');
       let videoFile = null;
       let coverFile = null;
+      // 一次最多发 3 条，这里存 [{ file, meta, cover }]
+      const MAX_VIDEOS = 3;
+      let videoFiles = [];
       // 注意：autoCover 必须声明在 mount 作用域。
       // 之前写在 if (!isLive) 块里，提交处理器在块外，
       // 一发布短视频就报 autoCover is not defined。
@@ -462,46 +466,108 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           }
         };
 
-        const setVideo = async (f) => {
-          if (!f) return;
-          if (!/^video\//.test(f.type)) return ui.toast('请选择视频文件', 'err');
-          videoFile = f;
-          $('#pm-video-hint').innerHTML = `已选择：<b>${ui.esc(f.name)}</b>（${(f.size / 1024 / 1024).toFixed(1)} MB）`;
-          const url = URL.createObjectURL(f);
-          $('#pm-video-preview').innerHTML = `<video src="${url}" controls playsinline style="width:100%;border-radius:12px;max-height:320px;background:#000"></video>`;
-          if (status) status.textContent = '';
+        /* 渲染已选视频列表 */
+        const renderVideoList = () => {
+          const box = $('#pm-video-list');
+          if (!box) return;
+          if (!videoFiles.length) { box.innerHTML = ''; return; }
+          box.innerHTML = `
+            <div class="tiny dim mb6">已选 ${videoFiles.length} / ${MAX_VIDEOS} 条${videoFiles.length > 1 ? '（第 1 条用你填的标题，其余自动生成）' : ''}</div>
+            ${videoFiles.map((it, i) => `<div class="pm-video-item">
+              <span class="pv-idx">${i + 1}</span>
+              <span class="pv-name">${ui.esc(it.file.name)}</span>
+              <span class="pv-size">${(it.file.size / 1024 / 1024).toFixed(1)} MB</span>
+              <button type="button" class="pv-del" data-vdel="${i}" aria-label="移除">✕</button>
+            </div>`).join('')}`;
+          box.querySelectorAll('[data-vdel]').forEach((b) =>
+            b.addEventListener('click', () => {
+              const i = Number(b.dataset.vdel);
+              videoFiles.splice(i, 1);
+              syncPrimary();
+              renderVideoList();
+              renderPreview();
+            })
+          );
+        };
 
-          // 解析 + 抽帧
-          videoMeta = await probeVideo(f);
-          // 展示抽到的画面，让用户看到 AI 识别依据
-          if ((videoMeta?.frames || []).length) {
-            $('#pm-video-preview').insertAdjacentHTML('beforeend',
-              `<div class="parsed-frames">${videoMeta.frames
+        /* 把第一个视频同步到 videoFile / videoMeta / autoCover（兼容原有单条逻辑） */
+        const syncPrimary = () => {
+          const first = videoFiles[0];
+          videoFile = first?.file || null;
+          videoMeta = first?.meta || null;
+          autoCover = first?.cover || null;
+          const hint = $('#pm-video-hint');
+          if (hint) {
+            hint.innerHTML = videoFiles.length
+              ? `已选择 <b>${videoFiles.length}</b> 个视频`
+              : '把短视频拖到这里，或点下面选择';
+          }
+        };
+
+        /* 渲染第一个视频的播放器 + 抽帧 */
+        const renderPreview = () => {
+          const box = $('#pm-video-preview');
+          if (!box) return;
+          const first = videoFiles[0];
+          if (!first) { box.innerHTML = ''; return; }
+          const url = URL.createObjectURL(first.file);
+          box.innerHTML = `<video src="${url}" controls playsinline style="width:100%;border-radius:12px;max-height:320px;background:#000"></video>`;
+          if ((first.meta?.frames || []).length) {
+            box.insertAdjacentHTML('beforeend',
+              `<div class="parsed-frames">${first.meta.frames
                 .map((u) => `<img src="${u}" alt="">`)
                 .join('')}</div>
-              <div class="tiny dim mt4">已抽取 3 帧画面，AI 会据此识别内容</div>`);
+              <div class="tiny dim mt4">已抽取 3 帧画面，AI 会据此识别内容${videoFiles.length > 1 ? '（仅第 1 条显示）' : ''}</div>`);
           }
+          if (first.cover) {
+            box.insertAdjacentHTML('beforeend',
+              '<div class="tiny dim mt6">已自动截取封面帧（也可以自己上传封面替换）</div>');
+          }
+        };
 
-          if (videoMeta?.frame && !coverFile) {
-            const blob = await canvasToBlob(videoMeta.frame);
-            if (blob) {
-              autoCover = new File([blob], `${(f.name || 'video').replace(/\.[^.]+$/, '')}-cover.jpg`, { type: 'image/jpeg' });
-              $('#pm-video-preview').insertAdjacentHTML('beforeend',
-                `<div class="tiny dim mt6">已自动截取封面帧（也可以自己上传封面替换）</div>`);
+        const setVideos = async (fileList) => {
+          const files = [...(fileList || [])].filter((f) => /^video\//.test(f.type));
+          if (!files.length) return ui.toast('请选择视频文件', 'err');
+
+          const room = MAX_VIDEOS - videoFiles.length;
+          if (room <= 0) return ui.toast(`最多 ${MAX_VIDEOS} 条，请先移除已有的`, 'err');
+          if (files.length > room) ui.toast(`最多 ${MAX_VIDEOS} 条，只取了前 ${room} 个`, 'err');
+
+          if (status) status.textContent = '正在解析视频…';
+          for (const f of files.slice(0, room)) {
+            const meta = await probeVideo(f);
+            let cover = null;
+            if (meta?.frame) {
+              const blob = await canvasToBlob(meta.frame);
+              if (blob) {
+                cover = new File(
+                  [blob],
+                  `${(f.name || 'video').replace(/\.[^.]+$/, '')}-cover.jpg`,
+                  { type: 'image/jpeg' },
+                );
+              }
             }
+            videoFiles.push({ file: f, meta, cover });
           }
-          // 标题为空时自动生成
+          syncPrimary();
+          renderVideoList();
+          renderPreview();
+          if (status) status.textContent = '';
           if (!$('#pm-title').value.trim()) await genTitle();
         };
 
         $('#pm-video-btn').addEventListener('click', () => input.click());
-        input.addEventListener('change', () => setVideo(input.files[0]));
+        input.addEventListener('change', () => {
+          const files = [...input.files];
+          input.value = '';
+          setVideos(files);
+        });
         drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragging'); });
         drop.addEventListener('dragleave', () => drop.classList.remove('dragging'));
         drop.addEventListener('drop', (e) => {
           e.preventDefault();
           drop.classList.remove('dragging');
-          setVideo(e.dataTransfer.files[0]);
+          setVideos(e.dataTransfer.files);
         });
 
         $('#pm-cover-input').addEventListener('change', (e) => {
@@ -563,6 +629,65 @@ async function renderPublishMedia(ctx, type, taxonomy) {
 
         btn.disabled = true;
         const oldText = btn.textContent;
+
+        /* ---- 多条：逐条上传 ---- */
+        if (!isLive && videoFiles.length > 1) {
+          const total = videoFiles.length;
+          const baseSubtitle = ($('#pm-subtitle').value || '').trim();
+          const baseDesc = ($('#pm-desc')?.value || '').trim();
+          const ids = [];
+          try {
+            for (let i = 0; i < total; i++) {
+              const it = videoFiles[i];
+              btn.textContent = `上传中… (${i + 1}/${total})`;
+              if (status) status.textContent = `正在发布第 ${i + 1} / ${total} 条…`;
+
+              // 第 1 条用用户填的标题；其余用各自抽帧让 AI 生成
+              let itemTitle = title;
+              if (i > 0) {
+                itemTitle = '';
+                try {
+                  const g = await service.feedAiTitle({
+                    kind: 'short',
+                    filename: it.file.name,
+                    durationSec: Math.round(it.meta?.duration || 0),
+                    width: it.meta?.width || 0,
+                    height: it.meta?.height || 0,
+                    frames: (it.meta?.frames || []).slice(0, 3),
+                  });
+                  itemTitle = (g?.titles?.title || '').trim();
+                } catch { /* 失败就用兜底 */ }
+                if (!itemTitle) itemTitle = `${title} ${i + 1}`;
+              }
+
+              const fd = new FormData();
+              fd.append('type', 'short');
+              fd.append('title', itemTitle);
+              fd.append('subtitle', total > 1 && i > 0 ? '' : baseSubtitle);
+              fd.append('description', baseDesc);
+              fd.append('file', it.file, it.file.name);
+              const coverToSend = coverFile && i === 0 ? coverFile : it.cover;
+              if (coverToSend) fd.append('file', coverToSend, coverToSend.name);
+
+              const r = await service.createFeed(fd, {
+                onPhase: (p) => { if (status) status.textContent = `第 ${i + 1}/${total} 条：${p}`; },
+              });
+              ids.push(r.feed.id);
+            }
+            if (status) status.textContent = '';
+            ui.toast(`已发布 ${ids.length} 条短视频`, 'ok');
+            ctx.nav('#/shorts');
+          } catch (err) {
+            ui.toast(
+              ids.length ? `已发布 ${ids.length} 条，第 ${ids.length + 1} 条失败：${err.message}` : err.message || '发布失败',
+              'err',
+            );
+            btn.disabled = false;
+            btn.textContent = oldText;
+          }
+          return;
+        }
+
         btn.textContent = isLive ? '创建中…' : '上传中…';
         try {
           const fd = new FormData();
