@@ -161,7 +161,6 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
     ${homeBtn}
     <div class="topbar-brand">
       ${titleEl}
-      ${isHome ? '<a class="invest-pill" href="#/invest" title="小鱼来了 种子轮融资中">💰 融资</a>' : ''}
     </div>
     <span class="topbar-spacer"></span>
     ${actions}${actions ? '' : topbarAuth()}
