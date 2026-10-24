@@ -35,6 +35,9 @@ export default function registerFeedbackRoutes(app) {
       text: str(req.body?.text, 2000),
       contact: str(req.body?.contact, 60),
       page: str(req.body?.page, 120),
+      feedId: str(req.body?.feedId, 60),
+      toUserId: str(req.body?.toUserId, 60),
+      toName: str(req.body?.toName, 60),
     });
     return data(res, { item }, 201);
   });

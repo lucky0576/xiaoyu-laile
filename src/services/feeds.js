@@ -67,8 +67,14 @@ export function feedPublic(f, viewerId = null) {
     liveStartedAt: f.liveStartedAt || '',
     liveViewers: hub.onlineCount(),
     featured: Boolean(f.featured),
-    stats: { views: f.views || 0, likes: f.likes || 0, comments: f.commentCount || 0 },
+    stats: {
+      views: f.views || 0,
+      likes: f.likes || 0,
+      comments: f.commentCount || 0,
+      favorites: f.favorites || 0,
+    },
     liked: viewerId ? (f.likedBy || []).includes(viewerId) : false,
+    favorited: viewerId ? (f.favoritedBy || []).includes(viewerId) : false,
     createdAt: f.createdAt,
     expiresAt: f.expiresAt || '',
   };
@@ -174,6 +180,8 @@ export async function createFeed({ user, body = {}, files: uploaded = [] }) {
     views: 0,
     likes: 0,
     likedBy: [],
+    favorites: 0,
+    favoritedBy: [],
     commentCount: 0,
     expiresAt: new Date(Date.now() + days * 86400_000).toISOString(),
   });
@@ -205,6 +213,25 @@ export function likeFeed(id, user) {
   const liked = (f.likedBy || []).includes(user.id);
   const likedBy = liked ? f.likedBy.filter((x) => x !== user.id) : [...(f.likedBy || []), user.id];
   return feeds().update(id, { likedBy, likes: likedBy.length });
+}
+
+/** 收藏 / 取消收藏（toggle），返回最新记录 */
+export function favoriteFeed(id, user) {
+  const f = getFeed(id);
+  const has = (f.favoritedBy || []).includes(user.id);
+  const favoritedBy = has
+    ? f.favoritedBy.filter((x) => x !== user.id)
+    : [...(f.favoritedBy || []), user.id];
+  return feeds().update(id, { favoritedBy, favorites: favoritedBy.length });
+}
+
+/** 我收藏的短视频，按收藏时间倒序 */
+export function listFavorites(userId, { type = '' } = {}) {
+  let list = feeds().all().filter((f) => (f.favoritedBy || []).includes(userId));
+  if (type) list = list.filter((f) => f.type === type);
+  // 按收藏顺序不好拿（数组里没记时间），用更新时间倒序兜底
+  list = list.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return list;
 }
 
 export function viewFeed(id) {
@@ -311,6 +338,8 @@ export default {
   updateFeed,
   removeFeed,
   likeFeed,
+  favoriteFeed,
+  listFavorites,
   viewFeed,
   startLive,
   endLive,

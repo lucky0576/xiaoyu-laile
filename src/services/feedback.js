@@ -23,6 +23,23 @@ function clean(v, n = MAX_LEN) {
   return String(v || '').trim().slice(0, n);
 }
 
+/** 通知被联系的发布者（「联系我」来自短视频等场景） */
+function notifyTarget(item, user) {
+  if (!item.toUserId || item.toUserId === user.id) return;
+  try {
+    notifySvc.notify({
+      userId: item.toUserId,
+      type: 'feedback',
+      title: `\u{1F4EE} ${user?.nickname || '\u7528\u6237'} \u60f3\u8054\u7cfb\u4f60`,
+      body: clean(item.text, 80),
+      link: '#/contact-us',
+      meta: { feedbackId: item.id, feedId: item.feedId },
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /** 通知所有管理员有新留言 */
 function notifyAdmins(item, user) {
   try {
@@ -48,7 +65,7 @@ function notifyAdmins(item, user) {
 /* ------------------------------------------------------------------ */
 
 /** 提交一条提问 */
-export function submit(user, { text = '', contact = '', page = '' } = {}) {
+export function submit(user, { text = '', contact = '', page = '', feedId = '', toUserId = '', toName = '' } = {}) {
   const body = clean(text);
   if (!body) throw httpError(400, '请先写下你的问题');
   if (body.length < 2) throw httpError(400, '问题太短了，多写几个字吧');
@@ -60,6 +77,9 @@ export function submit(user, { text = '', contact = '', page = '' } = {}) {
     userAvatar: user.avatar || '',
     contact: clean(contact, 60),
     page: clean(page, 120),
+    feedId: clean(feedId, 60),
+    toUserId: clean(toUserId, 60),
+    toName: clean(toName, 60),
     text: body,
     status: 'open',
     replies: [],
@@ -70,6 +90,7 @@ export function submit(user, { text = '', contact = '', page = '' } = {}) {
   });
 
   notifyAdmins(item, user);
+  notifyTarget(item, user);
   return item;
 }
 

@@ -61,6 +61,14 @@ export async function renderShorts(ctx, params) {
         <span class="short-act-ico">💬</span>
         <span class="short-act-n">${f.stats?.comments || 0}</span>
       </button>
+      <button class="short-act" data-fav="${i}" aria-label="收藏">
+        <span class="short-act-ico ${f.favorited ? 'faved' : ''}" data-favico="${i}">${f.favorited ? '⭐' : '☆'}</span>
+        <span class="short-act-n" data-favcount="${i}">${f.stats?.favorites || 0}</span>
+      </button>
+      <button class="short-act" data-contact="${i}" aria-label="联系我">
+        <span class="short-act-ico">📮</span>
+        <span class="short-act-n">联系我</span>
+      </button>
       <button class="short-act" data-share="${i}" aria-label="分享">
         <span class="short-act-ico">↗️</span>
         <span class="short-act-n">分享</span>
@@ -241,7 +249,7 @@ export async function renderShorts(ctx, params) {
 
       // 单击暂停 / 播放
       feed.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-like],[data-comment],[data-share],[data-mute]');
+        const btn = e.target.closest('[data-like],[data-comment],[data-share],[data-mute],[data-fav],[data-contact]');
         if (btn) return;
         const slide = e.target.closest('.short-slide');
         if (!slide) return;
@@ -311,6 +319,47 @@ export async function renderShorts(ctx, params) {
         syncMuteIcons();
       });
 
+      // 收藏 / 取消收藏
+      feed.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-fav]');
+        if (!btn) return;
+        e.stopPropagation();
+        if (!isLoggedIn()) {
+          ui.toast('登录后才能收藏', 'err');
+          return;
+        }
+        const i = Number(btn.dataset.fav);
+        const slide = slides()[i];
+        if (!slide) return;
+        btn.disabled = true;
+        try {
+          const r = await service.toggleFavorite(slide.dataset.id);
+          const ico = feed.querySelector(`[data-favico="${i}"]`);
+          const cnt = feed.querySelector(`[data-favcount="${i}"]`);
+          if (ico) {
+            ico.textContent = r.favorited ? '⭐' : '☆';
+            ico.classList.toggle('faved', Boolean(r.favorited));
+          }
+          if (cnt) cnt.textContent = r.count ?? '';
+          ui.toast(r.favorited ? '已收藏' : '已取消收藏', 'ok');
+        } catch (err) {
+          ui.toast(err.message || '操作失败', 'err');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      // 联系我：联系视频发布者
+      feed.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-contact]');
+        if (!btn) return;
+        e.stopPropagation();
+        const i = Number(btn.dataset.contact);
+        const slide = slides()[i];
+        if (!slide) return;
+        openContactSheet(slide);
+      });
+
       // 分享
       feed.addEventListener('click', async (e) => {
         const btn = e.target.closest('[data-share]');
@@ -361,6 +410,90 @@ export async function renderShorts(ctx, params) {
         }
       }, { passive: true });
 
+      /* 联系我：向视频发布者提问（走 feedback，管理员同时可见） */
+      const openContactSheet = async (slide) => {
+        const feedId = slide.dataset.id;
+        let data = null;
+        try {
+          const r = await service.feed(feedId);
+          data = r?.feed || r?.data?.feed || null;
+        } catch { /* 拿不到就用页面上的信息 */ }
+
+        const ownerName =
+          data?.owner?.nickname ||
+          slide.querySelector('.short-name')?.textContent ||
+          '发布者';
+        const ownerId = data?.ownerId || data?.owner?.id || '';
+        const feedTitle = data?.title || slide.querySelector('.short-title')?.textContent || '';
+
+        if (isLoggedIn() && ownerId && (ctx.state?.user?.id || '') === ownerId) {
+          ui.toast('这是你自己发布的视频', 'err');
+          return;
+        }
+
+        const wrap = document.createElement('div');
+        wrap.className = 'fb-sheet-mask';
+        wrap.innerHTML = `<div class="fb-sheet">
+          <div class="fb-sheet-head">
+            <div>
+              <div class="fb-sheet-t">📮 联系发布者</div>
+              <div class="fb-sheet-d">${ui.esc(ownerName)}${feedTitle ? ' · ' + ui.esc(feedTitle.slice(0, 18)) : ''}</div>
+            </div>
+            <button class="fb-sheet-x" type="button" aria-label="关闭">✕</button>
+          </div>
+          <div class="field">
+            <label>你想了解什么？</label>
+            <textarea class="textarea" rows="3" maxlength="1000" placeholder="例如：视频里这套设备能租多久？报价多少？"></textarea>
+          </div>
+          <div class="field">
+            <label>你的联系方式 <span class="tiny dim">（选填，方便对方直接联系你）</span></label>
+            <input class="input" maxlength="60" placeholder="手机号 / 微信号">
+          </div>
+          <button class="btn btn-primary btn-block" type="button" data-send>发送给发布者</button>
+          <div class="tiny dim center mt8">发布者和管理员都会看到这条提问</div>
+        </div>`;
+
+        document.body.appendChild(wrap);
+        requestAnimationFrame(() => wrap.classList.add('show'));
+
+        const close = () => {
+          wrap.classList.remove('show');
+          setTimeout(() => wrap.remove(), 220);
+        };
+        wrap.querySelector('.fb-sheet-x').addEventListener('click', close);
+        wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+
+        wrap.querySelector('[data-send]').addEventListener('click', async (ev) => {
+          const btn = ev.currentTarget;
+          const text = (wrap.querySelector('textarea')?.value || '').trim();
+          const contact = (wrap.querySelector('input')?.value || '').trim();
+          if (!text) return ui.toast('先写下你想问的内容', 'err');
+          if (!isLoggedIn()) {
+            close();
+            ctx.nav(`#/login?redirect=${encodeURIComponent('#/shorts')}`);
+            return;
+          }
+          btn.disabled = true;
+          btn.textContent = '发送中…';
+          try {
+            await service.feedbackSubmit({
+              text,
+              contact,
+              page: `短视频 ${feedTitle || feedId}`,
+              feedId,
+              toUserId: ownerId,
+              toName: ownerName,
+            });
+            ui.toast('已发送，发布者会收到通知', 'ok');
+            close();
+          } catch (err) {
+            ui.toast(err.message || '发送失败', 'err');
+            btn.disabled = false;
+            btn.textContent = '发送给发布者';
+          }
+        });
+      };
+
       // 任意一次触摸/点击就解锁声音（浏览器自动播放策略要求）
       const onFirstGesture = () => {
         unlockSound();
@@ -383,5 +516,56 @@ export async function renderShorts(ctx, params) {
         document.body.classList.remove('shorts-mode');
       };
     },
+  };
+}
+
+/* ================================================================== */
+/* 我的收藏                                                            */
+/* ================================================================== */
+
+export async function renderFavorites(ctx) {
+  if (!isLoggedIn()) {
+    ctx.nav(`#/login?redirect=${encodeURIComponent('#/favorites')}`);
+    return { title: '我的收藏', content: '<div class="page"></div>', noTab: true };
+  }
+
+  let items = [];
+  try {
+    const r = await service.favorites({});
+    items = r?.items || [];
+  } catch {
+    items = [];
+  }
+
+  const card = (f) => `<a class="fav-card" href="#/shorts/${ui.esc(f.id)}">
+    <div class="fav-thumb">
+      ${f.coverUrl
+        ? `<img src="${ui.esc(ui.safeUrl(f.coverUrl))}" alt="" loading="lazy">`
+        : '<div class="fav-ph">🎬</div>'}
+      <span class="fav-badge">⭐</span>
+    </div>
+    <div class="fav-t">${ui.esc(f.title || '')}</div>
+    <div class="fav-m">
+      <span>👁 ${f.stats?.views || 0}</span>
+      <span>❤ ${f.stats?.likes || 0}</span>
+      <span>⭐ ${f.stats?.favorites || 0}</span>
+    </div>
+  </a>`;
+
+  return {
+    title: '我的收藏',
+    showBack: true,
+    activeTab: 'me',
+    content: `<div class="page fav-page">
+      <div class="fav-head">
+        <div class="fav-head-t">⭐ 我的收藏</div>
+        <div class="fav-head-d">${items.length ? `共 ${items.length} 条` : '还没有收藏任何内容'}</div>
+      </div>
+      ${
+        items.length
+          ? `<div class="fav-grid">${items.map(card).join('')}</div>`
+          : `<div class="empty">在短视频里点「☆」就能收藏到这里</div>`
+      }
+    </div>`,
   };
 }

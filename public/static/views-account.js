@@ -727,6 +727,7 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/bindings"><div class="avatar">🔗</div><div class="item-body"><div class="item-title">账号绑定</div><div class="item-sub">邮箱、公众号、抖音、通讯地址</div></div><span class="dim">›</span></a>
       <a class="item" href="#/tags"><div class="avatar">🏷️</div><div class="item-body"><div class="item-title">我的标签</div><div class="item-sub">城市、行业、业务类型、性格、爱好</div></div><span class="dim">›</span></a>
       <a class="item" href="#/invest"><div class="avatar">💰</div><div class="item-body"><div class="item-title">小鱼来了融资</div><div class="item-sub">种子轮认购中 · 查看计划与申请</div></div><span class="dim">›</span></a>
+      <a class="item" href="#/favorites"><div class="avatar">⭐</div><div class="item-body"><div class="item-title">我的收藏</div><div class="item-sub">收藏的短视频</div></div><span class="dim">›</span></a>
       <a class="item" href="#/contact-us"><div class="avatar">📮</div><div class="item-body"><div class="item-title">联系我</div><div class="item-sub">向管理员提问，查看回复</div></div><span class="dim">›</span></a>
       <a class="item" href="#/referral"><div class="avatar">🎁</div><div class="item-body"><div class="item-title">推荐有礼</div><div class="item-sub">我的专属推荐码与二维码，推荐入驻自动进通讯录</div></div><span class="dim">›</span></a>
       <a class="item" href="#/membership"><div class="avatar">👑</div><div class="item-body"><div class="item-title">会员等级</div><div class="item-sub">蝌蚪 · 龙虾 · 电鳗 · 鲨鱼 · 鲸鱼</div></div><span class="dim">›</span></a>

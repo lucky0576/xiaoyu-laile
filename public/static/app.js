@@ -293,6 +293,8 @@ async function resolveView({ segs, query }) {
       return viewsHome.renderCases(ctx, query);
     case 'referral':
       return viewsReferral.renderReferral(ctx);
+    case 'favorites':
+      return viewsShorts.renderFavorites(ctx);
     case 'contact-us':
       return viewsFeedback.renderContactUs(ctx);
     case 'admin-feedback':

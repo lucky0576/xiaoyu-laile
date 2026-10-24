@@ -1,7 +1,7 @@
 /**
  * 短视频与直播路由
  */
-import { data, fail, str, num, bool, authUser, mustAuth, baseUrl } from './_util.js';
+import { data, fail, str, num, bool, authUser, mustAuth, baseUrl, queryOf } from './_util.js';
 import { httpError } from '../http/app.js';
 import feedsSvc from '../services/feeds.js';
 import fs from 'node:fs';
@@ -84,6 +84,29 @@ export default function registerFeedRoutes(app) {
     const user = mustAuth(req);
     const f = feedsSvc.likeFeed(req.params.id, user);
     return data(res, { likes: f.likes, liked: (f.likedBy || []).includes(user.id) });
+  });
+
+  /* 收藏 / 取消收藏 */
+  app.post('/api/feeds/:id/favorite', (req, res) => {
+    const user = mustAuth(req);
+    const f = feedsSvc.favoriteFeed(req.params.id, user);
+    const favorited = (f.favoritedBy || []).includes(user.id);
+    return data(res, {
+      favorited,
+      count: f.favorites || 0,
+      feed: feedsSvc.feedPublic(f, user),
+    });
+  });
+
+  /* 我收藏的 */
+  app.get('/api/favorites', (req, res) => {
+    const user = mustAuth(req);
+    const q = queryOf(req);
+    const list = feedsSvc.listFavorites(user.id, { type: String(q.type || '') });
+    return data(res, {
+      items: list.map((f) => feedsSvc.feedPublic(f, user)),
+      total: list.length,
+    });
   });
 
   app.post('/api/feeds/:id/view', (req, res) => {
