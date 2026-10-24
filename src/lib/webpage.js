@@ -119,6 +119,98 @@ function htmlToText(html, { max = 40000 } = {}) {
   return { title, text };
 }
 
+/* ------------------------------------------------------------------ */
+/* 正文清洗：去掉广告、二维码提示、对方联系方式                          */
+/*   导入链接的目的是「拿内容」，不是把原文的广告和联系方式也搬过来。      */
+/* ------------------------------------------------------------------ */
+
+/** 整行命中的关键词：命中就丢掉这一行 */
+const DROP_LINE_PATTERNS = [
+  // 二维码 / 扫码
+  /扫码|扫一扫|长按识别|二维码|QR\s*码/i,
+  // 关注引导
+  /关注(我们|公众号|本号|订阅)|点击关注|设为星标|星标|订阅号|公众号|视频号|小程序/,
+  // 互动引导
+  /点赞|点个?在看|在看|转发(到|至|给)|分享到|收藏本?文|一键三连|留言区|评论区/,
+  // 广告 / 商务
+  /广告|推广|赞助|商务合作|合作咨询|招商热线|咨询热线|客服热线|服务热线|加盟|代理咨询/,
+  // 账号 / 来源声明
+  /责任编辑|编辑[:：]|来源[:：]|本文(来自|来源)|转载|免责声明|版权声明|如有侵权|©|Copyright|All Rights Reserved/i,
+  // 联系方式引导
+  /联系(电话|人|方式)|手机号?[:：]|电话[:：]|微信[:：]|微信号|QQ[:：]|邮箱|E-?mail|邮箱地址|添加微信|加微信|私信|联系我/,
+  // 地址 / 邮编（注意不要误伤「项目地点」）
+  /(公司|联系|办公|详细|通讯)地址|地址[:：]|邮编|邮政编码|Zip\s*code/i,
+  // 纯装饰
+  /^[-—=_*·•\s]{4,}$/,
+];
+
+/** 文本里内联出现的联系方式，直接从正文里抹掉 */
+const INLINE_STRIP = [
+  // 手机号（允许空格横线）
+  /(?:\+?86[-\s]?)?1[3-9]\d[-\s]?\d{4}[-\s]?\d{4}/g,
+  // 座机
+  /0\d{2,3}[-\s]?\d{7,8}(?:[-\s]?\d{1,4})?/g,
+  // 400 / 800 热线
+  /[48]00[-\s]?\d{3}[-\s]?\d{4}/g,
+  // 邮箱
+  /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
+  // 微信号
+  /(?:微信|weixin|wechat|vx|VX|v信|威信)\s*(?:号|号码|ID|id)?\s*[:：]?\s*[A-Za-z][-_A-Za-z0-9]{4,20}/gi,
+  // QQ
+  /QQ\s*(?:号|号码)?\s*[:：]?\s*\d{5,12}/gi,
+];
+
+/** 「点击/长按/扫码」这类带动作的短句，往往后面跟的是广告位 */
+const DROP_SENTENCE = [
+  /[^。；;！!\n]{0,20}(扫码|长按识别|扫一扫)[^。；;！!\n]{0,30}/g,
+  /[^。；;！!\n]{0,20}(点击(下方|这里|链接|阅读原文))[^。；;！!\n]{0,30}/g,
+];
+
+export function stripContactAndAds(text) {
+  const src = String(text || '');
+  if (!src) return '';
+
+  const lines = src.split('\n');
+  const kept = [];
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { kept.push(''); continue; }
+
+    // 1) 整行命中关键词 → 丢弃
+    if (DROP_LINE_PATTERNS.some((re) => re.test(line))) continue;
+
+    // 2) 一行里大半是数字/符号（电话、账号、图片占位）→ 丢弃
+    const digitRatio = (line.replace(/[^\d]/g, '').length) / line.length;
+    if (line.length <= 30 && digitRatio > 0.5) continue;
+
+    // 3) 纯链接行 → 丢弃
+    if (/^(https?:\/\/|www\.)/i.test(line) && line.length < 120) continue;
+
+    let out = line;
+
+    // 4) 抹掉内联联系方式
+    for (const re of INLINE_STRIP) out = out.replace(re, '');
+
+    // 5) 抹掉「扫码查看」这类句子
+    for (const re of DROP_SENTENCE) out = out.replace(re, '');
+
+    // 6) 清理被抹出来的空档
+    out = out.replace(/[（(]\s*[)）]/g, '')
+      .replace(/[，,、]\s*[，,、]/g, '，')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/^[\s，,、:：\-—]+|[\s，,、:：\-—]+$/g, '')
+      .trim();
+
+    if (!out) continue;
+    if (out.length < 4) continue;
+    kept.push(out);
+  }
+
+  // 压掉连续空行
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** 从 HTML 里挑出内容图片的绝对地址 */
 export function extractImageUrls(html, pageUrl, { max = 8 } = {}) {
   const out = [];
@@ -262,6 +354,9 @@ export async function downloadImage(url, referer = '') {
       if (size.w < 320 || size.h < 200) return null;
       // 极端长条图（分隔线、装饰条）也排除
       if (size.w / size.h > 8 || size.h / size.w > 8) return null;
+      // 二维码 / 头像 / 图标：接近正方形且不大，大概率不是正文配图
+      const ratio = size.w / size.h;
+      if (ratio > 0.92 && ratio < 1.08 && size.w < 640) return null;
     }
 
     return { buffer: buf, ext, mime, width: size?.w || 0, height: size?.h || 0 };
@@ -343,7 +438,11 @@ export async function fetchWebpage(rawUrl) {
     }
 
     const html = decodeBody(buf, ct);
-    const { title, text } = htmlToText(html);
+    const raw = htmlToText(html);
+    const title = raw.title;
+    // 清洗：去广告、去二维码提示、去对方联系方式
+    const rawLen = raw.text.length;
+    let text = stripContactAndAds(raw.text);
 
     if (!text || text.length < 40) {
       return {
@@ -359,6 +458,7 @@ export async function fetchWebpage(rawUrl) {
       title: title || u.hostname,
       text,
       chars: text.length,
+      rawChars: rawLen,
       host: u.hostname,
       // 页面里的图片地址，路由层会下载下来存成附件
       imageUrls: extractImageUrls(html, u.toString(), { max: 8 }),
@@ -372,4 +472,4 @@ export async function fetchWebpage(rawUrl) {
   }
 }
 
-export default { fetchWebpage, htmlToText, extractImageUrls, downloadImage };
+export default { fetchWebpage, htmlToText, stripContactAndAds, extractImageUrls, downloadImage };

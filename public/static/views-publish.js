@@ -648,7 +648,7 @@ export async function renderPublish(ctx, params) {
           <input class="input grow" id="pub-url-src" maxlength="800" placeholder="粘贴招标公告 / 新闻 / 公众号文章链接">
           <button class="btn btn-sm btn-primary" id="pub-url-import" type="button" style="flex:none">导入</button>
         </div>
-        <div class="tiny dim mt6" id="pub-url-tip">抓取后会解析出正文，接着点「第一步：AI 汇总资料」即可</div>
+        <div class="tiny dim mt6" id="pub-url-tip">抓取后会解析出正文，并自动过滤广告、联系方式与二维码；接着点「第一步：AI 汇总资料」即可</div>
         <div id="pub-url-result" class="mt8"></div>
       </div>
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
@@ -1846,7 +1846,7 @@ export async function renderPublish(ctx, params) {
               box.innerHTML = `<div class="url-import-result">
                 <div class="uir-head">📄 ${ui.esc(r.title || '已导入')}</div>
                 <div class="uir-body">${ui.esc((r.text || '').slice(0, 400))}${(r.text || '').length > 400 ? ' …' : ''}</div>
-                <div class="uir-foot">共 ${r.chars} 字${addedImgs ? ` · ${addedImgs} 张图片已加入附件` : ''} · 来自 ${ui.esc(r.host || '')}</div>
+                <div class="uir-foot">共 ${r.chars} 字${r.rawChars && r.rawChars > r.chars ? `（已滤掉 ${r.rawChars - r.chars} 字广告/联系方式）` : ''}${addedImgs ? ` · ${addedImgs} 张图片已加入附件` : ''} · 来自 ${ui.esc(r.host || '')}</div>
               </div>`;
             }
             ui.toast('链接已解析', 'ok');
