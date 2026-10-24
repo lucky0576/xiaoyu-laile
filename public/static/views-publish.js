@@ -814,6 +814,7 @@ export async function renderPublish(ctx, params) {
       </div>
 
       <div id="pub-ai-result" class="mt12"></div>
+      <div id="pub-split-box" class="mt12"></div>
     </div>
 
     <div class="card card-pad mt12" id="pub-fields" style="display:none">
@@ -1000,6 +1001,43 @@ export async function renderPublish(ctx, params) {
       const bindTradeItems = (scope) => {
         const list = scope.querySelector('#f-items');
         if (!list) return;
+
+        /* AI 自动汇总物资明细 */
+        const aiBtn = scope.querySelector('#f-item-ai');
+        const aiTip = scope.querySelector('#f-item-ai-tip');
+        if (aiBtn) {
+          aiBtn.addEventListener('click', async () => {
+            const baseText = ($('#pub-text')?.value || '').trim();
+            const full = importedText ? `${baseText}\n\n【从链接导入的正文】\n${importedText}` : baseText;
+            if (!full && !uploaded.length) {
+              if (aiTip) { aiTip.textContent = '请先在「2. 输入内容」里填写或导入资料'; aiTip.style.color = '#c0392b'; }
+              return;
+            }
+            aiBtn.disabled = true;
+            aiBtn.textContent = '汇总中…';
+            if (aiTip) { aiTip.textContent = '正在从资料里提取物资…'; aiTip.style.color = ''; }
+            try {
+              const fd = api.form({ text: full, category, fileIds: uploaded.map((f) => f.id) });
+              const r = await service.aiTradeItems(fd);
+              const data = r?.data || r || {};
+              if (!data.ok || !Array.isArray(data.items) || !data.items.length) {
+                if (aiTip) { aiTip.textContent = data.note || '没识别出物资明细'; aiTip.style.color = '#c0392b'; }
+                return;
+              }
+              list.innerHTML = data.items.map((it) => tradeItemRowHtml(it)).join('');
+              if (aiTip) {
+                aiTip.textContent = `✅ 已汇总 ${data.items.length} 条物资，可在下面逐条修改`;
+                aiTip.style.color = '#0e8f5f';
+              }
+              ui.toast(`已汇总 ${data.items.length} 条物资`, 'ok');
+            } catch (err) {
+              if (aiTip) { aiTip.textContent = err.message || '汇总失败'; aiTip.style.color = '#c0392b'; }
+            } finally {
+              aiBtn.disabled = false;
+              aiBtn.textContent = '🤖 AI 自动汇总物资';
+            }
+          });
+        }
         scope.querySelector('#f-item-add')?.addEventListener('click', () => {
           list.insertAdjacentHTML('beforeend', tradeItemRowHtml({}));
           list.lastElementChild?.querySelector('[data-item="name"]')?.focus();
@@ -1078,7 +1116,11 @@ export async function renderPublish(ctx, params) {
             </div>
 
             <div class="form-section-title">物资明细</div>
-            <div class="tiny dim mb8">同一个信息里有多条物资时逐条添加，<b>2 条以上会自动用表格展示</b>。</div>
+            <div class="tiny dim mb8">多条物资可逐条添加，也可让 AI 从上面的内容自动汇总；<b>2 条以上会自动用表格展示</b>。</div>
+            <div class="trade-ai-bar mb8">
+              <button class="btn btn-sm btn-primary" id="f-item-ai" type="button">🤖 AI 自动汇总物资</button>
+              <span class="tiny dim" id="f-item-ai-tip">从正文 / 导入的文件里提取品名、规格、数量、单位、单价</span>
+            </div>
             <div id="f-items">${items.map(tradeItemRowHtml).join('')}</div>
             <button class="btn btn-sm mb16" id="f-item-add" type="button">＋ 添加一条物资</button>
 
@@ -1583,6 +1625,11 @@ export async function renderPublish(ctx, params) {
           const lock = $('#pub-ai-lock');
           if (lock) lock.style.display = 'none';
           ui.toast('汇总完成，可以生成项目信息了', 'ok');
+
+          // 贸易类不拆分（一个采购清单本身就是一条）
+          if (category !== 'trade') {
+            checkSplit(fd, text);
+          }
         } catch (err) {
           ui.toast(err.message, 'err');
         } finally {
@@ -1590,6 +1637,96 @@ export async function renderPublish(ctx, params) {
           btn.textContent = '📋 第一步：AI 汇总资料（重新汇总）';
         }
       });
+
+      /* ---------------- 多条目检测与拆分发布 ---------------- */
+      const splitLabel = { project: '项目', bounty: '悬赏', event: '活动' };
+      let splitItems = [];
+
+      function renderSplitBox(items) {
+        const box = $('#pub-split-box');
+        if (!box) return;
+        const unit = splitLabel[category] || '条目';
+        if (!items || items.length < 2) { box.innerHTML = ''; return; }
+
+        box.innerHTML = `<div class="split-box">
+          <div class="split-head">🔀 检测到 ${items.length} 个独立的${unit}</div>
+          <div class="split-desc">这段资料里包含多个${unit}，可以拆成 ${items.length} 条分别发布，每条独立成一条信息、各自推送给相关用户。</div>
+          <div class="split-list">
+            ${items.map((it, i) => `<div class="split-item">
+              <span class="split-no">${i + 1}</span>
+              <span class="split-t">${ui.esc(it.title)}</span>
+            </div>`).join('')}
+          </div>
+          <div class="row gap8 mt12" style="flex-wrap:wrap">
+            <button class="btn btn-primary grow" id="pub-split-go" type="button">🔀 拆分并发布 ${items.length} 条</button>
+            <button class="btn btn-outline" id="pub-split-cancel" type="button" style="flex:none">不拆，只发这一条</button>
+          </div>
+          <div class="tiny dim mt6">拆分后每条为纯文字内容，附件不重复上传；发布后可在「我的」里逐条编辑。</div>
+        </div>`;
+
+        $('#pub-split-cancel')?.addEventListener('click', () => {
+          splitItems = [];
+          box.innerHTML = '';
+        });
+
+        $('#pub-split-go')?.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          btn.textContent = '发布中…';
+          try {
+            const ids = [];
+            for (let i = 0; i < items.length; i++) {
+              btn.textContent = `发布中… (${i + 1}/${items.length})`;
+              const fd2 = api.form({
+                category,
+                type: $('#pub-type')?.value || '',
+                title: items[i].title,
+                subtitle: items[i].subtitle || '',
+                text: items[i].text,
+                durationDays,
+                publish: '1',
+                blocks: '[]',
+                fileIds: [],
+                contactName: $('#pub-contact-name')?.value || '',
+                phone: $('#pub-phone')?.value || '',
+                wechat: $('#pub-wechat')?.value || '',
+                company: $('#pub-company')?.value || '',
+              });
+              const res = await service.createListing(fd2);
+              const id = res?.listing?.id || res?.id;
+              if (id) ids.push(id);
+            }
+            box.innerHTML = `<div class="split-box split-done">
+              <div class="split-head">✅ 已发布 ${ids.length} 条</div>
+              <div class="split-desc">${items.map((it, i) => `<a class="split-link" href="#/detail/${ids[i] || ''}">${i + 1}. ${ui.esc(it.title)}</a>`).join('')}</div>
+              <button class="btn btn-primary btn-block mt8" type="button" onclick="location.hash='#/home'">回到首页</button>
+            </div>`;
+            ui.toast(`已发布 ${ids.length} 条`, 'ok');
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = `🔀 拆分并发布 ${items.length} 条`;
+            ui.toast(err.message || '发布失败', 'err');
+          }
+        });
+      }
+
+      async function checkSplit(fd, text) {
+        const box = $('#pub-split-box');
+        if (box) box.innerHTML = '<div class="tiny dim center mt8">正在检查是否包含多个条目…</div>';
+        try {
+          const r = await service.aiSplit(fd);
+          const data = r?.data || r || {};
+          if (data && data.ok && data.count > 1 && Array.isArray(data.items) && data.items.length > 1) {
+            splitItems = data.items;
+            renderSplitBox(splitItems);
+          } else if (box) {
+            box.innerHTML = '';
+          }
+        } catch {
+          if (box) box.innerHTML = '';
+        }
+        void text;
+      }
 
       /* ---------------- 第二步：生成项目信息 ---------------- */
       $('#pub-ai').addEventListener('click', async () => {

@@ -514,6 +514,8 @@ export const service = {
   feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
   aiContact: (text) => api.post('/api/ai/contact', { text }),
   aiFetchUrl: (url) => api.post('/api/ai/fetch-url', { url }),
+  aiSplit: (fd, opts) => api.upload('/api/ai/split', fd, opts),
+  aiTradeItems: (fd, opts) => api.upload('/api/ai/trade-items', fd, opts),
   feedTranscribe: (fd, opts) => api.upload('/api/feeds/transcribe', fd, opts),
 
   providers: (query) => api.get('/api/providers', query),

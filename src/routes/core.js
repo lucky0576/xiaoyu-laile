@@ -473,6 +473,38 @@ export default function registerCoreRoutes(app) {
     });
   });
 
+  /** 贸易：把多条供应/采购汇总成物资明细表 */
+  app.post('/api/ai/trade-items', async (req, res) => {
+    const rl = rateLimit(`tri:${clientIp(req)}`, 30, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const { input, files } = await buildAiInput(req, req.body || {});
+    if (!input.text.trim() && !files.length) {
+      return data(res, { ok: false, items: [], note: '请先输入文字或导入文件' });
+    }
+
+    const r = await ai.extractTradeItems({ text: input.text, fileText: input.fileText });
+    return data(res, r);
+  });
+
+  /** 判断资料里包含几个独立条目，需要时返回拆分结果 */
+  app.post('/api/ai/split', async (req, res) => {
+    const rl = rateLimit(`spl:${clientIp(req)}`, 30, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const { input, files } = await buildAiInput(req, req.body || {});
+    if (!input.text.trim() && !files.length) {
+      return data(res, { ok: false, count: 0, items: [], note: '没有可分析的内容' });
+    }
+
+    const r = await ai.splitItems({
+      text: input.text,
+      fileText: input.fileText,
+      category: input.category,
+    });
+    return data(res, r);
+  });
+
   /** 导入链接：抓取网页并抽出正文 */
   app.post('/api/ai/fetch-url', async (req, res) => {
     const rl = rateLimit(`url:${clientIp(req)}`, 20, 60_000);

@@ -1460,6 +1460,134 @@ export async function extractContactInfo({ text = '' } = {}) {
   }
 }
 
+
+/* ------------------------------------------------------------------ */
+/* 多条目识别与拆分                                                    */
+/*   用户常常一次贴一堆项目/活动，这时应该拆成多条分别发布。            */
+/*   贸易（采购供应）除外 —— 一个采购清单本身就是一条。                */
+/* ------------------------------------------------------------------ */
+
+const SPLIT_LABEL = {
+  project: '项目',
+  bounty: '悬赏任务',
+  event: '活动',
+};
+
+export async function splitItems({ text = '', fileText = '', category = 'project' } = {}) {
+  const body = `${String(text || '').trim()}\n\n${String(fileText || '').trim()}`.trim();
+  const unit = SPLIT_LABEL[category] || '项目';
+
+  if (!body) return { ok: false, count: 0, items: [], note: '没有可分析的内容' };
+  if (category === 'trade') return { ok: true, count: 1, items: [], note: '贸易类不拆分' };
+  if (!aiConfigured()) return { ok: false, count: 0, items: [], note: '未配置 AI' };
+
+  const user = `下面是一段资料。请判断它包含几个彼此独立的【${unit}】。
+
+规则：
+1. 如果只有一个${unit}，返回 {"count":1,"items":[]}；
+2. 如果有多个，逐个拆开，每个${unit}单独一条，提取：
+   - title：该${unit}的标题（不超过 40 字，要能独立看懂）
+   - subtitle：一句话补充（金额/规模/地点/时间，能提取就写，没有就空）
+   - text：该${unit}的正文要点（保留原文关键信息，不要编造，150~500 字）
+3. count 必须等于 items 的长度；
+4. 只是同一${unit}的不同方面（如既有金额又有工期）不算多个，不要拆；
+5. 不要编造资料里没有的${unit}。
+
+只输出 JSON，不要解释：
+{"count":2,"items":[{"title":"...","subtitle":"...","text":"..."}]}
+
+资料：
+"""${body.slice(0, 12000)}"""`;
+
+  try {
+    const raw = await chat(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: user },
+      ],
+      { json: true, temperature: 0.1 },
+    );
+    const j = extractJson(raw) || {};
+    let items = Array.isArray(j.items) ? j.items : [];
+    items = items
+      .map((x) => ({
+        title: String((x && x.title) || '').trim().slice(0, 80),
+        subtitle: String((x && x.subtitle) || '').trim().slice(0, 200),
+        text: String((x && x.text) || '').trim().slice(0, 4000),
+      }))
+      .filter((x) => x.title || x.text);
+
+    const count = Math.max(items.length, Number(j.count) || 0);
+    if (items.length <= 1) {
+      return { ok: true, count: items.length === 1 ? 1 : Math.min(count, 1), items: [], note: '' };
+    }
+    return { ok: true, count: items.length, items, note: '' };
+  } catch (err) {
+    return { ok: false, count: 0, items: [], note: `拆分判断失败：${err.message}` };
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 贸易：从文字里汇总出物资明细表格                                    */
+/* ------------------------------------------------------------------ */
+
+const TRADE_ITEM_KEYS = ['name', 'spec', 'quantity', 'unit', 'price', 'note'];
+
+export async function extractTradeItems({ text = '', fileText = '' } = {}) {
+  const body = `${String(text || '').trim()}\n\n${String(fileText || '').trim()}`.trim().slice(0, 14000);
+  if (!body) return { ok: false, items: [], note: '没有可分析的内容' };
+  if (!aiConfigured()) return { ok: false, items: [], note: '未配置 AI' };
+
+  const user = `从下面的供应 / 采购资料里，把所有物资逐条整理成明细表。
+
+规则：
+1. 每一种物资算一条，不要合并不同规格；
+2. 字段：
+   - name     品名（必填，如 单晶硅光伏组件）
+   - spec     规格型号（如 550W 单玻）
+   - quantity 数量（只写数字，如 2000）
+   - unit     单位（如 块 / 吨 / 套 / 米）
+   - price    单价或价格条件（如 0.85 元/W、电议、面议）
+   - note     备注（品牌、交期、质量标准等，没有就空）
+3. 资料里没有的字段一律给空字符串，不要编造；
+4. 如果资料里只有一种物资，也只输出一条；
+5. 最多 30 条。
+
+只输出 JSON，不要解释：
+{"items":[{"name":"","spec":"","quantity":"","unit":"","price":"","note":""}]}
+
+资料：
+"""${body}"""`;
+
+  try {
+    const raw = await chat(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: user },
+      ],
+      { json: true, temperature: 0.1 },
+    );
+    const j = extractJson(raw) || {};
+    const rawItems = Array.isArray(j.items) ? j.items : Array.isArray(j) ? j : [];
+    const items = rawItems
+      .map((it) => {
+        const o = {};
+        for (const k of TRADE_ITEM_KEYS) {
+          o[k] = String((it && it[k]) || '').trim().slice(0, k === 'note' ? 120 : 60);
+        }
+        return o;
+      })
+      .filter((o) => o.name || o.spec)
+      .slice(0, 30);
+
+    if (!items.length) return { ok: false, items: [], note: '没识别出物资明细' };
+    return { ok: true, items, count: items.length, note: '' };
+  } catch (err) {
+    return { ok: false, items: [], note: `汇总失败：${err.message}` };
+  }
+}
+
 export function asrConfigured() {
   try {
     return settingsSvc.effectiveAsrConfig().enabled;
@@ -1845,6 +1973,8 @@ export function aiStatus() {
 }
 
 export default {
+  extractTradeItems,
+  splitItems,
   extractContactInfo,
   ocrImages,
   visionDescribe,
