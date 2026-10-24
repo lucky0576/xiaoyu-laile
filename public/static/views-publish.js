@@ -233,13 +233,16 @@ async function renderPublishMedia(ctx, type, taxonomy) {
       const status = $('#pm-status');
       let videoFile = null;
       let coverFile = null;
+      // 注意：autoCover 必须声明在 mount 作用域。
+      // 之前写在 if (!isLive) 块里，提交处理器在块外，
+      // 一发布短视频就报 autoCover is not defined。
+      let autoCover = null;
 
       if (!isLive) {
         const drop = $('#pm-drop');
         const input = $('#pm-video-input');
 
         let videoMeta = null;
-        let autoCover = null;
 
         /* 解析视频：时长 / 分辨率 + 抽 3 帧（10% / 50% / 90% 处） */
         const probeVideo = (file) => new Promise((resolve) => {
