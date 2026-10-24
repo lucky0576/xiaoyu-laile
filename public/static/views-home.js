@@ -186,21 +186,6 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="promo-go">进入 ›</div>
     </a>
-
-    <div class="home-contacts-bar" id="home-contacts-bar">
-      <button class="hcb-head" type="button" id="hcb-toggle" aria-expanded="false">
-        <span class="hcb-ico">📇</span>
-        <span class="hcb-body">
-          <span class="hcb-t">通讯录</span>
-          <span class="hcb-d">导入并邀请好友 · 推荐入驻自动入列</span>
-        </span>
-        <span class="hcb-arrow" id="hcb-arrow">▲</span>
-      </button>
-      <div class="hcb-panel" id="hcb-panel" hidden>
-        <div id="hcb-list" class="hcb-list"><div class="tiny dim center">加载中…</div></div>
-        <a class="btn btn-primary btn-block mt8" href="#/contacts">进入通讯录 ›</a>
-      </div>
-    </div>
   </div>`;
 
   const gridHtml = `<div class="home-grid">
@@ -355,44 +340,6 @@ export async function renderHome(ctx, query) {
     showBack: false,
     noTab: false,
     async mount(root) {
-      /* 通讯录横栏：向上箭头展开，加载最近联系人 */
-      (() => {
-        const bar = root.querySelector('#home-contacts-bar');
-        const btn = root.querySelector('#hcb-toggle');
-        const panel = root.querySelector('#hcb-panel');
-        const arrow = root.querySelector('#hcb-arrow');
-        const list = root.querySelector('#hcb-list');
-        if (!bar || !btn || !panel) return;
-
-        let loaded = false;
-        btn.addEventListener('click', async () => {
-          const open = panel.hidden;
-          panel.hidden = !open;
-          btn.setAttribute('aria-expanded', String(open));
-          if (arrow) arrow.textContent = open ? '▼' : '▲';
-          if (!open || loaded) return;
-
-          loaded = true;
-          try {
-            const r = await service.contacts();
-            const items = (r?.items || []).slice(0, 5);
-            if (!items.length) {
-              list.innerHTML = '<div class="tiny dim center">还没有联系人，点下面进入通讯录导入</div>';
-              return;
-            }
-            list.innerHTML = items.map((c) => `<a class="hcb-item" href="${c.registeredUserId ? `#/user/${ui.esc(c.registeredUserId)}` : '#/contacts'}">
-              <span class="hcb-ava">${ui.esc((c.name || '?').slice(0, 1))}</span>
-              <span class="hcb-info">
-                <span class="hcb-name">${ui.esc(c.name || '未命名')}${c.isRegistered ? '<span class="badge ok tiny-badge">已注册</span>' : ''}</span>
-                <span class="hcb-meta">${ui.esc([c.company, c.phone].filter(Boolean).join(' · ') || '—')}</span>
-              </span>
-            </a>`).join('');
-          } catch {
-            list.innerHTML = '<div class="tiny dim center">加载失败，点下面进入通讯录</div>';
-          }
-        });
-      })();
-
       /* 短视频横滑：一屏一个，指示点联动 */
       (() => {
         const box = root.querySelector('#home-shorts');
