@@ -409,12 +409,25 @@ async function render() {
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
   } catch (err) {
     const msg = (err && err.message) || '页面加载失败';
+    // 别再把所有错误都说成「网络问题」——
+    // 权限不足、未登录、内容不存在都各有各的原因
+    const hint = (() => {
+      const st = err && err.status;
+      const code = (err && err.code) || '';
+      if (code === 'network') return '网络连接失败，请检查网络后重试';
+      if (code === 'timeout') return '请求超时，请稍后重试';
+      if (st === 401) return '登录状态已失效，请重新登录';
+      if (st === 403) return '当前账号没有访问权限';
+      if (st === 404) return '内容不存在或已被删除';
+      if (st >= 500) return '服务器开小差了，请稍后再试';
+      return '如果反复出现，请联系平台管理员';
+    })();
     appEl.innerHTML = shell({
       title: '出错了',
       content: `<div class="page"><div class="card card-pad center">
         <div style="font-size:40px">😵</div>
         <div class="strong mt8">${ui.esc(msg)}</div>
-        <div class="small muted mt8">请检查网络后重试</div>
+        <div class="small muted mt8">\</div>
         <button class="btn btn-primary mt16" onclick="location.reload()">重新加载</button>
       </div></div>`,
       showBack: true,

@@ -54,8 +54,20 @@ export default function registerChatRoutes(app) {
     }
 
     const isMember = (room.members || []).some((m) => m.userId === user?.id);
-    if (!isMember && !user?.isAdmin) throw httpError(403, '您不在该群聊中');
+    if (!isMember && !user?.isAdmin) throw httpError(403, '您不在该群聊中', 'not_member');
     return data(res, { room: chatSvc.roomPublic(room, user.id) });
+  });
+
+  /** 群简介（非成员可看，用于扫码后的加入引导） */
+  app.get('/api/chat/rooms/:id/preview', (req, res) => {
+    return data(res, chatSvc.roomPreview(req.params.id));
+  });
+
+  /** 加入群聊（扫邀请码进来的人走这里） */
+  app.post('/api/chat/rooms/:id/join', (req, res) => {
+    const user = mustAuth(req);
+    const room = chatSvc.joinRoom(req.params.id, user, { invite: str(req.body?.invite, 60) });
+    return data(res, { room: chatSvc.roomPublic(room, user.id), joined: true });
   });
 
   app.get('/api/chat/rooms/:id/messages', (req, res) => {
@@ -63,7 +75,7 @@ export default function registerChatRoutes(app) {
     const room = chatSvc.getRoom(req.params.id);
     if (!room) throw httpError(404, '群聊不存在');
     if (!(room.members || []).some((m) => m.userId === user.id) && !user.isAdmin) {
-      throw httpError(403, '您不在该群聊中');
+      throw httpError(403, '您不在该群聊中', 'not_member');
     }
     const items = chatSvc.listMessages(req.params.id, {
       since: String(req.query.since || ''),
@@ -358,7 +370,7 @@ export default function registerChatRoutes(app) {
     const room = chatSvc.getRoom(req.params.id);
     if (!room) throw httpError(404, '群聊不存在');
     if (!(room.members || []).some((m) => m.userId === user.id) && !user.isAdmin) {
-      throw httpError(403, '您不在该群聊中');
+      throw httpError(403, '您不在该群聊中', 'not_member');
     }
     const client = hub.subscribe(req, res, { userId: user.id });
     hub.joinRoom(client, req.params.id);

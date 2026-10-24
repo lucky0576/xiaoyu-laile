@@ -495,6 +495,8 @@ export const service = {
 
   // --- 群聊邀请 / 公告 ---
   roomInvite: (id) => api.get(`/api/chat/rooms/${id}/invite`),
+  roomPreview: (id) => api.get(`/api/chat/rooms/${id}/preview`),
+  roomJoin: (id, invite) => api.post(`/api/chat/rooms/${id}/join`, { invite: invite || '' }),
   setAnnouncement: (id, text) => api.post(`/api/chat/rooms/${id}/announcement`, { text }),
 
   // --- 短视频 / 直播 ---

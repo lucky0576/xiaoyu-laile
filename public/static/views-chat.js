@@ -192,13 +192,103 @@ export async function renderChat(ctx, params) {
 /* ================================================================== */
 /* 群聊房间                                                            */
 /* ================================================================== */
+/**
+ * 扫码进群引导页。
+ *
+ * 场景：群主生成邀请二维码 → 客户扫码打开 #/chat/:id →
+ * 客户本来就不是群成员，直接拉消息会 403。
+ * 这里给一个正常的「加入群聊」页面，而不是「出错了」。
+ */
+async function renderJoinGuide(ctx, roomId, errCode = '') {
+  let info = null;
+  try {
+    info = await service.roomPreview(roomId);
+  } catch {
+    info = null;
+  }
+
+  if (!info) {
+    return {
+      title: '群聊',
+      noTab: true,
+      content: `<div class="page"><div class="card card-pad center mt24">
+        <div style="font-size:40px">🔍</div>
+        <div class="strong mt8">群聊不存在或已被解散</div>
+        <a class="btn btn-primary mt16" href="#/chat">去群聊列表</a>
+      </div></div>`,
+    };
+  }
+
+  const needPwd = Boolean(info.needPassword) || errCode === 'need_password';
+
+  return {
+    title: info.name || '加入群聊',
+    noTab: true,
+    content: `<div class="page join-room-page">
+      <div class="join-room-card">
+        <div class="jr-ico">💬</div>
+        <div class="jr-name">${ui.esc(info.name)}</div>
+        <div class="jr-meta">
+          ${info.memberCount} 位成员${info.ownerName ? ` · 群主 ${ui.esc(info.ownerName)}` : ''}
+        </div>
+        ${info.desc ? `<div class="jr-desc">${ui.esc(info.desc)}</div>` : ''}
+        ${info.announcement ? `<div class="jr-ann">📢 ${ui.esc(info.announcement)}</div>` : ''}
+
+        ${needPwd ? `<div class="field mt12">
+          <label>加入码</label>
+          <input class="input" id="jr-code" placeholder="请输入群主给你的加入码" maxlength="60">
+        </div>` : ''}
+
+        <button class="btn btn-primary btn-block mt16" id="jr-join" type="button">
+          加入群聊
+        </button>
+        <div class="tiny dim center mt8" id="jr-tip">加入后即可查看群消息并参与讨论</div>
+      </div>
+    </div>`,
+    mount(root) {
+      const btn = root.querySelector('#jr-join');
+      const tip = root.querySelector('#jr-tip');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = '加入中…';
+        try {
+          const code = (root.querySelector('#jr-code')?.value || '').trim();
+          await service.roomJoin(roomId, code);
+          if (tip) tip.textContent = '✅ 已加入，正在进入群聊…';
+          ui.toast('已加入群聊', 'ok');
+          setTimeout(() => ctx.nav(`#/chat/${roomId}`), 300);
+          // 强制重新渲染（同一路由需要刷新数据）
+          setTimeout(() => { location.hash = `#/chat/${roomId}?t=${Date.now()}`; }, 60);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '加入群聊';
+          if (tip) {
+            tip.textContent = err.message || '加入失败';
+            tip.style.color = '#c0392b';
+          }
+        }
+      });
+    },
+  };
+}
+
 export async function renderRoom(ctx, params) {
   if (!isLoggedIn()) {
     ctx.nav(`#/login?redirect=${encodeURIComponent(`#/chat/${params.roomId}`)}`);
     return { title: '群聊', content: '<div class="page"></div>', noTab: true };
   }
   const roomId = params.roomId;
-  const res = await service.messages(roomId, { limit: 100 });
+  let res;
+  try {
+    res = await service.messages(roomId, { limit: 100 });
+  } catch (err) {
+    // 不在群里（扫码进来的常见情况）→ 给加入引导页，而不是「出错了」
+    if (err && (err.code === 'not_member' || err.code === 'need_password' || err.status === 403)) {
+      return renderJoinGuide(ctx, roomId, err.code);
+    }
+    throw err;
+  }
   const room = res.room;
   const me = ctx.state.user?.id;
 

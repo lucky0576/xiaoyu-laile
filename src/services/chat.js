@@ -115,6 +115,58 @@ export function joinTopicRoom(roomId, user) {
   return rooms().update(roomId, { members });
 }
 
+/**
+ * 通过邀请加入群聊。
+ *
+ * 邀请二维码/链接指向 #/chat/:id，扫码的人本来就不是成员 ——
+ * 之前直接 403「您不在该群聊中」，等于邀请链接是废的。
+ * 这里补上真正的加入动作：
+ *   · 已是成员 → 直接返回
+ *   · 群里设了加入密码 → 校验 invite
+ *   · 否则加入并返回房间
+ */
+export function joinRoom(roomId, user, { invite = '' } = {}) {
+  const room = rooms().get(roomId);
+  if (!room) throw httpError(404, '群聊不存在');
+  if (memberOf(room, user.id)) return room;
+
+  const pwd = String(room.joinPassword || '').trim();
+  if (pwd && String(invite || '').trim() !== pwd) {
+    throw httpError(403, '这个群需要加入码', 'need_password');
+  }
+
+  const now = new Date().toISOString();
+  const members = [
+    ...(room.members || []),
+    {
+      userId: user.id,
+      name: user.nickname || '成员',
+      avatar: user.avatar || '',
+      role: 'member',
+      joinedAt: now,
+      lastReadAt: now,
+    },
+  ];
+  return rooms().update(roomId, { members });
+}
+
+/** 非成员能看到的群简介（用于「加入群聊」引导页） */
+export function roomPreview(roomId) {
+  const room = rooms().get(roomId);
+  if (!room) throw httpError(404, '群聊不存在');
+  const owner = room.ownerId ? db.collection('users').get(room.ownerId) : null;
+  return {
+    id: room.id,
+    name: room.name || '群聊',
+    type: room.type || 'group',
+    memberCount: (room.members || []).length,
+    ownerName: owner ? owner.nickname || '' : '',
+    desc: String(room.desc || room.description || '').slice(0, 200),
+    announcement: room.announcement?.text ? String(room.announcement.text).slice(0, 300) : '',
+    needPassword: Boolean(String(room.joinPassword || '').trim()),
+  };
+}
+
 export function ensureRoom({ type = 'group', name, ownerId, listingId = '', targetId = '', memberIds = [], meta = {} }) {
   if (targetId) {
     const found = rooms().findOne((r) => r.type === type && r.targetId === targetId);
@@ -1054,6 +1106,8 @@ export function inviteContact(userId, contactId, { message = '' } = {}) {
 }
 
 export default {
+  joinRoom,
+  roomPreview,
   ensureTopicRooms,
   listTopicRooms,
   joinTopicRoom,
