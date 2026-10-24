@@ -149,9 +149,6 @@ export async function renderHome(ctx, query) {
     { t: '贸易采供', d: '采购 · 供应 · 委托加工', art: '🤝', href: '#/list/trade', i: 2 },
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
-    { t: '短视频', d: '上下滑动 · 沉浸观看', art: '🎬', href: '#/shorts', i: 6 },
-    { t: '新闻资讯', d: '政策 · 行业动态', art: '📰', href: '#/news', i: 10 },
-    { t: '行业论坛', d: '光伏 · 储能 · 算力 · AI', art: '🗣️', href: '#/forums', i: 7 },
   ];
   /* ---------------- 两条独立横栏：发布 / 成为服务商 ---------------- */
   const promoHtml = `<div class="home-promo-list">
@@ -170,6 +167,24 @@ export async function renderHome(ctx, query) {
         <div class="promo-d">EPC · 设计 · 施工 · 设备 · 运维 · 咨询，免费入驻</div>
       </div>
       <div class="promo-go">免费入驻 ›</div>
+    </a>
+
+    <a class="home-promo promo-news" href="#/news">
+      <div class="promo-ico">📰</div>
+      <div class="promo-body">
+        <div class="promo-t">新闻资讯</div>
+        <div class="promo-d">政策 · 行业动态，自动抓取并推送</div>
+      </div>
+      <div class="promo-go">去看 ›</div>
+    </a>
+
+    <a class="home-promo promo-forum" href="#/forums">
+      <div class="promo-ico">🗣️</div>
+      <div class="promo-body">
+        <div class="promo-t">行业论坛</div>
+        <div class="promo-d">光伏 · 储能 · 算力 · AI 交流讨论</div>
+      </div>
+      <div class="promo-go">进入 ›</div>
     </a>
 
     <div class="home-contacts-bar" id="home-contacts-bar">

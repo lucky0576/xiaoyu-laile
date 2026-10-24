@@ -1143,8 +1143,9 @@ body.shorts-mode #wx-tip { display: none !important; }
 .promo-provider .promo-go { color: #0f7a5a; }
 
 @media (min-width: 720px) {
-  .home-promo-list { flex-direction: row; }
-  .home-promo { flex: 1; }
+  /* 横栏现在有 4 条：桌面端两两一行，避免挤在一排被截断 */
+  .home-promo-list { flex-direction: row; flex-wrap: wrap; }
+  .home-promo { flex: 1 1 calc(50% - 5px); min-width: 0; }
 }
 
 
@@ -1933,3 +1934,17 @@ body.shorts-mode #wx-tip { display: none !important; }
   color: var(--muted);
   padding: 4px 9px 9px;
 }
+
+
+/* ---------------- 首页横栏：新闻资讯 / 行业论坛 ---------------- */
+.promo-news {
+  background: linear-gradient(115deg, #1f6fd0 0%, #3a95f0 55%, #63b3ff 100%);
+  box-shadow: 0 6px 20px rgba(31, 111, 208, .2);
+}
+.promo-forum {
+  background: linear-gradient(115deg, #6a4bd0 0%, #8a68ed 55%, #a98cff 100%);
+  box-shadow: 0 6px 20px rgba(106, 75, 208, .2);
+}
+/* 「去看 / 进入」按钮文字颜色：不设会继承白色，白底白字看不见 */
+.promo-news .promo-go { color: #1f6fd0; }
+.promo-forum .promo-go { color: #6a4bd0; }
