@@ -1283,7 +1283,7 @@ export async function renderContacts(ctx) {
     content: html,
     showBack: true,
     noTab: false,
-    activeTab: 'me',
+    activeTab: 'contacts',
     async mount(root) {
       const $ = (s) => root.querySelector(s);
 

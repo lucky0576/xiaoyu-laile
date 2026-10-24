@@ -38,7 +38,7 @@ const TABS = [
   { id: 'home', icon: '🏠', name: '首页', href: '#/home' },
   { id: 'project', icon: '📁', name: '项目', href: '#/list/project' },
   { id: 'publish', icon: '＋', name: '发布', href: '#/publish', center: true },
-  { id: 'chat', icon: '💬', name: '消息', href: '#/chat' },
+  { id: 'contacts', icon: '📇', name: '通讯录', href: '#/contacts' },
   { id: 'me', icon: '👤', name: '我的', href: '#/me' },
 ];
 
