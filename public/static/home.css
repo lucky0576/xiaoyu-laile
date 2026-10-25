@@ -2032,3 +2032,115 @@ body.shorts-mode #wx-tip { display: none !important; }
   .home-promo-list { align-items: flex-start; }
   .promo-group { flex: 1 1 calc(50% - 5px); min-width: 0; }
 }
+
+
+/* ================================================================== */
+/* 会员付款弹层                                                        */
+/* ================================================================== */
+.pay-mask {
+  position: fixed; inset: 0;
+  background: rgba(12, 20, 33, .52);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 9999; opacity: 0; transition: opacity .22s;
+  backdrop-filter: blur(2px);
+}
+.pay-mask.show { opacity: 1; }
+.pay-sheet {
+  width: 100%; max-width: 520px;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateY(18px); transition: transform .24s;
+  max-height: 90vh; overflow-y: auto;
+}
+.pay-mask.show .pay-sheet { transform: translateY(0); }
+
+.pay-head { display: flex; align-items: flex-start; gap: 10px; }
+.pay-t { font-size: 17px; font-weight: 800; color: var(--text); }
+.pay-d { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.pay-amt {
+  margin-left: auto; flex: none;
+  font-size: 22px; font-weight: 800; color: #e5484d;
+  display: flex; align-items: baseline; gap: 2px;
+}
+.pay-amt span { font-size: 11px; font-weight: 600; color: var(--muted); }
+.pay-x {
+  flex: none; width: 28px; height: 28px;
+  border: none; background: #f1f4f8; border-radius: 999px;
+  color: #66748a; font-size: 13px; cursor: pointer;
+}
+
+.pay-tabs { display: flex; gap: 6px; margin: 14px 0 10px; }
+.pay-tab {
+  flex: 1;
+  height: 34px;
+  border: 1px solid #e6ecf4;
+  background: #f8fafd;
+  border-radius: 10px;
+  font-size: 12.5px; font-weight: 600; color: #5a6b81;
+  cursor: pointer;
+}
+.pay-tab.on {
+  background: #e9f2ff; border-color: #a9cdf7; color: #1f5fa8;
+}
+
+.pay-pane { text-align: center; }
+.pay-qr {
+  display: block; margin: 0 auto;
+  width: 220px; max-width: 70%;
+  border-radius: 12px;
+  border: 1px solid #eef2f7;
+}
+.pay-qr-tip { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.pay-qr-name { font-size: 12px; color: var(--text); margin-top: 4px; font-weight: 600; }
+
+.pay-bank {
+  background: #f8fafd; border: 1px solid #eef2f7;
+  border-radius: 12px; padding: 12px;
+  text-align: left;
+}
+.pay-bank-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; border-top: 1px solid #eef2f7;
+  font-size: 13px;
+}
+.pay-bank-row:first-child { border-top: none; }
+.pay-bank-row span { flex: none; width: 48px; color: var(--muted); font-size: 12px; }
+.pay-bank-row b { flex: 1; min-width: 0; word-break: break-all; }
+.pay-bank-row.hi b { font-size: 15px; letter-spacing: .5px; color: #1f5fa8; }
+
+.pay-foot {
+  font-size: 11.5px; color: var(--muted);
+  text-align: center; margin-top: 10px; line-height: 1.6;
+}
+
+/* 待确认订单提示 */
+.lv-pending {
+  background: #fff8e8; border: 1px solid #ffe4b3;
+  border-radius: 12px; padding: 11px 13px;
+  font-size: 12.5px; color: #92600b;
+  margin-top: 12px; line-height: 1.6;
+}
+
+
+/* ---------------- 会员订单管理 ---------------- */
+.lo-status { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+.lo-pending { background: #fff4e5; color: #b26a00; }
+.lo-paid { background: #e8f8ef; color: #0e8f5f; }
+.lo-rejected { background: #fdecec; color: #c0392b; }
+
+.lo-main { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.lo-lv { font-size: 16px; font-weight: 800; color: var(--text); }
+.lo-amt { font-size: 18px; font-weight: 800; color: #e5484d; }
+
+.lo-meta {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 6px 10px;
+  font-size: 12.5px;
+  background: #f8fafd;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.lo-meta span { color: var(--muted); }
+.lo-meta b { color: var(--text); font-weight: 600; word-break: break-all; }

@@ -20,6 +20,7 @@ import * as viewsWechatSetup from './views-wechat-setup.js';
 import * as viewsNews from './views-news.js';
 import * as viewsReferral from './views-referral.js';
 import * as viewsFeedback from './views-feedback.js';
+import * as viewsLevelAdmin from './views-level-admin.js';
 
 const appEl = document.getElementById('app');
 
@@ -300,6 +301,8 @@ async function resolveView({ segs, query }) {
       return viewsFeedback.renderContactUs(ctx);
     case 'admin-feedback':
       return viewsFeedback.renderAdminFeedback(ctx);
+    case 'admin-level-orders':
+      return viewsLevelAdmin.renderAdminLevelOrders(ctx);
     case 'news':
       return p1
         ? viewsNews.renderNewsDetail(ctx, { id: p1 })

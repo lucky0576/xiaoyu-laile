@@ -589,6 +589,13 @@ export const service = {
   levels: () => api.get('/api/levels'),
   setLevel: (body) => api.post('/api/users/me/level', body),
   cancelLevel: () => api.post('/api/users/me/level/cancel', {}),
+  submitLevelOrder: (body) => api.post('/api/users/me/level/order', body),
+  myLevelOrders: () => api.get('/api/users/me/level/orders'),
+  adminLevelOrders: (query) => api.get('/api/admin/level-orders', query),
+  adminLevelConfirm: (id) => api.post(`/api/admin/level-orders/${id}/confirm`, {}),
+  adminLevelReject: (id, reason) => api.post(`/api/admin/level-orders/${id}/reject`, { reason }),
+  adminPaymentGet: () => api.get('/api/admin/payment'),
+  adminPaymentSave: (body) => api.put('/api/admin/payment', body),
   levelOrders: () => api.get('/api/users/me/level/orders'),
 };
 

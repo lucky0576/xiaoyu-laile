@@ -189,6 +189,7 @@ export async function renderMembership(ctx) {
     return { title: '会员等级', content: ui.emptyState('🧭', '加载失败，请稍后重试'), showBack: true };
   }
   const levels = res.levels || [];
+  const payCfg = res.payment || {};
   const cur = res.current || { key: 'free', name: '免费用户', icon: '🐟', color: '#8a95a5' };
 
   const card = (lv) => {
@@ -229,7 +230,7 @@ export async function renderMembership(ctx) {
         </div>
       </div>
 
-      <div class="tiny dim center mt12 mb12">会员价格按月计，可随时取消。以下为演示开通，实际扣费需接入微信支付 / 支付宝。</div>
+      <div class="tiny dim center mt12 mb12">会员按月计费，可随时取消。支持微信 / 支付宝扫码，或银行转账。</div>
 
       ${levels.map(card).join('')}
 
@@ -239,34 +240,132 @@ export async function renderMembership(ctx) {
           <p>1. 会员按自然月计费，开通后立即生效，有效期 30 天。</p>
           <p>2. 升级更高等级按当前到期日顺延 30 天。</p>
           <p>3. 取消会员立即降回免费用户，已支付费用不退还。</p>
-          <p>4. 当前为演示开通，未接入真实支付渠道。</p>
+          <p>4. 扫码或转账后请点「我已付款」，管理员确认到账后立即开通（一般 1 个工作日内）。</p>
         </div>
       </div>
     </div>`,
     showBack: true,
     mount(root) {
+      /* ---------------- 付款弹层：微信 / 支付宝 / 银行卡 ---------------- */
+      const openPaySheet = (lv) => {
+        const pay = payCfg || {};
+        let mode = 'wechat';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'pay-mask';
+        wrap.innerHTML = `<div class="pay-sheet">
+          <div class="pay-head">
+            <div>
+              <div class="pay-t">开通 ${ui.esc(lv.name)}</div>
+              <div class="pay-d">${ui.esc(lv.tagline || '')}</div>
+            </div>
+            <div class="pay-amt">¥${num(lv.price)}<span>${ui.esc(lv.unit || '')}</span></div>
+            <button class="pay-x" type="button" aria-label="关闭">✕</button>
+          </div>
+
+          <div class="pay-tabs">
+            <button class="pay-tab on" data-mode="wechat" type="button">💚 微信</button>
+            <button class="pay-tab" data-mode="alipay" type="button">💙 支付宝</button>
+            <button class="pay-tab" data-mode="bank" type="button">🏦 银行卡</button>
+          </div>
+
+          <div class="pay-body">
+            <div class="pay-pane" data-pane="wechat">
+              ${pay.wechatQr
+                ? `<img class="pay-qr" src="${ui.esc(ui.safeUrl(pay.wechatQr))}" alt="微信收款码">
+                   <div class="pay-qr-tip">微信「扫一扫」识别二维码付款</div>
+                   <div class="pay-qr-name">收款人：${ui.esc(pay.wechatName || '')}</div>`
+                : '<div class="empty">暂未配置微信收款码</div>'}
+            </div>
+
+            <div class="pay-pane hide" data-pane="alipay">
+              ${pay.alipayQr
+                ? `<img class="pay-qr" src="${ui.esc(ui.safeUrl(pay.alipayQr))}" alt="支付宝收款码">
+                   <div class="pay-qr-tip">支付宝「扫一扫」识别二维码付款</div>
+                   <div class="pay-qr-name">收款人：${ui.esc(pay.alipayName || '')}</div>`
+                : '<div class="empty">暂未配置支付宝收款码</div>'}
+            </div>
+
+            <div class="pay-pane hide" data-pane="bank">
+              ${
+                pay.bankAccount
+                  ? `<div class="pay-bank">
+                      <div class="pay-bank-row"><span>开户行</span><b data-copy="${ui.esc(pay.bankName || '')}">${ui.esc(pay.bankName || '—')}</b></div>
+                      <div class="pay-bank-row"><span>户名</span><b data-copy="${ui.esc(pay.bankHolder || '')}">${ui.esc(pay.bankHolder || '—')}</b></div>
+                      <div class="pay-bank-row hi"><span>卡号</span><b class="pay-card" data-copy="${ui.esc(pay.bankAccount || '')}">${ui.esc(pay.bankAccount || '—')}</b></div>
+                     </div>
+                     <button class="btn btn-outline btn-block mt8" data-copy-card type="button">复制卡号</button>
+                     <div class="pay-qr-tip">转账后请务必在下方填写转账备注（姓名/手机号），方便核对</div>`
+                  : '<div class="empty">暂未配置银行卡信息，请用微信或支付宝</div>'
+              }
+            </div>
+          </div>
+
+          <div class="field mt12">
+            <label>转账备注 <span class="tiny dim">（选填，方便管理员核对到账）</span></label>
+            <input class="input" id="pay-note" maxlength="120" placeholder="例如：微信转账 备注「小鱼 张工」">
+          </div>
+
+          <button class="btn btn-primary btn-block" id="pay-done" type="button">我已付款，提交订单</button>
+          <div class="pay-foot">${ui.esc(pay.note || '转账后请点上面按钮提交订单，管理员确认到账后立即开通。')}</div>
+        </div>`;
+
+        document.body.appendChild(wrap);
+        requestAnimationFrame(() => wrap.classList.add('show'));
+
+        const close = () => {
+          wrap.classList.remove('show');
+          setTimeout(() => wrap.remove(), 220);
+        };
+        wrap.querySelector('.pay-x').addEventListener('click', close);
+        wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+
+        // 切换付款方式
+        wrap.querySelectorAll('.pay-tab').forEach((tab) => {
+          tab.addEventListener('click', () => {
+            mode = tab.dataset.mode;
+            wrap.querySelectorAll('.pay-tab').forEach((t) => t.classList.toggle('on', t === tab));
+            wrap.querySelectorAll('.pay-pane').forEach((p) => {
+              p.classList.toggle('hide', p.dataset.pane !== mode);
+            });
+          });
+        });
+
+        // 复制卡号
+        wrap.querySelector('[data-copy-card]')?.addEventListener('click', async () => {
+          const card = wrap.querySelector('.pay-card')?.dataset.copy || '';
+          const ok = await ui.copyText(card);
+          ui.toast(ok ? '卡号已复制' : '复制失败，请长按手动复制', ok ? 'ok' : 'err');
+        });
+
+        // 已付款 → 下单
+        wrap.querySelector('#pay-done').addEventListener('click', async (ev) => {
+          const btn = ev.currentTarget;
+          btn.disabled = true;
+          btn.textContent = '提交中…';
+          try {
+            const r = await service.submitLevelOrder({
+              level: lv.key,
+              payMode: mode,
+              payerNote: (wrap.querySelector('#pay-note')?.value || '').trim(),
+            });
+            ui.toast(r?.reused ? '订单已在等待确认，请耐心等候' : '订单已提交，管理员确认到账后开通', 'ok');
+            close();
+            ctx.nav('#/membership?t=' + Date.now());
+          } catch (err) {
+            ui.toast(err.message || '提交失败', 'err');
+            btn.disabled = false;
+            btn.textContent = '我已付款，提交订单';
+          }
+        });
+      };
+
       root.querySelectorAll('[data-buy]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
           const key = btn.dataset.buy;
           const lv = levels.find((l) => l.key === key);
-          const ok = await ui.confirmDialog({
-            title: `开通 ${lv.name}`,
-            message: `价格 ¥${num(lv.price)}${lv.unit}。当前为演示开通，不会真实扣费。确认开通？`,
-            okText: '确认开通',
-          });
-          if (!ok) return;
-          btn.disabled = true;
-          btn.textContent = '开通中…';
-          try {
-            await service.setLevel({ level: key });
-            ui.toast(`${lv.name} 已开通`, 'ok');
-            await ctx.refreshMe().catch(() => null);
-            ctx.nav('#/membership', { replace: true });
-          } catch (err) {
-            ui.toast(err.message || '开通失败', 'err');
-            btn.disabled = false;
-            btn.textContent = `开通 ${lv.name}`;
-          }
+          if (!lv) return;
+          openPaySheet(lv);
         });
       });
 
