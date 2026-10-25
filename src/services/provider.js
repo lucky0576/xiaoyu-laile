@@ -12,18 +12,86 @@ import notifySvc from './notify.js';
 const providers = () => db.collection('providers');
 const users = () => db.collection('users');
 
+/* ------------------------------------------------------------------ */
+/* 服务商类型（9 大类，部分带子类型）                                    */
+/* ------------------------------------------------------------------ */
 export const SERVICE_TYPES = [
-  { id: 'epc', name: 'EPC 总包' },
-  { id: 'design', name: '设计院 / 咨询' },
-  { id: 'construction', name: '施工 / 安装' },
-  { id: 'equipment', name: '设备 / 材料供应' },
-  { id: 'om', name: '运维 / 检修' },
-  { id: 'testing', name: '检测 / 认证' },
-  { id: 'logistics', name: '物流 / 仓储' },
-  { id: 'finance', name: '金融 / 保理' },
-  { id: 'software', name: '软件 / 数字化' },
-  { id: 'other', name: '其他服务' },
+  {
+    id: 'agent',
+    name: '平台代理商',
+    subs: [
+      { id: 'city', name: '城市' },
+      { id: 'industry', name: '行业' },
+      { id: 'channel', name: '渠道' },
+    ],
+  },
+  { id: 'trader', name: '贸易商', subs: [] },
+  { id: 'investment', name: '投融资', subs: [] },
+  {
+    id: 'engineering',
+    name: '工程',
+    subs: [
+      { id: 'emc', name: 'EMC' },
+      { id: 'epc', name: 'EPC' },
+      { id: 'labor', name: '劳务' },
+      { id: 'supervision', name: '监理' },
+    ],
+  },
+  { id: 'bidding', name: '招投标公司', subs: [] },
+  { id: 'attract', name: '招商引资', subs: [] },
+  { id: 'ip', name: '发明、专利、技术支持', subs: [] },
+  { id: 'manufacturer', name: '制造商', subs: [] },
+  { id: 'ecommerce', name: '电商、直播', subs: [] },
 ];
+
+/* ------------------------------------------------------------------ */
+/* 服务商种类（7 类，部分带子类型）                                      */
+/* ------------------------------------------------------------------ */
+export const PROVIDER_KINDS = [
+  { id: 'government', name: '政府', subs: [] },
+  { id: 'firm', name: '事务所', subs: [] },
+  {
+    id: 'enterprise',
+    name: '企业',
+    subs: [
+      { id: 'private', name: '私企' },
+      { id: 'state', name: '国企' },
+      { id: 'central', name: '央企' },
+    ],
+  },
+  { id: 'nonprofit', name: '公益机构', subs: [] },
+  { id: 'association', name: '社团', subs: [] },
+  {
+    id: 'individual',
+    name: '个人',
+    subs: [
+      { id: 'expert', name: '专家' },
+      { id: 'scholar', name: '学者' },
+      { id: 'broker', name: '居间' },
+      { id: 'other', name: '其他' },
+    ],
+  },
+  { id: 'other', name: '其他', subs: [] },
+];
+
+const KIND_BY_ID = Object.fromEntries(PROVIDER_KINDS.map((k) => [k.id, k]));
+const TYPE_BY_ID = Object.fromEntries(SERVICE_TYPES.map((t) => [t.id, t]));
+
+/** 服务商种类展示名：企业（国企） */
+export function kindLabel(kindId, kindSub) {
+  const k = KIND_BY_ID[kindId];
+  if (!k) return '';
+  const sub = (k.subs || []).find((x) => x.id === kindSub);
+  return sub ? `${k.name}（${sub.name}）` : k.name;
+}
+
+/** 服务类型展示名：平台代理商（城市） */
+export function typeLabel(typeId, subId) {
+  const t = TYPE_BY_ID[typeId];
+  if (!t) return typeId;
+  const sub = (t.subs || []).find((x) => x.id === subId);
+  return sub ? `${t.name}（${sub.name}）` : t.name;
+}
 
 export const REGIONS = [
   '全国', '华东', '华北', '华南', '华中', '西南', '西北', '东北', '海外',
@@ -52,8 +120,17 @@ export function providerPublic(p, viewer = null) {
     id: p.id,
     companyName: p.companyName,
     shortName: p.shortName || '',
-    serviceTypes: (p.serviceTypes || []).map((id) => (SERVICE_TYPES.find((t) => t.id === id) || { name: id }).name),
+    /* 种类：企业（国企） */
+    kind: p.kind || '',
+    kindSub: p.kindSub || '',
+    kindName: kindLabel(p.kind, p.kindSub),
+    kindLabel: (kindLabel(p.kind, p.kindSub) || '').split('（')[0],
+    /* 类型：平台代理商（城市）、工程（EPC）… */
+    serviceTypes: (p.serviceTypes || []).map((id) =>
+      typeLabel(id, (p.typeSubs || {})[id] || ''),
+    ),
     serviceTypeIds: p.serviceTypes || [],
+    typeSubs: p.typeSubs || {},
     regions: p.regions || [],
     intro: p.intro || '',
     establishedYear: p.establishedYear || '',
@@ -102,11 +179,31 @@ export function apply(user, body = {}) {
 
   const existing = myApplication(user.id);
 
+  /* 种类（单选）+ 子类型 */
+  const kind = String(body.kind || '').trim();
+  const kindSub = String(body.kindSub || '').trim();
+  if (!KIND_BY_ID[kind]) throw httpError(400, '请选择服务商种类');
+  const kindDef = KIND_BY_ID[kind];
+  const kindSubOk = (kindDef.subs || []).some((x) => x.id === kindSub) ? kindSub : '';
+
+  /* 各类型的子类型选择：{ agent: 'city', engineering: 'epc' } */
+  const rawSubs = body.typeSubs && typeof body.typeSubs === 'object' ? body.typeSubs : {};
+  const typeSubs = {};
+  for (const tid of serviceTypes) {
+    const t = TYPE_BY_ID[tid];
+    if (!t || !(t.subs || []).length) continue;
+    const val = String(rawSubs[tid] || '').trim();
+    if ((t.subs || []).some((x) => x.id === val)) typeSubs[tid] = val;
+  }
+
   const patch = {
     companyName,
     shortName: String(body.shortName || '').trim().slice(0, 20),
     creditCode: String(body.creditCode || '').trim().slice(0, 30),
+    kind,
+    kindSub: kindSubOk,
     serviceTypes,
+    typeSubs,
     regions,
     intro: String(body.intro || '').trim().slice(0, 1000),
     cases: String(body.cases || '').trim().slice(0, 2000),
@@ -145,10 +242,11 @@ export function apply(user, body = {}) {
 }
 
 /** 服务商名录（只列已通过的） */
-export function list({ q = '', serviceType = '', region = '', page = 1, pageSize = 20 } = {}) {
+export function list({ q = '', serviceType = '', region = '', kind = '', page = 1, pageSize = 20 } = {}) {
   const kw = String(q || '').trim().toLowerCase();
   let all = providers().find((p) => p.status === 'approved');
 
+  if (kind) all = all.filter((p) => p.kind === kind);
   if (serviceType) all = all.filter((p) => (p.serviceTypes || []).includes(serviceType));
   if (region) all = all.filter((p) => (p.regions || []).includes(region) || (p.regions || []).includes('全国'));
   if (kw) {
@@ -178,10 +276,16 @@ export function stats() {
   for (const p of approved) {
     for (const t of p.serviceTypes || []) byType[t] = (byType[t] || 0) + 1;
   }
+  const byKind = {};
+  for (const p of approved) {
+    if (p.kind) byKind[p.kind] = (byKind[p.kind] || 0) + 1;
+  }
   return {
     total: approved.length,
     byType,
+    byKind,
     types: SERVICE_TYPES,
+    kinds: PROVIDER_KINDS,
     regions: REGIONS,
   };
 }
@@ -255,6 +359,9 @@ export function review(id, admin, { approve = true, note = '' } = {}) {
 }
 
 export default {
+  PROVIDER_KINDS,
+  kindLabel,
+  typeLabel,
   SERVICE_TYPES,
   REGIONS,
   providerPublic,

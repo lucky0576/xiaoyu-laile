@@ -51,10 +51,19 @@ export async function renderProvider(ctx, params) {
       </div>
 
       <div class="field">
+        <label>服务商种类 <span class="tiny dim">（必选，单选）</span></label>
+        <div class="chips" id="sp-kinds">
+          ${(meta.kinds || []).map((k) => `<a class="chip ${app?.kind === k.id ? 'active' : ''}" data-kind="${ui.esc(k.id)}">${ui.esc(k.name)}</a>`).join('')}
+        </div>
+        <div class="chips mt8 hide" id="sp-kind-subs"></div>
+      </div>
+
+      <div class="field">
         <label>服务类型 <span class="tiny dim">（可多选，至少一个）</span></label>
         <div class="chips" id="sp-types">
           ${(meta.types || []).map((t) => `<a class="chip ${typesHtml.includes(t.id) ? 'active' : ''}" data-type="${ui.esc(t.id)}">${ui.esc(t.name)}</a>`).join('')}
         </div>
+        <div class="chips mt8 hide" id="sp-type-subs"></div>
       </div>
 
       <div class="field">
@@ -119,7 +128,8 @@ export async function renderProvider(ctx, params) {
     </div>
     <div class="kv-table">
       <div class="kv"><span class="k">公司</span><span class="v">${ui.esc(app.companyName)}</span></div>
-      <div class="kv"><span class="k">服务类型</span><span class="v">${ui.esc((app.serviceTypes || []).join(' / ') || '—')}</span></div>
+      <div class="kv"><span class="k">种类</span><span class="v">${ui.esc(app.kindName || '—')}</span></div>
+          <div class="kv"><span class="k">服务类型</span><span class="v">${ui.esc((app.serviceTypes || []).join(' / ') || '—')}</span></div>
       <div class="kv"><span class="k">服务区域</span><span class="v">${ui.esc((app.regions || []).join(' / ') || '—')}</span></div>
       <div class="kv"><span class="k">提交时间</span><span class="v">${ui.esc(ui.fmtDate(app.createdAt, true))}</span></div>
       ${app.reviewedAt ? `<div class="kv"><span class="k">审核时间</span><span class="v">${ui.esc(ui.fmtDate(app.reviewedAt, true))}</span></div>` : ''}
@@ -135,6 +145,10 @@ export async function renderProvider(ctx, params) {
       <span class="tiny dim">共 ${listRes.total || 0} 家</span>
     </div>
     <input class="input mb12" id="sp-q" placeholder="搜索公司名 / 业务 / 案例">
+    <div class="chips scroll mb12" id="sp-filter-kind">
+      <a class="chip active" data-k="">全部种类</a>
+      ${(meta.kinds || []).map((k) => `<a class="chip" data-k="${ui.esc(k.id)}">${ui.esc(k.name)}</a>`).join('')}
+    </div>
     <div class="chips scroll mb12" id="sp-filter-type">
       <a class="chip active" data-t="">全部类型</a>
       ${(meta.types || []).map((t) => `<a class="chip" data-t="${ui.esc(t.id)}">${ui.esc(t.name)}</a>`).join('')}
@@ -172,6 +186,9 @@ export async function renderProvider(ctx, params) {
       if ($('#sp-submit')) {
         const picked = {
           types: new Set(typesHtml),
+          kind: app?.kind || '',
+          kindSub: app?.kindSub || '',
+          typeSubs: { ...(app?.typeSubs || {}) },
           regions: new Set(app?.regions || ['全国']),
         };
         const syncChips = (host, set, attr) => {
@@ -180,15 +197,83 @@ export async function renderProvider(ctx, params) {
           );
         };
 
+        /* ---------- 种类：单选 + 子类型 ---------- */
+        const kindSubBox = $('#sp-kind-subs');
+        const renderKindSubs = () => {
+          if (!kindSubBox) return;
+          const def = (meta.kinds || []).find((k) => k.id === picked.kind);
+          const subs = def?.subs || [];
+          if (!subs.length) {
+            kindSubBox.classList.add('hide');
+            kindSubBox.innerHTML = '';
+            return;
+          }
+          kindSubBox.classList.remove('hide');
+          kindSubBox.innerHTML =
+            `<span class="tiny dim" style="align-self:center;margin-right:2px">${ui.esc(def.name)}：</span>` +
+            subs.map((x) => `<a class="chip ${picked.kindSub === x.id ? 'active' : ''}" data-ksub="${ui.esc(x.id)}">${ui.esc(x.name)}</a>`).join('');
+          kindSubBox.querySelectorAll('[data-ksub]').forEach((c) =>
+            c.addEventListener('click', (e) => {
+              e.preventDefault();
+              picked.kindSub = c.dataset.ksub;
+              renderKindSubs();
+            }),
+          );
+        };
+        $('#sp-kinds')?.querySelectorAll('.chip').forEach((chip) =>
+          chip.addEventListener('click', (e) => {
+            e.preventDefault();
+            picked.kind = chip.dataset.kind;
+            picked.kindSub = '';
+            syncChips($('#sp-kinds'), new Set([picked.kind]), 'kind');
+            renderKindSubs();
+          }),
+        );
+        renderKindSubs();
+
+        /* ---------- 类型：多选 + 子类型 ---------- */
+        const typeSubBox = $('#sp-type-subs');
+        const renderTypeSubs = () => {
+          if (!typeSubBox) return;
+          const withSubs = [...picked.types]
+            .map((id) => (meta.types || []).find((t) => t.id === id))
+            .filter((t) => t && (t.subs || []).length);
+          if (!withSubs.length) {
+            typeSubBox.classList.add('hide');
+            typeSubBox.innerHTML = '';
+            return;
+          }
+          typeSubBox.classList.remove('hide');
+          typeSubBox.innerHTML = withSubs
+            .map((t) => `<div class="tsub-row">
+              <span class="tiny dim">${ui.esc(t.name)}：</span>
+              ${t.subs.map((x) => `<a class="chip ${picked.typeSubs[t.id] === x.id ? 'active' : ''}" data-tsub="${ui.esc(t.id)}|${ui.esc(x.id)}">${ui.esc(x.name)}</a>`).join('')}
+            </div>`)
+            .join('');
+          typeSubBox.querySelectorAll('[data-tsub]').forEach((c) =>
+            c.addEventListener('click', (e) => {
+              e.preventDefault();
+              const [tid, sid] = (c.dataset.tsub || '').split('|');
+              picked.typeSubs[tid] = sid;
+              renderTypeSubs();
+            }),
+          );
+        };
         $('#sp-types').querySelectorAll('.chip').forEach((chip) =>
           chip.addEventListener('click', (e) => {
             e.preventDefault();
             const id = chip.dataset.type;
-            if (picked.types.has(id)) picked.types.delete(id);
-            else picked.types.add(id);
+            if (picked.types.has(id)) {
+              picked.types.delete(id);
+              delete picked.typeSubs[id];
+            } else {
+              picked.types.add(id);
+            }
             syncChips($('#sp-types'), picked.types, 'type');
+            renderTypeSubs();
           }),
         );
+        renderTypeSubs();
 
         $('#sp-regions').querySelectorAll('.chip').forEach((chip) =>
           chip.addEventListener('click', (e) => {
@@ -208,7 +293,19 @@ export async function renderProvider(ctx, params) {
           const contactPhone = ($('#sp-cphone').value || '').trim();
 
           if (!companyName) return ui.toast('请填写公司全称', 'err');
+          if (!picked.kind) return ui.toast('请选择服务商种类', 'err');
+          const kindDef = (meta.kinds || []).find((k) => k.id === picked.kind);
+          if ((kindDef?.subs || []).length && !picked.kindSub) {
+            return ui.toast(`请选择${kindDef.name}的具体类型`, 'err');
+          }
           if (!picked.types.size) return ui.toast('请至少选择一个服务类型', 'err');
+          /* 带子类型的服务类型必须选子类型 */
+          for (const tid of picked.types) {
+            const t = (meta.types || []).find((x) => x.id === tid);
+            if ((t?.subs || []).length && !picked.typeSubs[tid]) {
+              return ui.toast(`请选择「${t.name}」的具体类型`, 'err');
+            }
+          }
           if (!contactName) return ui.toast('请填写联系人', 'err');
           if (!/^1[3-9]\d{9}$/.test(contactPhone)) return ui.toast('请填写正确的手机号', 'err');
 
@@ -219,6 +316,9 @@ export async function renderProvider(ctx, params) {
               companyName,
               shortName: ($('#sp-short').value || '').trim(),
               creditCode: ($('#sp-credit').value || '').trim(),
+              kind: picked.kind,
+              kindSub: picked.kindSub,
+              typeSubs: { ...picked.typeSubs },
               serviceTypes: [...picked.types],
               regions: [...picked.regions],
               intro: ($('#sp-intro').value || '').trim(),
@@ -244,13 +344,14 @@ export async function renderProvider(ctx, params) {
       if ($('#sp-list-card')) {
         let keyword = '';
         let typeFilter = '';
+        let kindFilter = '';
         let timer = null;
 
         const reload = async () => {
           const box = $('#sp-list');
           if (box) box.innerHTML = '<div class="tiny dim center" style="padding:20px">加载中…</div>';
           try {
-            const r = await service.providers({ q: keyword, serviceType: typeFilter, pageSize: 20 });
+            const r = await service.providers({ q: keyword, serviceType: typeFilter, kind: kindFilter, pageSize: 20 });
             if (box) box.innerHTML = providerListHtml(r.items || []);
           } catch {
             if (box) box.innerHTML = '<div class="tiny dim center" style="padding:20px">加载失败</div>';
@@ -262,6 +363,15 @@ export async function renderProvider(ctx, params) {
           clearTimeout(timer);
           timer = setTimeout(reload, 350);
         });
+
+        $('#sp-filter-kind')?.querySelectorAll('.chip').forEach((chip) =>
+          chip.addEventListener('click', (e) => {
+            e.preventDefault();
+            kindFilter = chip.dataset.k || '';
+            $('#sp-filter-kind').querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
+            reload();
+          }),
+        );
 
         $('#sp-filter-type').querySelectorAll('.chip').forEach((chip) =>
           chip.addEventListener('click', (e) => {

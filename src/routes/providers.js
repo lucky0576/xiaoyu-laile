@@ -20,6 +20,7 @@ export default function registerProviderRoutes(app) {
     return data(res, providerSvc.list({
       q: str(req.query.q, 60),
       serviceType: str(req.query.serviceType, 30),
+      kind: str(req.query.kind, 30),
       region: str(req.query.region, 20),
       page: num(req.query.page, 1),
       pageSize: num(req.query.pageSize, 20),
