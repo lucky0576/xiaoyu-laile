@@ -1060,7 +1060,7 @@ body.shorts-mode #wx-tip { display: none !important; }
 .home-promo-list {
   display: flex;
   flex-direction: column;
-  flex-wrap: wrap;      /* 通讯录条 100% 宽时会自动换到下一行 */
+
   gap: 10px;
   margin-top: 12px;
 }
@@ -1968,4 +1968,67 @@ body.shorts-mode #wx-tip { display: none !important; }
 @media (max-width: 370px) {
   .topbar .title-link { font-size: 14px; }
   .invest-pill, .contact-pill { padding: 0 5px; font-size: 10.5px; }
+}
+
+/* ---------------- 横栏 + 下方最新 5 条 ---------------- */
+.promo-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(20, 40, 80, .06);
+}
+.promo-group > .home-promo {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.promo-items {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 6px;
+}
+.promo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  text-decoration: none;
+  border-top: 1px solid #f2f6fb;
+  transition: background .15s;
+}
+.promo-item:first-child { border-top: none; }
+.promo-item:active { background: #f5f9ff; }
+.pi-t {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.promo-item::before {
+  content: '';
+  flex: none;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #c3d2e6;
+}
+.pi-m {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 桌面端：两条横栏并排时，组也要能对半 */
+@media (min-width: 720px) {
+  /* 没有最新列表的组（如服务商）不要被拉高撑满整行 */
+  .home-promo-list { align-items: flex-start; }
+  .promo-group { flex: 1 1 calc(50% - 5px); min-width: 0; }
 }

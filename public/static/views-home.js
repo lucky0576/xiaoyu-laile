@@ -46,7 +46,7 @@ const ListingFileTokens = {
 /* ================================================================== */
 export async function renderHome(ctx, query) {
   void query;
-  const [stats, latest, hotProjects, hotEvents, hotTrades, cases, feedsRes] = await Promise.all([
+  const [stats, latest, hotProjects, hotEvents, hotTrades, cases, feedsRes, newsRes, forumOv] = await Promise.all([
     service.stats().catch(() => ({})),
     service.listings({ status: 'published', pageSize: 8, sort: 'latest' }).catch(() => ({ items: [] })),
     service.listings({ category: 'project', status: 'published', pageSize: 8, sort: 'hot' }).catch(() => ({ items: [] })),
@@ -54,6 +54,8 @@ export async function renderHome(ctx, query) {
     service.listings({ category: 'trade', status: 'published', pageSize: 8, sort: 'hot' }).catch(() => ({ items: [] })),
     service.cases().catch(() => []),
     service.feeds({ featured: true, limit: 6 }).catch(() => ({ items: [] })),
+    service.newsList({ size: 5 }).catch(() => ({ items: [] })),
+    service.forumOverview().catch(() => ({})),
   ]);
 
   // 短视频单独拉一组（首页「短视频」横滑区）
@@ -150,8 +152,53 @@ export async function renderHome(ctx, query) {
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
   ];
-  /* ---------------- 两条独立横栏：发布 / 成为服务商 ---------------- */
+  /* ---------------- 横栏：每条下面挂 5 条最新 ---------------- */
+  /** 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前 */
+  const relT = (iso) => {
+    if (!iso) return '';
+    const t = Date.parse(iso);
+    if (!t) return '';
+    const d = Date.now() - t;
+    if (d < 60_000) return '刚刚';
+    if (d < 3600_000) return `${Math.floor(d / 60_000)} 分钟前`;
+    if (d < 86400_000) return `${Math.floor(d / 3600_000)} 小时前`;
+    if (d < 7 * 86400_000) return `${Math.floor(d / 86400_000)} 天前`;
+    return new Date(t).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  };
+
+  /** 渲染横栏下方的最新列表 */
+  const promoItems = (rows) => {
+    if (!rows.length) return '';
+    return `<div class="promo-items">${rows
+      .map(
+        (r) => `<a class="promo-item" href="${ui.esc(r.href)}">
+          <span class="pi-t">${ui.esc(r.title)}</span>
+          <span class="pi-m">${ui.esc(r.meta || '')}</span>
+        </a>`,
+      )
+      .join('')}</div>`;
+  };
+
+  const latestListings = (latest.items || []).slice(0, 5).map((l) => ({
+    href: `#/detail/${l.id}`,
+    title: l.title || '',
+    meta: relT(l.createdAt || l.publishedAt),
+  }));
+
+  const newsItems = (newsRes?.items || []).slice(0, 5).map((n) => ({
+    href: `#/news/${n.id}`,
+    title: n.title || '',
+    meta: relT(n.publishedAt || n.createdAt),
+  }));
+
+  const forumItems = (forumOv?.recent || []).slice(0, 5).map((p) => ({
+    href: `#/forum/${p.forumSlug || ''}/${p.id}`,
+    title: p.title || '',
+    meta: relT(p.createdAt || p.updatedAt),
+  }));
+
   const promoHtml = `<div class="home-promo-list">
+    <div class="promo-group promo-group-publish">
     <a class="home-promo promo-publish" href="#/publish" data-auth="1">
       <div class="promo-ico">✍️</div>
       <div class="promo-body">
@@ -160,6 +207,9 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="promo-go">去发布 ›</div>
     </a>
+    ${promoItems(latestListings)}
+    </div>
+    <div class="promo-group promo-group-provider">
     <a class="home-promo promo-provider" href="#/provider">
       <div class="promo-ico">🤝</div>
       <div class="promo-body">
@@ -168,7 +218,9 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="promo-go">免费入驻 ›</div>
     </a>
+    </div>
 
+    <div class="promo-group promo-group-news">
     <a class="home-promo promo-news" href="#/news">
       <div class="promo-ico">📰</div>
       <div class="promo-body">
@@ -177,7 +229,10 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="promo-go">去看 ›</div>
     </a>
+    ${promoItems(newsItems)}
+    </div>
 
+    <div class="promo-group promo-group-forum">
     <a class="home-promo promo-forum" href="#/forums">
       <div class="promo-ico">🗣️</div>
       <div class="promo-body">
@@ -186,6 +241,8 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="promo-go">进入 ›</div>
     </a>
+    ${promoItems(forumItems)}
+    </div>
   </div>`;
 
   const gridHtml = `<div class="home-grid">
