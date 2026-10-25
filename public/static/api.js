@@ -522,6 +522,7 @@ export const service = {
   toggleFavorite: (id) => api.post(`/api/feeds/${id}/favorite`, {}),
   favorites: (query) => api.get('/api/favorites', query),
   feedbackSubmit: (body) => api.post('/api/feedback', body),
+  feedbackTopics: () => api.get('/api/feedback/topics'),
   feedbackMine: () => api.get('/api/feedback/mine'),
   feedbackAppend: (id, text) => api.post(`/api/feedback/${id}/messages`, { text }),
   feedbackUnread: () => api.get('/api/feedback/unread'),

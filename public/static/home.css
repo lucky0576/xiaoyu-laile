@@ -2144,3 +2144,12 @@ body.shorts-mode #wx-tip { display: none !important; }
 }
 .lo-meta span { color: var(--muted); }
 .lo-meta b { color: var(--text); font-weight: 600; word-break: break-all; }
+
+
+/* 联系我：话题标签 */
+.fb-topic {
+  pointer-events: none;
+  font-size: 11px !important;
+  height: auto !important;
+  padding: 2px 9px !important;
+}

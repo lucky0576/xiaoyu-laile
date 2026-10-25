@@ -12,6 +12,18 @@
 import { service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 
+/* 话题 id → 展示名 */
+const TOPIC_NAMES = {
+  invest: '投资 小鱼来了',
+  system: '系统定制',
+  event: '活动赛事策划',
+  consult: '咨询',
+  other: '其他',
+  agency: '代理合作商',
+  ad: '广告',
+  promo: '宣传(全国行)',
+};
+
 function relTime(iso) {
   if (!iso) return '';
   const t = Date.parse(iso);
@@ -56,6 +68,13 @@ function threadHtml(item, { admin = false } = {}) {
       <span class="fb-status ${st.cls}">${st.text}</span>
       <span class="tiny dim">${relTime(item.updatedAt)}</span>
     </div>
+    ${
+      (item.topics || []).length
+        ? `<div class="chips mb8">${item.topics
+            .map((id) => `<span class="chip active fb-topic">${ui.esc(TOPIC_NAMES[id] || id)}</span>`)
+            .join('')}</div>`
+        : ''
+    }
     ${item.page ? `<div class="tiny dim mb8">来自：${ui.esc(item.page)}</div>` : ''}
     <div class="fb-msgs">${msgs}</div>
     ${
@@ -89,9 +108,14 @@ export async function renderContactUs(ctx) {
   }
 
   let items = [];
+  let topics = [];
   try {
-    const r = await service.feedbackMine();
+    const [r, t] = await Promise.all([
+      service.feedbackMine(),
+      service.feedbackTopics().catch(() => ({ topics: [] })),
+    ]);
     items = r?.items || [];
+    topics = t?.topics || [];
   } catch {
     items = [];
   }
@@ -110,6 +134,12 @@ export async function renderContactUs(ctx) {
       </div>
 
       <div class="card card-pad mt12">
+        <div class="field">
+          <label>想聊哪方面 <span class="tiny dim">（可多选）</span></label>
+          <div class="chips" id="cu-topics">
+            ${topics.map((t) => `<a class="chip" data-topic="${ui.esc(t.id)}">${ui.esc(t.name)}</a>`).join('')}
+          </div>
+        </div>
         <div class="field">
           <label>你的问题 <span class="tiny dim">（必填）</span></label>
           <textarea class="textarea" id="cu-text" rows="4" maxlength="2000"
@@ -130,6 +160,18 @@ export async function renderContactUs(ctx) {
       <div class="fb-list">${listHtml}</div>
     </div>`,
     mount(root) {
+      /* 话题多选 */
+      const pickedTopics = new Set();
+      root.querySelectorAll('#cu-topics [data-topic]').forEach((chip) => {
+        chip.addEventListener('click', (e) => {
+          e.preventDefault();
+          const id = chip.dataset.topic;
+          if (pickedTopics.has(id)) pickedTopics.delete(id);
+          else pickedTopics.add(id);
+          chip.classList.toggle('active', pickedTopics.has(id));
+        });
+      });
+
       const btn = root.querySelector('#cu-submit');
       const textEl = root.querySelector('#cu-text');
       const contactEl = root.querySelector('#cu-contact');
@@ -147,6 +189,7 @@ export async function renderContactUs(ctx) {
           await service.feedbackSubmit({
             text,
             contact: (contactEl?.value || '').trim(),
+            topics: [...pickedTopics],
             page: location.hash,
           });
           ui.toast('已发送给管理员', 'ok');

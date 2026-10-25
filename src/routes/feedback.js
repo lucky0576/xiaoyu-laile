@@ -29,12 +29,18 @@ function requireAdmin(req) {
 export default function registerFeedbackRoutes(app) {
   /* ---------------- 用户端 ---------------- */
 
+  /* 联系我：可多选话题列表 */
+  app.get('/api/feedback/topics', (req, res) => {
+    return data(res, { topics: feedbackSvc.CONTACT_TOPICS });
+  });
+
   app.post('/api/feedback', (req, res) => {
     const user = mustAuth(req);
     const item = feedbackSvc.submit(user, {
       text: str(req.body?.text, 2000),
       contact: str(req.body?.contact, 60),
       page: str(req.body?.page, 120),
+      topics: Array.isArray(req.body?.topics) ? req.body.topics : [],
       feedId: str(req.body?.feedId, 60),
       toUserId: str(req.body?.toUserId, 60),
       toName: str(req.body?.toName, 60),

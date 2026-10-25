@@ -19,8 +19,29 @@ const users = () => db.collection('users');
 
 const MAX_LEN = 2000;
 
+/* 联系我：可多选的话题 */
+export const CONTACT_TOPICS = [
+  { id: 'invest', name: '投资 小鱼来了' },
+  { id: 'system', name: '系统定制' },
+  { id: 'event', name: '活动赛事策划' },
+  { id: 'consult', name: '咨询' },
+  { id: 'other', name: '其他' },
+  { id: 'agency', name: '代理合作商' },
+  { id: 'ad', name: '广告' },
+  { id: 'promo', name: '宣传(全国行)' },
+];
+const TOPIC_BY_ID = Object.fromEntries(CONTACT_TOPICS.map((t) => [t.id, t]));
+
 function clean(v, n = MAX_LEN) {
   return String(v || '').trim().slice(0, n);
+}
+
+/** 话题展示名拼接：投资 / 广告 */
+function topicsText(item) {
+  return (item.topics || [])
+    .map((id) => (TOPIC_BY_ID[id] || {}).name)
+    .filter(Boolean)
+    .join(' / ');
 }
 
 /** 通知被联系的发布者（「联系我」来自短视频等场景） */
@@ -49,7 +70,7 @@ function notifyAdmins(item, user) {
       admins.map((a) => a.id),
       {
         type: 'feedback',
-        title: `📮 ${user?.nickname || '用户'} 留言了`,
+        title: `📮 ${user?.nickname || '用户'} 留言了${topicsText(item) ? '（' + topicsText(item) + '）' : ''}`,
         body: clean(item.text, 80),
         link: '#/admin-feedback',
         meta: { feedbackId: item.id },
@@ -65,7 +86,7 @@ function notifyAdmins(item, user) {
 /* ------------------------------------------------------------------ */
 
 /** 提交一条提问 */
-export function submit(user, { text = '', contact = '', page = '', feedId = '', toUserId = '', toName = '' } = {}) {
+export function submit(user, { text = '', contact = '', page = '', feedId = '', toUserId = '', toName = '', topics = [] } = {}) {
   const body = clean(text);
   if (!body) throw httpError(400, '请先写下你的问题');
   if (body.length < 2) throw httpError(400, '问题太短了，多写几个字吧');
@@ -77,6 +98,7 @@ export function submit(user, { text = '', contact = '', page = '', feedId = '', 
     userAvatar: user.avatar || '',
     contact: clean(contact, 60),
     page: clean(page, 120),
+    topics: (Array.isArray(topics) ? topics : []).filter((t) => TOPIC_BY_ID[t]).slice(0, 8),
     feedId: clean(feedId, 60),
     toUserId: clean(toUserId, 60),
     toName: clean(toName, 60),
@@ -224,6 +246,7 @@ export function adminRemove(id) {
 }
 
 export default {
+  CONTACT_TOPICS,
   submit,
   listMine,
   appendMyMessage,

@@ -46,7 +46,7 @@ const ListingFileTokens = {
 /* ================================================================== */
 export async function renderHome(ctx, query) {
   void query;
-  const [stats, latest, hotProjects, hotEvents, hotTrades, cases, feedsRes, newsRes, forumOv] = await Promise.all([
+  const [stats, latest, hotProjects, hotEvents, hotTrades, cases, feedsRes, newsRes, forumOv, providerRes] = await Promise.all([
     service.stats().catch(() => ({})),
     service.listings({ status: 'published', pageSize: 8, sort: 'latest' }).catch(() => ({ items: [] })),
     service.listings({ category: 'project', status: 'published', pageSize: 8, sort: 'hot' }).catch(() => ({ items: [] })),
@@ -56,6 +56,7 @@ export async function renderHome(ctx, query) {
     service.feeds({ featured: true, limit: 6 }).catch(() => ({ items: [] })),
     service.newsList({ size: 5 }).catch(() => ({ items: [] })),
     service.forumOverview().catch(() => ({})),
+    service.providers({ pageSize: 5 }).catch(() => ({ items: [] })),
   ]);
 
   // 短视频单独拉一组（首页「短视频」横滑区）
@@ -191,6 +192,12 @@ export async function renderHome(ctx, query) {
     meta: relT(n.publishedAt || n.createdAt),
   }));
 
+  const providerItems = (providerRes?.items || []).slice(0, 5).map((p) => ({
+    href: `#/provider?tab=list`,
+    title: p.companyName || p.shortName || '',
+    meta: p.kindName || '',
+  }));
+
   const forumItems = (forumOv?.recent || []).slice(0, 5).map((p) => ({
     href: `#/forum/${p.forumSlug || ''}/${p.id}`,
     title: p.title || '',
@@ -218,6 +225,7 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="promo-go">免费入驻 ›</div>
     </a>
+    ${promoItems(providerItems)}
     </div>
 
     <div class="promo-group promo-group-news">
