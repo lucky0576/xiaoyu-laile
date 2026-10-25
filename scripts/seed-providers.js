@@ -109,8 +109,8 @@ const seeds = [
     companyName: '绿电产业投资基金管理有限公司',
     shortName: '绿电基金',
     creditCode: '',
-    kind: 'enterprise',
-    kindSub: 'state',
+    kind: 'fund',
+    kindSub: 'private',
     serviceTypes: ['investment', 'agent'],
     typeSubs: { agent: 'industry' },
     regions: ['全国', '华东', '华南'],
@@ -131,12 +131,13 @@ const seeds = [
 ];
 
 const arr = JSON.parse(fs.readFileSync(P, 'utf8'));
-const existingIds = new Set(arr.map((x) => x.id));
 const kept = arr.filter((x) => !String(x.id || '').startsWith('sp_demo_'));
 const before = arr.length;
 
 for (const s of seeds) {
-  if (existingIds.has(s.id)) continue;
+  // 注意：判断的是「清理后」里是否已有，不能用原始数组，
+  // 否则刚被过滤掉的 sp_demo_* 会让这里全部 continue，最后写入 0 条
+  if (kept.some((x) => x.id === s.id)) continue;
   kept.push({
     id: s.id,
     ownerId: OWNER_ID,

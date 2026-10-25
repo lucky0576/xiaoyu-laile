@@ -59,6 +59,14 @@ export const PROVIDER_KINDS = [
       { id: 'central', name: '央企' },
     ],
   },
+  {
+    id: 'fund',
+    name: '基金',
+    subs: [
+      { id: 'private', name: '私募' },
+      { id: 'public', name: '公募' },
+    ],
+  },
   { id: 'nonprofit', name: '公益机构', subs: [] },
   { id: 'association', name: '社团', subs: [] },
   {
