@@ -362,7 +362,11 @@ async function resolveView({ segs, query }) {
     case 'meeting':
       return viewsMeeting.renderMeeting(ctx, { id: p1, ...query });
     case 'provider':
-      return viewsProvider.renderProvider(ctx, { tab: p1 || query.tab || '' });
+      // #/provider          入驻申请
+      // #/provider?tab=list 服务商名录
+      // #/provider/:id      服务商详情
+      if (p1 && p1 !== 'list') return viewsProvider.renderProviderDetail(ctx, { id: p1 });
+      return viewsProvider.renderProvider(ctx, { tab: p1 === 'list' ? 'list' : (query.tab || '') });
     case 'admin-providers':
       return viewsProvider.renderAdminProviders(ctx, { status: query.status === undefined ? 'pending' : query.status });
     case 'shorts':

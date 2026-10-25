@@ -160,8 +160,10 @@ export async function renderContactUs(ctx) {
       <div class="fb-list">${listHtml}</div>
     </div>`,
     mount(root) {
-      /* 话题多选 */
-      const pickedTopics = new Set();
+      /* 话题多选（支持 ?topic=xxx 预选） */
+      const presetTopic = new URLSearchParams(location.hash.split('?')[1] || '').get('topic') || '';
+      const about = new URLSearchParams(location.hash.split('?')[1] || '').get('about') || '';
+      const pickedTopics = new Set(presetTopic ? [presetTopic] : []);
       root.querySelectorAll('#cu-topics [data-topic]').forEach((chip) => {
         chip.addEventListener('click', (e) => {
           e.preventDefault();
@@ -170,10 +172,15 @@ export async function renderContactUs(ctx) {
           else pickedTopics.add(id);
           chip.classList.toggle('active', pickedTopics.has(id));
         });
+        chip.classList.toggle('active', pickedTopics.has(chip.dataset.topic));
       });
 
       const btn = root.querySelector('#cu-submit');
       const textEl = root.querySelector('#cu-text');
+      /* 从服务商详情带过来的说明，预填进输入框 */
+      if (about && textEl && !textEl.value.trim()) {
+        try { textEl.value = decodeURIComponent(about) + '\n'; } catch { textEl.value = about + '\n'; }
+      }
       const contactEl = root.querySelector('#cu-contact');
       const tip = root.querySelector('#cu-tip');
 

@@ -392,7 +392,7 @@ function providerListHtml(items) {
   }
   return items
     .map(
-      (p) => `<div class="sp-item">
+      (p) => `<a class="sp-item" href="#/provider/${ui.esc(p.id)}">
         <div class="sp-logo">${ui.esc(ui.initials(p.shortName || p.companyName))}</div>
         <div class="sp-body">
           <div class="sp-name">${ui.esc(p.companyName)}</div>
@@ -403,9 +403,104 @@ function providerListHtml(items) {
           ${p.intro ? `<div class="sp-intro">${ui.esc(p.intro)}</div>` : ''}
           ${p.contactName ? `<div class="sp-contact">${ui.esc(p.contactName)}${p.contactPhone ? ` · ${ui.esc(p.contactPhone)}` : ''}</div>` : ''}
         </div>
-      </div>`,
+        <span class="sp-go">›</span>
+      </a>`,
     )
     .join('');
+}
+
+/* ================================================================== */
+/* 服务商详情                                                          */
+/* ================================================================== */
+
+export async function renderProviderDetail(ctx, params) {
+  const id = params?.id || '';
+  const res = await service.provider(id).catch(() => null);
+  const p = res?.provider || null;
+
+  if (!p) {
+    return {
+      title: '服务商详情',
+      showBack: true,
+      content: `<div class="page"><div class="empty">服务商不存在或未通过审核</div>
+        <div class="center mt12"><a class="btn btn-outline" href="#/provider?tab=list">返回服务商名录</a></div>
+      </div>`,
+    };
+  }
+
+  const initials = ui.initials(p.shortName || p.companyName);
+  const tags = (p.serviceTypes || []).map((t) => `<span class="sp-tag">${ui.esc(t)}</span>`).join('');
+  const regions = (p.regions || []).map((r) => `<span class="sp-tag gray">${ui.esc(r)}</span>`).join('');
+
+  const kv = (k, v) => (v ? `<div class="kv"><span class="k">${ui.esc(k)}</span><span class="v">${ui.esc(String(v))}</span></div>` : '');
+
+  return {
+    title: p.shortName || p.companyName || '服务商详情',
+    showBack: true,
+    content: `<div class="page spd-page">
+      <div class="spd-hero">
+        <div class="spd-logo">${ui.esc(initials)}</div>
+        <div class="spd-head">
+          <div class="spd-name">${ui.esc(p.companyName || '')}</div>
+          ${p.kindName ? `<div class="spd-kind">${ui.esc(p.kindName)}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="card card-pad mt12">
+        <div class="sp-tags mb12">${tags}${regions}</div>
+        ${p.intro ? `<div class="spd-intro">${ui.esc(p.intro)}</div>` : ''}
+      </div>
+
+      ${
+        p.cases
+          ? `<div class="card card-pad mt12">
+              <div class="spd-sec-t">代表案例</div>
+              <div class="spd-body">${ui.esc(p.cases)}</div>
+            </div>`
+          : ''
+      }
+
+      ${
+        p.qualifications
+          ? `<div class="card card-pad mt12">
+              <div class="spd-sec-t">资质证书</div>
+              <div class="spd-body">${ui.esc(p.qualifications)}</div>
+            </div>`
+          : ''
+      }
+
+      <div class="card card-pad mt12">
+        <div class="spd-sec-t">基本信息</div>
+        ${kv('种类', p.kindName)}
+        ${kv('服务类型', (p.serviceTypes || []).join(' / '))}
+        ${kv('服务区域', (p.regions || []).join(' / '))}
+        ${kv('成立年份', p.establishedYear)}
+        ${kv('人员规模', p.staffCount)}
+        ${kv('官网', p.website)}
+        ${kv('浏览量', p.viewCount ? `${p.viewCount} 次` : '')}
+      </div>
+
+      ${
+        p.contactName || p.contactPhone
+          ? `<div class="card card-pad mt12">
+              <div class="spd-sec-t">联系方式</div>
+              <div class="kv"><span class="k">联系人</span><span class="v">${ui.esc(p.contactName || '—')}</span></div>
+              ${p.contactPhone ? `<div class="kv"><span class="k">电话</span><span class="v mono">${ui.esc(p.contactPhone)}</span></div>` : ''}
+              ${p.contactEmail ? `<div class="kv"><span class="k">邮箱</span><span class="v">${ui.esc(p.contactEmail)}</span></div>` : ''}
+            </div>`
+          : ''
+      }
+
+      <button class="btn btn-primary btn-block mt16" id="spd-contact" type="button">📮 联系这家服务商</button>
+      <div class="tiny dim center mt8">通过平台留言，管理员会协助对接</div>
+    </div>`,
+    mount(root) {
+      root.querySelector('#spd-contact')?.addEventListener('click', () => {
+        const q = encodeURIComponent(`想联系服务商：${p.companyName || ''}`);
+        ctx.nav(`#/contact-us?topic=consult&about=${q}`);
+      });
+    },
+  };
 }
 
 /* ================================================================== */

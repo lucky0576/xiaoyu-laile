@@ -193,7 +193,7 @@ export async function renderHome(ctx, query) {
   }));
 
   const providerItems = (providerRes?.items || []).slice(0, 5).map((p) => ({
-    href: `#/provider?tab=list`,
+    href: `#/provider/${p.id}`,
     title: p.companyName || p.shortName || '',
     meta: p.kindName || '',
   }));

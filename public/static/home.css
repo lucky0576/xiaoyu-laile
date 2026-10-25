@@ -2153,3 +2153,40 @@ body.shorts-mode #wx-tip { display: none !important; }
   height: auto !important;
   padding: 2px 9px !important;
 }
+
+
+/* ---------------- 服务商详情 ---------------- */
+.spd-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, #0f7a5a 0%, #14a172 55%, #22bb86 100%);
+  border-radius: 18px;
+  padding: 18px 16px;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(15, 122, 90, .2);
+}
+.spd-logo {
+  flex: none;
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .22);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800;
+}
+.spd-head { min-width: 0; }
+.spd-name { font-size: 17px; font-weight: 800; line-height: 1.35; }
+.spd-kind {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .22);
+}
+.spd-intro { font-size: 13.5px; line-height: 1.75; color: var(--text); white-space: pre-wrap; }
+.spd-sec-t { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.spd-body { font-size: 13px; line-height: 1.8; color: var(--text-2, #47536b); white-space: pre-wrap; }
+.sp-go { flex: none; color: var(--muted); font-size: 16px; }
+.sp-item { text-decoration: none; }
+a.sp-item:active { background: #f7fbff; }
