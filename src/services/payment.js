@@ -8,6 +8,7 @@
  */
 
 import db from '../store/db.js';
+import config from '../config.js';
 
 const settings = () => db.collection('settings');
 
@@ -27,7 +28,21 @@ const DEFAULTS = {
 export function getPaymentConfig() {
   const rec = settings().findOne((s) => s && s.key === 'payment');
   const val = rec && typeof rec.value === 'object' ? rec.value : {};
-  return { ...DEFAULTS, ...val };
+  const merged = { ...DEFAULTS, ...val };
+
+  /*
+   * 银行卡信息兜底：
+   * 仓库是公开的，不能把卡号写进代码默认值，
+   * 所以复用服务器 .env 里已有的投资收款账户
+   * （INVEST_BANK_NAME / INVEST_BANK_CARD / INVEST_BANK_BRANCH）。
+   * 后台改过就以后台为准。
+   */
+  const inv = config.invest || {};
+  if (!merged.bankName && inv.bankBranch) merged.bankName = inv.bankBranch;
+  if (!merged.bankAccount && inv.bankCard) merged.bankAccount = inv.bankCard;
+  if (!merged.bankHolder && inv.bankName) merged.bankHolder = inv.bankName;
+
+  return merged;
 }
 
 /** 保存收款配置（管理员） */
