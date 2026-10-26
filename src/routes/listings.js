@@ -323,6 +323,73 @@ export default function registerListingRoutes(app) {
     return data(res, { ok: true });
   });
 
+  /* ---------------------------------------------------------------- */
+  /* 管理员：批量补封面                                                  */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * 给还没有封面的信息生成品牌色封面。
+   *
+   * 用法：POST /api/admin/covers/backfill  { category?: 'ecommerce'|'project'|..., limit?: 50 }
+   * 生成的是品牌色 + 标题的 SVG 封面，不依赖外部图片。
+   */
+  app.post('/api/admin/covers/backfill', async (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+
+    const category = str(req.body?.category, 20);
+    const limit = Math.min(100, num(req.body?.limit, 50));
+
+    // 电商是聚合视图，要按归集规则挑
+    let target;
+    if (category === 'ecommerce') {
+      target = listingsSvc
+        .queryListings({ status: 'published', pageSize: 500 })
+        .items.filter((x) => x.isEcommerce || (x.category === 'trade' && x.type === 'supply') || (x.category === 'project' && ['transfer', 'acquisition'].includes(x.type)));
+    } else if (category) {
+      target = listingsSvc.queryListings({ category, status: 'published', pageSize: 500 }).items;
+    } else {
+      target = listingsSvc.queryListings({ status: 'published', pageSize: 500 }).items;
+    }
+
+    const need = target.filter((x) => !x.coverUrl).slice(0, limit);
+
+    let ok = 0;
+    let fail = 0;
+    for (const item of need) {
+      try {
+        const raw = listingsSvc.getListing(item.id);
+        if (!raw) continue;
+        const cover = await generateCoverFile(
+          {
+            title: raw.title,
+            category: raw.category,
+            city: raw.cities && raw.cities[0] ? raw.cities[0].name : '',
+            industry: raw.industries && raw.industries[0] ? raw.industries[0].name : '',
+            kindLabel: raw.typeName || '',
+          },
+          { ownerId: user.id, listingId: raw.id },
+        );
+        if (!cover) {
+          fail += 1;
+          continue;
+        }
+        // 这里要绕过 updateListing 的白名单，直接写库
+        listings().update(raw.id, {
+          coverUrl: cover.url,
+          coverFileId: cover.id,
+          updatedAt: new Date().toISOString(),
+        });
+        db.collection('files').update(cover.id, { listingId: raw.id });
+        ok += 1;
+      } catch {
+        fail += 1;
+      }
+    }
+
+    return data(res, { total: need.length, ok, fail });
+  });
+
   app.post('/api/listings/:id/regenerate', async (req, res) => {
     const user = mustAuth(req);
     const updated = await listingsSvc.regenerateAI(req.params.id, user, req.body || {});
