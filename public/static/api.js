@@ -525,6 +525,7 @@ export const service = {
   adminFeeds: (q = {}) => api.get('/api/admin/feeds', q),
   adminFeedTakedown: (id) => api.post('/api/admin/feeds/' + id + '/takedown'),
   adminFeedRestore: (id) => api.post('/api/admin/feeds/' + id + '/restore'),
+  adminFeedImport: (payload) => api.post('/api/admin/feeds/import', payload),
   logReferralShare: (channel) => api.post('/api/referral/share', { channel }),
   referralStats: () => api.get('/api/referral/stats'),
   toggleFavorite: (id) => api.post(`/api/feeds/${id}/favorite`, {}),

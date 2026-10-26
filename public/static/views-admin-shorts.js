@@ -44,6 +44,7 @@ export async function renderAdminShorts(ctx) {
   const rowHtml = (f) => {
     const removed = f.status === 'removed';
     const isAuto = f.source === 'collect';
+    const isImport = f.source === 'import';
     return `<div class="sh-admin-row ${removed ? 'removed' : ''}" data-id="${ui.esc(f.id)}">
       <div class="sh-admin-thumb">
         ${
@@ -56,6 +57,7 @@ export async function renderAdminShorts(ctx) {
         <div class="sh-admin-title">${ui.esc(f.title || '(无标题)')}</div>
         <div class="sh-admin-meta">
           ${isAuto ? '<span class="badge">自动</span>' : ''}
+          ${isImport ? '<span class="badge">网上获取</span>' : ''}
           ${removed ? '<span class="badge danger">已下架</span>' : ''}
           <span>${ui.esc(KIND_NAME[f.type] || f.type || '短视频')}</span>
           <span>·</span>
@@ -87,6 +89,15 @@ export async function renderAdminShorts(ctx) {
         <div class="tiny dim mt4">不合适的可以直接下架，下架后前台看不到，可随时恢复</div>
       </div>
       <span class="tiny dim" id="sh-count">共 ${state.list.length} 条 / 已下架 ${removedCount()}</span>
+    </div>
+
+    <div class="card card-pad mb12">
+      <div class="strong mb8">🔗 从网址导入短视频</div>
+      <div class="tiny dim mb8">粘一个视频直链（.mp4 / .mov / .webm），或含视频的网页地址，系统会把文件抓回来存到平台。</div>
+      <input class="input" id="sh-import-url" placeholder="https://… 视频地址" autocomplete="off">
+      <input class="input mt8" id="sh-import-title" placeholder="标题（选填，留空自动取文件名）" maxlength="80">
+      <button class="btn btn-primary btn-block mt8" id="sh-import-btn" type="button">开始抓取</button>
+      <div class="tiny dim mt6" id="sh-import-status"></div>
     </div>
 
     <div class="card card-pad mb12">
@@ -124,6 +135,36 @@ export async function renderAdminShorts(ctx) {
           ui.hideLoading();
         }
       };
+
+      /* 从网址导入 */
+      $('#sh-import-btn')?.addEventListener('click', async () => {
+        const url = ($('#sh-import-url')?.value || '').trim();
+        const title = ($('#sh-import-title')?.value || '').trim();
+        const tip = $('#sh-import-status');
+        const btn = $('#sh-import-btn');
+        if (!url) {
+          ui.toast('请填写视频地址', 'err');
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = '抓取中…（大文件可能要 1~2 分钟）';
+        if (tip) { tip.textContent = '正在下载视频…'; tip.style.color = ''; }
+        try {
+          const r = await service.adminFeedImport({ url, title });
+          if (tip) { tip.textContent = '✅ 已导入：' + (r?.feed?.title || ''); tip.style.color = '#0e8f5f'; }
+          ui.toast('导入成功', 'ok');
+          if ($('#sh-import-url')) $('#sh-import-url').value = '';
+          if ($('#sh-import-title')) $('#sh-import-title').value = '';
+          await reload();
+        } catch (err) {
+          const msg = err.message || '导入失败';
+          if (tip) { tip.textContent = '❌ ' + msg; tip.style.color = '#c0392b'; }
+          ui.toast(msg, 'err');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '开始抓取';
+        }
+      });
 
       $('#sh-search')?.addEventListener('click', () => {
         state.q = ($('#sh-q')?.value || '').trim();

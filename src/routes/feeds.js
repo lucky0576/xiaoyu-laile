@@ -4,6 +4,7 @@
 import { data, fail, str, num, bool, authUser, mustAuth, baseUrl, queryOf } from './_util.js';
 import { httpError } from '../http/app.js';
 import feedsSvc from '../services/feeds.js';
+import { importVideoFromUrl } from '../services/video-import.js';
 import fs from 'node:fs';
 import { saveUploads, filePublic, deleteFile } from '../services/files.js';
 
@@ -31,6 +32,52 @@ export default function registerFeedRoutes(app) {
       items: feedsSvc.listFeeds({ ownerId: user.id, limit: 100, viewerId: user.id }),
       stats: feedsSvc.statsFor(user.id),
     });
+  });
+
+  /* ---------------- 管理员：从网址导入短视频 ---------------- */
+
+  app.post('/api/admin/feeds/import', async (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+
+    const url = str(req.body?.url, 2000);
+    if (!url) return fail(res, '请填写视频地址', 400, 'empty');
+
+    // 先抓视频并登记成文件
+    const { file, sourceUrl } = await importVideoFromUrl(url, { ownerId: user.id });
+
+    // 标题：没填就用文件名，或用 AI 生成
+    let title = str(req.body?.title, 80);
+    if (!title) {
+      try {
+        const p = new URL(sourceUrl).pathname.split('/').pop() || '';
+        title = decodeURIComponent(p).replace(/\.[^.]+$/, '').slice(0, 60);
+      } catch {
+        title = '';
+      }
+    }
+    if (!title) title = '网上获取的短视频';
+
+    const feed = await feedsSvc.createFeed({
+      user,
+      body: {
+        type: 'short',
+        title,
+        subtitle: str(req.body?.subtitle, 120) || '来源：' + (() => {
+          try { return new URL(sourceUrl).hostname; } catch { return '网络'; }
+        })(),
+        description: str(req.body?.description, 2000),
+        fileId: file.id,
+        coverFileId: '',
+        featured: bool(req.body?.featured),
+        days: num(req.body?.days, 365),
+        source: 'import',
+        author: str(req.body?.author, 40) || '小鱼来了',
+      },
+      files: [file],
+    });
+
+    return data(res, { feed: feedsSvc.feedPublic(feed, user.id), sourceUrl }, 201);
   });
 
   /* ---------------- 管理员：短视频管理 ---------------- */
