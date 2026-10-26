@@ -151,15 +151,20 @@ export function providerPublic(p, viewer = null) {
     reviewedAt: p.reviewedAt || '',
     reviewNote: p.reviewNote || '',
   };
-  // 联系方式只对本人 / 管理员 / 已通过的服务商公开
-  if (isOwner || isAdmin || p.status === 'approved') {
+  /*
+   * 联系方式只给本人和管理员看。
+   * 之前是「审核通过就公开」，等于把服务商的手机号挂到公开名录上，
+   * 容易被爬虫抓走。对外统一走「📮 联系这家服务商」平台留言。
+   */
+  if (isOwner || isAdmin) {
     base.contactName = p.contactName || '';
     base.contactPhone = p.contactPhone || '';
     base.contactEmail = p.contactEmail || '';
-    base.creditCode = p.creditCode || '';
-    base.cases = p.cases || '';
-    base.qualifications = p.qualifications || '';
   }
+  /* 资质与案例属于公开资料，正常展示 */
+  base.creditCode = p.creditCode || '';
+  base.cases = p.cases || '';
+  base.qualifications = p.qualifications || '';
   return base;
 }
 

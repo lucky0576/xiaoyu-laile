@@ -71,20 +71,119 @@ function extractLinks(html, source) {
   return out;
 }
 
+/** HTML 实体解码（feed 里常见） */
+function decodeEntities(str) {
+  const map = {
+    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'",
+    '&nbsp;': ' ', '&ldquo;': '\u201c', '&rdquo;': '\u201d', '&mdash;': '\u2014',
+    '&ndash;': '\u2013', '&hellip;': '\u2026', '&middot;': '\u00b7',
+  };
+  return String(str || '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&[a-z#0-9]+;/gi, (m) => map[m.toLowerCase()] || m);
+}
+
+/** 从 XML 片段取一个标签的文本 */
+function feedTag(block, tag) {
+  const re = new RegExp('<' + tag + '\\b[^>]*>([\\s\\S]*?)<\\/' + tag + '>', 'i');
+  const m = re.exec(block);
+  if (!m) return '';
+  return decodeEntities(
+    m[1]
+      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  );
+}
+
+/** Atom 的 <link href="..."/> */
+function feedLink(block) {
+  const direct = feedTag(block, 'link');
+  if (direct && /^https?:/i.test(direct)) return direct;
+  const m = /<link\b[^>]*href\s*=\s*["']([^"']+)["']/i.exec(block);
+  return m ? decodeEntities(m[1]) : '';
+}
+
+function feedDate(block) {
+  const raw =
+    feedTag(block, 'pubDate') ||
+    feedTag(block, 'published') ||
+    feedTag(block, 'updated') ||
+    feedTag(block, 'dc:date');
+  if (!raw) return '';
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? new Date(t).toISOString() : '';
+}
+
+/**
+ * 解析 RSS 2.0 / Atom。
+ *
+ * 为什么需要它：
+ *   官方新闻室（华为/苹果/微软/宇树）基本都是 JS 渲染，
+ *   简单抓 HTML 拿不到列表；而 IT之家、cnBeta、Solidot 等
+ *   科技媒体都提供稳定 RSS，且能覆盖特斯拉/马斯克/苹果/华为/
+ *   微软/阿里/DeepSeek/宇树这些龙头。
+ */
+function parseFeed(xml) {
+  const out = [];
+  const push = (block) => {
+    const title = feedTag(block, 'title');
+    const url = feedLink(block);
+    if (!title || !url || !/^https?:/i.test(url)) return;
+    const desc = feedTag(block, 'description') || feedTag(block, 'summary') || feedTag(block, 'content');
+    out.push({ url, title, desc, publishedAt: feedDate(block) });
+  };
+
+  for (const m of String(xml || '').matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) push(m[1]);
+  if (!out.length) {
+    for (const m of String(xml || '').matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)) push(m[1]);
+  }
+  return out;
+}
+
 /** 判定行业标签；没有命中任何行业但含政策词，标 policy */
 function tagOf(title, text) {
-  const hay = `${title || ''}\n${String(text || '').slice(0, 1200)}`;
+  const titleStr = String(title || '');
+  const bodyStr = String(text || '').slice(0, 1200);
   const tags = [];
+  let titleHit = false;
   for (const t of NEWS_TAGS) {
-    if (t.words.some((w) => hay.includes(w))) tags.push(t.id);
+    // scope:'title' 的标签（科技龙头）只看标题，避免正文页脚的品牌名误命中
+    const hay = t.scope === 'title' ? titleStr : titleStr + '\n' + bodyStr;
+    if (!t.words.some((w) => hay.includes(w))) continue;
+    tags.push(t.id);
+    // 至少有一个标签是标题里命中的，才算跟本平台相关
+    if (!titleHit && t.words.some((w) => titleStr.includes(w))) titleHit = true;
   }
-  return tags;
+  return { tags, titleHit };
 }
 
 /** 标题清洗：去掉装饰符号、站点前缀与后缀 */
 function cleanTitle(raw) {
   let t = String(raw || '').trim();
 
+  // 去掉栏目前缀：「头条新闻 - 」「图片新闻 - 」「视频 - 」等
+  t = t.replace(/^(头条新闻|图片新闻|视频新闻|滚动新闻|最新|要闻|推荐)\s*[-—–·]\s*/, '');
+
+  // 去掉 RDF 风格编码残留（feed 偶尔会带 &#8211; 这类没解干净的实体）
+  t = t
+    .replace(/&#8211;/g, '\u2013')
+    .replace(/&#8212;/g, '\u2014')
+    .replace(/&#8217;/g, '\u2019')
+    .replace(/&amp;/g, '&');
+
+
+  /*
+   * 去掉尾部站点名：「标题 - IT之家」「标题 | 爱范儿」「标题 – 量子位」
+   * 只在后半段很短（<=14 字）且前面还有像样内容时才切，
+   * 避免把「光伏 - 储能协同」这种正文破折号也切掉。
+   */
+  const tailMatch = /^([\s\S]{8,}?)\s*[-—–|｜]\s*([^\-—–|｜]{1,14})\s*$/.exec(t);
+  if (tailMatch && tailMatch[1].trim().length >= 8) {
+    t = tailMatch[1].trim();
+  }
   // 「站点名 - 栏目 - 真标题」：取最后一段
   if ((t.match(/\s-\s/g) || []).length >= 2) {
     const seg = t.split(/\s-\s/).map((x) => x.trim()).filter(Boolean);
@@ -237,7 +336,9 @@ export async function refresh({ maxPerSource = 6, maxTotal = 24, maxAgeDays = 12
       continue;
     }
 
-    const links = extractLinks(html, source).slice(0, maxPerSource);
+    // feed 源（RSS/Atom）走专用解析；普通站点走链接提取
+    const looksFeed = source.type === 'rss' || /<rss\b|<feed\b|<channel\b/i.test(html.slice(0, 3000));
+    const links = (looksFeed ? parseFeed(html) : extractLinks(html, source)).slice(0, maxPerSource);
     stat.found += links.length;
 
     for (const link of links) {
@@ -249,19 +350,31 @@ export async function refresh({ maxPerSource = 6, maxTotal = 24, maxAgeDays = 12
       try {
         art = await fetchWebpage(link.url);
       } catch {
-        continue;
+        art = null;
       }
-      if (!art || !art.ok || !art.text || art.text.length < 120) continue;
+      // 正文抓不到（反爬/JS 渲染）时，用 feed 自带的描述兜底
+      let bodyText = art && art.ok && art.text ? art.text : '';
+      if (bodyText.length < 120 && link.desc && link.desc.length >= 60) {
+        bodyText = link.desc;
+      }
+      if (!bodyText || bodyText.length < 60) continue;
 
-      const tags = tagOf(link.title, art.text);
-      if (!tags.length) continue; // 跟平台行业无关的新闻不要
+      const { tags, titleHit } = tagOf(link.title, bodyText);
+      // 要求「标题命中」：正文里到处是页脚导航，只靠正文容易混进
+      // 完全不相干的新闻（比如选举、娱乐）
+      if (!tags.length || !titleHit) continue;
 
-      // 日期优先级：URL 里的日期 → 正文/标题里的日期 → 抓取时间
-      const publishedAt =
-        dateFromUrl(link.url) || guessPublishedAt(link.title, art.text) || new Date().toISOString();
+      // 日期优先级：feed 发布时间 → URL 里的日期 → 正文/标题里的日期 → 抓取时间
+      const publishedAt = link.publishedAt ||
+        dateFromUrl(link.url) || guessPublishedAt(link.title, bodyText) || new Date().toISOString();
       if (Date.parse(publishedAt) < cutoff) continue;
 
-      const finalTitle = cleanTitle(art.title || link.title) || cleanTitle(link.title);
+      /*
+       * 标题优先用列表页 / feed 里的标题。
+       * 之前是 art.title 优先，结果 cnBeta 的页面 <title> 被抽成
+       * "cnBeta.COM"（站点名），把正常的 RSS 标题盖掉了。
+       */
+      const finalTitle = cleanTitle(link.title) || cleanTitle(art?.title) || '（无标题）';
 
       store.insert({
         id: newId('nw'),
@@ -271,8 +384,8 @@ export async function refresh({ maxPerSource = 6, maxTotal = 24, maxAgeDays = 12
         sourceName: source.name,
         sourceCategory: source.category,
         tags,
-        summary: pickSummary(art.text, finalTitle),
-        text: art.text.slice(0, 20000),
+        summary: pickSummary(bodyText, finalTitle),
+        text: bodyText.slice(0, 20000),
         coverUrl: '',
         publishedAt,
         fetchedAt: new Date().toISOString(),
