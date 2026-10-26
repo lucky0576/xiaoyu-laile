@@ -14,6 +14,20 @@ export default function registerReferralRoutes(app) {
     return data(res, referralSvc.myReferral(user, baseUrl(req)));
   });
 
+  /* 记录一次分享动作（海报 / 文案 / 链接） */
+  app.post('/api/referral/share', (req, res) => {
+    const user = mustAuth(req);
+    const channel = str(req.body?.channel, 20) || 'text';
+    referralSvc.logShare(user, channel);
+    return data(res, { ok: true, stats: referralSvc.shareStats(user.id) });
+  });
+
+  /* 我的分享数据 */
+  app.get('/api/referral/stats', (req, res) => {
+    const user = mustAuth(req);
+    return data(res, referralSvc.shareStats(user.id));
+  });
+
   app.get('/api/referral/check', (req, res) => {
     const code = str(req.query.code, 20).trim().toUpperCase();
     if (!code) return fail(res, '请填写推荐码', 400, 'empty');

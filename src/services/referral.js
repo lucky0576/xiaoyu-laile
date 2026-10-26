@@ -159,6 +159,7 @@ export function myReferral(user, baseUrl = '') {
     code,
     url,
     qrText: url,
+    shareStats: shareStats(user.id),
     invitedCount: invited.length,
     invited: invited.slice(0, 100),
     contactCount: fromContacts.length,
@@ -166,6 +167,62 @@ export function myReferral(user, baseUrl = '') {
 }
 
 /** 某用户是否已通过推荐码进来（给前端展示来源用） */
+
+/* ------------------------------------------------------------------ */
+/* 分享统计                                                            */
+/* ------------------------------------------------------------------ */
+
+const shareLogs = () => db.collection('referralShares');
+
+const CHANNEL_NAME = { poster: '海报', text: '文案', link: '链接' };
+
+/** 记一次分享动作（海报 / 文案 / 链接） */
+export function logShare(user, channel = 'text') {
+  const ch = CHANNEL_NAME[channel] ? channel : 'text';
+  return shareLogs().insert({
+    id: db.newId('rs'),
+    userId: user.id,
+    channel: ch,
+    at: new Date().toISOString(),
+  });
+}
+
+/** 我的分享数据 */
+export function shareStats(userId) {
+  const all = shareLogs().where('userId', userId);
+  const now = Date.now();
+  const dayAgo = now - 86400_000;
+  const weekAgo = now - 7 * 86400_000;
+
+  const byChannel = { poster: 0, text: 0, link: 0 };
+  let today = 0;
+  let week = 0;
+  for (const r of all) {
+    byChannel[r.channel] = (byChannel[r.channel] || 0) + 1;
+    const t = Date.parse(r.at || '');
+    if (Number.isFinite(t)) {
+      if (t >= dayAgo) today += 1;
+      if (t >= weekAgo) week += 1;
+    }
+  }
+
+  const invited = users().find((u) => u.invitedBy === userId);
+  const total = all.length;
+
+  return {
+    total,
+    today,
+    week,
+    byChannel,
+    invitedCount: invited.length,
+    // 每分享 1 次平均带来几个注册（保留 2 位）
+    conversion: total ? Math.round((invited.length / total) * 100) / 100 : 0,
+    lastAt: total
+      ? all.map((r) => r.at).sort((a, b) => String(b).localeCompare(String(a)))[0]
+      : '',
+  };
+}
+
 export function referralSourceOf(user) {
   if (!user || !user.invitedBy) return null;
   const inviter = users().get(user.invitedBy);
@@ -177,4 +234,4 @@ export function referralSourceOf(user) {
   };
 }
 
-export default { ensureRefCode, findByRefCode, bindReferral, myReferral, referralSourceOf };
+export default { ensureRefCode, findByRefCode, bindReferral, myReferral, referralSourceOf, logShare, shareStats };

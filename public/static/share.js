@@ -117,7 +117,7 @@ function roundRect(ctx, x, y, w, h, r) {
 /**
  * 生成分享海报。尺寸 750 × 1050。
  */
-export async function renderPoster({ title, subtitle, summary, qrText, coverUrl, meta = [] }) {
+export async function renderPoster({ title, subtitle, summary, qrText, coverUrl, meta = [], sharerName = '', avatarUrl = '' }) {
   const W = 750;
   const H = 1050;
   const canvas = document.createElement('canvas');
@@ -165,6 +165,62 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 26px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
   ctx.fillText('小鱼来了', 54, 65);
+
+  /*
+   * 分享者胶囊：「[头像] 张工 邀请你」
+   * 放在封面右上角。带上具体的人比纯品牌更容易被点开。
+   */
+  if (sharerName) {
+    const nameTxt = String(sharerName).slice(0, 8);
+    const label = nameTxt.length > 5 ? `${nameTxt.slice(0, 5)}… 邀请你` : `${nameTxt} 邀请你`;
+    ctx.font = 'bold 24px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+    const labelW = ctx.measureText(label).width;
+    const avSize = 40;
+    const padL = 8;
+    const padR = 18;
+    const pillH = 56;
+    const pillW = padL + avSize + 10 + labelW + padR;
+    const pillX = W - 30 - pillW;
+    const pillY = 30 + 14;
+
+    ctx.fillStyle = 'rgba(0,0,0,.42)';
+    roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2);
+    ctx.fill();
+
+    // 头像
+    const avX = pillX + padL + avSize / 2;
+    const avY = pillY + pillH / 2;
+    const avImg = avatarUrl ? await loadImage(avatarUrl) : null;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(avX, avY, avSize / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    if (avImg) {
+      const s = Math.max(avSize / avImg.width, avSize / avImg.height);
+      const dw = avImg.width * s;
+      const dh = avImg.height * s;
+      ctx.drawImage(avImg, avX - dw / 2, avY - dh / 2, dw, dh);
+    } else {
+      ctx.fillStyle = '#0b74ff';
+      ctx.fillRect(avX - avSize / 2, avY - avSize / 2, avSize, avSize);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 22px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(nameTxt.slice(0, 1) || '鱼', avX, avY + 1);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    }
+    ctx.restore();
+
+    // 文字
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 24px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, pillX + padL + avSize + 10, avY + 1);
+    ctx.textBaseline = 'alphabetic';
+  }
 
   // 正文卡片
   const cardY = 30 + coverH + 24;
@@ -543,8 +599,18 @@ export async function openInviteShare() {
   // 拿邀请链接；失败就退回官网首页
   let link = location.origin;
   let code = '';
+  let sharerName = '';
+  let avatarUrl = '';
   try {
-    const r = await service.referralMe();
+    const [r, me] = await Promise.all([
+      service.referralMe(),
+      service.me().catch(() => null),
+    ]);
+    const u = me?.user || null;
+    if (u) {
+      sharerName = u.nickname || '';
+      avatarUrl = u.avatar || '';
+    }
     // 接口字段是 url（形如 https://域名/#/register?ref=XXXX），不是 link
     if (r?.url) link = r.url;
     if (r?.code) code = r.code;
@@ -572,6 +638,8 @@ export async function openInviteShare() {
       qrText: `/api/share/qrcode?text=${encodeURIComponent(link)}&size=360`,
       coverUrl: '',
       meta: ['小鱼来了 · xiaoyulaile.online'],
+      sharerName,
+      avatarUrl,
     });
   } catch {
     canvas = null;
@@ -625,19 +693,29 @@ export async function openInviteShare() {
   wrap.querySelector('.inv-x').addEventListener('click', close);
   wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
 
+  /* 上报分享动作，用于「我的分享数据」 */
+  const reportShare = (channel) => {
+    try {
+      service.logReferralShare(channel).catch(() => {});
+    } catch { /* ignore */ }
+  };
+
   wrap.querySelector('#inv-copy').addEventListener('click', async () => {
     const ok = await copyText(shareText);
+    if (ok) reportShare('text');
     toast(ok ? '已复制，去微信粘贴发送' : '复制失败，请长按文案手动复制', ok ? 'ok' : 'err');
   });
 
   wrap.querySelector('#inv-copy-link')?.addEventListener('click', async () => {
     const ok = await copyText(link);
+    if (ok) reportShare('link');
     toast(ok ? '链接已复制' : '复制失败', ok ? 'ok' : 'err');
   });
 
   wrap.querySelector('#inv-save')?.addEventListener('click', async () => {
     if (!canvas) return;
     const ok = await downloadCanvas(canvas, '小鱼来了-邀请海报.png');
+    if (ok) reportShare('poster');
     toast(ok ? '海报已保存，去微信发给好友' : '保存失败，请长按图片保存', ok ? 'ok' : 'err');
   });
 }

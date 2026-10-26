@@ -8,6 +8,19 @@
 import { service } from './api.js';
 import * as ui from './ui.js';
 
+/* 相对时间 */
+function relTime(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (!t) return '';
+  const d = Date.now() - t;
+  if (d < 60_000) return '刚刚';
+  if (d < 3600_000) return `${Math.floor(d / 60_000)} 分钟前`;
+  if (d < 86400_000) return `${Math.floor(d / 3600_000)} 小时前`;
+  if (d < 7 * 86400_000) return `${Math.floor(d / 86400_000)} 天前`;
+  return new Date(t).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
+
 export async function renderReferral(ctx) {
   let info = null;
   try {
@@ -15,6 +28,9 @@ export async function renderReferral(ctx) {
   } catch {
     info = null;
   }
+
+  // 注意用可选链：这行在 if (!info) 判空之前，info 可能为 null
+  const ss = info?.shareStats || { total: 0, today: 0, week: 0, byChannel: {}, conversion: 0, lastAt: '' };
 
   if (!info) {
     return {
@@ -68,6 +84,26 @@ export async function renderReferral(ctx) {
       <div class="ref-stats">
         <div class="ref-stat"><b>${info.invitedCount || 0}</b><span>已推荐入驻</span></div>
         <div class="ref-stat"><b>${info.contactCount || 0}</b><span>通讯录新增</span></div>
+        <div class="ref-stat"><b>${ss.total || 0}</b><span>累计分享</span></div>
+        <div class="ref-stat"><b>${ss.today || 0}</b><span>今日分享</span></div>
+      </div>
+
+      <div class="card card-pad mt12">
+        <div class="row between mb8">
+          <div class="strong">📊 我的分享数据</div>
+          <span class="tiny dim">${ss.invitedCount > 0 && ss.conversion ? `平均 ${ss.conversion} 次分享带来 1 个注册` : (ss.total ? `已分享 ${ss.total} 次，暂无注册` : `还没分享过`)}</span>
+        </div>
+        <div class="sh-stat-grid">
+          <div class="sh-stat"><b>${ss.byChannel?.poster || 0}</b><span>🖼 海报</span></div>
+          <div class="sh-stat"><b>${ss.byChannel?.text || 0}</b><span>📝 文案</span></div>
+          <div class="sh-stat"><b>${ss.byChannel?.link || 0}</b><span>🔗 链接</span></div>
+          <div class="sh-stat"><b>${ss.week || 0}</b><span>近 7 天</span></div>
+        </div>
+        <div class="sh-tip">
+          ${ss.total
+            ? `最近一次分享：${relTime(ss.lastAt)}`
+            : '还没有分享记录，点下面的按钮把平台发给同行吧'}
+        </div>
       </div>
 
       <div class="card card-pad mt12">
