@@ -201,7 +201,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
             <button class="btn btn-sm btn-outline" id="pm-video-btn" type="button">📎 选择视频（最多 3 条）</button>
           </div>
         </div>
-        <input type="file" id="pm-video-input" accept="video/*" multiple style="display:none">
+        <input type="file" id="pm-video-input" accept="video/*,.mp4,.mov,.m4v,.webm,.avi,.mkv,.3gp" multiple style="display:none">
         <div id="pm-video-list" class="pm-video-list mt8"></div>
         <div id="pm-video-preview" class="mt8"></div>
 
@@ -310,7 +310,14 @@ async function renderPublishMedia(ctx, type, taxonomy) {
 
           v.onerror = () => finish();
           // 兜底：6 秒还没抽完就放弃
-          timeouts.push(setTimeout(finish, 6000));
+          /*
+           * 解析超时：手机拍的 4K 视频动不动几百 MB，
+           * 6 秒内读不出元数据是常事，超时后会拿不到封面。
+           * 按体积放宽：<20MB 给 8 秒，之后每 20MB 加 4 秒，最多 30 秒。
+           */
+          const sizeMb = (file && file.size ? file.size : 0) / 1048576;
+          const probeTimeout = Math.min(30000, 8000 + Math.max(0, Math.floor((sizeMb - 20) / 20)) * 4000);
+          timeouts.push(setTimeout(finish, probeTimeout));
         });
 
         const canvasToBlob = (canvas) => new Promise((resolve) => {
@@ -526,8 +533,29 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         };
 
         const setVideos = async (fileList) => {
-          const files = [...(fileList || [])].filter((f) => /^video\//.test(f.type));
-          if (!files.length) return ui.toast('请选择视频文件', 'err');
+          /*
+           * 视频类型判断要宽一点。
+           * 手机上（尤其微信内置浏览器、部分安卓文件选择器）
+           * File.type 经常是空字符串，只认 MIME 会把用户选的视频直接丢掉，
+           * 表现为「选了文件但提示请选择视频文件」。
+           * 所以 MIME 为空时按扩展名兜底。
+           */
+          const VIDEO_EXT = /\.(mp4|mov|m4v|webm|avi|mkv|3gp|flv|mpeg|mpg|ts)$/i;
+          const isVideoFile = (f) => {
+            const mime = String(f.type || '');
+            if (/^video\//i.test(mime)) return true;
+            // mov 有时被识别成 application/octet-stream，交给扩展名判断
+            if (!mime || mime === 'application/octet-stream') return VIDEO_EXT.test(f.name || '');
+            return false;
+          };
+          const files = [...(fileList || [])].filter(isVideoFile);
+          if (!files.length) {
+            const names = [...(fileList || [])].map((f) => f.name).slice(0, 3).join('、');
+            return ui.toast(
+              names ? `这些不是视频文件：${names}` : '请选择视频文件（mp4 / mov / webm）',
+              'err',
+            );
+          }
 
           const room = MAX_VIDEOS - videoFiles.length;
           if (room <= 0) return ui.toast(`最多 ${MAX_VIDEOS} 条，请先移除已有的`, 'err');
@@ -554,6 +582,13 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           renderPreview();
           if (status) status.textContent = '';
           if (!$('#pm-title').value.trim()) await genTitle();
+
+          // 体积提醒：跨境带宽有限，超 80MB 的视频传起来会很慢
+          const tooBig = videoFiles.filter((v) => (v.file.size || 0) > 80 * 1048576);
+          if (tooBig.length) {
+            const mb = Math.round(tooBig.reduce((a, v) => a + v.file.size, 0) / 1048576);
+            ui.toast(`有 ${toBig.length} 个视频共 ${mb}MB，上传会比较慢，建议先压缩或用 Wi-Fi`, 'err');
+          }
         };
 
         $('#pm-video-btn').addEventListener('click', () => input.click());
@@ -670,7 +705,15 @@ async function renderPublishMedia(ctx, type, taxonomy) {
               if (coverToSend) fd.append('file', coverToSend, coverToSend.name);
 
               const r = await service.createFeed(fd, {
-                onPhase: (p) => { if (status) status.textContent = `第 ${i + 1}/${total} 条：${p}`; },
+                onProgress: (pct) => {
+                  if (status) {
+                    status.textContent = `正在上传第 ${i + 1} / ${total} 条… ${pct}%`;
+                  }
+                  btn.textContent = `上传中… (${i + 1}/${total}) ${pct}%`;
+                },
+                onPhase: (p) => {
+                  if (status) status.textContent = `第 ${i + 1}/${total} 条：${p === 'parsing' ? '服务端处理中…' : p}`;
+                },
               });
               ids.push(r.feed.id);
             }
@@ -706,7 +749,13 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           }
 
           const r = await service.createFeed(fd, {
-            onPhase: (p) => { if (status) status.textContent = p; },
+            onProgress: (pct) => {
+              if (status) status.textContent = `正在上传… ${pct}%`;
+              btn.textContent = `${isLive ? '创建中' : '上传中'}… ${pct}%`;
+            },
+            onPhase: (p) => {
+              if (status) status.textContent = p === 'parsing' ? '服务端处理中，请稍候…' : p;
+            },
           });
           ui.toast(isLive ? '直播间已创建' : '短视频已发布', 'ok');
           ctx.nav(`#/live/${r.feed.id}`);

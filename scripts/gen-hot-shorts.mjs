@@ -233,7 +233,7 @@ async function uploadFile(token, filePath, mime) {
   fd.append('file', new Blob([buf], { type: mime }), path.basename(filePath));
   const r = await fetch(`${API}/api/files`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: 'Bearer ' + token },
     body: fd,
   });
   const j = await r.json();
@@ -245,7 +245,7 @@ async function uploadFile(token, filePath, mime) {
 async function createFeed(token, payload) {
   const r = await fetch(`${API}/api/feeds`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: 'Bearer ' + token },
     body: JSON.stringify(payload),
   });
   const j = await r.json();
@@ -259,7 +259,21 @@ async function createFeed(token, payload) {
 const news = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/collections/news.json'), 'utf8'));
 
 // 已有短视频的标题，避免重复生成
-const feedsAll = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/collections/feeds.json'), 'utf8'));
+/* 注意：不能直接读 data/collections/feeds.json —— 应用把集合放内存里，
+   定时才落盘，脚本读到的可能比实际旧，导致重复生成或漏补。这里改成走接口。 */
+let feedsAll = [];
+const token = await login();
+/* 从接口拉已有短视频，避免读到过期的本地文件 */
+try {
+  const ar = await fetch(API + '/api/admin/feeds?limit=500', {
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  const aj = await ar.json();
+  feedsAll = aj?.data?.items || [];
+} catch {
+  feedsAll = [];
+}
+console.log('  已登录后台，已有记录 ' + feedsAll.length + ' 条');
 const usedTitles = new Set(feedsAll.map((x) => String(x.title || '').trim()));
 
 /*
@@ -303,20 +317,19 @@ console.log(`  候选 ${picks.length} 条（已排除已生成过的）`);
 const existingCollect = feedsAll.filter((x) => x.source === 'collect' && x.status !== 'removed').length;
 const quota = Math.max(0, MAX_TOTAL - existingCollect);
 if (quota <= 0) {
-console.log("  已有 " + existingCollect + " 条，上限 " + MAX_TOTAL + "，本次最多生成 " + finalPicks.length + " 条");
+  console.log("  已有 " + existingCollect + " 条自动短视频，已达上限 " + MAX_TOTAL + "，不再生成");
   process.exit(0);
 }
 const finalPicks = picks.slice(0, Math.min(picks.length, quota));
 console.log("  已有 " + existingCollect + " 条，上限 " + MAX_TOTAL + "，本次最多生成 " + finalPicks.length + " 条");
 
-const token = await login();
-console.log('  已登录后台\n');
 
 let ok = 0;
 let fail = 0;
 
 for (const n of finalPicks) {
   const title = cleanTitle(n.title);
+  if (!title || title.length < 6) continue;
 
   /*
    * 标签不要直接取 tags[0]。

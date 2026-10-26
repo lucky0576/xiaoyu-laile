@@ -144,6 +144,9 @@ export const api = {
         if (!e.lengthComputable) return;
         const pct = Math.round((e.loaded / e.total) * 100);
         if (onProgress) onProgress(pct);
+        // 每收到一次进度就续期：只有真正卡住不动才超时，
+        // 慢网传大视频不该因为「传得久」被判失败
+        if (!sent) arm();
         // 字节发完了，但服务端还要解析文档（PDF/Word 提取文字），
         // 这段时间界面不能只停在 100% 不动 —— 会让人以为卡死
         if (pct >= 100 && !sent) {
@@ -178,7 +181,7 @@ export const api = {
       xhr.ontimeout = () => finish(reject, new ApiError('上传超时', 0, 'timeout'));
       xhr.onabort = () => finish(reject, new ApiError('上传已取消', 0, 'aborted'));
 
-      // 兜底：连 onload 都没触发时也不能永远挂着
+      // 兜底：即使 onprogress 一次都没触发（例如 0 字节或浏览器不支持），也不能永远挂着
       arm();
       xhr.send(formData);
     });
@@ -503,7 +506,7 @@ export const service = {
   feeds: (query) => api.get('/api/feeds', query),
   myFeeds: () => api.get('/api/my/feeds'),
   feed: (id) => api.get(`/api/feeds/${id}`),
-  createFeed: (fd, opts) => api.upload('/api/feeds', fd, opts),
+  createFeed: (fd, opts) => api.upload('/api/feeds', fd, { timeoutMs: 600000, ...(opts || {}) }),
   updateFeed: (id, body) => api.put(`/api/feeds/${id}`, body),
   removeFeed: (id) => api.del(`/api/feeds/${id}`),
   likeFeed: (id) => api.post(`/api/feeds/${id}/like`, {}),
