@@ -1,0 +1,3238 @@
+小鱼来了AI信息发布平台 V1.0  源程序  第 1 页 / 共 60 页
+========================================================================================
+ 1  // ===== server.js =====
+ 2  import os from 'node:os';
+ 3  import path from 'node:path';
+ 4  import { createApp } from './src/http/app.js';
+ 5  import { config, PUBLIC_DIR } from './src/config.js';
+ 6  import { registerStatic } from './src/http/static.js';
+ 7  import db from './src/store/db.js';
+ 8  import registerRoutes from './src/routes/index.js';
+ 9  import registerSharePageRoutes from './src/routes/share-page.js';
+10  import newsSvc from './src/services/news.js';
+11  import notifySvc from './src/services/notify.js';
+12  import { sweepOtps } from './src/services/auth.js';
+13  import chunksSvc from './src/services/chunks.js';
+14  import { seedIfEmpty } from './scripts/seed.js';
+15  const argv = process.argv.slice(2);
+16  const argOf = (name) => {
+17    const i = argv.findIndex((a) => a === `--${name}`);
+18    return i >= 0 ? argv[i + 1] : undefined;
+19  };
+20  const PORT = Number(argOf('port') || process.env.PORT || config.port);
+21  const HOST = argOf('host') || config.host;
+22  const NO_SEED = argv.includes('--no-seed') || process.env.NO_SEED === '1';
+23  const app = createApp();
+24  registerSharePageRoutes(app);
+25  registerStatic(app, PUBLIC_DIR);
+26  registerRoutes(app);
+27  let timers = [];
+28  function startJobs() {
+29    const run = (name, fn, everyMs) => {
+30      const t = setInterval(() => {
+31        try {
+32          const r = fn();
+33          if (r && (r.expired || r.reminded)) console.log(`[job:${name}]`, r);
+34        } catch (err) {
+35          console.warn(`[job:${name}] 失败:`, err.message);
+36        }
+37      }, everyMs);
+38      if (t.unref) t.unref();
+39      timers.push(t);
+40    };
+41    run('expire', () => ({ expired: notifySvc.expireListings() }), 5 * 60_000);
+42    run('remind', () => ({ reminded: notifySvc.remindExpiring() }), 30 * 60_000);
+43    run('otp-sweep', () => ({ swept: sweepOtps() }), 60 * 60_000);
+44    setTimeout(() => {
+45      newsSvc
+46        .refresh({ maxPerSource: 4, maxTotal: 12 })
+47        .catch((err) => console.warn('[job:news] 首次抓取失败:', err.message));
+48    }, 90_000).unref?.();
+49    run('news', () => {
+50      newsSvc
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 2 页 / 共 60 页
+========================================================================================
+ 1        .refresh({ maxPerSource: 5, maxTotal: 16 })
+ 2        .catch((err) => console.warn('[job:news] 失败:', err.message));
+ 3      return {};
+ 4    }, 3 * 60 * 60_000);
+ 5    run('chunk-sweep', () => {
+ 6      chunksSvc
+ 7        .sweepStale()
+ 8        .then((n) => {
+ 9          if (n) console.log('[job:chunk-sweep] swept', n);
+10        })
+11        .catch((err) => console.warn('[job:chunk-sweep] 失败:', err.message));
+12      return {};
+13    }, 60 * 60_000);
+14    try {
+15      notifySvc.expireListings();
+16    } catch {
+17    }
+18  }
+19  function lanAddresses() {
+20    const out = [];
+21    for (const list of Object.values(os.networkInterfaces())) {
+22      for (const ni of list || []) {
+23        if (ni.family === 'IPv4' && !ni.internal) out.push(ni.address);
+24      }
+25    }
+26    return out;
+27  }
+28  function banner(port, host) {
+29    const lan = lanAddresses();
+30    const base = config.publicBaseUrl || '';
+31    const lines = [
+32      '',
+33      '  ┌──────────────────────────────────────────────────────────────┐',
+34      `  │  ${config.appName}${' '.repeat(Math.max(0, 44 - config.appName.length * 2))}│`,
+35      `  │  ${config.appSlogan}${' '.repeat(Math.max(0, 40 - config.appSlogan.length * 2))}│`,
+36      '  └──────────────────────────────────────────────────────────────┘',
+37      '',
+38      `  本机访问     http://127.0.0.1:${port}`,
+39    ];
+40    for (const ip of lan) {
+41      lines.push(`  局域网/手机  http://${ip}:${port}`);
+42    }
+43    lines.push(
+44      `  对外访问     ${base || '（未设置 PUBLIC_BASE_URL，分享链接将按访问者浏览器地址生成）'}`,
+45      '',
+46      `  AI 引擎      ${config.ai.apiKey ? `${config.ai.model} @ ${config.ai.baseUrl}` : '内置本地规则引擎（未配置 AI_API_KEY）'}`,
+47      `  微信         ${config.wechat.appId ? '已配置公众号' : '演示模式（可一键微信演示登录）'}`,
+48      `  邮件         ${config.smtp.host ? `SMTP ${config.smtp.host}` : '演示模式（写入 data/outbox.log）'}`,
+49      `  存储         ${path.relative(process.cwd(), config.publicBaseUrl ? '' : '')}${''}data/ (JSON 集合)`,
+50      '',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 3 页 / 共 60 页
+========================================================================================
+ 1      '  外网访问：把路由器 8787 端口映射到本机，或执行',
+ 2      '    cloudflared tunnel --url http://127.0.0.1:' + port,
+ 3      '    ngrok http ' + port,
+ 4      '  然后把生成的公网地址写入 .env 的 PUBLIC_BASE_URL，分享二维码即可被外网访问。',
+ 5      '',
+ 6      '  按 Ctrl+C 停止服务',
+ 7      '',
+ 8    );
+ 9    console.log(lines.join('\n'));
+10  }
+11  async function main() {
+12    db.installShutdownHook();
+13    if (!NO_SEED) {
+14      try {
+15        const seeded = await seedIfEmpty();
+16        if (seeded.created) {
+17          console.log(`[seed] 已写入演示数据：${seeded.users} 位用户 / ${seeded.listings} 条信息 / ${seeded.cases} 个项目案例`);
+18        }
+19      } catch (err) {
+20        console.warn('[seed] 演示数据写入失败（不影响启动）:', err.message);
+21      }
+22    }
+23    const server = await app.listen(PORT, HOST);
+24    startJobs();
+25    banner(server.address().port, HOST);
+26    const shutdown = async () => {
+27      console.log('\n正在关闭…');
+28      for (const t of timers) clearInterval(t);
+29      db.flush();
+30      await app.close();
+31      process.exit(0);
+32    };
+33    process.on('SIGINT', shutdown);
+34    process.on('SIGTERM', shutdown);
+35  }
+36  main().catch((err) => {
+37    console.error('启动失败：', err);
+38    process.exit(1);
+39  });
+40  // ===== src/config.js =====
+41  import fs from 'node:fs';
+42  import path from 'node:path';
+43  import crypto from 'node:crypto';
+44  import { fileURLToPath } from 'node:url';
+45  export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+46  function loadDotEnv() {
+47    const file = path.join(ROOT, '.env');
+48    if (!fs.existsSync(file)) return;
+49    let raw = '';
+50    try {
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 4 页 / 共 60 页
+========================================================================================
+ 1      raw = fs.readFileSync(file, 'utf8');
+ 2    } catch {
+ 3      return;
+ 4    }
+ 5    for (const line of raw.split(/\r?\n/)) {
+ 6      const s = line.trim();
+ 7      if (!s || s.startsWith('#')) continue;
+ 8      const eq = s.indexOf('=');
+ 9      if (eq < 1) continue;
+10      const key = s.slice(0, eq).trim();
+11      let val = s.slice(eq + 1).trim();
+12      if (
+13        (val.startsWith('"') && val.endsWith('"')) ||
+14        (val.startsWith("'") && val.endsWith("'"))
+15      ) {
+16        val = val.slice(1, -1);
+17      }
+18      if (process.env[key] === undefined) process.env[key] = val;
+19    }
+20  }
+21  loadDotEnv();
+22  const env = (k, d = '') => (process.env[k] === undefined || process.env[k] === '' ? d : process.env[k]);
+23  const num = (k, d) => {
+24    const v = Number(process.env[k]);
+25    return Number.isFinite(v) ? v : d;
+26  };
+27  const bool = (k, d = false) => {
+28    const v = process.env[k];
+29    if (v === undefined || v === '') return d;
+30    return /^(1|true|yes|on)$/i.test(v);
+31  };
+32  const SECRET_FILE = path.join(ROOT, 'data', '.secret');
+33  function persistentSecret() {
+34    const fromEnv = env('SESSION_SECRET');
+35    if (fromEnv) return fromEnv;
+36    try {
+37      if (fs.existsSync(SECRET_FILE)) {
+38        const s = fs.readFileSync(SECRET_FILE, 'utf8').trim();
+39        if (s.length >= 32) return s;
+40      }
+41    } catch {
+42    }
+43    const s = crypto.randomBytes(48).toString('hex');
+44    try {
+45      fs.mkdirSync(path.dirname(SECRET_FILE), { recursive: true });
+46      fs.writeFileSync(SECRET_FILE, s, { mode: 0o600 });
+47    } catch {
+48    }
+49    return s;
+50  }
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 5 页 / 共 60 页
+========================================================================================
+ 1  export const DATA_DIR = path.resolve(ROOT, env('DATA_DIR', 'data'));
+ 2  export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+ 3  export const TMP_DIR = path.join(DATA_DIR, 'tmp');
+ 4  export const PUBLIC_DIR = path.join(ROOT, 'public');
+ 5  for (const d of [DATA_DIR, UPLOAD_DIR, TMP_DIR]) {
+ 6    fs.mkdirSync(d, { recursive: true });
+ 7  }
+ 8  export const config = {
+ 9    appName: env('APP_NAME', '小鱼来了'),
+10    appSlogan: env('APP_SLOGAN', '让每一条好项目，都被对的人看见'),
+11    host: env('HOST', '0.0.0.0'),
+12    port: num('PORT', 8787),
+13    publicBaseUrl: env('PUBLIC_BASE_URL', '').replace(/\/+$/, ''),
+14    sessionSecret: persistentSecret(),
+15    sessionDays: num('SESSION_DAYS', 30),
+16    vision: {
+17      baseUrl: env('VISION_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, ''),
+18      apiKey: env('ZHIPU_API_KEY', ''),
+19      model: env('VISION_MODEL', 'Qwen/Qwen3-VL-30B-A3B-Instruct'),
+20      timeoutMs: num('VISION_TIMEOUT_MS', 60000),
+21      fallbackModels: env(
+22        'VISION_FALLBACK_MODELS',
+23        'Qwen/Qwen3-VL-30B-A3B-Instruct,Qwen/Qwen3-VL-32B-Instruct',
+24      )
+25        .split(',')
+26        .map((s) => s.trim())
+27        .filter(Boolean),
+28    },
+29    asr: {
+30      baseUrl: env('ASR_BASE_URL', 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''),
+31      apiKey: env('SILICONFLOW_API_KEY', ''),
+32      model: env('ASR_MODEL', 'FunAudioLLM/SenseVoiceSmall'),
+33      timeoutMs: num('ASR_TIMEOUT_MS', 90000),
+34    },
+35    maxUploadBytes: num('MAX_UPLOAD_BYTES', 512 * 1024 * 1024), // 512MB，支持视频
+36    maxJsonBytes: num('MAX_JSON_BYTES', 8 * 1024 * 1024),
+37    ai: {
+38      baseUrl: env('AI_BASE_URL', 'https://api.deepseek.com/v1').replace(/\/+$/, ''),
+39      apiKey: env('AI_API_KEY', ''),
+40      model: env('AI_MODEL', 'deepseek-chat'),
+41      timeoutMs: num('AI_TIMEOUT_MS', 60000),
+42      enabled: bool('AI_ENABLED', true),
+43    },
+44    invest: {
+45      bankName: env('INVEST_BANK_NAME', ''),
+46      bankCard: env('INVEST_BANK_CARD', ''),
+47      bankBranch: env('INVEST_BANK_BRANCH', ''),
+48    },
+49    douyin: {
+50      clientKey: env('DOUYIN_CLIENT_KEY', ''),
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 6 页 / 共 60 页
+========================================================================================
+ 1      clientSecret: env('DOUYIN_CLIENT_SECRET', ''),
+ 2      redirectUri: env('DOUYIN_REDIRECT_URI', ''),
+ 3    },
+ 4    search: {
+ 5      provider: env('SEARCH_PROVIDER', '').toLowerCase(),
+ 6      apiKey: env('SEARCH_API_KEY', ''),
+ 7      timeoutMs: num('SEARCH_TIMEOUT_MS', 12000),
+ 8    },
+ 9    wechat: {
+10      appId: env('WECHAT_APP_ID', ''),
+11      appSecret: env('WECHAT_APP_SECRET', ''),
+12      openAppId: env('WECHAT_OPEN_APP_ID', ''),
+13      openAppSecret: env('WECHAT_OPEN_APP_SECRET', ''),
+14      token: env('WECHAT_TOKEN', ''),
+15      demoMode: bool('WECHAT_DEMO_MODE', true),
+16    },
+17    smtp: {
+18      host: env('SMTP_HOST', ''),
+19      port: num('SMTP_PORT', 465),
+20      secure: bool('SMTP_SECURE', true),
+21      user: env('SMTP_USER', ''),
+22      pass: env('SMTP_PASS', ''),
+23      from: env('SMTP_FROM', ''),
+24    },
+25    sms: {
+26      provider: env('SMS_PROVIDER', 'demo'),
+27      demoReturnCode: bool('SMS_DEMO_RETURN_CODE', true),
+28    },
+29    payments: {
+30      provider: env('PAYMENT_PROVIDER', 'offline'),
+31      platformFeeRate: num('PLATFORM_FEE_RATE', 0.03),
+32    },
+33    meeting: {
+34      provider: env('MEETING_PROVIDER', 'builtin'),
+35      externalUrlTemplate: env('MEETING_URL_TEMPLATE', ''),
+36    },
+37  };
+38  export const aiConfigured = () => Boolean(config.ai.apiKey && config.ai.enabled);
+39  export const wechatConfigured = () =>
+40    Boolean(config.wechat.appId && config.wechat.appSecret);
+41  export default config;
+42  // ===== src/data/forums.js =====
+43  export const FORUM_GROUPS = {
+44    energy: '能源与电力',
+45    engineering: '工程与园区',
+46    capital: '资本与招商',
+47    tech: '科技与算力',
+48  };
+49  export const FORUMS = [
+50    {
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 7 页 / 共 60 页
+========================================================================================
+ 1      slug: 'solar',
+ 2      name: '光伏',
+ 3      icon: '☀️',
+ 4      group: 'energy',
+ 5      order: 1,
+ 6      desc: '组件、逆变器、支架、分布式与集中式电站、渔光互补、屋顶光伏的选型与落地经验。',
+ 7      tags: ['分布式', '集中式', '组件', '逆变器', '渔光互补'],
+ 8    },
+ 9    {
+10      slug: 'storage',
+11      name: '储能',
+12      icon: '🔋',
+13      group: 'energy',
+14      order: 2,
+15      desc: '大储、工商业储能、用户侧储能、EMC 合同能源管理、调频调峰与项目收益测算。',
+16      tags: ['大储', '工商业储能', 'EMC', '调频', '收益测算'],
+17    },
+18    {
+19      slug: 'wind',
+20      name: '风电',
+21      icon: '🌬️',
+22      group: 'energy',
+23      order: 3,
+24      desc: '陆上风电、分散式风电、风资源评估、吊装施工与运维。',
+25      tags: ['陆上风电', '分散式', '风资源', '吊装', '运维'],
+26    },
+27    {
+28      slug: 'engineering',
+29      name: '工程',
+30      icon: '🏗️',
+31      group: 'engineering',
+32      order: 4,
+33      desc: 'EPC 总承包、专业分包、施工资质、造价与结算、招投标实务。',
+34      tags: ['EPC', '分包', '资质', '造价', '招投标'],
+35    },
+36    {
+37      slug: 'park',
+38      name: '园区',
+39      icon: '🏭',
+40      group: 'engineering',
+41      order: 5,
+42      desc: '产业园区规划、标准厂房、入园政策、能耗指标与环评。',
+43      tags: ['园区规划', '标准厂房', '入园政策', '能耗指标'],
+44    },
+45    {
+46      slug: 'investment',
+47      name: '投资',
+48      icon: '📈',
+49      group: 'capital',
+50      order: 6,
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 8 页 / 共 60 页
+========================================================================================
+ 1      desc: '股权投资、并购、估值与条款、基金与 LP 对接口径。',
+ 2      tags: ['股权投资', '并购', '估值', '条款', '基金'],
+ 3    },
+ 4    {
+ 5      slug: 'finance',
+ 6      name: '融资贷款',
+ 7      icon: '🏦',
+ 8      group: 'capital',
+ 9      order: 7,
+10      desc: '银行信贷、融资租赁、供应链金融、政策性资金与贴息申报。',
+11      tags: ['信贷', '融资租赁', '供应链金融', '贴息'],
+12    },
+13    {
+14      slug: 'industry-invest',
+15      name: '产业投资',
+16      icon: '💼',
+17      group: 'capital',
+18      order: 8,
+19      desc: '产业基金、政府引导基金、项目投资决策与投后管理。',
+20      tags: ['产业基金', '引导基金', '投资决策', '投后'],
+21    },
+22    {
+23      slug: 'attraction',
+24      name: '招商引资',
+25      icon: '🤝',
+26      group: 'capital',
+27      order: 9,
+28      desc: '地方招商政策、落地流程、奖励兑现、载体与土地指标。',
+29      tags: ['招商政策', '落地流程', '奖励兑现', '土地指标'],
+30    },
+31    {
+32      slug: 'computing',
+33      name: '算力',
+34      icon: '⚡',
+35      group: 'tech',
+36      order: 10,
+37      desc: '智算中心、算力消纳、绿电算力、PUE 与投资结构。',
+38      tags: ['智算中心', '算力消纳', '绿电算力', 'PUE'],
+39    },
+40    {
+41      slug: 'hardware',
+42      name: '算力硬件',
+43      icon: '🖥️',
+44      group: 'tech',
+45      order: 11,
+46      desc: 'GPU、液冷、机柜、UPS、变压器、柴发与配套供应链。',
+47      tags: ['GPU', '液冷', '机柜', 'UPS', '柴发'],
+48    },
+49    {
+50      slug: 'ai',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 9 页 / 共 60 页
+========================================================================================
+ 1      name: 'AI',
+ 2      icon: '🤖',
+ 3      group: 'tech',
+ 4      order: 12,
+ 5      desc: '大模型应用、行业智能体、AI 落地场景与选型。',
+ 6      tags: ['大模型', '智能体', '行业应用', '选型'],
+ 7    },
+ 8    {
+ 9      slug: 'robotics',
+10      name: '机器人（具身）',
+11      icon: '🦾',
+12      group: 'tech',
+13      order: 13,
+14      desc: '具身智能、工业机器人、巡检与服务机器人、产线改造。',
+15      tags: ['具身智能', '工业机器人', '巡检', '产线改造'],
+16    },
+17    {
+18      slug: 'uav',
+19      name: '无人机',
+20      icon: '🛩️',
+21      group: 'tech',
+22      order: 14,
+23      desc: '巡检、测绘、植保、物流无人机与低空经济政策。',
+24      tags: ['巡检', '测绘', '植保', '低空经济'],
+25    },
+26    {
+27      slug: 'evtol',
+28      name: '飞行汽车',
+29      icon: '🚁',
+30      group: 'tech',
+31      order: 15,
+32      desc: 'eVTOL、低空出行、适航认证、空域管理、起降场建设与商业化路径。',
+33      tags: ['eVTOL', '低空出行', '适航认证', '空域管理', '起降场'],
+34    },
+35  ];
+36  export const FORUMS_BY_SLUG = Object.fromEntries(FORUMS.map((f) => [f.slug, f]));
+37  export function forumBySlug(slug) {
+38    return FORUMS_BY_SLUG[String(slug || '').toLowerCase()] || null;
+39  }
+40  export default { FORUMS, FORUM_GROUPS, FORUMS_BY_SLUG, forumBySlug };
+41  // ===== src/data/levels.js =====
+42  export const LEVELS = [
+43    {
+44      key: 'free',
+45      name: '免费用户',
+46      icon: '🐟',
+47      color: '#8a95a5',
+48      price: 0,
+49      unit: '/ 永久',
+50      tagline: '基础功能，先逛逛看看',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 10 页 / 共 60 页
+========================================================================================
+ 1      perks: [
+ 2        '浏览项目列表（摘要）',
+ 3        '发布基础项目 / 悬赏信息',
+ 4        '加入群聊与部分会议',
+ 5        '参与行业论坛讨论',
+ 6      ],
+ 7      limits: { postPerMonth: 3, fullProjectView: 5 },
+ 8    },
+ 9    {
+10      key: 'tadpole',
+11      name: '蝌蚪级',
+12      icon: '🐸',
+13      color: '#12a05a',
+14      price: 9,
+15      unit: '/ 月',
+16      tagline: '刚开始对接，先试试水',
+17      perks: [
+18        '浏览全部项目（含 AI 评分）',
+19        '每月发布 10 条信息',
+20        '发起项目群聊与会议',
+21        'AI 项目摘要',
+22        '蝌蚪级专属标识',
+23      ],
+24      limits: { postPerMonth: 10, fullProjectView: 30 },
+25    },
+26    {
+27      key: 'lobster',
+28      name: '龙虾级',
+29      icon: '🦞',
+30      color: '#e0672a',
+31      price: 99,
+32      unit: '/ 月',
+33      tagline: '认真做业务，需要稳定客源',
+34      perks: [
+35        '不限量发布项目与悬赏',
+36        '不限量查看完整项目信息',
+37        'AI 项目分析与匹配推荐',
+38        '优先参与线下活动',
+39        '龙虾级专属标识',
+40      ],
+41      limits: { postPerMonth: -1, fullProjectView: -1 },
+42    },
+43    {
+44      key: 'eel',
+45      name: '电鳗级',
+46      icon: '⚡',
+47      color: '#7c5cf0',
+48      price: 999,
+49      unit: '/ 月',
+50      tagline: '团队作业，要效率与优先权',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 11 页 / 共 60 页
+========================================================================================
+ 1      perks: [
+ 2        '包含龙虾级全部权益',
+ 3        '项目信息优先推荐给潜在对接方',
+ 4        'AI 深度尽调分析',
+ 5        '可查看匿名项目方联系方式',
+ 6        '电鳗级专属标识',
+ 7      ],
+ 8      limits: { postPerMonth: -1, fullProjectView: -1 },
+ 9    },
+10    {
+11      key: 'shark',
+12      name: '鲨鱼级',
+13      icon: '🦈',
+14      color: '#0b74ff',
+15      price: 9999,
+16      unit: '/ 月',
+17      tagline: '大额交易，需要专人盯着',
+18      perks: [
+19        '包含电鳗级全部权益',
+20        '专属对接顾问 1v1 服务',
+21        '首页与推荐位曝光',
+22        '重点项目的优先对接资格',
+23        '鲨鱼级专属标识',
+24      ],
+25      limits: { postPerMonth: -1, fullProjectView: -1 },
+26    },
+27    {
+28      key: 'whale',
+29      name: '鲸鱼级',
+30      icon: '🐋',
+31      color: '#0e7490',
+32      price: 99999,
+33      unit: '/ 月',
+34      tagline: '产业级合作，深度绑定',
+35      perks: [
+36        '包含鲨鱼级全部权益',
+37        '定制化产业对接服务',
+38        '联合品牌与活动露出',
+39        '平台种子轮优先投资份额',
+40        '鲸鱼级专属标识',
+41      ],
+42      limits: { postPerMonth: -1, fullProjectView: -1 },
+43    },
+44  ];
+45  export const LEVEL_BY_KEY = Object.fromEntries(LEVELS.map((l) => [l.key, l]));
+46  export const PAID_LEVELS = LEVELS.filter((l) => l.price > 0);
+47  export function levelOf(user) {
+48    return LEVEL_BY_KEY[user?.level] || LEVEL_BY_KEY.free;
+49  }
+50  export function levelActive(user) {
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 12 页 / 共 60 页
+========================================================================================
+ 1    const lv = levelOf(user);
+ 2    if (lv.price === 0) return true;
+ 3    if (!user.levelExpiresAt) return false;
+ 4    return new Date(user.levelExpiresAt).getTime() > Date.now();
+ 5  }
+ 6  export function effectiveLevelKey(user) {
+ 7    return levelActive(user) ? levelOf(user).key : 'free';
+ 8  }
+ 9  export function publicLevel(user) {
+10    const lv = levelOf(user);
+11    const active = levelActive(user);
+12    return {
+13      key: active ? lv.key : 'free',
+14      name: active ? lv.name : '免费用户',
+15      icon: active ? lv.icon : '🐟',
+16      color: active ? lv.color : '#8a95a5',
+17      price: lv.price,
+18      unit: lv.unit,
+19      expiresAt: user?.levelExpiresAt || '',
+20      active,
+21    };
+22  }
+23  export default { LEVELS, LEVEL_BY_KEY, PAID_LEVELS, levelOf, levelActive, effectiveLevelKey, publicLevel };
+24  // ===== src/data/news-sources.js =====
+25  export const NEWS_SOURCES = [
+26    {
+27      id: 'ndrc-tz',
+28      name: '发改委 · 通知',
+29      category: 'policy',
+30      url: 'https://www.ndrc.gov.cn/xxgk/zcfb/tz/',
+31      linkRe: /\/xxgk\/zcfb\/tz\/\d{6}\/t\d{8}_\d+\.html/,
+32    },
+33    {
+34      id: 'ndrc-gh',
+35      name: '发改委 · 规划文本',
+36      category: 'policy',
+37      url: 'https://www.ndrc.gov.cn/xxgk/zcfb/ghwb/',
+38      linkRe: /\/xxgk\/zcfb\/ghwb\/\d{6}\/t\d{8}_\d+\.html/,
+39    },
+40    {
+41      id: 'nea-news',
+42      name: '国家能源局',
+43      category: 'energy',
+44      url: 'https://www.nea.gov.cn/xwzx/index.htm',
+45      linkRe: /\/\d{8}\/[0-9a-f]{32}\/c\.html/,
+46    },
+47    {
+48      id: 'solarbe',
+49      name: '索比光伏网',
+50      category: 'pv',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 13 页 / 共 60 页
+========================================================================================
+ 1      url: 'https://news.solarbe.com/',
+ 2      linkRe: /news\.solarbe\.com\/\d{6}\/\d{2}\/\d+\.html/,
+ 3    },
+ 4    {
+ 5      id: 'escn',
+ 6      name: '储能网',
+ 7      category: 'storage',
+ 8      url: 'https://www.escn.com.cn/',
+ 9      linkRe: /\/news\/show-\d+\.html/,
+10    },
+11    {
+12      id: 'ne21',
+13      name: '北极星光伏',
+14      category: 'pv',
+15      url: 'https://www.ne21.com/',
+16      linkRe: /ne21\.com\/news\/show-\d+\.html/,
+17    },
+18    {
+19      id: 'china5e',
+20      name: '中国能源网',
+21      category: 'energy',
+22      url: 'https://www.china5e.com/',
+23      linkRe: /china5e\.com\/news\/news-\d+-\d+\.html/,
+24    },
+25    {
+26      id: 'ithome-rss',
+27      name: 'IT之家',
+28      category: 'tech',
+29      type: 'rss',
+30      url: 'https://www.ithome.com/rss/',
+31    },
+32    {
+33      id: 'cnbeta-rss',
+34      name: 'cnBeta',
+35      category: 'tech',
+36      type: 'rss',
+37      url: 'https://www.cnbeta.com.tw/backend.php',
+38    },
+39    {
+40      id: 'solidot-rss',
+41      name: 'Solidot 奇客',
+42      category: 'tech',
+43      type: 'rss',
+44      url: 'https://www.solidot.org/index.rss',
+45    },
+46    {
+47      id: 'qbitai',
+48      name: '量子位',
+49      category: 'ai',
+50      url: 'https://www.qbitai.com/',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 14 页 / 共 60 页
+========================================================================================
+ 1      linkRe: /qbitai\.com\/\d{4}\/\d{2}\/\d+\.html/,
+ 2    },
+ 3    {
+ 4      id: 'ifanr',
+ 5      name: '爱范儿',
+ 6      category: 'tech',
+ 7      url: 'https://www.ifanr.com/',
+ 8      linkRe: /ifanr\.com\/\d{5,}/,
+ 9    },
+10  ];
+11  export const NEWS_TAGS = [
+12    { id: 'pv', name: '光伏', icon: '☀️', words: ['光伏', '硅料', '硅片', '组件', '逆变器', '分布式', '渔光', '农光', '光储', '新能源', '大基地', '沙戈荒', '智慧能源', '绿电', '风光'] },
+13    { id: 'storage', name: '储能', icon: '🔋', words: ['储能', '电芯', '电池', '新型储能', '抽水蓄能', '液流', '网荷储', '源网荷储', '长时储能', '独立储能'] },
+14    { id: 'wind', name: '风电', icon: '🌬️', words: ['风电', '风机', '海上风电', '风电场', '陆上风电'] },
+15    { id: 'compute', name: '算力', icon: '🖥️', scope: 'title', words: ['算力', '数据中心', '智算', 'IDC', '机柜', '算电协同', '服务器', 'GPU', '液冷'] },
+16    { id: 'ai', name: '人工智能', icon: '🤖', scope: 'title', words: ['人工智能', '大模型', 'AI', '智能体', '具身智能', '讯飞', '通义', '文心', '多模态', '推理模型'] },
+17    { id: 'robot', name: '机器人', icon: '🦾', scope: 'title', words: ['机器人', '人形机器人', '具身智能', '机器狗'] },
+18    { id: 'uav', name: '无人机', icon: '🛩️', scope: 'title', words: ['无人机', '低空经济', 'eVTOL', '通用航空'] },
+19    { id: 'evtol', name: '飞行汽车', icon: '🚁', scope: 'title', words: ['飞行汽车', '飞行器', 'eVTOL'] },
+20    { id: 'hydrogen', name: '氢能', icon: '💧', words: ['氢能', '氢', '加氢站', '绿氢', '电解槽'] },
+21    { id: 'finance', name: '投融资', icon: '💰', scope: 'title', words: ['融资', '投资', '基金', '并购', 'IPO', '发债', 'REITs', '估值', '募资'] },
+22    { id: 'policy', name: '政策', icon: '📜', words: ['政策', '通知', '意见', '办法', '规划', '方案', '试点', '批复', '目录', '国家能源局', '发改委', '能源局', '工信部', '国务院', '示范', '指导意见', '标准'] },
+23    { id: 'tesla', name: '特斯拉 / 马斯克', icon: '🚗', scope: 'title', words: ['特斯拉', '马斯克', 'Tesla', 'Musk', 'SpaceX', '星链', 'Optimus', '擎天柱'] },
+24    { id: 'unitree', name: '宇树科技', icon: '🐕', scope: 'title', words: ['宇树', 'Unitree'] },
+25    { id: 'apple', name: '苹果', icon: '🍎', scope: 'title', words: ['苹果', 'Apple', 'iPhone', 'iPad', 'MacBook', 'Vision Pro', '库克', 'iOS', 'Mac'] },
+26    { id: 'huawei', name: '华为', icon: '📱', scope: 'title', words: ['华为', 'Huawei', '鸿蒙', 'HarmonyOS', '昇腾', '问界', 'Mate', '麒麟'] },
+27    { id: 'microsoft', name: '微软', icon: '🪟', scope: 'title', words: ['微软', 'Microsoft', 'Azure', 'Copilot', 'Windows'] },
+28    { id: 'alibaba', name: '阿里巴巴', icon: '🛒', scope: 'title', words: ['阿里巴巴', '阿里', 'Alibaba', '阿里云', '通义', 'Qwen', '淘宝', '蚂蚁'] },
+29    { id: 'deepseek', name: 'DeepSeek', icon: '🐋', scope: 'title', words: ['DeepSeek', '深度求索', '幻方'] },
+30  ];
+31  export default { NEWS_SOURCES, NEWS_TAGS };
+32  // ===== src/data/tags.js =====
+33  export const TAG_CATEGORIES = [
+34    {
+35      key: 'cities',
+36      name: '城市',
+37      icon: '📍',
+38      desc: '你常驻或经常跑的城市，方便平台就近匹配项目',
+39      max: 10,
+40      options: [
+41        '北京', '上海', '广州', '深圳', '杭州', '南京', '苏州', '成都',
+42        '重庆', '武汉', '西安', '天津', '青岛', '济南', '宁波', '无锡',
+43        '常州', '合肥', '长沙', '郑州', '大连', '厦门', '福州', '昆明',
+44        '贵阳', '南宁', '南昌', '太原', '石家庄', '沈阳', '长春', '哈尔滨',
+45        '兰州', '银川', '西宁', '乌鲁木齐', '呼和浩特', '海口', '三亚',
+46        '香港', '澳门', '台北',
+47      ],
+48    },
+49    {
+50      key: 'industries',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 15 页 / 共 60 页
+========================================================================================
+ 1      name: '行业',
+ 2      icon: '🏭',
+ 3      desc: '你所在的细分行业，决定你能看到哪些项目',
+ 4      max: 12,
+ 5      options: [
+ 6        '光伏', '储能', '风电', '氢能', '充电桩', '电力工程', '建筑工程',
+ 7        '市政工程', '算力', '数据中心', '半导体', '人工智能', '机器人',
+ 8        '无人机', '飞行汽车', '低空经济', '新材料', '新能源汽车', '环保', '化工', '钢铁', '有色金属',
+ 9        '装备制造', '贸易', '物流', '金融', '投资', '融资租赁', '产业园区',
+10        '招商引资', '房地产', '文旅', '农业', '医疗健康', '教育',
+11      ],
+12    },
+13    {
+14      key: 'businessTypes',
+15      name: '业务类型',
+16      icon: '💼',
+17      desc: '你在产业链里的角色，决定谁能跟你对上',
+18      max: 10,
+19      options: [
+20        '项目方', 'EPC 总包', '专业分包', '设备厂商', '材料供应',
+21        '设计院', '监理', '咨询服务', '工程造价', '投资方', '基金',
+22        '银行', '融资租赁', '政府园区', '招商机构', '贸易商', '代理商',
+23        '终端用户', '运维服务',
+24      ],
+25    },
+26    {
+27      key: 'personality',
+28      name: '性格标签',
+29      icon: '🎭',
+30      desc: '让对接方提前知道怎么跟你沟通更舒服',
+31      max: 8,
+32      options: [
+33        '务实', '直接', '开放', '谨慎', '幽默', '严谨', '热情', '低调',
+34        '果断', '耐心', '善于倾听', '行动派', '思考型', '细节控',
+35        '大局观', '守时', '靠谱', '快节奏', '慢热',
+36      ],
+37    },
+38    {
+39      key: 'hobbies',
+40      name: '爱好标签',
+41      icon: '🎯',
+42      desc: '线下见面时的破冰话题',
+43      max: 10,
+44      options: [
+45        '钓鱼', '围棋', '象棋', '书法', '摄影', '徒步', '骑行', '跑步',
+46        '健身', '游泳', '羽毛球', '网球', '高尔夫', '滑雪', '露营',
+47        '自驾', '读书', '历史', '收藏', '茶道', '咖啡', '美食', '旅行',
+48        '音乐', '吉他', '电影', '游戏', '养宠', '烹饪',
+49      ],
+50    },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 16 页 / 共 60 页
+========================================================================================
+ 1  ];
+ 2  export const TAG_KEYS = TAG_CATEGORIES.map((c) => c.key);
+ 3  export const TAG_BY_KEY = Object.fromEntries(TAG_CATEGORIES.map((c) => [c.key, c]));
+ 4  export const CUSTOM_TAG_MAX_LEN = 12;
+ 5  export function normalizeTags(input = {}) {
+ 6    const out = {};
+ 7    for (const cat of TAG_CATEGORIES) {
+ 8      const raw = Array.isArray(input[cat.key]) ? input[cat.key] : [];
+ 9      const seen = new Set();
+10      const list = [];
+11      for (const v of raw) {
+12        const s = String(v || '').trim().slice(0, CUSTOM_TAG_MAX_LEN);
+13        if (!s || seen.has(s)) continue;
+14        seen.add(s);
+15        list.push(s);
+16        if (list.length >= cat.max) break;
+17      }
+18      out[cat.key] = list;
+19    }
+20    return out;
+21  }
+22  export function emptyTags() {
+23    const out = {};
+24    for (const cat of TAG_CATEGORIES) out[cat.key] = [];
+25    return out;
+26  }
+27  export default { TAG_CATEGORIES, TAG_KEYS, TAG_BY_KEY, CUSTOM_TAG_MAX_LEN, normalizeTags, emptyTags };
+28  // ===== src/data/taxonomy.js =====
+29  export const INDUSTRIES = [
+30    {
+31      id: 'new-energy',
+32      name: '新能源',
+33      icon: '☀️',
+34      subs: [
+35        { id: 'pv', name: '光伏' },
+36        { id: 'storage', name: '储能' },
+37        { id: 'wind', name: '风电' },
+38        { id: 'hydrogen', name: '氢能' },
+39        { id: 'battery', name: '蓄电' },
+40        { id: 'hydro', name: '水力发电' },
+41        { id: 'hydrogen-power', name: '氢能发电' },
+42        { id: 'distributed-energy', name: '分布式能源' },
+43        { id: 'microgrid', name: '微电网' },
+44        { id: 'charging-pile', name: '充电桩' },
+45        { id: 'contract-energy', name: '合同能源管理' },
+46        { id: 'energy-saving', name: '节能改造' },
+47        { id: 'waste-heat', name: '余热利用' },
+48        { id: 'biomass', name: '生物质能' },
+49        { id: 'geothermal', name: '地热能' },
+50        { id: 'ocean-energy', name: '海洋能' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 17 页 / 共 60 页
+========================================================================================
+ 1        { id: 'solar-thermal', name: '光热发电' },
+ 2        { id: 'power-station', name: '电站建设' },
+ 3        { id: 'energy-storage-material', name: '储能材料' },
+ 4        { id: 'carbon-asset', name: '碳资产与碳交易' }
+ 5      ]
+ 6    },
+ 7    {
+ 8      id: 'computing-power',
+ 9      name: '算力',
+10      icon: '🖥️',
+11      subs: [
+12        { id: 'idc', name: '数据中心' },
+13        { id: 'intelligent-computing', name: '智算中心' },
+14        { id: 'supercomputing', name: '超算中心' },
+15        { id: 'cloud-computing', name: '云计算' },
+16        { id: 'edge-computing', name: '边缘计算' },
+17        { id: 'gpu-cluster', name: 'GPU 集群' },
+18        { id: 'liquid-cooling', name: '液冷散热' },
+19        { id: 'server', name: '服务器' },
+20        { id: 'network-equipment', name: '网络设备' },
+21        { id: 'optical-module', name: '光模块' },
+22        { id: 'computing-scheduling', name: '算力调度' },
+23        { id: 'computing-rental', name: '算力租赁' },
+24        { id: 'computing-chip', name: '算力芯片' },
+25        { id: 'storage-device', name: '存储设备' },
+26        { id: 'model-training', name: '大模型训练' },
+27        { id: 'inference-service', name: '推理服务' },
+28        { id: 'green-computing', name: '绿色算力' }
+29      ]
+30    },
+31    {
+32      id: 'robotics',
+33      name: '机器人',
+34      icon: '🤖',
+35      subs: [
+36        { id: 'industrial-robot', name: '工业机器人' },
+37        { id: 'service-robot', name: '服务机器人' },
+38        { id: 'humanoid-robot', name: '人形机器人' },
+39        { id: 'medical-robot', name: '医疗机器人' },
+40        { id: 'agv', name: '移动机器人与 AGV' },
+41        { id: 'robot-arm', name: '机械臂' },
+42        { id: 'core-parts', name: '核心零部件' },
+43        { id: 'reducer', name: '减速器' },
+44        { id: 'servo-motor', name: '伺服电机' },
+45        { id: 'sensor', name: '传感器' },
+46        { id: 'vision-system', name: '机器视觉' },
+47        { id: 'integration', name: '系统集成' },
+48        { id: 'special-robot', name: '特种机器人' },
+49        { id: 'education-robot', name: '教育机器人' },
+50        { id: 'logistics-robot', name: '物流机器人' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 18 页 / 共 60 页
+========================================================================================
+ 1        { id: 'cleaning-robot', name: '清洁机器人' },
+ 2        { id: 'exoskeleton', name: '外骨骼机器人' }
+ 3      ]
+ 4    },
+ 5    {
+ 6      id: 'drone',
+ 7      name: '无人机',
+ 8      icon: '🛩️',
+ 9      subs: [
+10        { id: 'multi-rotor', name: '多旋翼无人机' },
+11        { id: 'fixed-wing', name: '固定翼无人机' },
+12        { id: 'vtol', name: '垂直起降无人机' },
+13        { id: 'industrial-uav', name: '工业级无人机' },
+14        { id: 'agricultural-uav', name: '农业植保无人机' },
+15        { id: 'inspection-uav', name: '巡检无人机' },
+16        { id: 'logistics-uav', name: '物流无人机' },
+17        { id: 'emergency-uav', name: '应急救援无人机' },
+18        { id: 'mapping-uav', name: '测绘无人机' },
+19        { id: 'counter-uav', name: '反无人机' },
+20        { id: 'uav-parts', name: '无人机零部件' },
+21        { id: 'flight-control', name: '飞控系统' },
+22        { id: 'payload', name: '任务载荷' },
+23        { id: 'uav-training', name: '无人机培训' },
+24        { id: 'low-altitude', name: '低空经济' },
+25        { id: 'flying-car', name: '飞行汽车' },
+26        { id: 'uav-operation', name: '无人机服务运营' }
+27      ]
+28    },
+29    {
+30      id: 'real-estate',
+31      name: '房产',
+32      icon: '🏠',
+33      subs: [
+34        { id: 'residential', name: '住宅开发' },
+35        { id: 'commercial', name: '商业地产' },
+36        { id: 'office', name: '写字楼' },
+37        { id: 'industrial-park', name: '产业园区' },
+38        { id: 'property-management', name: '物业管理' },
+39        { id: 'second-hand', name: '二手房' },
+40        { id: 'leasing', name: '房屋租赁' },
+41        { id: 'land', name: '土地开发' },
+42        { id: 'urban-renewal', name: '城市更新' },
+43        { id: 'affordable-housing', name: '保障性住房' },
+44        { id: 'decoration', name: '装修装饰' },
+45        { id: 'intermediary', name: '房产中介' },
+46        { id: 'parking', name: '车位车库' },
+47        { id: 'hotel-property', name: '酒店物业' },
+48        { id: 'logistics-property', name: '物流地产' },
+49        { id: 'pension-property', name: '养老地产' }
+50      ]
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 19 页 / 共 60 页
+========================================================================================
+ 1    },
+ 2    {
+ 3      id: 'manufacturing',
+ 4      name: '制造业',
+ 5      icon: '🏭',
+ 6      subs: [
+ 7        { id: 'equipment', name: '装备制造' },
+ 8        { id: 'cnc', name: '数控机床' },
+ 9        { id: 'mold', name: '模具' },
+10        { id: 'precision', name: '精密加工' },
+11        { id: 'welding', name: '焊接加工' },
+12        { id: 'casting', name: '铸造' },
+13        { id: 'forging', name: '锻造' },
+14        { id: 'sheet-metal', name: '钣金' },
+15        { id: 'surface-treatment', name: '表面处理' },
+16        { id: 'assembly', name: '组装代工' },
+17        { id: 'automation', name: '自动化产线' },
+18        { id: 'intelligent-manufacturing', name: '智能制造' },
+19        { id: 'oem', name: '代工生产' },
+20        { id: 'quality-inspection', name: '检测认证' },
+21        { id: 'spare-parts', name: '零部件' },
+22        { id: 'tooling', name: '工装夹具' },
+23        { id: 'packaging-machinery', name: '包装机械' },
+24        { id: 'food-machinery', name: '食品机械' },
+25        { id: 'textile-machinery', name: '纺织机械' },
+26        { id: 'other-manufacturing', name: '其他制造' }
+27      ]
+28    },
+29    {
+30      id: 'power-energy',
+31      name: '电力能源',
+32      icon: '⚡',
+33      subs: [
+34        { id: 'power-generation', name: '发电' },
+35        { id: 'thermal-power', name: '火电' },
+36        { id: 'nuclear-power', name: '核电' },
+37        { id: 'transmission', name: '输电' },
+38        { id: 'substation', name: '变电站' },
+39        { id: 'distribution-network', name: '配电网' },
+40        { id: 'power-grid', name: '电网建设' },
+41        { id: 'power-supply', name: '供电服务' },
+42        { id: 'electricity-sales', name: '售电业务' },
+43        { id: 'transformer', name: '变压器' },
+44        { id: 'switchgear', name: '开关柜' },
+45        { id: 'cable', name: '电线电缆' },
+46        { id: 'power-inspection', name: '电力检修' },
+47        { id: 'relay-protection', name: '继电保护' },
+48        { id: 'smart-grid', name: '智能电网' },
+49        { id: 'energy-management', name: '能源管理' },
+50        { id: 'operation-maintenance', name: '运维服务' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 20 页 / 共 60 页
+========================================================================================
+ 1        { id: 'gas-power', name: '燃气发电' }
+ 2      ]
+ 3    },
+ 4    {
+ 5      id: 'petrochemical',
+ 6      name: '石油化工',
+ 7      icon: '🛢️',
+ 8      subs: [
+ 9        { id: 'oil-gas-exploration', name: '油气勘探' },
+10        { id: 'drilling', name: '钻井工程' },
+11        { id: 'refining', name: '炼油' },
+12        { id: 'ethylene', name: '乙烯化工' },
+13        { id: 'chemical-fertilizer', name: '化肥' },
+14        { id: 'fine-chemical', name: '精细化工' },
+15        { id: 'coal-chemical', name: '煤化工' },
+16        { id: 'natural-gas', name: '天然气' },
+17        { id: 'pipeline', name: '油气管道' },
+18        { id: 'storage-tank', name: '储罐' },
+19        { id: 'chemical-equipment', name: '化工装备' },
+20        { id: 'catalyst', name: '催化剂' },
+21        { id: 'coatings', name: '涂料' },
+22        { id: 'plastic-chemical', name: '塑胶化工' },
+23        { id: 'hazardous-chemical', name: '危化品' },
+24        { id: 'oil-service', name: '油田服务' }
+25      ]
+26    },
+27    {
+28      id: 'environmental-water',
+29      name: '环保水务',
+30      icon: '🌱',
+31      subs: [
+32        { id: 'sewage-treatment', name: '污水处理' },
+33        { id: 'water-supply', name: '供水工程' },
+34        { id: 'water-reuse', name: '中水回用' },
+35        { id: 'desalination', name: '海水淡化' },
+36        { id: 'solid-waste', name: '固废处理' },
+37        { id: 'hazardous-waste', name: '危废处置' },
+38        { id: 'sludge', name: '污泥处理' },
+39        { id: 'garbage-incineration', name: '垃圾焚烧发电' },
+40        { id: 'soil-remediation', name: '土壤修复' },
+41        { id: 'air-treatment', name: '大气治理' },
+42        { id: 'voc', name: 'VOC 治理' },
+43        { id: 'dust-removal', name: '除尘脱硫脱硝' },
+44        { id: 'environmental-monitoring', name: '环境监测' },
+45        { id: 'river-treatment', name: '河道治理' },
+46        { id: 'sponge-city', name: '海绵城市' },
+47        { id: 'pipe-network', name: '管网工程' },
+48        { id: 'environmental-equipment', name: '环保设备' },
+49        { id: 'carbon-neutral', name: '双碳服务' }
+50      ]
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 21 页 / 共 60 页
+========================================================================================
+ 1    },
+ 2    {
+ 3      id: 'transport-infrastructure',
+ 4      name: '交通基建',
+ 5      icon: '🚧',
+ 6      subs: [
+ 7        { id: 'highway', name: '高速公路' },
+ 8        { id: 'railway', name: '铁路工程' },
+ 9        { id: 'subway', name: '城市轨道交通' },
+10        { id: 'bridge', name: '桥梁工程' },
+11        { id: 'tunnel', name: '隧道工程' },
+12        { id: 'airport', name: '机场建设' },
+13        { id: 'municipal-road', name: '市政道路' },
+14        { id: 'traffic-safety', name: '交通安全设施' },
+15        { id: 'road-maintenance', name: '公路养护' },
+16        { id: 'asphalt', name: '沥青路面' },
+17        { id: 'traffic-signal', name: '交通信号' },
+18        { id: 'parking-facility', name: '停车场设施' },
+19        { id: 'charging-network', name: '充电网络' },
+20        { id: 'smart-transport', name: '智慧交通' },
+21        { id: 'utility-corridor', name: '综合管廊' }
+22      ]
+23    },
+24    {
+25      id: 'municipal-engineering',
+26      name: '市政工程',
+27      icon: '🏙️',
+28      subs: [
+29        { id: 'road-project', name: '道路工程' },
+30        { id: 'water-drainage', name: '给排水' },
+31        { id: 'heating', name: '供热工程' },
+32        { id: 'gas-pipeline', name: '燃气工程' },
+33        { id: 'landscaping', name: '园林绿化' },
+34        { id: 'lighting', name: '城市照明' },
+35        { id: 'municipal-bridge', name: '市政桥梁' },
+36        { id: 'municipal-pipe', name: '市政管网' },
+37        { id: 'pipe-jacking', name: '顶管工程' },
+38        { id: 'underground-corridor', name: '地下管廊' },
+39        { id: 'sanitation', name: '环卫工程' },
+40        { id: 'square-park', name: '广场公园' },
+41        { id: 'old-community', name: '老旧小区改造' },
+42        { id: 'demolition', name: '拆迁工程' }
+43      ]
+44    },
+45    {
+46      id: 'water-conservancy',
+47      name: '水利工程',
+48      icon: '💧',
+49      subs: [
+50        { id: 'reservoir', name: '水库工程' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 22 页 / 共 60 页
+========================================================================================
+ 1        { id: 'dam', name: '大坝工程' },
+ 2        { id: 'flood-control', name: '防洪工程' },
+ 3        { id: 'irrigation', name: '灌溉工程' },
+ 4        { id: 'water-diversion', name: '引水调水' },
+ 5        { id: 'river-dredging', name: '河道疏浚' },
+ 6        { id: 'pumping-station', name: '泵站建设' },
+ 7        { id: 'groundwater', name: '地下水治理' },
+ 8        { id: 'hydraulic-monitor', name: '水利监测' },
+ 9        { id: 'hydraulic-equipment', name: '水工设备' },
+10        { id: 'soil-water-conservation', name: '水土保持' },
+11        { id: 'rural-water', name: '农村饮水安全' },
+12        { id: 'levee', name: '堤防工程' },
+13        { id: 'hydro-power-station', name: '水电站建设' }
+14      ]
+15    },
+16    {
+17      id: 'metallurgy-mining',
+18      name: '冶金矿山',
+19      icon: '⛏️',
+20      subs: [
+21        { id: 'iron-steel', name: '钢铁' },
+22        { id: 'nonferrous', name: '有色金属' },
+23        { id: 'aluminum', name: '铝业' },
+24        { id: 'copper', name: '铜业' },
+25        { id: 'rare-earth', name: '稀土' },
+26        { id: 'precious-metal', name: '贵金属' },
+27        { id: 'coal-mining', name: '煤矿' },
+28        { id: 'metal-mining', name: '金属矿开采' },
+29        { id: 'nonmetal-mining', name: '非金属矿' },
+30        { id: 'mineral-processing', name: '选矿' },
+31        { id: 'smelting', name: '冶炼' },
+32        { id: 'rolling', name: '轧钢' },
+33        { id: 'scrap-recycling', name: '废钢回收' },
+34        { id: 'mine-equipment', name: '矿山机械' },
+35        { id: 'mine-safety', name: '矿山安全' },
+36        { id: 'tailings', name: '尾矿处理' }
+37      ]
+38    },
+39    {
+40      id: 'building-materials',
+41      name: '建材',
+42      icon: '🧱',
+43      subs: [
+44        { id: 'cement', name: '水泥' },
+45        { id: 'concrete', name: '混凝土' },
+46        { id: 'ready-mix', name: '预拌砂浆' },
+47        { id: 'steel-structure', name: '钢结构' },
+48        { id: 'glass', name: '玻璃' },
+49        { id: 'ceramic', name: '建筑陶瓷' },
+50        { id: 'stone', name: '石材' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 23 页 / 共 60 页
+========================================================================================
+ 1        { id: 'waterproof', name: '防水材料' },
+ 2        { id: 'thermal-insulation', name: '保温材料' },
+ 3        { id: 'pipe-material', name: '管材' },
+ 4        { id: 'door-window', name: '门窗幕墙' },
+ 5        { id: 'architectural-coating', name: '建筑涂料' },
+ 6        { id: 'gypsum', name: '石膏板' },
+ 7        { id: 'brick', name: '砖瓦砌块' },
+ 8        { id: 'aluminum-profile', name: '铝型材' },
+ 9        { id: 'decoration-material', name: '装饰材料' }
+10      ]
+11    },
+12    {
+13      id: 'automobile',
+14      name: '汽车',
+15      icon: '🚗',
+16      subs: [
+17        { id: 'complete-vehicle', name: '整车制造' },
+18        { id: 'auto-parts', name: '汽车零部件' },
+19        { id: 'new-energy-vehicle', name: '新能源汽车' },
+20        { id: 'charging-swap', name: '充换电设施' },
+21        { id: 'auto-sales', name: '汽车销售' },
+22        { id: 'used-car', name: '二手车' },
+23        { id: 'auto-repair', name: '汽车维修' },
+24        { id: 'auto-beauty', name: '汽车美容' },
+25        { id: 'tire', name: '轮胎' },
+26        { id: 'auto-electronics', name: '汽车电子' },
+27        { id: 'autonomous-driving', name: '智能驾驶' },
+28        { id: 'auto-leasing', name: '汽车租赁' },
+29        { id: 'commercial-vehicle', name: '商用车' },
+30        { id: 'motorcycle', name: '摩托车' },
+31        { id: 'battery-recycling', name: '动力电池回收' },
+32        { id: 'auto-aftermarket', name: '汽车后市场' }
+33      ]
+34    },
+35    {
+36      id: 'electronic-information',
+37      name: '电子信息',
+38      icon: '💻',
+39      subs: [
+40        { id: 'display', name: '显示面板' },
+41        { id: 'led', name: 'LED' },
+42        { id: 'pcb', name: '印制电路板' },
+43        { id: 'electronic-components', name: '电子元器件' },
+44        { id: 'connector', name: '连接器' },
+45        { id: 'consumer-electronics', name: '消费电子' },
+46        { id: 'smart-terminal', name: '智能终端' },
+47        { id: 'instrument', name: '仪器仪表' },
+48        { id: 'industrial-control', name: '工控设备' },
+49        { id: 'embedded', name: '嵌入式系统' },
+50        { id: 'software', name: '软件开发' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 24 页 / 共 60 页
+========================================================================================
+ 1        { id: 'information-security', name: '信息安全' },
+ 2        { id: 'big-data', name: '大数据' },
+ 3        { id: 'iot', name: '物联网' },
+ 4        { id: 'artificial-intelligence', name: '人工智能' },
+ 5        { id: 'blockchain', name: '区块链' },
+ 6        { id: 'system-integration', name: '系统集成' },
+ 7        { id: 'smart-city', name: '智慧城市' }
+ 8      ]
+ 9    },
+10    {
+11      id: 'semiconductor',
+12      name: '半导体',
+13      icon: '🔌',
+14      subs: [
+15        { id: 'wafer', name: '晶圆制造' },
+16        { id: 'chip-design', name: '芯片设计' },
+17        { id: 'packaging-testing', name: '封装测试' },
+18        { id: 'semiconductor-equipment', name: '半导体设备' },
+19        { id: 'lithography', name: '光刻设备' },
+20        { id: 'semiconductor-material', name: '半导体材料' },
+21        { id: 'silicon-wafer', name: '硅片' },
+22        { id: 'photoresist', name: '光刻胶' },
+23        { id: 'electronic-gas', name: '电子特气' },
+24        { id: 'power-semiconductor', name: '功率半导体' },
+25        { id: 'analog-chip', name: '模拟芯片' },
+26        { id: 'silicon-carbide', name: '碳化硅' },
+27        { id: 'third-gen', name: '第三代半导体' },
+28        { id: 'sensor-chip', name: '传感器芯片' },
+29        { id: 'storage-chip', name: '存储芯片' }
+30      ]
+31    },
+32    {
+33      id: 'communication',
+34      name: '通信',
+35      icon: '📡',
+36      subs: [
+37        { id: '5g', name: '5G 建设' },
+38        { id: 'optical-fiber', name: '光纤光缆' },
+39        { id: 'base-station', name: '基站建设' },
+40        { id: 'communication-tower', name: '通信铁塔' },
+41        { id: 'network-optimization', name: '网络优化' },
+42        { id: 'data-communication', name: '数据通信' },
+43        { id: 'satellite', name: '卫星通信' },
+44        { id: 'quantum-communication', name: '量子通信' },
+45        { id: 'radio-management', name: '无线电管理' },
+46        { id: 'communication-pipeline', name: '通信管线' },
+47        { id: 'communication-terminal', name: '通信终端' },
+48        { id: 'communication-room', name: '通信机房' },
+49        { id: 'private-network', name: '专网通信' },
+50        { id: 'communication-service', name: '通信服务' }
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 25 页 / 共 60 页
+========================================================================================
+ 1      ]
+ 2    },
+ 3    {
+ 4      id: 'healthcare',
+ 5      name: '医疗健康',
+ 6      icon: '🏥',
+ 7      subs: [
+ 8        { id: 'hospital', name: '医院建设' },
+ 9        { id: 'medical-device', name: '医疗器械' },
+10        { id: 'medical-equipment', name: '医疗设备' },
+11        { id: 'medical-consumables', name: '医用耗材' },
+12        { id: 'ivd', name: '体外诊断' },
+13        { id: 'rehabilitation', name: '康复医疗' },
+14        { id: 'elderly-care', name: '养老照护' },
+15        { id: 'health-management', name: '健康管理' },
+16        { id: 'telemedicine', name: '互联网医疗' },
+17        { id: 'tcm', name: '中医药' },
+18        { id: 'medical-informatization', name: '医疗信息化' },
+19        { id: 'medical-gas', name: '医用气体' },
+20        { id: 'laboratory', name: '实验室建设' },
+21        { id: 'disinfection', name: '消毒感控' },
+22        { id: 'ophthalmic-dental', name: '眼科口腔' },
+23        { id: 'medical-textile', name: '医用纺织' }
+24      ]
+25    },
+26    {
+27      id: 'biomedicine',
+28      name: '生物医药',
+29      icon: '🧬',
+30      subs: [
+31        { id: 'chemical-drug', name: '化学药' },
+32        { id: 'biological-drug', name: '生物药' },
+33        { id: 'vaccine', name: '疫苗' },
+34        { id: 'antibody', name: '抗体药物' },
+35        { id: 'cell-therapy', name: '细胞治疗' },
+36        { id: 'gene-therapy', name: '基因治疗' },
+37        { id: 'traditional-medicine', name: '中药' },
+38        { id: 'api', name: '原料药' },
+39        { id: 'cdmo', name: 'CDMO' },
+40        { id: 'clinical-trial', name: '临床试验' },
+41        { id: 'reagent', name: '诊断试剂' },
+42        { id: 'biotech-service', name: '生物技术服务' },
+43        { id: 'fermentation', name: '发酵工程' },
+44        { id: 'medical-packaging', name: '医药包装' },
+45        { id: 'medical-cold-chain', name: '医药冷链' }
+46      ]
+47    },
+48    {
+49      id: 'agriculture',
+50      name: '农业',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 26 页 / 共 60 页
+========================================================================================
+ 1      icon: '🌾',
+ 2      subs: [
+ 3        { id: 'planting', name: '种植业' },
+ 4        { id: 'grain', name: '粮食' },
+ 5        { id: 'vegetable', name: '蔬菜' },
+ 6        { id: 'fruit', name: '水果' },
+ 7        { id: 'greenhouse', name: '设施农业' },
+ 8        { id: 'seed', name: '种业' },
+ 9        { id: 'fertilizer', name: '肥料' },
+10        { id: 'pesticide', name: '农药' },
+11        { id: 'agricultural-machinery', name: '农机' },
+12        { id: 'farmland-irrigation', name: '农田灌溉' },
+13        { id: 'livestock', name: '畜牧养殖' },
+14        { id: 'poultry', name: '家禽' },
+15        { id: 'aquaculture', name: '水产养殖' },
+16        { id: 'agricultural-processing', name: '农产品加工' },
+17        { id: 'smart-agriculture', name: '智慧农业' },
+18        { id: 'agricultural-base', name: '农业基地' },
+19        { id: 'land-transfer', name: '土地流转' },
+20        { id: 'agricultural-service', name: '农事服务' }
+21      ]
+22    },
+23    {
+24      id: 'forestry',
+25      name: '林业',
+26      icon: '🌳',
+27      subs: [
+28        { id: 'afforestation', name: '造林绿化' },
+29        { id: 'nursery', name: '苗木花卉' },
+30        { id: 'forest-management', name: '森林经营' },
+31        { id: 'forestry-economy', name: '林下经济' },
+32        { id: 'timber', name: '木材加工' },
+33        { id: 'bamboo', name: '竹产业' },
+34        { id: 'forest-products', name: '林产品' },
+35        { id: 'forest-tourism', name: '森林旅游' },
+36        { id: 'forest-fire', name: '森林防火' },
+37        { id: 'pest-control', name: '林业有害生物防治' },
+38        { id: 'wetland', name: '湿地保护' },
+39        { id: 'desertification', name: '防沙治沙' },
+40        { id: 'forest-carbon-sink', name: '林业碳汇' }
+41      ]
+42    },
+43    {
+44      id: 'fishery',
+45      name: '渔业',
+46      icon: '🐟',
+47      subs: [
+48        { id: 'marine-fishing', name: '海洋捕捞' },
+49        { id: 'mariculture', name: '海水养殖' },
+50        { id: 'freshwater-aquaculture', name: '淡水养殖' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 27 页 / 共 60 页
+========================================================================================
+ 1        { id: 'aquatic-seedling', name: '水产种苗' },
+ 2        { id: 'aquatic-feed', name: '水产饲料' },
+ 3        { id: 'aquatic-processing', name: '水产品加工' },
+ 4        { id: 'cold-storage', name: '冷库仓储' },
+ 5        { id: 'fishing-port', name: '渔港建设' },
+ 6        { id: 'aquaculture-equipment', name: '养殖设备' },
+ 7        { id: 'deep-sea-aquaculture', name: '深远海养殖' },
+ 8        { id: 'aquatic-health', name: '水产动保' },
+ 9        { id: 'leisure-fishery', name: '休闲渔业' },
+10        { id: 'fishery-brand', name: '渔业品牌' }
+11      ]
+12    },
+13    {
+14      id: 'food',
+15      name: '食品',
+16      icon: '🍜',
+17      subs: [
+18        { id: 'grain-oil', name: '粮油加工' },
+19        { id: 'meat', name: '肉制品' },
+20        { id: 'dairy', name: '乳制品' },
+21        { id: 'beverage', name: '饮料' },
+22        { id: 'liquor', name: '酒类' },
+23        { id: 'snack', name: '休闲食品' },
+24        { id: 'condiment', name: '调味品' },
+25        { id: 'bakery', name: '烘焙' },
+26        { id: 'frozen-food', name: '速冻食品' },
+27        { id: 'prepared-food', name: '预制菜' },
+28        { id: 'health-food', name: '保健食品' },
+29        { id: 'food-additive', name: '食品添加剂' },
+30        { id: 'food-packaging', name: '食品包装' },
+31        { id: 'food-testing', name: '食品检测' },
+32        { id: 'catering-supply-chain', name: '餐饮供应链' }
+33      ]
+34    },
+35    {
+36      id: 'cultural-tourism',
+37      name: '文旅',
+38      icon: '🎭',
+39      subs: [
+40        { id: 'scenic-spot', name: '景区运营' },
+41        { id: 'theme-park', name: '主题乐园' },
+42        { id: 'cultural-park', name: '文化产业园' },
+43        { id: 'rural-tourism', name: '乡村旅游' },
+44        { id: 'red-tourism', name: '红色旅游' },
+45        { id: 'homestay', name: '民宿' },
+46        { id: 'travel-agency', name: '旅行社' },
+47        { id: 'performing-arts', name: '演艺演出' },
+48        { id: 'museum', name: '博物馆' },
+49        { id: 'intangible-heritage', name: '非遗文创' },
+50        { id: 'film-base', name: '影视基地' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 28 页 / 共 60 页
+========================================================================================
+ 1        { id: 'camping', name: '露营基地' },
+ 2        { id: 'hot-spring', name: '温泉度假' },
+ 3        { id: 'sports-tourism', name: '体育旅游' },
+ 4        { id: 'tourism-planning', name: '旅游规划' },
+ 5        { id: 'smart-tourism', name: '智慧文旅' }
+ 6      ]
+ 7    },
+ 8    {
+ 9      id: 'hotel',
+10      name: '酒店',
+11      icon: '🏨',
+12      subs: [
+13        { id: 'star-hotel', name: '星级酒店' },
+14        { id: 'chain-hotel', name: '连锁酒店' },
+15        { id: 'budget-hotel', name: '经济型酒店' },
+16        { id: 'boutique-hotel', name: '精品酒店' },
+17        { id: 'resort', name: '度假酒店' },
+18        { id: 'serviced-apartment', name: '服务式公寓' },
+19        { id: 'hotel-management', name: '酒店管理' },
+20        { id: 'hotel-supplies', name: '酒店用品' },
+21        { id: 'hotel-decoration', name: '酒店装修' },
+22        { id: 'hotel-catering', name: '餐饮服务' },
+23        { id: 'conference-banquet', name: '会议宴会' },
+24        { id: 'hotel-investment', name: '酒店投资' },
+25        { id: 'homestay-operation', name: '民宿运营' },
+26        { id: 'hotel-renovation', name: '酒店改造' }
+27      ]
+28    },
+29    {
+30      id: 'education',
+31      name: '教育',
+32      icon: '🎓',
+33      subs: [
+34        { id: 'k12', name: 'K12 教育' },
+35        { id: 'vocational-education', name: '职业教育' },
+36        { id: 'higher-education', name: '高等教育' },
+37        { id: 'preschool', name: '学前教育' },
+38        { id: 'training-institution', name: '培训机构' },
+39        { id: 'online-education', name: '在线教育' },
+40        { id: 'language-training', name: '语言培训' },
+41        { id: 'art-education', name: '艺术教育' },
+42        { id: 'sports-education', name: '体育教育' },
+43        { id: 'stem-education', name: '科技教育' },
+44        { id: 'enterprise-training', name: '企业培训' },
+45        { id: 'certification', name: '资格认证' },
+46        { id: 'study-abroad', name: '留学服务' },
+47        { id: 'education-equipment', name: '教育装备' },
+48        { id: 'campus-construction', name: '校园建设' },
+49        { id: 'teacher-training', name: '师资培训' }
+50      ]
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 29 页 / 共 60 页
+========================================================================================
+ 1    },
+ 2    {
+ 3      id: 'finance',
+ 4      name: '金融',
+ 5      icon: '🏦',
+ 6      subs: [
+ 7        { id: 'bank', name: '银行' },
+ 8        { id: 'securities', name: '证券' },
+ 9        { id: 'insurance', name: '保险' },
+10        { id: 'trust', name: '信托' },
+11        { id: 'fund', name: '基金' },
+12        { id: 'factoring', name: '保理' },
+13        { id: 'guarantee', name: '担保' },
+14        { id: 'microfinance', name: '小额贷款' },
+15        { id: 'pawn', name: '典当' },
+16        { id: 'financial-leasing', name: '金融租赁' },
+17        { id: 'asset-management', name: '资产管理' },
+18        { id: 'payment', name: '支付结算' },
+19        { id: 'fintech', name: '金融科技' },
+20        { id: 'credit-rating', name: '信用评级' },
+21        { id: 'amc', name: '不良资产' },
+22        { id: 'rural-finance', name: '农村金融' }
+23      ]
+24    },
+25    {
+26      id: 'investment',
+27      name: '投资',
+28      icon: '💰',
+29      subs: [
+30        { id: 'equity-investment', name: '股权投资' },
+31        { id: 'industrial-investment', name: '产业投资' },
+32        { id: 'financial-investment', name: '财务投资' },
+33        { id: 'ma', name: '并购' },
+34        { id: 'strategic-investment', name: '战略投资' },
+35        { id: 'vc', name: '风险投资' },
+36        { id: 'pe', name: '私募股权' },
+37        { id: 'government-fund', name: '政府引导基金' },
+38        { id: 'industrial-fund', name: '产业基金' },
+39        { id: 'real-estate-investment', name: '房地产投资' },
+40        { id: 'project-investment', name: '项目投资' },
+41        { id: 'angel-investment', name: '天使投资' },
+42        { id: 'cross-border-investment', name: '跨境投资' },
+43        { id: 'investment-advisory', name: '投资顾问' }
+44      ]
+45    },
+46    {
+47      id: 'commerce-logistics',
+48      name: '商贸物流',
+49      icon: '🚚',
+50      subs: [
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 30 页 / 共 60 页
+========================================================================================
+ 1        { id: 'wholesale', name: '批发贸易' },
+ 2        { id: 'retail', name: '零售' },
+ 3        { id: 'e-commerce', name: '电子商务' },
+ 4        { id: 'cross-border-ecommerce', name: '跨境电商' },
+ 5        { id: 'import-export', name: '进出口贸易' },
+ 6        { id: 'distribution', name: '分销代理' },
+ 7        { id: 'cold-chain-logistics', name: '冷链物流' },
+ 8        { id: 'third-party-logistics', name: '第三方物流' },
+ 9        { id: 'express', name: '快递快运' },
+10        { id: 'line-haul', name: '干线运输' },
+11        { id: 'city-distribution', name: '城市配送' },
+12        { id: 'logistics-park', name: '物流园区' },
+13        { id: 'supply-chain', name: '供应链管理' },
+14        { id: 'bulk-trade', name: '大宗贸易' },
+15        { id: 'customs-declaration', name: '报关报检' }
+16      ]
+17    },
+18    {
+19      id: 'warehousing',
+20      name: '仓储',
+21      icon: '📦',
+22      subs: [
+23        { id: 'general-warehouse', name: '普通仓库' },
+24        { id: 'bonded-warehouse', name: '保税仓' },
+25        { id: 'cold-warehouse', name: '冷库' },
+26        { id: 'hazardous-warehouse', name: '危化品仓' },
+27        { id: 'automated-warehouse', name: '智能立体库' },
+28        { id: 'warehouse-rental', name: '仓库租赁' },
+29        { id: 'warehouse-construction', name: '仓储建设' },
+30        { id: 'warehouse-equipment', name: '仓储设备' },
+31        { id: 'inventory-management', name: '库存管理' },
+32        { id: 'cloud-warehouse', name: '云仓' },
+33        { id: 'grain-storage', name: '粮食仓储' },
+34        { id: 'warehouse-finance', name: '仓单质押' }
+35      ]
+36    },
+37    {
+38      id: 'port-shipping',
+39      name: '港口航运',
+40      icon: '🚢',
+41      subs: [
+42        { id: 'port-construction', name: '港口建设' },
+43        { id: 'port-operation', name: '港口运营' },
+44        { id: 'container', name: '集装箱' },
+45        { id: 'bulk-cargo', name: '散货运输' },
+46        { id: 'shipping-company', name: '航运公司' },
+47        { id: 'shipbuilding', name: '船舶制造' },
+48        { id: 'ship-repair', name: '船舶维修' },
+49        { id: 'dredging', name: '航道疏浚' },
+50        { id: 'port-machinery', name: '港机设备' },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 31 页 / 共 60 页
+========================================================================================
+ 1          });
+ 2        };
+ 3        $('#pub-duration-chips').addEventListener('click', (e) => {
+ 4          const chip = e.target.closest('[data-days]');
+ 5          if (!chip) return;
+ 6          durationDays = Number(chip.dataset.days);
+ 7          root.querySelectorAll('#pub-duration-chips .chip').forEach((el) => el.classList.toggle('active', el === chip));
+ 8        });
+ 9        let importedText = '';
+10        const urlBtn = $('#pub-url-import');
+11        if (urlBtn) {
+12          const tip = $('#pub-url-tip');
+13          const box = $('#pub-url-result');
+14          const say = (msg, color) => {
+15            if (!tip) return;
+16            tip.textContent = msg || '';
+17            tip.style.color = color || '';
+18          };
+19          urlBtn.addEventListener('click', async () => {
+20            const url = ($('#pub-url-src')?.value || '').trim();
+21            if (!url) { say('请先粘贴链接', '#c0392b'); return; }
+22            if (!/^https?:\/\//i.test(url)) { say('链接要以 http:// 或 https:// 开头', '#c0392b'); return; }
+23            urlBtn.disabled = true;
+24            urlBtn.textContent = '抓取中…';
+25            say('正在抓取网页并解析正文…');
+26            if (box) box.innerHTML = '';
+27            try {
+28              const r = await service.aiFetchUrl(url);
+29              if (!r || !r.ok) {
+30                say(r?.note || '解析失败', '#c0392b');
+31                return;
+32              }
+33              importedText = r.text || '';
+34              let addedImgs = 0;
+35              if (Array.isArray(r.files) && r.files.length) {
+36                const have = new Set(uploaded.map((f) => f.id));
+37                const add = r.files.filter((f) => f && f.id && !have.has(f.id));
+38                if (add.length) {
+39                  uploaded = [...uploaded, ...add];
+40                  renderFiles();
+41                  addedImgs = add.length;
+42                }
+43              }
+44              const linkEl = $('#pub-link');
+45              if (linkEl && !linkEl.value.trim()) {
+46                linkEl.value = r.url || url;
+47                linkEl.dispatchEvent(new Event('input', { bubbles: true }));
+48              }
+49              const imgTip = addedImgs ? `，并导入 ${addedImgs} 张图片` : '';
+50              say(`✅ 已解析 ${r.chars} 字${imgTip}，点下面「第一步：AI 汇总资料」继续`, '#0e8f5f');
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 32 页 / 共 60 页
+========================================================================================
+ 1              if (box) {
+ 2                box.innerHTML = `<div class="url-import-result">
+ 3                  <div class="uir-head">📄 ${ui.esc(r.title || '已导入')}</div>
+ 4                  <div class="uir-body">${ui.esc((r.text || '').slice(0, 400))}${(r.text || '').length > 400 ? ' …' : ''}</div>
+ 5                  <div class="uir-foot">共 ${r.chars} 字${r.rawChars && r.rawChars > r.chars ? `（已滤掉 ${r.rawChars - r.chars} 字广告/联系方式）` : ''}${addedImgs ? ` · ${addedImgs} 张图片已加入附件` : ''} · 来自 ${ui.esc(r.host || '')}</div>
+ 6                </div>`;
+ 7              }
+ 8              ui.toast('链接已解析', 'ok');
+ 9            } catch (err) {
+10              say(err.message || '抓取失败', '#c0392b');
+11            } finally {
+12              urlBtn.disabled = false;
+13              urlBtn.textContent = '导入';
+14            }
+15          });
+16        }
+17        const contactAiBtn = $('#pub-contact-ai');
+18        if (contactAiBtn) {
+19          const tip = $('#pub-contact-ai-tip');
+20          const say = (msg, color) => {
+21            if (!tip) return;
+22            tip.textContent = msg || '';
+23            tip.style.color = color || '';
+24          };
+25          contactAiBtn.addEventListener('click', async () => {
+26            const src = ($('#pub-contact-src')?.value || '').trim();
+27            if (!src) { say('请先粘贴一段文字', '#c0392b'); return; }
+28            contactAiBtn.disabled = true;
+29            contactAiBtn.textContent = '识别中…';
+30            say('正在识别…');
+31            try {
+32              const r = await service.aiContact(src);
+33              if (!r || !r.ok) {
+34                say(r?.note || '没识别到联系信息', '#c0392b');
+35                return;
+36              }
+37              const setIfEmpty = (sel, val) => {
+38                if (!val) return false;
+39                const el = $(sel);
+40                if (!el) return false;
+41                if (!el.value.trim()) { el.value = val; return true; }
+42                return false;
+43              };
+44              let filled = 0;
+45              if (setIfEmpty('#pub-contact-name', r.name)) filled++;
+46              if (setIfEmpty('#pub-phone', r.phone)) filled++;
+47              if (setIfEmpty('#pub-wechat', r.wechat)) filled++;
+48              if (setIfEmpty('#pub-company', r.company)) filled++;
+49              const parts = [];
+50              if (r.name) parts.push(`联系人 ${r.name}`);
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 33 页 / 共 60 页
+========================================================================================
+ 1              if (r.phone) parts.push(`电话 ${r.phone}`);
+ 2              if (r.wechat) parts.push(`微信 ${r.wechat}`);
+ 3              if (r.company) parts.push(`企业 ${r.company}`);
+ 4              if (filled) {
+ 5                say(`✅ 已填入：${parts.join(' · ')}`, '#0e8f5f');
+ 6                ui.toast('已自动填入联系信息', 'ok');
+ 7              } else if (parts.length) {
+ 8                say(`识别到：${parts.join(' · ')}（原有内容未覆盖）`, '');
+ 9              } else {
+10                say('没识别到联系信息', '#c0392b');
+11              }
+12            } catch (err) {
+13              say(err.message || '识别失败', '#c0392b');
+14            } finally {
+15              contactAiBtn.disabled = false;
+16              contactAiBtn.textContent = '🤖 识别并填入';
+17            }
+18          });
+19        }
+20        const blocks = [];
+21        const blocksHost = $('#pub-blocks');
+22        const blockFileHtml = (f, bi, fi) => {
+23          const rm = `<i class="pub-file-x" data-brm="${bi}:${fi}">×</i>`;
+24          if (f.kind === 'image') {
+25            return `<div class="pub-file-thumb">
+26              <img src="${ui.esc(ui.safeUrl(f.url))}" alt="">
+27              ${rm}
+28            </div>`;
+29          }
+30          return `<span class="pub-file-chip">📎 ${ui.esc(f.name || '附件')}${rm}</span>`;
+31        };
+32        const renderBlocks = () => {
+33          if (!blocksHost) return;
+34          blocksHost.innerHTML = blocks
+35            .map(
+36              (b, i) => `<div class="pub-block" data-bi="${i}" data-bdrop="${i}">
+37                <div class="row between mb6">
+38                  <span class="tiny dim">段落 ${i + 1}</span>
+39                  <button class="btn btn-sm" data-bdel="${i}" type="button" style="color:var(--danger)">删除段落</button>
+40                </div>
+41                <textarea class="input" data-btext="${i}" rows="3" maxlength="4000" placeholder="这一段的文字说明">${ui.esc(b.text || '')}</textarea>
+42                <div class="pub-drop mt6" data-bdropzone="${i}">
+43                  <div class="pub-drop-hint">📎 把文件拖到这里，或点下面按钮选择</div>
+44                  <div class="row gap8 mt6" style="align-items:center;justify-content:center">
+45                    <button class="btn btn-sm btn-outline" data-bpick="${i}" type="button">选择文件</button>
+46                    <span class="tiny dim" data-bstatus="${i}">${b.files.length ? b.files.length + ' 个文件' : '未添加文件'}</span>
+47                  </div>
+48                </div>
+49                <div class="row wrap gap8 mt6" data-bfiles="${i}">
+50                  ${b.files.map((f, fi) => blockFileHtml(f, i, fi)).join('')}
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 34 页 / 共 60 页
+========================================================================================
+ 1                </div>
+ 2                <input type="file" multiple data-bfile="${i}" style="display:none">
+ 3              </div>`
+ 4            )
+ 5            .join('');
+ 6        };
+ 7        const addBlock = () => {
+ 8          if (blocks.length >= 10) return ui.toast('最多添加 10 个段落', 'err');
+ 9          blocks.push({ text: '', files: [] });
+10          renderBlocks();
+11        };
+12        $('#pub-block-add')?.addEventListener('click', addBlock);
+13        blocksHost?.addEventListener('input', (e) => {
+14          const i = e.target.dataset && e.target.dataset.btext;
+15          if (i !== undefined) blocks[Number(i)].text = e.target.value;
+16        });
+17        blocksHost?.addEventListener('click', async (e) => {
+18          const del = e.target.closest('[data-bdel]');
+19          if (del) {
+20            blocks.splice(Number(del.dataset.bdel), 1);
+21            return renderBlocks();
+22          }
+23          const rm = e.target.closest('[data-brm]');
+24          if (rm) {
+25            const [bi, fi] = rm.dataset.brm.split(':').map(Number);
+26            blocks[bi].files.splice(fi, 1);
+27            return renderBlocks();
+28          }
+29          const pick = e.target.closest('[data-bpick]');
+30          if (pick) {
+31            const input = blocksHost.querySelector(`[data-bfile="${pick.dataset.bpick}"]`);
+32            input?.click();
+33            return;
+34          }
+35        });
+36        const addFilesToBlock = async (i, fileList) => {
+37          const list = [...(fileList || [])];
+38          if (!list.length) return;
+39          const st = blocksHost.querySelector(`[data-bstatus="${i}"]`);
+40          if (st) st.textContent = `上传中 0/${list.length}…`;
+41          let ok = 0;
+42          for (const f of list.slice(0, 20 - blocks[i].files.length)) {
+43            try {
+44              const res = await api.uploadFile(f);
+45              const rec = (res.files && res.files[0]) || res.file;
+46              if (rec) {
+47                blocks[i].files.push(rec);
+48                ok++;
+49              }
+50            } catch (err) {
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 35 页 / 共 60 页
+========================================================================================
+ 1              ui.toast(`${f.name} 上传失败`, 'err');
+ 2            }
+ 3            if (st) st.textContent = `上传中 ${ok}/${list.length}…`;
+ 4          }
+ 5          renderBlocks();
+ 6          if (ok) ui.toast(`已添加 ${ok} 个文件`, 'ok');
+ 7        };
+ 8        blocksHost?.addEventListener('change', async (e) => {
+ 9          const idx = e.target.dataset && e.target.dataset.bfile;
+10          if (idx === undefined) return;
+11          await addFilesToBlock(Number(idx), e.target.files);
+12        });
+13        blocksHost?.addEventListener('dragover', (e) => {
+14          const zone = e.target.closest('[data-bdropzone]');
+15          if (!zone) return;
+16          e.preventDefault();
+17          zone.classList.add('dragging');
+18        });
+19        blocksHost?.addEventListener('dragleave', (e) => {
+20          const zone = e.target.closest('[data-bdropzone]');
+21          if (zone) zone.classList.remove('dragging');
+22        });
+23        blocksHost?.addEventListener('drop', async (e) => {
+24          const zone = e.target.closest('[data-bdropzone]');
+25          if (!zone) return;
+26          e.preventDefault();
+27          zone.classList.remove('dragging');
+28          const bi = Number(zone.dataset.bdropzone);
+29          if (Number.isNaN(bi)) return;
+30          const dt = e.dataTransfer;
+31          if (!dt || !dt.files || !dt.files.length) return;
+32          await addFilesToBlock(bi, dt.files);
+33        });
+34        let pubGeo = { lat: 0, lng: 0 };
+35        const useLocEl = $('#pub-use-loc');
+36        const locBody = $('#pub-loc-body');
+37        useLocEl?.addEventListener('change', () => locBody.classList.toggle('hide', !useLocEl.checked));
+38        if (editing?.location?.lat) pubGeo = { lat: editing.location.lat, lng: editing.location.lng };
+39        if (pubGeo.lat) {
+40          const st = $('#pub-loc-status');
+41          if (st) st.textContent = `已记录坐标 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}`;
+42        }
+43        $('#pub-loc-get')?.addEventListener('click', () => {
+44          const st = $('#pub-loc-status');
+45          if (!navigator.geolocation) {
+46            if (st) st.textContent = '当前浏览器不支持定位，请手动填写地址';
+47            return;
+48          }
+49          if (st) st.textContent = '定位中…';
+50          navigator.geolocation.getCurrentPosition(
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 36 页 / 共 60 页
+========================================================================================
+ 1            (pos) => {
+ 2              pubGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+ 3              if (st) st.textContent = `已定位 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}（可再手填地址）`;
+ 4              ui.toast('已获取当前位置', 'ok');
+ 5            },
+ 6            (err) => {
+ 7              if (st) st.textContent = err.code === 1 ? '定位被拒绝，请手动填写地址' : '定位失败，请手动填写地址';
+ 8            },
+ 9            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+10          );
+11        });
+12        const submit = async (publishNow) => {
+13          if (busy) return;
+14          const text = $('#pub-text').value.trim();
+15          if (!text && !uploaded.length) return ui.toast('请先输入文字内容或导入文件', 'err');
+16          const title = $('#pub-title')?.value?.trim() || aiResult?.titles?.title || text.split('\n')[0].slice(0, 60);
+17          const subtitle = $('#pub-subtitle')?.value?.trim() || aiResult?.titles?.subtitle || '';
+18          busy = true;
+19          const publishBtn = $('#pub-submit');
+20          const draftBtn = $('#pub-draft');
+21          if (publishBtn) publishBtn.textContent = '提交中…';
+22          if (draftBtn) draftBtn.disabled = true;
+23          let catFields = {};
+24          try {
+25            catFields = collectCategoryFields();
+26          } catch (err) {
+27            console.error('[publish] 收集分类字段失败:', err);
+28            busy = false;
+29            if (publishBtn) publishBtn.textContent = '立即发布';
+30            if (draftBtn) draftBtn.disabled = false;
+31            return ui.toast('表单读取失败：' + (err.message || err), 'err');
+32          }
+33          const fields = {
+34            category,
+35            text,
+36            title,
+37            subtitle,
+38            link: ($('#pub-link')?.value || '').trim(),
+39            type: $('#pub-type')?.value || '',
+40            durationDays,
+41            fileIds: uploaded.map((f) => f.id),
+42            contactName: $('#pub-contact-name')?.value || '',
+43            phone: $('#pub-phone')?.value || '',
+44            wechat: $('#pub-wechat')?.value || '',
+45            company: $('#pub-company')?.value || '',
+46            aiAutoReply: $('#pub-ai-reply')?.checked ? '1' : '0',
+47            fileSecret: {
+48              enabled: Boolean($('#pub-secret-enabled')?.checked),
+49              password: $('#pub-secret-pwd')?.value || '',
+50              ttlHours: Number($('#pub-secret-ttl')?.value) || 6,
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 37 页 / 共 60 页
+========================================================================================
+ 1            },
+ 2            publish: publishNow ? '1' : '0',
+ 3            blocks: JSON.stringify(
+ 4              blocks
+ 5                .map((b) => ({ text: (b.text || '').trim(), files: b.files.map((f) => f.id) }))
+ 6                .filter((b) => b.text || b.files.length)
+ 7            ),
+ 8            location: $('#pub-use-loc')?.checked
+ 9              ? JSON.stringify({
+10                  public: Boolean($('#pub-loc-public')?.checked),
+11                  lat: pubGeo.lat || 0,
+12                  lng: pubGeo.lng || 0,
+13                  address: ($('#pub-address')?.value || '').trim(),
+14                })
+15              : '',
+16            ...catFields,
+17          };
+18          try {
+19            const fd = api.form(fields);
+20            if (editing) {
+21              await service.updateListing(editing.id, { ...fields });
+22              if (publishNow && editing.status !== 'published') await service.publishListing(editing.id, durationDays);
+23              ui.toast('已保存', 'ok');
+24              ctx.nav(`#/detail/${editing.id}`);
+25            } else {
+26              const res = await service.createListing(fd);
+27              if (!uploaded.some((f) => f.kind === 'image')) {
+28                try {
+29                  ui.showLoading('正在生成项目配图…');
+30                  await applyAutoCover(res.listing.id, res.listing);
+31                  ui.hideLoading();
+32                } catch (err) {
+33                  ui.hideLoading();
+34                  console.warn('[publish] 自动配图失败:', err.message);
+35                }
+36              }
+37              ui.toast(publishNow ? '发布成功！' : '已存为草稿', 'ok');
+38              ctx.nav(`#/detail/${res.listing.id}`);
+39            }
+40          } catch (err) {
+41            ui.toast(err.message, 'err');
+42          } finally {
+43            busy = false;
+44            if (publishBtn) publishBtn.textContent = '立即发布';
+45            if (draftBtn) draftBtn.disabled = false;
+46          }
+47        };
+48        $('#pub-submit').addEventListener('click', () => submit(true));
+49        $('#pub-draft').addEventListener('click', () => submit(false));
+50        renderFiles();
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 38 页 / 共 60 页
+========================================================================================
+ 1        if (editing) {
+ 2          showSteps();
+ 3          renderCatFields();
+ 4          if (aiResult) renderAiResult(aiResult);
+ 5          const chip = root.querySelector(`#pub-duration-chips [data-days="${durationDays}"]`);
+ 6          if (chip) {
+ 7            root.querySelectorAll('#pub-duration-chips .chip').forEach((el) => el.classList.toggle('active', el === chip));
+ 8          }
+ 9        }
+10      },
+11    };
+12  }
+13  // ===== public/static/views-referral.js =====
+14  import { service } from './api.js';
+15  import * as ui from './ui.js';
+16  function relTime(iso) {
+17    if (!iso) return '';
+18    const t = Date.parse(iso);
+19    if (!t) return '';
+20    const d = Date.now() - t;
+21    if (d < 60_000) return '刚刚';
+22    if (d < 3600_000) return `${Math.floor(d / 60_000)} 分钟前`;
+23    if (d < 86400_000) return `${Math.floor(d / 3600_000)} 小时前`;
+24    if (d < 7 * 86400_000) return `${Math.floor(d / 86400_000)} 天前`;
+25    return new Date(t).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+26  }
+27  export async function renderReferral(ctx) {
+28    let info = null;
+29    try {
+30      info = await service.referralMe();
+31    } catch {
+32      info = null;
+33    }
+34    const ss = info?.shareStats || { total: 0, today: 0, week: 0, byChannel: {}, conversion: 0, lastAt: '' };
+35    if (!info) {
+36      return {
+37        title: '推荐有礼',
+38        content: '<div class="page"><div class="empty">请先登录后再查看推荐码</div></div>',
+39      };
+40    }
+41    const qr = service.qrUrl(info.qrText || info.url, 260);
+42    const invited = info.invited || [];
+43    const invitedHtml = invited.length
+44      ? invited
+45          .map(
+46            (u) => `<div class="ref-user">
+47              <div class="ref-ava">${ui.esc((u.nickname || '?').slice(0, 1))}</div>
+48              <div class="ref-body">
+49                <div class="ref-name">${ui.esc(u.nickname || '未命名')}</div>
+50                <div class="ref-meta">${ui.esc([u.company, u.industry, u.city].filter(Boolean).join(' · ') || '—')}</div>
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 39 页 / 共 60 页
+========================================================================================
+ 1              </div>
+ 2              <a class="btn btn-sm btn-outline" href="#/user/${ui.esc(u.id)}">查看</a>
+ 3            </div>`,
+ 4          )
+ 5          .join('')
+ 6      : '<div class="empty">还没有人通过你的推荐码入驻</div>';
+ 7    return {
+ 8      title: '推荐有礼',
+ 9      showBack: true,
+10      content: `<div class="page ref-page">
+11        <div class="ref-hero">
+12          <div class="ref-hero-t">🎁 推荐有礼</div>
+13          <div class="ref-hero-d">把小鱼来了推荐给同行，对方通过你的专属码入驻后，会自动加入你的通讯录</div>
+14          <div class="ref-code-box">
+15            <div class="ref-code-label">我的推荐码</div>
+16            <div class="ref-code" id="ref-code">${ui.esc(info.code)}</div>
+17            <div class="ref-qr">
+18              <img src="${ui.esc(qr)}" alt="推荐二维码" id="ref-qr-img">
+19              <div class="ref-qr-cap">扫一扫，用我的推荐码入驻</div>
+20            </div>
+21          </div>
+22          <div class="ref-actions">
+23            <button class="btn btn-primary grow" id="ref-copy" type="button">📋 复制推荐链接</button>
+24            <button class="btn btn-outline grow" id="ref-share" type="button">💚 转发到微信</button>
+25          </div>
+26          <div class="ref-link" id="ref-link">${ui.esc(info.url)}</div>
+27        </div>
+28        <div class="ref-stats">
+29          <div class="ref-stat"><b>${info.invitedCount || 0}</b><span>已推荐入驻</span></div>
+30          <div class="ref-stat"><b>${info.contactCount || 0}</b><span>通讯录新增</span></div>
+31          <div class="ref-stat"><b>${ss.total || 0}</b><span>累计分享</span></div>
+32          <div class="ref-stat"><b>${ss.today || 0}</b><span>今日分享</span></div>
+33        </div>
+34        <div class="card card-pad mt12">
+35          <div class="row between mb8">
+36            <div class="strong">📊 我的分享数据</div>
+37            <span class="tiny dim">${ss.invitedCount > 0 && ss.conversion ? `平均 ${ss.conversion} 次分享带来 1 个注册` : (ss.total ? `已分享 ${ss.total} 次，暂无注册` : `还没分享过`)}</span>
+38          </div>
+39          <div class="sh-stat-grid">
+40            <div class="sh-stat"><b>${ss.byChannel?.poster || 0}</b><span>🖼 海报</span></div>
+41            <div class="sh-stat"><b>${ss.byChannel?.text || 0}</b><span>📝 文案</span></div>
+42            <div class="sh-stat"><b>${ss.byChannel?.link || 0}</b><span>🔗 链接</span></div>
+43            <div class="sh-stat"><b>${ss.week || 0}</b><span>近 7 天</span></div>
+44          </div>
+45          <div class="sh-tip">
+46            ${ss.total
+47              ? `最近一次分享：${relTime(ss.lastAt)}`
+48              : '还没有分享记录，点下面的按钮把平台发给同行吧'}
+49          </div>
+50        </div>
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 40 页 / 共 60 页
+========================================================================================
+ 1        <div class="card card-pad mt12">
+ 2          <div class="row between mb8">
+ 3            <div class="strong">我推荐的人</div>
+ 4            <a class="tiny" href="#/contacts">查看通讯录 ›</a>
+ 5          </div>
+ 6          <div class="ref-users">${invitedHtml}</div>
+ 7        </div>
+ 8        <div class="card card-pad mt12">
+ 9          <div class="strong mb8">怎么用</div>
+10          <div class="ref-how">
+11            <div class="ref-step"><span>1</span>把上面的二维码或链接发给同行</div>
+12            <div class="ref-step"><span>2</span>对方扫码打开注册页，推荐码会自动填好</div>
+13            <div class="ref-step"><span>3</span>对方完成注册后，会自动进入你的通讯录</div>
+14            <div class="ref-step"><span>4</span>你可以直接查看他的公司、行业、城市等基础信息</div>
+15          </div>
+16        </div>
+17      </div>`,
+18      mount(root) {
+19        const code = info.code;
+20        const url = info.url;
+21        root.querySelector('#ref-copy')?.addEventListener('click', async () => {
+22          const text = `我在用「小鱼来了」找项目、找投资、找产业，用我的推荐码 ${code} 入驻：${url}`;
+23          try {
+24            if (navigator.clipboard && navigator.clipboard.writeText) {
+25              await navigator.clipboard.writeText(text);
+26            } else {
+27              const ta = document.createElement('textarea');
+28              ta.value = text;
+29              document.body.appendChild(ta);
+30              ta.select();
+31              document.execCommand('copy');
+32              ta.remove();
+33            }
+34            ui.toast('推荐链接已复制', 'ok');
+35          } catch {
+36            ui.toast('复制失败，请长按上面的链接手动复制', 'err');
+37          }
+38        });
+39        root.querySelector('#ref-share')?.addEventListener('click', () => {
+40          if (navigator.share) {
+41            navigator.share({
+42              title: '小鱼来了 · 推荐有礼',
+43              text: `用我的推荐码 ${code} 入驻小鱼来了，找项目、找投资、找产业`,
+44              url,
+45            }).catch(() => {});
+46          } else {
+47            ui.toast('请复制上面的链接，粘贴到微信发送', 'ok');
+48          }
+49        });
+50        const img = root.querySelector('#ref-qr-img');
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 41 页 / 共 60 页
+========================================================================================
+ 1        if (img) {
+ 2          img.style.cursor = 'pointer';
+ 3          img.addEventListener('click', () => {
+ 4            window.open(img.src, '_blank');
+ 5          });
+ 6        }
+ 7      },
+ 8    };
+ 9  }
+10  export default { renderReferral };
+11  // ===== public/static/views-shorts.js =====
+12  import { service, isLoggedIn } from './api.js';
+13  import * as ui from './ui.js';
+14  const PAGE_SIZE = 20;
+15  export async function renderShorts(ctx, params) {
+16    const startId = params.id || '';
+17    const res = await service.feeds({ type: 'short', limit: PAGE_SIZE }).catch(() => ({ items: [] }));
+18    let list = (res.items || []).filter((f) => f.type === 'short');
+19    if (startId) {
+20      const idx = list.findIndex((f) => f.id === startId);
+21      if (idx > 0) {
+22        list = [list[idx], ...list.slice(0, idx), ...list.slice(idx + 1)];
+23      } else if (idx < 0) {
+24        const one = await service.feed(startId).catch(() => null);
+25        if (one?.feed) list = [one.feed, ...list];
+26      }
+27    }
+28    if (!list.length) {
+29      return {
+30        title: '短视频',
+31        content: `<div class="page">${ui.emptyState('🎬', '还没有短视频', '<a class="btn btn-primary mt16" href="#/publish?category=short">发布第一条</a>')}</div>`,
+32        showBack: true,
+33        activeTab: 'home',
+34      };
+35    }
+36    const slideHtml = (f, i) => `<section class="short-slide" data-idx="${i}" data-id="${ui.esc(f.id)}">
+37      <video
+38        class="short-video"
+39        src="${ui.esc(ui.safeUrl(f.videoUrl))}"
+40        poster="${ui.esc(ui.safeUrl(f.coverUrl || ''))}"
+41        loop playsinline webkit-playsinline preload="auto"
+42        data-poster="${ui.esc(ui.safeUrl(f.coverUrl || ''))}"></video>
+43      <div class="short-center-play" data-center="${i}">▶</div>
+44      <div class="short-side">
+45        <button class="short-act" data-like="${i}" aria-label="点赞">
+46          <span class="short-act-ico ${f.liked ? 'liked' : ''}" data-likeico="${i}">${f.liked ? '❤️' : '🤍'}</span>
+47          <span class="short-act-n" data-likecount="${i}">${f.stats?.likes || 0}</span>
+48        </button>
+49        <button class="short-act" data-comment="${i}" aria-label="评论">
+50          <span class="short-act-ico">💬</span>
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 42 页 / 共 60 页
+========================================================================================
+ 1          <span class="short-act-n">${f.stats?.comments || 0}</span>
+ 2        </button>
+ 3        <button class="short-act" data-fav="${i}" aria-label="收藏">
+ 4          <span class="short-act-ico ${f.favorited ? 'faved' : ''}" data-favico="${i}">${f.favorited ? '⭐' : '☆'}</span>
+ 5          <span class="short-act-n" data-favcount="${i}">${f.stats?.favorites || 0}</span>
+ 6        </button>
+ 7        <button class="short-act" data-contact="${i}" aria-label="联系我">
+ 8          <span class="short-act-ico">📮</span>
+ 9          <span class="short-act-n">联系我</span>
+10        </button>
+11        <button class="short-act" data-share="${i}" aria-label="分享">
+12          <span class="short-act-ico">↗️</span>
+13          <span class="short-act-n">分享</span>
+14        </button>
+15        <button class="short-act" data-mute="${i}" aria-label="声音">
+16          <span class="short-act-ico" data-muteico="${i}">🔊</span>
+17          <span class="short-act-n">声音</span>
+18        </button>
+19      </div>
+20      <div class="short-info">
+21        <div class="short-author">
+22          <span class="short-avatar">${ui.esc(ui.initials(f.owner?.nickname || '用户'))}</span>
+23          <span class="short-name">${ui.esc(f.owner?.nickname || '用户')}</span>
+24          <span class="short-views">👁 ${f.stats?.views || 0}</span>
+25        </div>
+26        <div class="short-title">${ui.esc(f.title || '')}</div>
+27        ${f.description ? `<div class="short-desc">${ui.esc(f.description.slice(0, 80))}</div>` : ''}
+28      </div>
+29      <div class="short-progress"><i data-bar="${i}"></i></div>
+30    </section>`;
+31    const html = `<div class="shorts-wrap">
+32      <div class="shorts-feed" id="shorts-feed">
+33        ${list.map((f, i) => slideHtml(f, i)).join('')}
+34      </div>
+35      <div class="shorts-topbar">
+36        <button class="shorts-back" id="shorts-back">←</button>
+37        <span class="shorts-count" id="shorts-count">1 / ${list.length}</span>
+38      </div>
+39      <div class="shorts-loading hide" id="shorts-loading">加载中…</div>
+40    </div>`;
+41    return {
+42      title: '短视频',
+43      content: html,
+44      fullscreen: true,
+45      noTab: true,
+46      mount(root) {
+47        const feed = root.querySelector('#shorts-feed');
+48        const installBar = document.getElementById('install-bar');
+49        if (installBar) installBar.style.display = 'none';
+50        const wxTip = document.getElementById('wx-tip');
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 43 页 / 共 60 页
+========================================================================================
+ 1        if (wxTip) wxTip.style.display = 'none';
+ 2        document.body.classList.add('shorts-mode');
+ 3        const countEl = root.querySelector('#shorts-count');
+ 4        const loadingEl = root.querySelector('#shorts-loading');
+ 5        const slides = () => [...feed.querySelectorAll('.short-slide')];
+ 6        let current = 0;
+ 7        let muted = false;
+ 8        let soundBlocked = false;
+ 9        const viewed = new Set();
+10        const syncMuteIcons = () => {
+11          slides().forEach((el, i) => {
+12            const ico = feed.querySelector(`[data-muteico="${i}"]`);
+13            if (ico) ico.textContent = muted ? '🔇' : '🔊';
+14          });
+15        };
+16        const showSoundTip = () => {
+17          let tip = feed.querySelector('#shorts-sound-tip');
+18          if (!tip) {
+19            tip = document.createElement('div');
+20            tip.id = 'shorts-sound-tip';
+21            tip.className = 'shorts-sound-tip';
+22            tip.innerHTML = '<span>🔊</span> 点击屏幕开启声音';
+23            feed.appendChild(tip);
+24          }
+25          tip.classList.add('on');
+26        };
+27        const hideSoundTip = () => {
+28          feed.querySelector('#shorts-sound-tip')?.classList.remove('on');
+29        };
+30        const unlockSound = () => {
+31          soundBlocked = false;
+32          muted = false;
+33          hideSoundTip();
+34          const v = slides()[current]?.querySelector('video');
+35          if (v) {
+36            v.muted = false;
+37            v.play().catch(() => {});
+38          }
+39          syncMuteIcons();
+40        };
+41        root.querySelector('#shorts-back').addEventListener('click', () => {
+42          if (history.length > 1) history.back();
+43          else ctx.nav('#/home');
+44        });
+45        const playSlide = (i) => {
+46          slides().forEach((el, k) => {
+47            const v = el.querySelector('video');
+48            if (!v) return;
+49            if (k === i) {
+50              v.muted = muted;
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 44 页 / 共 60 页
+========================================================================================
+ 1              const attempt = v.play();
+ 2              if (attempt && typeof attempt.catch === 'function') {
+ 3                attempt.catch((err) => {
+ 4                  if (err && err.name === 'NotAllowedError' && !v.muted) {
+ 5                    soundBlocked = true;
+ 6                    v.muted = true;
+ 7                    v.play().catch(() => {});
+ 8                    showSoundTip();
+ 9                    syncMuteIcons();
+10                  }
+11                });
+12              }
+13              const markOrientation = () => {
+14                const vw = v.videoWidth || 0;
+15                const vh = v.videoHeight || 0;
+16                if (!vw || !vh) return;
+17                el.dataset.orient = vw >= vh ? 'landscape' : 'portrait';
+18                if (vw >= vh) {
+19                  const poster = v.dataset.poster || '';
+20                  if (poster) el.style.setProperty('--poster', 'url(' + JSON.stringify(poster) + ')');
+21                }
+22              };
+23              markOrientation();
+24              if (!v.dataset.orientBound) {
+25                v.dataset.orientBound = '1';
+26                v.addEventListener('loadedmetadata', markOrientation, { once: true });
+27              }
+28              el.classList.add('playing');
+29            } else {
+30              v.pause();
+31              el.classList.remove('playing');
+32            }
+33          });
+34          current = i;
+35          if (countEl) countEl.textContent = `${i + 1} / ${slides().length}`;
+36          const s = slides()[i];
+37          if (s && !viewed.has(s.dataset.id)) {
+38            viewed.add(s.dataset.id);
+39            service.viewFeed(s.dataset.id).catch(() => {});
+40          }
+41        };
+42        const io = new IntersectionObserver(
+43          (entries) => {
+44            entries.forEach((e) => {
+45              if (e.isIntersecting && e.intersectionRatio > 0.6) {
+46                const i = Number(e.target.dataset.idx);
+47                if (i !== current) playSlide(i);
+48              }
+49            });
+50          },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 45 页 / 共 60 页
+========================================================================================
+ 1          { root: feed, threshold: [0.0, 0.6, 1.0] },
+ 2        );
+ 3        slides().forEach((s) => io.observe(s));
+ 4        let rafTimer = null;
+ 5        const tick = () => {
+ 6          const v = slides()[current]?.querySelector('video');
+ 7          const bar = feed.querySelector(`[data-bar="${current}"]`);
+ 8          if (v && bar && v.duration) {
+ 9            bar.style.width = `${(v.currentTime / v.duration) * 100}%`;
+10          }
+11          rafTimer = requestAnimationFrame(tick);
+12        };
+13        rafTimer = requestAnimationFrame(tick);
+14        feed.addEventListener('click', (e) => {
+15          const btn = e.target.closest('[data-like],[data-comment],[data-share],[data-mute],[data-fav],[data-contact]');
+16          if (btn) return;
+17          const slide = e.target.closest('.short-slide');
+18          if (!slide) return;
+19          const v = slide.querySelector('video');
+20          if (!v) return;
+21          if (v.paused) {
+22            v.play().catch(() => {});
+23            slide.classList.add('playing');
+24          } else {
+25            v.pause();
+26            slide.classList.remove('playing');
+27          }
+28        });
+29        let lastTap = 0;
+30        feed.addEventListener('touchend', (e) => {
+31          const slide = e.target.closest('.short-slide');
+32          if (!slide) return;
+33          const now = Date.now();
+34          if (now - lastTap < 300) {
+35            const likeBtn = slide.querySelector('[data-like]');
+36            if (likeBtn && !likeBtn.dataset.done) likeBtn.click();
+37            e.preventDefault();
+38          }
+39          lastTap = now;
+40        });
+41        feed.addEventListener('click', async (e) => {
+42          const btn = e.target.closest('[data-like]');
+43          if (!btn) return;
+44          if (!isLoggedIn()) {
+45            ui.toast('登录后才能点赞', 'err');
+46            return;
+47          }
+48          const i = Number(btn.dataset.like);
+49          const slide = slides()[i];
+50          if (!slide) return;
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 46 页 / 共 60 页
+========================================================================================
+ 1          try {
+ 2            const r = await service.likeFeed(slide.dataset.id);
+ 3            const ico = feed.querySelector(`[data-likeico="${i}"]`);
+ 4            const cnt = feed.querySelector(`[data-likecount="${i}"]`);
+ 5            if (ico) ico.textContent = r.liked ? '❤️' : '🤍';
+ 6            if (ico) ico.classList.toggle('liked', r.liked);
+ 7            if (cnt) cnt.textContent = r.feed?.stats?.likes ?? r.likes ?? '';
+ 8          } catch (err) {
+ 9            ui.toast(err.message || '操作失败', 'err');
+10          }
+11        });
+12        feed.addEventListener('click', (e) => {
+13          const btn = e.target.closest('[data-mute]');
+14          if (!btn) return;
+15          muted = !muted;
+16          soundBlocked = false;
+17          hideSoundTip();
+18          slides().forEach((el) => {
+19            const v = el.querySelector('video');
+20            if (v) {
+21              v.muted = muted;
+22              if (!muted && v.paused) v.play().catch(() => {});
+23            }
+24          });
+25          syncMuteIcons();
+26        });
+27        feed.addEventListener('click', async (e) => {
+28          const btn = e.target.closest('[data-fav]');
+29          if (!btn) return;
+30          e.stopPropagation();
+31          if (!isLoggedIn()) {
+32            ui.toast('登录后才能收藏', 'err');
+33            return;
+34          }
+35          const i = Number(btn.dataset.fav);
+36          const slide = slides()[i];
+37          if (!slide) return;
+38          btn.disabled = true;
+39          try {
+40            const r = await service.toggleFavorite(slide.dataset.id);
+41            const ico = feed.querySelector(`[data-favico="${i}"]`);
+42            const cnt = feed.querySelector(`[data-favcount="${i}"]`);
+43            if (ico) {
+44              ico.textContent = r.favorited ? '⭐' : '☆';
+45              ico.classList.toggle('faved', Boolean(r.favorited));
+46            }
+47            if (cnt) cnt.textContent = r.count ?? '';
+48            ui.toast(r.favorited ? '已收藏' : '已取消收藏', 'ok');
+49          } catch (err) {
+50            ui.toast(err.message || '操作失败', 'err');
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 47 页 / 共 60 页
+========================================================================================
+ 1          } finally {
+ 2            btn.disabled = false;
+ 3          }
+ 4        });
+ 5        feed.addEventListener('click', (e) => {
+ 6          const btn = e.target.closest('[data-contact]');
+ 7          if (!btn) return;
+ 8          e.stopPropagation();
+ 9          const i = Number(btn.dataset.contact);
+10          const slide = slides()[i];
+11          if (!slide) return;
+12          openContactSheet(slide);
+13        });
+14        feed.addEventListener('click', async (e) => {
+15          const btn = e.target.closest('[data-share]');
+16          if (!btn) return;
+17          const i = Number(btn.dataset.share);
+18          const slide = slides()[i];
+19          if (!slide) return;
+20          const url = `${location.origin}/#/live/${slide.dataset.id}`;
+21          const title = slide.querySelector('.short-title')?.textContent || '小鱼来了 · 短视频';
+22          if (navigator.share) {
+23            try {
+24              await navigator.share({ title, url });
+25              return;
+26            } catch { /* 取消 */ }
+27          }
+28          const ok = await ui.copyText(`${title}\n${url}`);
+29          ui.toast(ok ? '链接已复制，可粘贴到微信' : '复制失败', ok ? 'ok' : 'err');
+30        });
+31        feed.addEventListener('click', (e) => {
+32          const btn = e.target.closest('[data-comment]');
+33          if (!btn) return;
+34          const i = Number(btn.dataset.comment);
+35          const slide = slides()[i];
+36          if (slide) ctx.nav(`#/live/${slide.dataset.id}`);
+37        });
+38        feed.addEventListener('scroll', async () => {
+39          if (loadingEl) return;
+40          const nearEnd = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - feed.clientHeight * 1.5;
+41          if (!nearEnd) return;
+42          const last = slides()[slides().length - 1];
+43          if (!last || feed.dataset.loading === '1') return;
+44          feed.dataset.loading = '1';
+45          try {
+46            const more = await service.feeds({ type: 'short', limit: PAGE_SIZE }).catch(() => ({ items: [] }));
+47            const known = new Set(slides().map((s) => s.dataset.id));
+48            const fresh = (more.items || []).filter((f) => f.type === 'short' && !known.has(f.id));
+49            if (fresh.length) {
+50              const base = slides().length;
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 48 页 / 共 60 页
+========================================================================================
+ 1              feed.insertAdjacentHTML('beforeend', fresh.map((f, k) => slideHtml(f, base + k)).join(''));
+ 2              feed.querySelectorAll('.short-slide').forEach((s) => io.observe(s));
+ 3            }
+ 4          } finally {
+ 5            feed.dataset.loading = '';
+ 6          }
+ 7        }, { passive: true });
+ 8        const openContactSheet = async (slide) => {
+ 9          const feedId = slide.dataset.id;
+10          let data = null;
+11          try {
+12            const r = await service.feed(feedId);
+13            data = r?.feed || r?.data?.feed || null;
+14          } catch { /* 拿不到就用页面上的信息 */ }
+15          const ownerName =
+16            data?.owner?.nickname ||
+17            slide.querySelector('.short-name')?.textContent ||
+18            '发布者';
+19          const ownerId = data?.ownerId || data?.owner?.id || '';
+20          const feedTitle = data?.title || slide.querySelector('.short-title')?.textContent || '';
+21          if (isLoggedIn() && ownerId && (ctx.state?.user?.id || '') === ownerId) {
+22            ui.toast('这是你自己发布的视频', 'err');
+23            return;
+24          }
+25          const wrap = document.createElement('div');
+26          wrap.className = 'fb-sheet-mask';
+27          wrap.innerHTML = `<div class="fb-sheet">
+28            <div class="fb-sheet-head">
+29              <div>
+30                <div class="fb-sheet-t">📮 联系发布者</div>
+31                <div class="fb-sheet-d">${ui.esc(ownerName)}${feedTitle ? ' · ' + ui.esc(feedTitle.slice(0, 18)) : ''}</div>
+32              </div>
+33              <button class="fb-sheet-x" type="button" aria-label="关闭">✕</button>
+34            </div>
+35            <div class="field">
+36              <label>你想了解什么？</label>
+37              <textarea class="textarea" rows="3" maxlength="1000" placeholder="例如：视频里这套设备能租多久？报价多少？"></textarea>
+38            </div>
+39            <div class="field">
+40              <label>你的联系方式 <span class="tiny dim">（选填，方便对方直接联系你）</span></label>
+41              <input class="input" maxlength="60" placeholder="手机号 / 微信号">
+42            </div>
+43            <button class="btn btn-primary btn-block" type="button" data-send>发送给发布者</button>
+44            <div class="tiny dim center mt8">发布者和管理员都会看到这条提问</div>
+45          </div>`;
+46          document.body.appendChild(wrap);
+47          requestAnimationFrame(() => wrap.classList.add('show'));
+48          const close = () => {
+49            wrap.classList.remove('show');
+50            setTimeout(() => wrap.remove(), 220);
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 49 页 / 共 60 页
+========================================================================================
+ 1          };
+ 2          wrap.querySelector('.fb-sheet-x').addEventListener('click', close);
+ 3          wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+ 4          wrap.querySelector('[data-send]').addEventListener('click', async (ev) => {
+ 5            const btn = ev.currentTarget;
+ 6            const text = (wrap.querySelector('textarea')?.value || '').trim();
+ 7            const contact = (wrap.querySelector('input')?.value || '').trim();
+ 8            if (!text) return ui.toast('先写下你想问的内容', 'err');
+ 9            if (!isLoggedIn()) {
+10              close();
+11              ctx.nav(`#/login?redirect=${encodeURIComponent('#/shorts')}`);
+12              return;
+13            }
+14            btn.disabled = true;
+15            btn.textContent = '发送中…';
+16            try {
+17              await service.feedbackSubmit({
+18                text,
+19                contact,
+20                page: `短视频 ${feedTitle || feedId}`,
+21                feedId,
+22                toUserId: ownerId,
+23                toName: ownerName,
+24              });
+25              ui.toast('已发送，发布者会收到通知', 'ok');
+26              close();
+27            } catch (err) {
+28              ui.toast(err.message || '发送失败', 'err');
+29              btn.disabled = false;
+30              btn.textContent = '发送给发布者';
+31            }
+32          });
+33        };
+34        const onFirstGesture = () => {
+35          unlockSound();
+36          feed.removeEventListener('touchstart', onFirstGesture);
+37          feed.removeEventListener('click', onFirstGesture);
+38        };
+39        feed.addEventListener('touchstart', onFirstGesture, { passive: true });
+40        feed.addEventListener('click', onFirstGesture);
+41        playSlide(0);
+42        feed.scrollTop = 0;
+43        syncMuteIcons();
+44        return () => {
+45          if (rafTimer) cancelAnimationFrame(rafTimer);
+46          io.disconnect();
+47          slides().forEach((el) => el.querySelector('video')?.pause());
+48          document.body.classList.remove('shorts-mode');
+49        };
+50      },
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 50 页 / 共 60 页
+========================================================================================
+ 1    };
+ 2  }
+ 3  export async function renderFavorites(ctx) {
+ 4    if (!isLoggedIn()) {
+ 5      ctx.nav(`#/login?redirect=${encodeURIComponent('#/favorites')}`);
+ 6      return { title: '我的收藏', content: '<div class="page"></div>', noTab: true };
+ 7    }
+ 8    let items = [];
+ 9    try {
+10      const r = await service.favorites({});
+11      items = r?.items || [];
+12    } catch {
+13      items = [];
+14    }
+15    const card = (f) => `<a class="fav-card" href="#/shorts/${ui.esc(f.id)}">
+16      <div class="fav-thumb">
+17        ${f.coverUrl
+18          ? `<img src="${ui.esc(ui.safeUrl(f.coverUrl))}" alt="" loading="lazy">`
+19          : '<div class="fav-ph">🎬</div>'}
+20        <span class="fav-badge">⭐</span>
+21      </div>
+22      <div class="fav-t">${ui.esc(f.title || '')}</div>
+23      <div class="fav-m">
+24        <span>👁 ${f.stats?.views || 0}</span>
+25        <span>❤ ${f.stats?.likes || 0}</span>
+26        <span>⭐ ${f.stats?.favorites || 0}</span>
+27      </div>
+28    </a>`;
+29    return {
+30      title: '我的收藏',
+31      showBack: true,
+32      activeTab: 'me',
+33      content: `<div class="page fav-page">
+34        <div class="fav-head">
+35          <div class="fav-head-t">⭐ 我的收藏</div>
+36          <div class="fav-head-d">${items.length ? `共 ${items.length} 条` : '还没有收藏任何内容'}</div>
+37        </div>
+38        ${
+39          items.length
+40            ? `<div class="fav-grid">${items.map(card).join('')}</div>`
+41            : `<div class="empty">在短视频里点「☆」就能收藏到这里</div>`
+42        }
+43      </div>`,
+44    };
+45  }
+46  // ===== public/static/views-tags.js =====
+47  import { service, isLoggedIn, store } from './api.js';
+48  import * as ui from './ui.js';
+49  function num(n) {
+50    return Number(n || 0).toLocaleString('zh-CN');
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 51 页 / 共 60 页
+========================================================================================
+ 1  }
+ 2  function fmtDate(v) {
+ 3    if (!v) return '';
+ 4    const d = new Date(v);
+ 5    if (Number.isNaN(d.getTime())) return '';
+ 6    const p = (x) => String(x).padStart(2, '0');
+ 7    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+ 8  }
+ 9  export async function renderTags(ctx) {
+10    if (!isLoggedIn()) {
+11      ctx.nav('#/login?redirect=' + encodeURIComponent('#/tags'));
+12      return { title: '我的标签', content: '<div class="page"></div>' };
+13    }
+14    const res = await service.myTags().catch(() => null);
+15    if (!res) {
+16      return { title: '我的标签', content: ui.emptyState('🧭', '加载失败，请稍后重试'), showBack: true };
+17    }
+18    const categories = res.categories || [];
+19    const tags = res.tags || {};
+20    const section = (cat) => {
+21      const picked = tags[cat.key] || [];
+22      const presetSet = new Set(cat.options || []);
+23      const chips = (cat.options || [])
+24        .map(
+25          (o) =>
+26            `<span class="tag-chip ${picked.includes(o) ? 'on' : ''}" data-cat="${ui.esc(cat.key)}" data-val="${ui.esc(o)}">${ui.esc(o)}</span>`
+27        )
+28        .join('');
+29      const customs = picked.filter((v) => !presetSet.has(v));
+30      const customChips = customs
+31        .map(
+32          (o) =>
+33            `<span class="tag-chip on tag-custom" data-cat="${ui.esc(cat.key)}" data-val="${ui.esc(o)}">${ui.esc(o)}<i class="tag-x">×</i></span>`
+34        )
+35        .join('');
+36      return `<div class="card card-pad mt12 tag-sec" data-cat="${ui.esc(cat.key)}">
+37        <div class="row between mb8">
+38          <div class="tag-sec-t">${cat.icon || ''} ${ui.esc(cat.name)}</div>
+39          <div class="tiny dim"><span class="tag-count" data-cat="${ui.esc(cat.key)}">${picked.length}</span> / ${cat.max}</div>
+40        </div>
+41        <div class="tiny dim mb12">${ui.esc(cat.desc || '')}</div>
+42        <div class="tag-wrap">${chips}${customChips}</div>
+43        <div class="tag-add mt10">
+44          <input class="input" data-cat="${ui.esc(cat.key)}" maxlength="12" placeholder="没有合适的？自己填一个，回车添加">
+45          <button class="btn btn-sm btn-outline" data-add="${ui.esc(cat.key)}">添加</button>
+46        </div>
+47      </div>`;
+48    };
+49    return {
+50      title: '我的标签',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 52 页 / 共 60 页
+========================================================================================
+ 1      content: `<div class="page">
+ 2        <div class="tag-hero">
+ 3          <div class="tag-hero-t">我的标签</div>
+ 4          <div class="tag-hero-s">选得越准，平台推给你的项目和对接方越对。</div>
+ 5        </div>
+ 6        ${categories.map(section).join('')}
+ 7        <button class="btn btn-primary btn-block mt16" id="tag-save">保存标签</button>
+ 8        <div class="center mt12 small"><a href="#/membership">看看会员权益 ›</a></div>
+ 9      </div>`,
+10      showBack: true,
+11      mount(root) {
+12        const state = {};
+13        for (const cat of categories) state[cat.key] = [...(tags[cat.key] || [])];
+14        const catOf = (key) => categories.find((c) => c.key === key);
+15        const syncCount = (key) => {
+16          const el = root.querySelector(`.tag-count[data-cat="${key}"]`);
+17          if (el) el.textContent = state[key].length;
+18        };
+19        const syncChips = (key) => {
+20          const sec = root.querySelector(`.tag-sec[data-cat="${key}"]`);
+21          if (!sec) return;
+22          const preset = new Set(catOf(key).options || []);
+23          const wrap = sec.querySelector('.tag-wrap');
+24          const base = wrap.querySelectorAll('.tag-chip:not(.tag-custom)');
+25          base.forEach((c) => c.classList.toggle('on', state[key].includes(c.dataset.val)));
+26          wrap.querySelectorAll('.tag-custom').forEach((n) => n.remove());
+27          const customs = state[key].filter((v) => !preset.has(v));
+28          for (const v of customs) {
+29            const span = document.createElement('span');
+30            span.className = 'tag-chip on tag-custom';
+31            span.dataset.cat = key;
+32            span.dataset.val = v;
+33            span.innerHTML = `${v.replace(/[<>&"]/g, '')}<i class="tag-x">×</i>`;
+34            wrap.appendChild(span);
+35          }
+36          syncCount(key);
+37        };
+38        const toggle = (key, val) => {
+39          const cat = catOf(key);
+40          const arr = state[key];
+41          const i = arr.indexOf(val);
+42          if (i >= 0) arr.splice(i, 1);
+43          else {
+44            if (arr.length >= cat.max) return ui.toast(`「${cat.name}」最多选 ${cat.max} 个`, 'err');
+45            arr.push(val);
+46          }
+47          syncChips(key);
+48        };
+49        const addCustom = (key) => {
+50          const input = root.querySelector(`.tag-add input[data-cat="${key}"]`);
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 53 页 / 共 60 页
+========================================================================================
+ 1          const v = (input.value || '').trim().slice(0, 12);
+ 2          if (!v) return;
+ 3          const cat = catOf(key);
+ 4          if (state[key].includes(v)) {
+ 5            input.value = '';
+ 6            return ui.toast('已经加过了', 'err');
+ 7          }
+ 8          if (state[key].length >= cat.max) return ui.toast(`「${cat.name}」最多选 ${cat.max} 个`, 'err');
+ 9          state[key].push(v);
+10          input.value = '';
+11          syncChips(key);
+12        };
+13        root.addEventListener('click', (e) => {
+14          const chip = e.target.closest('.tag-chip');
+15          if (chip) return toggle(chip.dataset.cat, chip.dataset.val);
+16          const addBtn = e.target.closest('[data-add]');
+17          if (addBtn) return addCustom(addBtn.dataset.add);
+18        });
+19        root.querySelectorAll('.tag-add input').forEach((input) => {
+20          input.addEventListener('keydown', (e) => {
+21            if (e.key === 'Enter') {
+22              e.preventDefault();
+23              addCustom(input.dataset.cat);
+24            }
+25          });
+26        });
+27        root.querySelector('#tag-save')?.addEventListener('click', async (e) => {
+28          const btn = e.currentTarget;
+29          btn.disabled = true;
+30          btn.textContent = '保存中…';
+31          try {
+32            const r = await service.saveTags({ tags: state });
+33            ui.toast(`已保存，${r.filled} 类标签已填写`, 'ok');
+34            await ctx.refreshMe().catch(() => null);
+35          } catch (err) {
+36            ui.toast(err.message || '保存失败', 'err');
+37          } finally {
+38            btn.disabled = false;
+39            btn.textContent = '保存标签';
+40          }
+41        });
+42      },
+43    };
+44  }
+45  export async function renderMembership(ctx) {
+46    if (!isLoggedIn()) {
+47      ctx.nav('#/login?redirect=' + encodeURIComponent('#/membership'));
+48      return { title: '会员等级', content: '<div class="page"></div>' };
+49    }
+50    const res = await service.levels().catch(() => null);
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 54 页 / 共 60 页
+========================================================================================
+ 1    if (!res) {
+ 2      return { title: '会员等级', content: ui.emptyState('🧭', '加载失败，请稍后重试'), showBack: true };
+ 3    }
+ 4    const levels = res.levels || [];
+ 5    const payCfg = res.payment || {};
+ 6    const cur = res.current || { key: 'free', name: '免费用户', icon: '🐟', color: '#8a95a5' };
+ 7    const card = (lv) => {
+ 8      const isCurrent = lv.key === cur.key;
+ 9      const isFree = lv.price === 0;
+10      return `<div class="lv-card ${isCurrent ? 'cur' : ''}" style="--lv:${lv.color}">
+11        <div class="lv-head">
+12          <div class="lv-icon" style="background:${lv.color}1a;color:${lv.color}">${lv.icon}</div>
+13          <div class="lv-title">
+14            <div class="lv-name">${ui.esc(lv.name)}${isCurrent ? ' <span class="lv-cur">当前</span>' : ''}</div>
+15            <div class="lv-tagline">${ui.esc(lv.tagline || '')}</div>
+16          </div>
+17          <div class="lv-price">
+18            ${isFree ? '<b>免费</b>' : `<b>¥${num(lv.price)}</b><span>${ui.esc(lv.unit)}</span>`}
+19          </div>
+20        </div>
+21        <div class="lv-perks">
+22          ${(lv.perks || []).map((p) => `<div class="lv-perk"><span class="lv-dot" style="color:${lv.color}">✓</span>${ui.esc(p)}</div>`).join('')}
+23        </div>
+24        ${
+25          isFree
+26            ? ''
+27            : isCurrent
+28              ? `<button class="btn btn-block mt12" id="lv-cancel">取消会员</button>`
+29              : `<button class="btn btn-primary btn-block mt12" data-buy="${ui.esc(lv.key)}">开通 ${ui.esc(lv.name)}</button>`
+30        }
+31      </div>`;
+32    };
+33    return {
+34      title: '会员等级',
+35      content: `<div class="page">
+36        <div class="lv-hero">
+37          <div class="lv-hero-cur">
+38            当前等级
+39            <b>${cur.icon} ${ui.esc(cur.name)}</b>
+40            ${cur.expiresAt ? `<span class="lv-hero-exp">有效期至 ${fmtDate(cur.expiresAt)}</span>` : ''}
+41          </div>
+42        </div>
+43        <div class="tiny dim center mt12 mb12">会员按月计费，可随时取消。支持微信 / 支付宝扫码，或银行转账。</div>
+44        ${levels.map(card).join('')}
+45        <div class="inv-risk mt12">
+46          <div class="inv-risk-t">💡 说明</div>
+47          <div class="inv-risk-b">
+48            <p>1. 会员按自然月计费，开通后立即生效，有效期 30 天。</p>
+49            <p>2. 升级更高等级按当前到期日顺延 30 天。</p>
+50            <p>3. 取消会员立即降回免费用户，已支付费用不退还。</p>
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 55 页 / 共 60 页
+========================================================================================
+ 1            <p>4. 扫码或转账后请点「我已付款」，管理员确认到账后立即开通（一般 1 个工作日内）。</p>
+ 2          </div>
+ 3        </div>
+ 4      </div>`,
+ 5      showBack: true,
+ 6      mount(root) {
+ 7        const openPaySheet = (lv) => {
+ 8          const pay = payCfg || {};
+ 9          let mode = 'wechat';
+10          const wrap = document.createElement('div');
+11          wrap.className = 'pay-mask';
+12          wrap.innerHTML = `<div class="pay-sheet">
+13            <div class="pay-head">
+14              <div>
+15                <div class="pay-t">开通 ${ui.esc(lv.name)}</div>
+16                <div class="pay-d">${ui.esc(lv.tagline || '')}</div>
+17              </div>
+18              <div class="pay-amt">¥${num(lv.price)}<span>${ui.esc(lv.unit || '')}</span></div>
+19              <button class="pay-x" type="button" aria-label="关闭">✕</button>
+20            </div>
+21            <div class="pay-tabs">
+22              <button class="pay-tab on" data-mode="wechat" type="button">💚 微信</button>
+23              <button class="pay-tab" data-mode="alipay" type="button">💙 支付宝</button>
+24              <button class="pay-tab" data-mode="bank" type="button">🏦 银行卡</button>
+25            </div>
+26            <div class="pay-body">
+27              <div class="pay-pane" data-pane="wechat">
+28                ${pay.wechatQr
+29                  ? `<img class="pay-qr" src="${ui.esc(ui.safeUrl(pay.wechatQr))}" alt="微信收款码">
+30                     <div class="pay-qr-tip">微信「扫一扫」识别二维码付款</div>
+31                     <div class="pay-qr-name">收款人：${ui.esc(pay.wechatName || '')}</div>`
+32                  : '<div class="empty">暂未配置微信收款码</div>'}
+33              </div>
+34              <div class="pay-pane hide" data-pane="alipay">
+35                ${pay.alipayQr
+36                  ? `<img class="pay-qr" src="${ui.esc(ui.safeUrl(pay.alipayQr))}" alt="支付宝收款码">
+37                     <div class="pay-qr-tip">支付宝「扫一扫」识别二维码付款</div>
+38                     <div class="pay-qr-name">收款人：${ui.esc(pay.alipayName || '')}</div>`
+39                  : '<div class="empty">暂未配置支付宝收款码</div>'}
+40              </div>
+41              <div class="pay-pane hide" data-pane="bank">
+42                ${
+43                  pay.bankAccount
+44                    ? `<div class="pay-bank">
+45                        <div class="pay-bank-row"><span>开户行</span><b data-copy="${ui.esc(pay.bankName || '')}">${ui.esc(pay.bankName || '—')}</b></div>
+46                        <div class="pay-bank-row"><span>户名</span><b data-copy="${ui.esc(pay.bankHolder || '')}">${ui.esc(pay.bankHolder || '—')}</b></div>
+47                        <div class="pay-bank-row hi"><span>卡号</span><b class="pay-card" data-copy="${ui.esc(pay.bankAccount || '')}">${ui.esc(pay.bankAccount || '—')}</b></div>
+48                       </div>
+49                       <button class="btn btn-outline btn-block mt8" data-copy-card type="button">复制卡号</button>
+50                       <div class="pay-qr-tip">转账后请务必在下方填写转账备注（姓名/手机号），方便核对</div>`
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 56 页 / 共 60 页
+========================================================================================
+ 1                    : '<div class="empty">暂未配置银行卡信息，请用微信或支付宝</div>'
+ 2                }
+ 3              </div>
+ 4            </div>
+ 5            <div class="field mt12">
+ 6              <label>转账备注 <span class="tiny dim">（选填，方便管理员核对到账）</span></label>
+ 7              <input class="input" id="pay-note" maxlength="120" placeholder="例如：微信转账 备注「小鱼 张工」">
+ 8            </div>
+ 9            <button class="btn btn-primary btn-block" id="pay-done" type="button">我已付款，提交订单</button>
+10            <div class="pay-foot">${ui.esc(pay.note || '转账后请点上面按钮提交订单，管理员确认到账后立即开通。')}</div>
+11          </div>`;
+12          document.body.appendChild(wrap);
+13          requestAnimationFrame(() => wrap.classList.add('show'));
+14          const close = () => {
+15            wrap.classList.remove('show');
+16            setTimeout(() => wrap.remove(), 220);
+17          };
+18          wrap.querySelector('.pay-x').addEventListener('click', close);
+19          wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+20          wrap.querySelectorAll('.pay-tab').forEach((tab) => {
+21            tab.addEventListener('click', () => {
+22              mode = tab.dataset.mode;
+23              wrap.querySelectorAll('.pay-tab').forEach((t) => t.classList.toggle('on', t === tab));
+24              wrap.querySelectorAll('.pay-pane').forEach((p) => {
+25                p.classList.toggle('hide', p.dataset.pane !== mode);
+26              });
+27            });
+28          });
+29          wrap.querySelector('[data-copy-card]')?.addEventListener('click', async () => {
+30            const card = wrap.querySelector('.pay-card')?.dataset.copy || '';
+31            const ok = await ui.copyText(card);
+32            ui.toast(ok ? '卡号已复制' : '复制失败，请长按手动复制', ok ? 'ok' : 'err');
+33          });
+34          wrap.querySelector('#pay-done').addEventListener('click', async (ev) => {
+35            const btn = ev.currentTarget;
+36            btn.disabled = true;
+37            btn.textContent = '提交中…';
+38            try {
+39              const r = await service.submitLevelOrder({
+40                level: lv.key,
+41                payMode: mode,
+42                payerNote: (wrap.querySelector('#pay-note')?.value || '').trim(),
+43              });
+44              ui.toast(r?.reused ? '订单已在等待确认，请耐心等候' : '订单已提交，管理员确认到账后开通', 'ok');
+45              close();
+46              ctx.nav('#/membership?t=' + Date.now());
+47            } catch (err) {
+48              ui.toast(err.message || '提交失败', 'err');
+49              btn.disabled = false;
+50              btn.textContent = '我已付款，提交订单';
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 57 页 / 共 60 页
+========================================================================================
+ 1            }
+ 2          });
+ 3        };
+ 4        root.querySelectorAll('[data-buy]').forEach((btn) => {
+ 5          btn.addEventListener('click', () => {
+ 6            const key = btn.dataset.buy;
+ 7            const lv = levels.find((l) => l.key === key);
+ 8            if (!lv) return;
+ 9            openPaySheet(lv);
+10          });
+11        });
+12        root.querySelector('#lv-cancel')?.addEventListener('click', async () => {
+13          const ok = await ui.confirmDialog({
+14            title: '取消会员',
+15            message: '取消后立即降回免费用户，已支付费用不退还。确定吗？',
+16            danger: true,
+17            okText: '取消会员',
+18          });
+19          if (!ok) return;
+20          try {
+21            await service.cancelLevel();
+22            ui.toast('已取消会员', 'ok');
+23            await ctx.refreshMe().catch(() => null);
+24            ctx.nav('#/membership', { replace: true });
+25          } catch (err) {
+26            ui.toast(err.message || '操作失败', 'err');
+27          }
+28        });
+29      },
+30    };
+31  }
+32  // ===== public/static/views-wechat-setup.js =====
+33  import { service, isLoggedIn } from './api.js';
+34  import * as ui from './ui.js';
+35  const STEPS = [
+36    {
+37      n: 1,
+38      t: '注册 / 登录微信公众平台',
+39      d: '打开 mp.weixin.qq.com，使用订阅号或服务号（服务号权限更全）。已有公众号可直接用。',
+40    },
+41    {
+42      n: 2,
+43      t: '拿到 AppID 与 AppSecret',
+44      d: '公众号后台 → 开发 → 开发管理 → 基本配置。AppSecret 只显示一次，务必当场保存。',
+45    },
+46    {
+47      n: 3,
+48      t: '设置「JS 接口安全域名」',
+49      d: '公众号后台 → 设置与开发 → 公众号设置 → 功能设置 → JS 接口安全域名，填 xiaoyulaile.online（不带 https://）。',
+50      warn: '这一步不做，微信会报 invalid signature，分享卡片不会生效。',
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 58 页 / 共 60 页
+========================================================================================
+ 1    },
+ 2    {
+ 3      n: 4,
+ 4      t: '设置「网页授权域名」（用于微信登录）',
+ 5      d: '同一页面下的「网页授权域名」，同样填 xiaoyulaile.online。用于微信一键登录。',
+ 6    },
+ 7    {
+ 8      n: 5,
+ 9      t: '填写服务器 Token',
+10      d: '公众号后台 → 开发 → 基本配置 → 服务器配置。URL 填 https://xiaoyulaile.online/api/wechat/callback，Token 自己定一个字符串。',
+11      warn: '服务器配置点「提交」时微信会来校验，Token 必须与服务器 .env 里的 WECHAT_TOKEN 一致。',
+12    },
+13    {
+14      n: 6,
+15      t: '把三个值写进服务器 .env 并重启',
+16      d: '在 /opt/xiaoyu-laile/.env 里加上 WECHAT_APP_ID / WECHAT_APP_SECRET / WECHAT_TOKEN，然后 systemctl restart xiaoyu-laile。',
+17    },
+18  ];
+19  export async function renderWechatSetup(ctx) {
+20    if (!isLoggedIn()) {
+21      ctx.nav('#/login?redirect=' + encodeURIComponent('#/wechat-setup'));
+22      return { title: '公众号接入', content: '<div class="page"></div>' };
+23    }
+24    if (!ctx.state.user?.isAdmin && typeof ctx.refreshMe === 'function') {
+25      await ctx.refreshMe().catch(() => null);
+26    }
+27    if (!ctx.state.user?.isAdmin) {
+28      return { title: '公众号接入', content: ui.emptyState('🔒', '需要管理员权限'), showBack: true };
+29    }
+30    const st = await service.wechatStatus().catch(() => null);
+31    if (!st) {
+32      return { title: '公众号接入', content: ui.emptyState('🧭', '加载失败，请稍后重试'), showBack: true };
+33    }
+34    const envTemplate = `# 微信公众号（分享卡片 + 微信登录）
+35  WECHAT_APP_ID=${st.filled.WECHAT_APP_ID ? st.appIdMasked : 'wx________________'}
+36  WECHAT_APP_SECRET=${st.filled.WECHAT_APP_SECRET ? '********（已配置）' : '你的AppSecret'}
+37  WECHAT_TOKEN=${st.filled.WECHAT_TOKEN ? '********（已配置）' : '自定义Token'}`;
+38    const fieldRows = (st.fields || [])
+39      .map(
+40        (f) => `<div class="wxsetup-field ${f.filled ? 'ok' : ''}">
+41          <div class="wxsetup-field-ico">${f.filled ? '✅' : '⬜'}</div>
+42          <div>
+43            <div class="wxsetup-field-k">${ui.esc(f.key)}</div>
+44            <div class="wxsetup-field-l">${ui.esc(f.label)}</div>
+45            <div class="wxsetup-field-d">${ui.esc(f.desc)}</div>
+46          </div>
+47        </div>`
+48      )
+49      .join('');
+50    const stepsHtml = STEPS.map(
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 59 页 / 共 60 页
+========================================================================================
+ 1      (s) => `<div class="wxsetup-step">
+ 2        <div class="wxsetup-step-n">${s.n}</div>
+ 3        <div>
+ 4          <div class="wxsetup-step-t">${ui.esc(s.t)}</div>
+ 5          <div class="wxsetup-step-d">${ui.esc(s.d)}</div>
+ 6          ${s.warn ? `<div class="warn-note mt8">⚠️ ${ui.esc(s.warn)}</div>` : ''}
+ 7        </div>
+ 8      </div>`
+ 9    ).join('');
+10    return {
+11      title: '公众号接入',
+12      content: `<div class="page">
+13        <div class="wxsetup-hero ${st.jsSdkReady ? 'ok' : ''}">
+14          <div class="wxsetup-hero-t">💚 微信公众号接入</div>
+15          <div class="wxsetup-hero-s">
+16            ${st.jsSdkReady
+17              ? '公众号已配置，微信内转发卡片会显示自定义标题、摘要与封面图。'
+18              : '代码已就绪，填入 AppID / AppSecret 后，微信内转发卡片即可显示自定义标题与封面。'}
+19          </div>
+20        </div>
+21        <div class="card card-pad mt12">
+22          <div class="inv-sec-t">当前状态</div>
+23          <div class="wxsetup-grid">
+24            <div class="wxsetup-stat ${st.jsSdkReady ? 'ok' : ''}">
+25              <b>${st.jsSdkReady ? '已接入' : '未接入'}</b><span>公众号 JS-SDK</span>
+26            </div>
+27            <div class="wxsetup-stat ${st.mpReady ? 'ok' : ''}">
+28              <b>${st.mpReady ? '已接入' : '未接入'}</b><span>微信登录（网页授权）</span>
+29            </div>
+30            <div class="wxsetup-stat ${st.openReady ? 'ok' : ''}">
+31              <b>${st.openReady ? '已接入' : '未接入'}</b><span>开放平台扫码登录</span>
+32            </div>
+33          </div>
+34          ${(st.notes || []).map((n) => `<div class="tiny dim mt8">· ${ui.esc(n)}</div>`).join('')}
+35        </div>
+36        <div class="card card-pad mt12">
+37          <div class="inv-sec-t">配置项</div>
+38          ${fieldRows}
+39        </div>
+40        <div class="card card-pad mt12">
+41          <div class="row between mb8">
+42            <div class="inv-sec-t" style="margin-bottom:0">服务器 .env 模板</div>
+43            <button class="btn btn-sm btn-outline" id="wx-copy-env">复制</button>
+44          </div>
+45          <pre class="wxsetup-code">${ui.esc(envTemplate)}</pre>
+46          <div class="tiny dim mt8">改完执行：<code>systemctl restart xiaoyu-laile</code></div>
+47        </div>
+48        <div class="card card-pad mt12">
+49          <div class="inv-sec-t">接入步骤</div>
+50          ${stepsHtml}
+
+
+小鱼来了AI信息发布平台 V1.0  源程序  第 60 页 / 共 60 页
+========================================================================================
+ 1        </div>
+ 2        <div class="card card-pad mt12">
+ 3          <div class="inv-sec-t">签名自检</div>
+ 4          <div class="tiny dim mb12">在微信内打开本页时，可用下面的按钮确认 JS-SDK 签名是否正常。</div>
+ 5          <button class="btn btn-outline btn-block" id="wx-test">测试 JS-SDK 签名</button>
+ 6          <div id="wx-test-result" class="mt12"></div>
+ 7        </div>
+ 8        <div class="inv-risk mt12">
+ 9          <div class="inv-risk-t">⚠️ 说明</div>
+10          <div class="inv-risk-b">
+11            <p>1. 未配置公众号时，微信内转发<b>功能正常</b>，只是卡片标题/封面不能自定义。</p>
+12            <p>2. 即使接入成功，微信也不允许网页<b>直接触发转发</b>，仍需用户点右上角「···」。</p>
+13            <p>3. 公众号需完成<b>微信认证</b>后，部分接口（如网页授权）才完全可用。</p>
+14          </div>
+15        </div>
+16      </div>`,
+17      showBack: true,
+18      mount(root) {
+19        root.querySelector('#wx-copy-env')?.addEventListener('click', async () => {
+20          const ok = await ui.copyText(envTemplate);
+21          ui.toast(ok ? '已复制 .env 模板' : '复制失败', ok ? 'ok' : 'err');
+22        });
+23        root.querySelector('#wx-test')?.addEventListener('click', async (e) => {
+24          const btn = e.currentTarget;
+25          const box = root.querySelector('#wx-test-result');
+26          btn.disabled = true;
+27          btn.textContent = '测试中…';
+28          try {
+29            const cfg = await service.wechatJsConfig(location.href.split('#')[0]);
+30            if (!cfg || !cfg.signature) {
+31              box.innerHTML = '<div class="wx-status">❌ 未返回签名，说明公众号还没配置（或 AppID/AppSecret 不正确）</div>';
+32            } else {
+33              box.innerHTML = `<div class="wx-status ok">
+34                ✅ 签名正常<br>
+35                <span class="tiny">appId: ${ui.esc(cfg.appId || '')}<br>
+36                timestamp: ${ui.esc(String(cfg.timestamp || ''))}<br>
+37                nonceStr: ${ui.esc(cfg.nonceStr || '')}<br>
+38                signature: ${ui.esc(String(cfg.signature || '').slice(0, 16))}…</span>
+39              </div>`;
+40            }
+41          } catch (err) {
+42            box.innerHTML = `<div class="wx-status">❌ ${ui.esc(err.message || '测试失败')}</div>`;
+43          } finally {
+44            btn.disabled = false;
+45            btn.textContent = '测试 JS-SDK 签名';
+46          }
+47        });
+48      },
+49    };
+50  }
