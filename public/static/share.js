@@ -526,4 +526,120 @@ export async function openShareSheet(listing) {
   });
 }
 
-export default { openShareSheet, setupWechatShare, renderPoster, downloadCanvas, isWechatBrowser };
+
+/* ------------------------------------------------------------------ */
+/* 邀请分享：生成海报 + 可直接转发微信的文案                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 打开「分享给微信好友」面板。
+ *
+ * 目的：让老用户把平台转发到微信，带自己的邀请链接，
+ * 对方点开注册后会自动记到邀请人头上（referral 系统）。
+ */
+export async function openInviteShare() {
+  showLoading('正在生成分享内容…');
+
+  // 拿邀请链接；失败就退回官网首页
+  let link = location.origin;
+  let code = '';
+  try {
+    const r = await service.referralMe();
+    // 接口字段是 url（形如 https://域名/#/register?ref=XXXX），不是 link
+    if (r?.url) link = r.url;
+    if (r?.code) code = r.code;
+  } catch {
+    /* 未登录或接口异常时用官网首页 */
+  }
+
+  const shareText = [
+    '【小鱼来了】找项目、投资、产业',
+    '',
+    'AI 信息发布平台，免费发布 项目需求 / 活动赛事 / 贸易采供 / 科技成果转化，',
+    'AI 自动生成标题与解析，按行业和城市推给对口的人。',
+    '',
+    `👉 ${link}`,
+    code ? `（邀请码 ${code}，注册后可直接发布信息）` : '（注册后可直接发布信息）',
+  ].join('\n');
+
+  // 生成海报
+  let canvas = null;
+  try {
+    canvas = await renderPoster({
+      title: '找项目、投资、产业，小鱼来了',
+      subtitle: 'AI 信息发布平台 · 免费发布，按行业和城市推送',
+      summary: '覆盖新能源、算力、机器人、低空经济、科技成果转化等行业；项目、活动、贸易、成果转化一站式发布。',
+      qrText: `/api/share/qrcode?text=${encodeURIComponent(link)}&size=360`,
+      coverUrl: '',
+      meta: ['小鱼来了 · xiaoyulaile.online'],
+    });
+  } catch {
+    canvas = null;
+  }
+
+  hideLoading();
+
+  const posterUrl = canvas ? canvas.toDataURL('image/png') : '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'inv-mask';
+  wrap.innerHTML = `<div class="inv-sheet">
+    <div class="inv-head">
+      <div>
+        <div class="inv-t">📤 分享给微信好友</div>
+        <div class="inv-d">转发下面这张海报或文案，客户扫码即可入驻发布</div>
+      </div>
+      <button class="inv-x" type="button" aria-label="关闭">✕</button>
+    </div>
+
+    ${
+      posterUrl
+        ? `<div class="inv-poster-wrap"><img class="inv-poster" src="${posterUrl}" alt="分享海报"></div>`
+        : '<div class="empty">海报生成失败，可直接复制文案分享</div>'
+    }
+
+    <div class="inv-sec">分享文案</div>
+    <textarea class="inv-text" id="inv-text" rows="6" readonly></textarea>
+
+    <div class="inv-actions">
+      <button class="btn btn-primary grow" id="inv-copy" type="button">复制文案 + 链接</button>
+      ${posterUrl ? '<button class="btn btn-outline" id="inv-save" type="button" style="flex:none">保存海报</button>' : ''}
+    </div>
+    <button class="btn btn-outline btn-block mt8" id="inv-copy-link" type="button">只复制链接</button>
+
+    <div class="inv-foot">
+      复制后打开微信 → 选择好友或群 → 粘贴发送<br>
+      对方点开链接注册，会自动记到你的邀请名下
+    </div>
+  </div>`;
+
+  document.body.appendChild(wrap);
+  const ta = wrap.querySelector('#inv-text');
+  if (ta) ta.value = shareText;
+  requestAnimationFrame(() => wrap.classList.add('show'));
+
+  const close = () => {
+    wrap.classList.remove('show');
+    setTimeout(() => wrap.remove(), 220);
+  };
+  wrap.querySelector('.inv-x').addEventListener('click', close);
+  wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+
+  wrap.querySelector('#inv-copy').addEventListener('click', async () => {
+    const ok = await copyText(shareText);
+    toast(ok ? '已复制，去微信粘贴发送' : '复制失败，请长按文案手动复制', ok ? 'ok' : 'err');
+  });
+
+  wrap.querySelector('#inv-copy-link')?.addEventListener('click', async () => {
+    const ok = await copyText(link);
+    toast(ok ? '链接已复制' : '复制失败', ok ? 'ok' : 'err');
+  });
+
+  wrap.querySelector('#inv-save')?.addEventListener('click', async () => {
+    if (!canvas) return;
+    const ok = await downloadCanvas(canvas, '小鱼来了-邀请海报.png');
+    toast(ok ? '海报已保存，去微信发给好友' : '保存失败，请长按图片保存', ok ? 'ok' : 'err');
+  });
+}
+
+export default { openInviteShare, openShareSheet, setupWechatShare, renderPoster, downloadCanvas, isWechatBrowser };

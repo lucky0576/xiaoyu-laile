@@ -98,7 +98,7 @@ function topbarAuth() {
   const unread = state.unread > 0
     ? `<span class="badge danger" style="position:absolute;transform:translate(12px,-12px)">${state.unread > 99 ? '99+' : state.unread}</span>`
     : '';
-  return `<a class="icon-btn" href="#/chat" aria-label="群聊与会议" title="群聊与会议">💬</a>
+  return `<button class="icon-btn" id="topbar-share" type="button" aria-label="分享给微信好友" title="分享给微信好友">📤</button>
     <a class="icon-btn" href="#/notifications" aria-label="消息通知" title="消息通知" style="position:relative">🔔${unread}</a>
     <a href="#/me" aria-label="我的" style="flex:none">${ui.avatarHtml(state.user, 'sm')}</a>`;
 }
@@ -197,6 +197,10 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
 function bindShell(root) {
   try { bindHScroll(root); syncTabbar(); } catch { /* ignore */ }
   root.querySelector('#nav-back')?.addEventListener('click', () => back());
+  root.querySelector('#topbar-share')?.addEventListener('click', async () => {
+    const m = await import('./share.js');
+    m.openInviteShare().catch(() => ui.toast('生成分享内容失败', 'err'));
+  });
 }
 
 export function requireLogin(message = '请先登录后再操作') {
