@@ -59,6 +59,12 @@ export async function renderHome(ctx, query) {
     service.providers({ pageSize: 5 }).catch(() => ({ items: [] })),
   ]);
 
+  // 电商区：单独拉 10 条，走交易模式展示
+  const ecomRes = await service
+    .listings({ category: 'ecommerce', status: 'published', pageSize: 10, sort: 'latest' })
+    .catch(() => ({ items: [] }));
+  const ecomItems = ecomRes.items || [];
+
   // 短视频单独拉一组（首页「短视频」横滑区）
   const shortsRes = await service.feeds({ type: 'short', limit: 10 }).catch(() => ({ items: [] }));
   const shorts = shortsRes.items || [];
@@ -224,29 +230,64 @@ export async function renderHome(ctx, query) {
     : '';
 
   /*
-   * 电商横栏。
+   * 电商区：交易模式展示 10 条 + 右侧搜索。
+   *
    * 电商不是独立发布分类 —— 它是聚合视图：
    * 项目里的「出售转让/收购」+ 贸易里的「供应」自动归到这里。
-   * 所以类型 chip 用的是跨分类的类型表，链接仍指向 #/list/ecommerce。
+   * 展示上走「商品卡片」：突出价格、货源类型、所在地。
    */
-  const ecommerceTypes = [
-    { id: 'transfer', name: '出售转让', desc: '项目、股权、资产或经营权的整体或部分出售转让' },
-    { id: 'supply', name: '供应', desc: '卖方发布供应能力与货源信息' },
-    { id: 'acquisition', name: '收购', desc: '收购标的公司股权或资产，取得控制权' },
-  ];
-  const ecommerceBarHtml = `<div class="proj-bar ecom-bar">
-      <div class="proj-bar-head">
-        <div class="proj-bar-t">🛒 电商</div>
-        <a class="proj-bar-more" href="#/list/ecommerce">查看全部 ›</a>
+  const ecomPrice = (l) => {
+    const t = l.trade || {};
+    if (t.price) return String(t.price);
+    const first = Array.isArray(t.items) && t.items.length ? t.items[0] : null;
+    if (first && first.price) return String(first.price);
+    const p = l.project || {};
+    if (p.investAmount) return String(p.investAmount);
+    return '价格面议';
+  };
+
+  const ecomKind = (l) => {
+    if (l.type === 'supply') return '供货';
+    if (l.type === 'acquisition') return '求购';
+    return '转让';
+  };
+
+  const ecomCard = (l) => `<a class="ecom-card" href="#/detail/${ui.esc(l.id)}">
+      <div class="ecom-thumb">
+        ${
+          l.coverUrl
+            ? `<img src="${ui.esc(ui.safeUrl(l.coverUrl))}" alt="" loading="lazy">`
+            : `<span class="ecom-thumb-ph">${ui.esc(categoryIcon(l.category))}</span>`
+        }
+        <span class="ecom-kind">${ecomKind(l)}</span>
       </div>
-      <div class="proj-bar-types">
-        ${ecommerceTypes
-          .map(
-            (t) =>
-              `<a class="proj-type ecom-type" href="#/list/ecommerce?type=${encodeURIComponent(t.id)}" title="${ui.esc(t.desc || '')}">${ui.esc(t.name)}</a>`,
-          )
-          .join('')}
+      <div class="ecom-body">
+        <div class="ecom-title">${ui.esc(clip(l.title, 40))}</div>
+        <div class="ecom-price">${ui.esc(ecomPrice(l))}</div>
+        <div class="ecom-meta">
+          <span>${ui.esc((l.cities || []).map((c) => c.name).join(' / ') || '全国')}</span>
+          ${l.owner && l.owner.nickname ? `<span>· ${ui.esc(clip(l.owner.nickname, 10))}</span>` : ''}
+        </div>
       </div>
+    </a>`;
+
+  const ecomBarHtml = `<div class="ecom-sec">
+      <div class="ecom-head">
+        <div class="ecom-head-l">
+          <div class="ecom-t">🛒 电商</div>
+          <div class="ecom-d">转让 · 供应 · 求购，直接对接货源</div>
+        </div>
+        <form class="ecom-search" id="ecom-search-form">
+          <input class="ecom-input" id="ecom-q" placeholder="搜商品 / 货源" autocomplete="off">
+          <button class="ecom-btn" type="submit" aria-label="搜索">🔍</button>
+        </form>
+        <a class="ecom-more" href="#/list/ecommerce">全部 ${ecomRes.total || ecomItems.length} 条 ›</a>
+      </div>
+      ${
+        ecomItems.length
+          ? `<div class="ecom-list">${ecomItems.map(ecomCard).join('')}</div>`
+          : '<div class="ecom-empty">还没有电商信息，去「项目 → 出售转让」或「贸易 → 供应」发布即可自动归集</div>'
+      }
     </div>`;
 
   const promoHtml = `<div class="home-promo-list">
@@ -422,7 +463,7 @@ export async function renderHome(ctx, query) {
     ${bannerHtml}
     ${gridHtml}
     ${projectBarHtml}
-    ${ecommerceBarHtml}
+    ${ecomBarHtml}
     ${promoHtml}
     ${loginStrip}
     ${recHtml}
@@ -452,6 +493,13 @@ export async function renderHome(ctx, query) {
     showBack: false,
     noTab: false,
     async mount(root) {
+
+      /* 电商搜索：回车或点🔍 跳到电商列表并按关键词筛 */
+      root.querySelector('#ecom-search-form')?.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const kw = (root.querySelector('#ecom-q')?.value || '').trim();
+        ctx.nav(kw ? `#/list/ecommerce?q=${encodeURIComponent(kw)}` : '#/list/ecommerce');
+      });
       /* 短视频横滑：一屏一个，指示点联动 */
       (() => {
         const box = root.querySelector('#home-shorts');
