@@ -65,10 +65,10 @@ export async function renderShorts(ctx, params) {
         <span class="short-act-ico ${f.favorited ? 'faved' : ''}" data-favico="${i}">${f.favorited ? '⭐' : '☆'}</span>
         <span class="short-act-n" data-favcount="${i}">${f.stats?.favorites || 0}</span>
       </button>
-      <button class="short-act" data-contact="${i}" aria-label="联系我">
+      ${f.source === 'collect' ? '' : `<button class="short-act" data-contact="${i}" aria-label="联系我">
         <span class="short-act-ico">📮</span>
         <span class="short-act-n">联系我</span>
-      </button>
+      </button>`}
       <button class="short-act" data-share="${i}" aria-label="分享">
         <span class="short-act-ico">↗️</span>
         <span class="short-act-n">分享</span>
