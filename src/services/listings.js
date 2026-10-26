@@ -1332,6 +1332,31 @@ function hotScore(l) {
   );
 }
 
+
+/* ------------------------------------------------------------------ */
+/* 电商：把「转让/出售」项目与「贸易供应」自动归集到一起                   */
+/* ------------------------------------------------------------------ */
+
+/** 项目里属于「卖东西」的类型 */
+export const ECOMMERCE_PROJECT_TYPES = ['transfer', 'acquisition'];
+/** 贸易里属于「卖东西」的类型 */
+export const ECOMMERCE_TRADE_TYPES = ['supply'];
+
+/** 这条信息算不算电商内容 */
+export function isEcommerceListing(l) {
+  if (!l) return false;
+  if (l.category === 'project') return ECOMMERCE_PROJECT_TYPES.includes(l.type);
+  if (l.category === 'trade') return ECOMMERCE_TRADE_TYPES.includes(l.type);
+  return false;
+}
+
+/** 电商列表的类型筛选：跨项目/贸易两个分类 */
+export const ECOMMERCE_TYPES = [
+  { id: 'transfer', name: '出售转让', category: 'project' },
+  { id: 'supply', name: '供应', category: 'trade' },
+  { id: 'acquisition', name: '收购', category: 'project' },
+];
+
 export function queryListings(params = {}) {
   const {
     category = '',
@@ -1351,8 +1376,18 @@ export function queryListings(params = {}) {
   let list = listings().all();
 
   if (status && status !== 'all') list = list.filter((l) => l.status === status);
-  if (category) list = list.filter((l) => l.category === category);
-  if (type) list = list.filter((l) => l.type === type);
+  /*
+   * 电商是「聚合视图」，不是独立分类：
+   * 项目里的出售转让/收购 + 贸易里的供应，自动归到电商。
+   * 所以这里不能按 category 直接相等过滤。
+   */
+  if (category === 'ecommerce') {
+    list = list.filter((l) => isEcommerceListing(l));
+    if (type) list = list.filter((l) => l.type === type);
+  } else {
+    if (category) list = list.filter((l) => l.category === category);
+    if (type) list = list.filter((l) => l.type === type);
+  }
   if (industry) list = list.filter((l) => (l.industries || []).some((i) => i.id === industry));
   if (sub) list = list.filter((l) => (l.subs || []).some((s) => s.id === sub));
   if (city) list = list.filter((l) => (l.cities || []).some((c) => c.id === city));
@@ -1620,6 +1655,8 @@ export function canViewFile(fileRecord, viewer) {
 }
 
 export default {
+  isEcommerceListing,
+  ECOMMERCE_TYPES,
   requestFileAccess,
   respondFileAccess,
   revokeFileAccess,

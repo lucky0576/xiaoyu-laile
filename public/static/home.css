@@ -2488,3 +2488,17 @@ a.sp-item:active { background: #f7fbff; }
 }
 .sh-admin-act { display: flex; gap: 8px; margin-top: auto; padding-top: 8px; }
 .btn.danger { color: #c0392b; border-color: #f0c6c0; }
+
+/* ---------------- 首页「电商」横栏 ---------------- */
+.ecom-bar {
+  background: linear-gradient(135deg, #fff7f2 0%, #fff1e8 100%);
+  border: 1px solid #ffe0cc;
+}
+.ecom-bar .proj-bar-t { color: #b4471f; }
+.ecom-bar .proj-bar-more { color: #c2551f; }
+.ecom-type {
+  background: #fff;
+  border-color: #ffd8bf;
+  color: #b4471f;
+}
+.ecom-type:active { background: #ffe9db; }

@@ -223,6 +223,32 @@ export async function renderHome(ctx, query) {
       </div>`
     : '';
 
+  /*
+   * 电商横栏。
+   * 电商不是独立发布分类 —— 它是聚合视图：
+   * 项目里的「出售转让/收购」+ 贸易里的「供应」自动归到这里。
+   * 所以类型 chip 用的是跨分类的类型表，链接仍指向 #/list/ecommerce。
+   */
+  const ecommerceTypes = [
+    { id: 'transfer', name: '出售转让', desc: '项目、股权、资产或经营权的整体或部分出售转让' },
+    { id: 'supply', name: '供应', desc: '卖方发布供应能力与货源信息' },
+    { id: 'acquisition', name: '收购', desc: '收购标的公司股权或资产，取得控制权' },
+  ];
+  const ecommerceBarHtml = `<div class="proj-bar ecom-bar">
+      <div class="proj-bar-head">
+        <div class="proj-bar-t">🛒 电商</div>
+        <a class="proj-bar-more" href="#/list/ecommerce">查看全部 ›</a>
+      </div>
+      <div class="proj-bar-types">
+        ${ecommerceTypes
+          .map(
+            (t) =>
+              `<a class="proj-type ecom-type" href="#/list/ecommerce?type=${encodeURIComponent(t.id)}" title="${ui.esc(t.desc || '')}">${ui.esc(t.name)}</a>`,
+          )
+          .join('')}
+      </div>
+    </div>`;
+
   const promoHtml = `<div class="home-promo-list">
     <div class="promo-group promo-group-publish">
     <a class="home-promo promo-publish" href="#/publish" data-auth="1">
@@ -396,6 +422,7 @@ export async function renderHome(ctx, query) {
     ${bannerHtml}
     ${gridHtml}
     ${projectBarHtml}
+    ${ecommerceBarHtml}
     ${promoHtml}
     ${loginStrip}
     ${recHtml}
@@ -569,7 +596,17 @@ export async function renderList(ctx, params) {
 
   const res = await service.listings(query);
   const name = categoryName(category);
-  const types = (ctx.state.taxonomy?.categories || []).find((c) => c.id === category)?.types || [];
+  /*
+   * 电商是聚合分类，taxonomy 里没有它，
+   * 所以类型 chip 单独给一份（跨项目/贸易两个分类）。
+   */
+  const types = category === 'ecommerce'
+    ? [
+        { id: 'transfer', name: '出售转让' },
+        { id: 'supply', name: '供应' },
+        { id: 'acquisition', name: '收购' },
+      ]
+    : (ctx.state.taxonomy?.categories || []).find((c) => c.id === category)?.types || [];
 
   const build = (extra = {}) => {
     const q = { ...query, ...extra };
