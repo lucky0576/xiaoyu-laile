@@ -17,6 +17,11 @@ export async function renderLogin(ctx, query) {
       const res = await service.wechatLogin({ code: query.wechat_code, mode: query.mode || 'mp' });
       store.token = res.token;
       store.user = res.user;
+      try {
+        localStorage.removeItem('xyl_pending_ref');
+        localStorage.removeItem('xyl_pending_ref_skip');
+        localStorage.removeItem('xyl_pending_ref_skip_code');
+      } catch { /* ignore */ }
       await ctx.refreshMe();
       ui.hideLoading();
       ui.toast('微信登录成功', 'ok');
@@ -29,7 +34,18 @@ export async function renderLogin(ctx, query) {
   }
 
   const wx = ctx.state.site?.wechat || {};
-  const refCode = String(query.ref || '').trim().toUpperCase();
+  /*
+   * 推荐码：优先用 URL 里的；没有就取 /r/CODE 存下来的那张。
+   * 这样用户从邀请短链进主页、逛一会儿再自己点注册，也仍然算邀请。
+   */
+  const pendingRef = (() => {
+    try {
+      return String(localStorage.getItem('xyl_pending_ref') || '').trim().toUpperCase();
+    } catch {
+      return '';
+    }
+  })();
+  const refCode = String(query.ref || pendingRef || '').trim().toUpperCase();
   const refBanner = refCode
     ? `<div class="ref-banner">🎁 你正在通过推荐码 <b>${ui.esc(refCode)}</b> 注册，注册后会加入推荐人的通讯录</div>`
     : '';
@@ -370,7 +386,7 @@ export async function renderRegister(ctx, query) {
             wechatId: ($('#rg-wechat').value || '').trim(),
             accountType,
             invite: query.invite,
-      ref: query.ref || '',
+      ref: refCode,
           });
           store.token = res.token;
           store.user = res.user;

@@ -401,6 +401,121 @@ async function resolveView({ segs, query }) {
 }
 
 let rendering = false;
+
+/* ------------------------------------------------------------------ */
+/* 邀请引导：从 /r/CODE 进来，逛 10 秒后再问要不要注册                    */
+/* ------------------------------------------------------------------ */
+
+const INVITE_GATE_DELAY = 10000;
+
+let inviteGateTimer = null;
+
+function pendingRefCode() {
+  try {
+    return String(localStorage.getItem('xyl_pending_ref') || '').trim().toUpperCase();
+  } catch {
+    return '';
+  }
+}
+
+function inviteGateSkippedRecently() {
+  try {
+    const at = Number(localStorage.getItem('xyl_pending_ref_skip') || 0);
+    // 点过「再看看」之后 24 小时内不再打扰
+    return Boolean(at) && Date.now() - at < 86400_000;
+  } catch {
+    return false;
+  }
+}
+
+function markInviteGateSkipped() {
+  try {
+    localStorage.setItem('xyl_pending_ref_skip', String(Date.now()));
+  } catch { /* ignore */ }
+}
+
+function clearPendingRef() {
+  try {
+    localStorage.removeItem('xyl_pending_ref');
+    localStorage.removeItem('xyl_pending_ref_skip');
+    localStorage.removeItem('xyl_pending_ref_skip_code');
+  } catch { /* ignore */ }
+}
+
+/** 每次渲染后调用：只在首页、未登录、有待用推荐码时排一个 10 秒定时器 */
+function scheduleInviteGate(route) {
+  if (inviteGateTimer) {
+    clearTimeout(inviteGateTimer);
+    inviteGateTimer = null;
+  }
+  // parseHash 返回的是 segs，没有 name 字段；首页就是 segs 为空或 ['home']
+  const routeName = (route && route.segs && route.segs[0]) || 'home';
+  if (routeName !== 'home') return;
+  if (isLoggedIn()) return;
+  if (!pendingRefCode()) return;
+  if (inviteGateSkippedRecently()) return;
+  if (document.querySelector('.invite-gate')) return;
+
+  inviteGateTimer = setTimeout(() => {
+    inviteGateTimer = null;
+    showInviteGate().catch(() => {});
+  }, INVITE_GATE_DELAY);
+}
+
+async function showInviteGate() {
+  const code = pendingRefCode();
+  if (!code || isLoggedIn()) return;
+  if (document.querySelector('.invite-gate')) return;
+  // 期间用户可能已经跳到别的页面了
+  const cur = parseHash();
+  if (((cur.segs && cur.segs[0]) || 'home') !== 'home') return;
+
+  let inviterName = '';
+  try {
+    const r = await service.referralCheck(code);
+    inviterName = (r && r.inviter && r.inviter.nickname) || '';
+  } catch { /* 拿不到就用通用文案 */ }
+
+  const title = inviterName ? `${inviterName} 邀请你加入小鱼来了` : '你被邀请加入小鱼来了';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'invite-gate';
+  wrap.innerHTML = `<div class="invite-gate-card">
+    <div class="invite-gate-ico">🎁</div>
+    <div class="invite-gate-t">${ui.esc(title)}</div>
+    <div class="invite-gate-d">免费发布项目需求、活动赛事、贸易采供、科技成果转化<br>AI 自动生成标题与解析，按行业和城市推给对口的人</div>
+    <button class="btn btn-primary btn-block" id="ig-go" type="button">立即免费注册</button>
+    <button class="btn btn-outline btn-block mt8" id="ig-skip" type="button">再看看</button>
+    <div class="invite-gate-foot">
+      已有账号？<a href="#/login" id="ig-login">直接登录</a>
+    </div>
+  </div>`;
+
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add('show'));
+
+  const close = () => {
+    wrap.classList.remove('show');
+    setTimeout(() => wrap.remove(), 220);
+  };
+
+  wrap.querySelector('#ig-go').addEventListener('click', () => {
+    close();
+    // 推荐码已经存在 localStorage，注册页会自动带上
+    nav(`#/register?ref=${encodeURIComponent(code)}`);
+  });
+  wrap.querySelector('#ig-skip').addEventListener('click', () => {
+    markInviteGateSkipped();
+    close();
+  });
+  wrap.querySelector('#ig-login').addEventListener('click', () => {
+    close();
+  });
+  wrap.addEventListener('click', (ev) => {
+    if (ev.target === wrap) close();
+  });
+}
+
 async function render() {
   if (rendering) return;
   rendering = true;
@@ -425,6 +540,7 @@ async function render() {
     appEl.innerHTML = html;
     bindShell(appEl);
     if (view.mount) await view.mount(appEl, route);
+    scheduleInviteGate(route);
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
   } catch (err) {
     const msg = (err && err.message) || '页面加载失败';
@@ -554,10 +670,25 @@ async function boot() {
       : `#/live/${shareMatch[2]}`;
   }
 
-  // 邀请短链 /r/:code → 注册页，并把 ref 带进 hash
+  /*
+   * 邀请短链 /r/:code
+   *
+   * 不再直接甩进注册页 —— 一进来就要注册，转化率反而低。
+   * 改成：先落主页看内容，把推荐码存下来，10 秒后再弹注册引导，
+   * 用户可以选「立即注册」或「再看看」。
+   */
   const refMatch = /^\/r\/([A-Za-z0-9_-]{4,40})\/?$/.exec(location.pathname || '');
   if (refMatch && !location.hash) {
-    location.hash = `#/register?ref=${refMatch[1].toUpperCase()}`;
+    const code = refMatch[1].toUpperCase();
+    try {
+      localStorage.setItem('xyl_pending_ref', code);
+      // 换了新邀请码就重置「已取消」标记，重新给一次机会
+      if (localStorage.getItem('xyl_pending_ref_skip_code') !== code) {
+        localStorage.removeItem('xyl_pending_ref_skip');
+        localStorage.setItem('xyl_pending_ref_skip_code', code);
+      }
+    } catch { /* 隐私模式忽略 */ }
+    location.hash = '#/home';
   }
 
   await render();
