@@ -918,8 +918,23 @@ export async function renderDetail(ctx, params) {
   };
 
   const images = files.filter((f) => f.kind === 'image');
-  // 没有上传图片时，用发布时自动生成的封面兜底
-  const heroSrc = images[0] && images[0].url ? images[0].url : listing.coverUrl || '';
+  /*
+   * 主图优先级：
+   *   1. 用户在发布/编辑时点选的主图（listing.coverId 对应的那张图）
+   *   2. listing.cover（后端已解析好的封面对象）
+   *   3. 第一张图（老数据的兜底）
+   *   4. 发布时自动生成的封面 listing.coverUrl
+   * 之前只取 images[0]，导致选了三张图里的第三张做主图，详情页还是显示第一张。
+   */
+  const pickedCover =
+    (listing.coverId && images.find((f) => f.id === listing.coverId)) ||
+    (listing.cover && listing.cover.url ? listing.cover : null) ||
+    null;
+  const heroSrc =
+    (pickedCover && pickedCover.url) ||
+    (images[0] && images[0].url) ||
+    listing.coverUrl ||
+    '';
   const others = files.filter((f) => f.kind !== 'image');
   const dec = files.filter((f) => ['pdf', 'word', 'ppt', 'excel', 'cad', 'archive'].includes(f.kind));
 

@@ -116,8 +116,27 @@ export function listingPublic(l, viewer = null, opts = {}) {
 
   const summary = String(l.ai?.summary || l.text || '').replace(/\s+/g, ' ').trim();
 
+
+  /*
+   * 主图解析：优先用户点选的封面（l.coverId），其次第一张图，
+   * 都没有才用发布时自动生成的封面 l.coverUrl。
+   * 用户自己传图时 l.coverUrl 是空的，必须在 ...l 之后覆盖，
+   * 否则详情页与分享卡片都拿不到封面。
+   */
+  const publicFileRecords = listFiles(l.files || []);
+  const publicCover =
+    publicFileRecords.find((x) => x.id === l.coverId) ||
+    publicFileRecords.find((x) => x.kind === 'image') ||
+    null;
   return {
     ...l,
+    cover: publicCover
+      ? filePublic(publicCover)
+      : l.coverUrl
+        ? { url: l.coverUrl, kind: 'image', id: l.coverFileId || '', auto: true }
+        : null,
+    coverId: (publicCover && publicCover.id) || l.coverId || '',
+    coverUrl: publicCover ? publicCover.url : (l.coverUrl || ''),
     categoryName: categoryName(l.category),
     typeName: l.typeName || typeNameOf(l.category, l.type),
     title: mask(l.title),

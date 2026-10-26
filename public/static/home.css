@@ -2316,3 +2316,75 @@ a.sp-item:active { background: #f7fbff; }
 .sh-stat b { display: block; font-size: 17px; color: #1f5fa8; }
 .sh-stat span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
 .sh-tip { font-size: 11.5px; color: var(--muted); margin-top: 10px; text-align: center; }
+
+
+/* ---------------- 发布页：主图选择 ---------------- */
+.cover-pick {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.cover-pick-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.cover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.cover-cell {
+  position: relative;
+  padding-top: 66%;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #e6ecf4;
+  background: #f4f7fb;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.cover-cell img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cover-cell.active {
+  border-color: #0b74ff;
+  box-shadow: 0 0 0 3px rgba(11, 116, 255, .15);
+}
+.cover-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  background: #0b74ff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.cover-del {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  background: rgba(0, 0, 0, .45) !important;
+  color: #fff !important;
+  font-size: 12px !important;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-other {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

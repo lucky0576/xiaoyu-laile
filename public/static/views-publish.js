@@ -987,6 +987,12 @@ export async function renderPublish(ctx, params) {
     async mount(root) {
       /* ---------------- 状态 ---------------- */
       let uploaded = (editing?.fileList || []).map((f) => ({ ...f }));
+      /*
+       * 主图（封面）选择。
+       * 后端 pickCover(files, body.coverId) 早就在读 coverId，但前端一直没传，
+       * 所以永远落到「第一张图」。这里补上：多图时让用户自己点选主图。
+       */
+      let coverId = editing?.coverId || '';
       let aiResult = editing ? { titles: editing.ai?.titles, analysis: editing.ai?.analysis } : null;
       let durationDays = editing?.durationDays || 30;
       let busy = false;
@@ -999,16 +1005,114 @@ export async function renderPublish(ctx, params) {
         });
       };
 
+      /*
+       * 缩略图要带鉴权才能取。
+       *
+       * 背景：/files/:id 对「非封面的项目附件」要求登录 +
+       * 发布方/管理员/已授权才放行（防止爬虫批量抓附件），
+       * 但 <img src> 不会带 Authorization 头，所以已发布信息的
+       * 非封面图会 401，表现为缩略图裂开。
+       * 这里用 fetch 带上令牌取成 blob，再转 objectURL。
+       */
+      const thumbCache = new Map();
+      const loadThumb = async (f) => {
+        if (!f || !f.url) return '';
+        if (thumbCache.has(f.id)) return thumbCache.get(f.id);
+        const token = localStorage.getItem('xyl_token') || '';
+        try {
+          const res = await fetch(f.url, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (!res.ok) throw new Error(String(res.status));
+          const blob = await res.blob();
+          const objUrl = URL.createObjectURL(blob);
+          thumbCache.set(f.id, objUrl);
+          return objUrl;
+        } catch {
+          // 取不到就退回原地址（未发布的文件本来就是公开的）
+          thumbCache.set(f.id, f.url);
+          return f.url;
+        }
+      };
+
+      const isImageFile = (f) =>
+        Boolean(f && f.url) &&
+        (f.kind === 'image' || /^image\//i.test(String(f.mime || '')) || /\.(png|jpe?g|webp|gif|bmp)$/i.test(String(f.url)));
+
       const renderFiles = () => {
         const box = $('#pub-files');
-        box.innerHTML = uploaded.length
-          ? uploaded.map((f) => `<div style="position:relative;flex:1;min-width:200px">
-              ${fileCardHtml(f)}
-              <button class="icon-btn" data-remove="${ui.esc(f.id)}" style="position:absolute;right:2px;top:2px;font-size:14px">✕</button>
-            </div>`).join('')
+        const imgs = uploaded.filter(isImageFile);
+        const others = uploaded.filter((f) => !isImageFile(f));
+
+        /*
+         * 主图兜底：选了但文件被删了 / 没选过，就落到第一张图。
+         * 只有 1 张图时直接用它，不用让用户再点一次。
+         */
+        if (imgs.length && !imgs.some((f) => f.id === coverId)) {
+          coverId = imgs[0].id;
+        }
+        if (!imgs.length) coverId = '';
+
+        const multi = imgs.length >= 2;
+
+        const imgGrid = imgs.length
+          ? `<div class="cover-pick">
+              <div class="cover-pick-head">
+                <span class="strong">封面主图</span>
+                <span class="tiny dim">${multi ? '点一下缩略图，把这张设为主图' : '只有一张图，已自动设为主图'}</span>
+              </div>
+              <div class="cover-grid">
+                ${imgs
+                  .map(
+                    (f) => `<div class="cover-cell ${f.id === coverId ? 'active' : ''}" data-cover="${ui.esc(f.id)}">
+                      <img src="${ui.esc(f.url)}" alt="">
+                      ${f.id === coverId ? '<span class="cover-badge">主图</span>' : ''}
+                      <button class="icon-btn cover-del" data-remove="${ui.esc(f.id)}" title="删除这张">✕</button>
+                    </div>`,
+                  )
+                  .join('')}
+              </div>
+            </div>`
           : '';
-        $('#pub-upload-status').textContent = uploaded.length ? `已导入 ${uploaded.length} 个文件` : '';
+
+        const otherList = others.length
+          ? `<div class="file-other">${others
+              .map(
+                (f) => `<div style="position:relative;flex:1;min-width:200px">
+                  ${fileCardHtml(f)}
+                  <button class="icon-btn" data-remove="${ui.esc(f.id)}" style="position:absolute;right:2px;top:2px;font-size:14px">✕</button>
+                </div>`,
+              )
+              .join('')}</div>`
+          : '';
+
+        box.innerHTML = imgGrid + otherList;
+
+        $('#pub-upload-status').textContent = uploaded.length
+          ? `已导入 ${uploaded.length} 个文件${imgs.length > 1 ? `（${imgs.length} 张图，主图已选）` : ''}`
+          : '';
+
+        // 异步把缩略图换成带鉴权取到的 blob URL
+        imgs.forEach((f) => {
+          loadThumb(f).then((src) => {
+            if (!src) return;
+            const cell = [...box.querySelectorAll('.cover-cell')].find((c) => c.dataset.cover === f.id);
+            const img = cell && cell.querySelector('img');
+            if (img && img.src !== src) img.src = src;
+          });
+        });
       };
+
+      /* 点缩略图选主图 */
+      $('#pub-files')?.addEventListener('click', (e) => {
+        const cell = e.target.closest('[data-cover]');
+        if (!cell) return;
+        const id = cell.dataset.cover;
+        if (!id || id === coverId) return;
+        coverId = id;
+        renderFiles();
+        ui.toast('已设为主图', 'ok');
+      });
 
       /* ---------------- 资质要求 / 商务条件 渲染辅助 ---------------- */
       const taxData = () => ctx.state.taxonomy || {};
@@ -2248,6 +2352,7 @@ export async function renderPublish(ctx, params) {
           type: $('#pub-type')?.value || '',
           durationDays,
           fileIds: uploaded.map((f) => f.id),
+          coverId: coverId || '',
           contactName: $('#pub-contact-name')?.value || '',
           phone: $('#pub-phone')?.value || '',
           wechat: $('#pub-wechat')?.value || '',
