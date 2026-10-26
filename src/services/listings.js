@@ -10,7 +10,7 @@ import notifySvc from './notify.js';
 import hub from './hub.js';
 import { aggregateText, pickCover, filePublic, listFiles } from './files.js';
 import { normalizeFileSecret, fileSecretPublic } from './filesecure.js';
-import { CATEGORIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
+import { CATEGORIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 import { maskContacts } from '../lib/contact-mask.js';
 
 const listings = () => db.collection('listings');
@@ -526,7 +526,8 @@ export async function createListing({ user, body = {}, files = [] }) {
     textFromFiles: fileText.slice(0, 40000),
     industries: (analysis.industries || []).slice(0, 5),
     subs: (analysis.subs || []).slice(0, 8),
-    cities: (analysis.cities || []).slice(0, 5),
+    // 城市要清洗：LLM 会把县名或「未知」当成城市
+    cities: sanitizeCities(analysis.cities, text),
     keywords: [...(titles.keywords || []), ...(analysis.keywords || [])].slice(0, 15),
     tags: Array.isArray(body.tags) ? body.tags.slice(0, 12) : [],
 
@@ -751,7 +752,7 @@ export async function regenerateAI(id, user, { text, files } = {}) {
     keywords: [...(titles.keywords || []), ...(analysis.keywords || [])].slice(0, 15),
     industries: analysis.industries?.length ? analysis.industries : l.industries,
     subs: analysis.subs?.length ? analysis.subs : l.subs,
-    cities: analysis.cities?.length ? analysis.cities : l.cities,
+    cities: analysis.cities?.length ? sanitizeCities(analysis.cities, l.text) : l.cities,
   });
 }
 
@@ -1357,6 +1358,121 @@ export const ECOMMERCE_TYPES = [
   { id: 'acquisition', name: '收购', category: 'project' },
 ];
 
+
+/* ------------------------------------------------------------------ */
+/* 城市清洗                                                            */
+/* ------------------------------------------------------------------ */
+
+let _cityIndex = null;
+let _provinceSets = null;
+
+/** 省份全名与简称，用于把「江苏」这种省名从城市里剔除 */
+function provinceSets() {
+  if (_provinceSets) return _provinceSets;
+  const full = new Set();
+  const short = new Set();
+  for (const p of CITIES || []) {
+    if (p.name) full.add(p.name);
+    if (p.short) short.add(p.short);
+    // 「江苏」「浙江」这类简称
+    full.add(String(p.name || '').replace(/[省市]$/, ''));
+  }
+  _provinceSets = { full, short };
+  return _provinceSets;
+}
+
+
+/** 从 taxonomy 建一份地级市索引（只认地级市，不认县/区/旗） */
+function cityIndex() {
+  if (_cityIndex) return _cityIndex;
+  const list = [];
+  for (const prov of CITIES || []) {
+    for (const c of prov.cities || []) {
+      list.push({ id: c.id, name: c.name, short: c.short || String(c.name).replace(/[市省盟]$/, ''), province: prov.name });
+    }
+    if (!prov.cities || !prov.cities.length) {
+      list.push({ id: prov.id, name: prov.name, short: prov.short || prov.name, province: prov.name });
+    }
+  }
+  _cityIndex = list;
+  return list;
+}
+
+/**
+ * 城市清洗：LLM 解析回来的城市不可信。
+ *
+ * 之前出现过 {"id":"wuchuan","name":"武川县"}、{"id":"unknown","name":"未知"}
+ * 这类幻觉值 —— 模型把正文里的县名当成城市，实在找不到就编一个「未知」。
+ * 结果是城市筛选里出现「武川县」「未知」这种没有意义的一级选项。
+ *
+ * 规则：
+ *   1. 只认 taxonomy 里的地级市（按全名或简称）
+ *   2. 遇到「XX县 / XX区 / XX旗」这种县级名，
+ *      退回到正文里出现过的、同省的地级市
+ *   3. 实在认不出来就丢掉，宁缺勿错
+ */
+function sanitizeCities(raw, text = '') {
+  const idx = cityIndex();
+  const { full: PROVINCE_NAMES, short: PROVINCE_SHORT } = provinceSets();
+  const byName = new Map(idx.map((c) => [c.name, c]));
+  const byShort = new Map(idx.map((c) => [c.short, c]));
+  const body = String(text || '');
+
+  const out = [];
+  const seen = new Set();
+
+  const push = (c) => {
+    if (!c || !c.id) return;
+    const key = c.id;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ id: c.id, name: c.name, province: c.province });
+  };
+
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const name = String(item?.name || '').trim();
+    if (!name) continue;
+    // 模型编出来的占位值，直接丢
+    if (name === '未知' || name === 'unknown' || name === '不详' || name === '无' || name === '-') continue;
+
+    // 0) 省份名不是城市，丢掉（「江苏」「浙江」这种）
+    if (PROVINCE_NAMES.has(name) || PROVINCE_SHORT.has(name)) continue;
+
+    // 1) 全名命中
+    if (byName.has(name)) {
+      push(byName.get(name));
+      continue;
+    }
+    // 2) 简称命中（「杭州」→「杭州市」）
+    if (byShort.has(name)) {
+      push(byShort.get(name));
+      continue;
+    }
+
+    // 3) 县级名 → 回到正文里找同省的地级市
+    if (/[县区旗]$/.test(name)) {
+      const provName = String(item?.province || '').trim();
+      const sameProv = idx.filter((c) => c.province === provName);
+      const pool = sameProv.length ? sameProv : idx;
+      // 正文里出现过的地级市，取最长匹配的那个
+      const hit = pool
+        .filter((c) => body.includes(c.short) || body.includes(c.name))
+        .sort((a, b) => b.short.length - a.short.length)[0];
+      if (hit) {
+        push(hit);
+        continue;
+      }
+      // 正文里没提到具体城市：如果给了省，就退到该省的省会级别城市不现实，
+      // 这里选择丢弃，避免写入一个错误的城市
+      continue;
+    }
+
+    // 4) 其他未知值：丢弃
+  }
+
+  return out.slice(0, 5);
+}
+
 export function queryListings(params = {}) {
   const {
     category = '',
@@ -1655,6 +1771,7 @@ export function canViewFile(fileRecord, viewer) {
 }
 
 export default {
+  sanitizeCities,
   isEcommerceListing,
   ECOMMERCE_TYPES,
   requestFileAccess,
