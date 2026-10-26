@@ -30,6 +30,8 @@ function buildEvent(body) {
     needPay: bool(body.needPay) && num(body.fee) > 0,
     registerDeadline: str(body.registerDeadline, 40),
     organizer: str(body.organizer, 120),
+    // 外部报名链接：主办方有自己报名系统时直接填，详情页按钮跳过去
+    registerUrl: str(body.registerUrl, 500),
     agenda: str(body.agenda, 4000),
   };
 }

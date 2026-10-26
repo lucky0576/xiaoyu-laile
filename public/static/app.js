@@ -554,6 +554,12 @@ async function boot() {
       : `#/live/${shareMatch[2]}`;
   }
 
+  // 邀请短链 /r/:code → 注册页，并把 ref 带进 hash
+  const refMatch = /^\/r\/([A-Za-z0-9_-]{4,40})\/?$/.exec(location.pathname || '');
+  if (refMatch && !location.hash) {
+    location.hash = `#/register?ref=${refMatch[1].toUpperCase()}`;
+  }
+
   await render();
 }
 

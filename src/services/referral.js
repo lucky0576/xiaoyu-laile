@@ -142,7 +142,12 @@ export function bindReferral(newUser, refCode) {
 export function myReferral(user, baseUrl = '') {
   const code = ensureRefCode(user);
   const base = String(baseUrl || '').replace(/\/+$/, '');
-  const url = `${base}/#/register?ref=${code}`;
+  /*
+   * 用路径式短链 /r/CODE，而不是 /#/register?ref=CODE。
+   * 原因：# 后面的内容不会发到服务器，二维码扫描器、部分安卓浏览器、
+   * 微信二次转发时会丢掉 # 之后的部分，对方点开只看到首页。
+   */
+  const url = `${base}/r/${code}`;
 
   // 被邀请人（按注册时间倒序）
   const invited = users()
@@ -159,6 +164,7 @@ export function myReferral(user, baseUrl = '') {
     code,
     url,
     qrText: url,
+    registerUrl: `${base}/#/register?ref=${code}`,
     shareStats: shareStats(user.id),
     invitedCount: invited.length,
     invited: invited.slice(0, 100),

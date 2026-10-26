@@ -1234,7 +1234,12 @@ export async function renderPublish(ctx, params) {
             <div class="row between mb12"><span class="small">需要在线支付报名费</span><label class="switch"><input type="checkbox" id="f-needPay" ${editing?.event?.needPay ? 'checked' : ''}><span class="slider"></span></label></div>
             <div class="field"><label>报名费（元）</label><input class="input" type="number" id="f-fee" placeholder="0 表示免费" value="${editing?.event?.fee || ''}"></div>
             <div class="field"><label>报名截止时间</label><input class="input" type="datetime-local" id="f-registerDeadline" value="${ui.esc((editing?.event?.registerDeadline || '').slice(0, 16))}"></div>
-            <div class="field"><label>主办方</label><input class="input" id="f-organizer" value="${ui.esc(editing?.event?.organizer || ctx.state.user?.company || '')}"></div>`;
+            <div class="field"><label>主办方</label><input class="input" id="f-organizer" value="${ui.esc(editing?.event?.organizer || ctx.state.user?.company || '')}"></div>
+            <div class="field">
+              <label>报名链接 <span class="tiny dim">（选填）</span></label>
+              <input class="input" id="f-registerUrl" placeholder="https://… 填了就直接跳转对方报名页" value="${ui.esc(editing?.event?.registerUrl || '')}">
+              <div class="tiny dim mt4">填了这条：详情页按钮变成「前往报名 ›」，点开直达对方页面，不用站内报名。</div>
+            </div>`;
         } else if (category === 'trade') {
           const items = editing?.trade?.items || [];
           box.innerHTML = `
@@ -1351,6 +1356,7 @@ export async function renderPublish(ctx, params) {
             startAt: v('#f-startAt'), endAt: v('#f-endAt'), address: v('#f-address'), online: c('#f-online'),
             capacity: v('#f-capacity'), needPay: c('#f-needPay'), fee: v('#f-fee'),
             registerDeadline: v('#f-registerDeadline'), organizer: v('#f-organizer'),
+            registerUrl: v('#f-registerUrl'),
           };
         }
         if (category === 'bounty') {

@@ -949,10 +949,14 @@ export async function renderDetail(ctx, params) {
           ${listing.event.capacity ? `<div>👥 名额：${listing.event.capacity} 人（已报名 ${listing.event.registered || 0}）</div>` : ''}
           <div>💰 费用：${listing.event.needPay ? `<b style="color:var(--danger)">${listing.event.fee} 元 / 人</b>（需在线支付）` : '免费'}</div>
           ${listing.event.registerDeadline ? `<div>📅 报名截止：${ui.esc(ui.fmtDate(listing.event.registerDeadline))}</div>` : ''}
+          ${listing.event.registerUrl ? `<div>🔗 报名方式：主办方自有报名系统</div>` : ''}
         </div>
-        ${isOwner
-          ? `<button class="btn btn-block mt12" id="btn-registrations">查看报名名单</button>`
-          : `<button class="btn btn-primary btn-block mt12" id="btn-register">立即报名${listing.event.needPay ? ` · ${listing.event.fee} 元` : '（免费）'}</button>`}
+        ${listing.event.registerUrl
+          ? `<a class="btn btn-primary btn-block mt12" href="${ui.esc(ui.safeUrl(listing.event.registerUrl))}" target="_blank" rel="noopener noreferrer nofollow">前往报名 ›</a>
+             <div class="tiny dim mt6" style="text-align:center">主办方使用自有报名系统，点按钮直达</div>`
+          : isOwner
+            ? `<button class="btn btn-block mt12" id="btn-registrations">查看报名名单</button>`
+            : `<button class="btn btn-primary btn-block mt12" id="btn-register">立即报名${listing.event.needPay ? ` · ${listing.event.fee} 元` : '（免费）'}</button>`}
       </div>`
     : '';
 

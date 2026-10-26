@@ -569,6 +569,8 @@ export async function createListing({ user, body = {}, files = [] }) {
             fee: nums(body.fee),
             needPay: Boolean(body.needPay) && nums(body.fee) > 0,
             registerDeadline: clean(body.registerDeadline || ''),
+  // 外部报名链接：填了就跳转对方页面，不占用站内报名名额
+  registerUrl: clean(body.registerUrl || '').slice(0, 500),
             organizer: clean(body.organizer || user.company || ''),
             agenda: clean(body.agenda || ''),
             registered: 0,

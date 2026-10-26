@@ -23,6 +23,7 @@ import path from 'node:path';
 import { PUBLIC_DIR } from '../config.js';
 import listingsSvc from '../services/listings.js';
 import feedsSvc from '../services/feeds.js';
+import referralSvc from '../services/referral.js';
 import { baseUrl } from './_util.js';
 
 const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
@@ -115,7 +116,7 @@ export default function registerSharePageRoutes(app) {
   app.use(async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return;
 
-    const m = /^\/(s|v)\/([A-Za-z0-9_-]{4,80})\/?$/.exec(req.path || '');
+    const m = /^\/(s|v|r)\/([A-Za-z0-9_-]{4,80})\/?$/.exec(req.path || '');
     if (!m) return; // 不是分享短链，交给后续中间件与路由
 
     const kind = m[1];
@@ -123,6 +124,33 @@ export default function registerSharePageRoutes(app) {
     const base = baseUrl(req);
 
     try {
+      /*
+       * /r/:code —— 邀请短链
+       *
+       * 为什么需要它：
+       *   原来的邀请链接是 https://域名/#/register?ref=XXXX，
+       *   # 后面的内容不会发到服务器，很多场景（二维码扫描器、
+       *   部分安卓浏览器、微信二次转发）会把 # 后面的部分丢掉，
+       *   对方点开只看到首页，看起来就是「打不开」。
+       *   改成路径式 /r/XXXX 后，链接里没有 #，任何客户端都能完整解析。
+       */
+      if (kind === 'r') {
+        const code = String(id || '').toUpperCase();
+        const inviter = referralSvc.findByRefCode(code);
+
+        const html = renderMeta({
+          title: inviter
+            ? `${inviter.nickname || '好友'} 邀请你加入小鱼来了`
+            : '小鱼来了 · AI 信息发布平台',
+          desc:
+            '找项目、投资、产业。免费发布项目需求、活动赛事、贸易采供、科技成果转化，' +
+            'AI 自动生成标题与解析，按行业和城市推给对口的人。',
+          image: `${base}/static/icon-512.png`,
+          url: `${base}/r/${code}`,
+        });
+        return sendHtml(res, html || '');
+      }
+
       if (kind === 's') {
         const listing = listingsSvc.getListing(id);
         if (!listing || listing.status === 'draft') {
