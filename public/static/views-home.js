@@ -147,7 +147,6 @@ export async function renderHome(ctx, query) {
 
   /* ---------------- 2×3 主入口 ---------------- */
   const entries = [
-    { t: '项目需求', d: '对接真实好项目', art: '📁', href: '#/list/project', i: 0 },
     { t: '活动赛事', d: '报名 · 赛事 · 课程', art: '🎪', href: '#/list/event', i: 1 },
     { t: '贸易采供', d: '采购 · 供应 · 委托加工', art: '🤝', href: '#/list/trade', i: 2 },
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
@@ -204,6 +203,25 @@ export async function renderHome(ctx, query) {
     title: p.title || '',
     meta: relT(p.createdAt || p.updatedAt),
   }));
+
+  /* ---------------- 项目横栏：按项目类型直达 ---------------- */
+  const projectTypes = (ctx.state.taxonomy?.categories || []).find((c) => c.id === 'project')?.types || [];
+  const projectBarHtml = projectTypes.length
+    ? `<div class="proj-bar">
+        <div class="proj-bar-head">
+          <div class="proj-bar-t">📁 项目</div>
+          <a class="proj-bar-more" href="#/list/project">查看全部 ›</a>
+        </div>
+        <div class="proj-bar-types">
+          ${projectTypes
+            .map(
+              (t) =>
+                `<a class="proj-type" href="#/list/project?type=${encodeURIComponent(t.id)}" title="${ui.esc(t.desc || '')}">${ui.esc(t.name)}</a>`,
+            )
+            .join('')}
+        </div>
+      </div>`
+    : '';
 
   const promoHtml = `<div class="home-promo-list">
     <div class="promo-group promo-group-publish">
@@ -377,6 +395,7 @@ export async function renderHome(ctx, query) {
     ${noticeHtml}
     ${bannerHtml}
     ${gridHtml}
+    ${projectBarHtml}
     ${promoHtml}
     ${loginStrip}
     ${recHtml}

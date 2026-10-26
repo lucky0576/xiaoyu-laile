@@ -965,25 +965,18 @@ export const INDUSTRIES = [
  * ------------------------------------------------------------------ */
 
 export const PROJECT_TYPES = [
-  { id: 'investment', name: '投资', desc: '投资合作大类，包含股权投资、产业投资、财务投资、并购、战略投资等' },
-  { id: 'equity-investment', name: '股权投资', desc: '以取得目标企业股权的方式出资，按持股比例享有权益' },
-  { id: 'industrial-investment', name: '产业投资', desc: '围绕产业链上下游开展的实体产业投资，注重产业协同与落地' },
-  { id: 'financial-investment', name: '财务投资', desc: '以财务回报为主要目标，通常不参与标的日常经营' },
-  { id: 'ma', name: '并购', desc: '收购或兼并标的公司股权、资产，取得控制权或并表' },
-  { id: 'strategic-investment', name: '战略投资', desc: '以战略协同、资源互补为目的的长期投资' },
+  { id: 'investment', name: '投资', desc: '以资金换取项目或企业的股权、收益权' },
   { id: 'financing', name: '融资', desc: '项目或企业引入资金，含股权融资与债权融资' },
-  { id: 'epc', name: 'EPC', desc: '工程总承包（Engineering Procurement Construction），设计、采购、施工一体化交付' },
-  { id: 'emc', name: 'EMC', desc: '合同能源管理（Energy Management Contract），由节能服务方投资改造并以节能效益分享回收投资' },
-  { id: 'transfer', name: '转让', desc: '项目、股权、资产或经营权的整体/部分转让' },
+  { id: 'emc', name: 'EMC', desc: '合同能源管理，服务方投资改造、按节能效益分享回收' },
+  { id: 'epc', name: 'EPC', desc: '工程总承包，设计、采购、施工一体化交付' },
   { id: 'financial-leasing', name: '融资租赁', desc: '以租赁形式实现融资，含直租与售后回租' },
-  { id: 'procurement', name: '采购', desc: '设备、材料、服务的采购需求' },
-  { id: 'bidding', name: '招投标', desc: '依法或依约开展的招标、投标、开标、评标等交易活动' },
-  { id: 'supply-chain-finance', name: '供应链金融', desc: '围绕核心企业信用，为上下游提供应收账款、订单、仓单等融资服务' },
-  { id: 'commissioned-processing', name: '委托加工', desc: '委托他方按约定标准加工生产，委托方提供原料或技术' },
-  { id: 'joint-development', name: '合作开发', desc: '多方共同出资、共担风险、共享收益地开发同一项目' },
-  { id: 'technology-cooperation', name: '技术合作', desc: '技术引进、联合研发、成果转化等合作形式' },
-  { id: 'franchise', name: '招商加盟', desc: '品牌方招商，加盟商付费取得品牌与经营体系授权' },
-  { id: 'other', name: '其他', desc: '其他未列明的项目类型' }
+  { id: 'construction-agent', name: '代建', desc: '受业主委托代为组织建设管理，交付合格工程' },
+  { id: 'maintenance', name: '维保', desc: '设备与设施的运行维护、检修保养服务' },
+  { id: 'supervision', name: '监理', desc: '工程监理，对质量、进度、投资做第三方管控' },
+  { id: 'transfer', name: '出售转让', desc: '项目、股权、资产或经营权的整体或部分出售转让' },
+  { id: 'recycle', name: '回收', desc: '设备、材料、资产的回收与再利用' },
+  { id: 'labor', name: '劳务', desc: '劳务分包、人力派遣与作业队伍合作' },
+  { id: 'acquisition', name: '收购', desc: '收购标的公司股权或资产，取得控制权' }
 ]
 
 /* ------------------------------------------------------------------ *
