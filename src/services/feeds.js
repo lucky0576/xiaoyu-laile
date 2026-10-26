@@ -82,6 +82,8 @@ export function feedPublic(f, viewerId = null) {
 
 export function listFeeds({ type = '', featured = false, ownerId = '', listingId = '', limit = 20, viewerId = null } = {}) {
   let list = feeds().all();
+  // 已下架的不出现在公开列表
+  list = list.filter((f) => f.status !== 'removed');
   if (type) list = list.filter((f) => f.type === type);
   if (featured) list = list.filter((f) => f.featured);
   if (ownerId) list = list.filter((f) => f.ownerId === ownerId);
@@ -96,9 +98,48 @@ export function listFeeds({ type = '', featured = false, ownerId = '', listingId
   return list.slice(0, Math.min(100, limit)).map((f) => feedPublic(f, viewerId));
 }
 
+
+/* ------------------------------------------------------------------ */
+/* 管理员：短视频管理                                                  */
+/* ------------------------------------------------------------------ */
+
+/** 管理员看全部（含已下架），支持按类型与关键词过滤 */
+export function adminListFeeds({ type = '', q = '', limit = 200 } = {}) {
+  let list = feeds().all();
+  if (type) list = list.filter((f) => f.type === type);
+  const kw = String(q || '').trim();
+  if (kw) list = list.filter((f) => String(f.title || '').includes(kw) || String(f.subtitle || '').includes(kw));
+  list.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return list.slice(0, Math.min(500, limit)).map((f) => {
+    const pub = feedPublic(f, null);
+    return { ...pub, status: f.status || 'published' };
+  });
+}
+
+/** 下架 / 恢复。下架后前台列表与详情都不再出现 */
+export function setFeedStatus(id, status, admin) {
+  if (!admin || !admin.isAdmin) throw httpError(403, '只有管理员可以操作');
+  const f = feeds().get(id);
+  if (!f) throw httpError(404, '内容不存在');
+  const next = status === 'removed' ? 'removed' : 'published';
+  feeds().update(id, { status: next, statusUpdatedAt: new Date().toISOString() });
+  return feeds().get(id);
+}
+
 export function getFeed(id) {
   const f = feeds().get(id);
   if (!f) throw httpError(404, '内容不存在');
+  return f;
+}
+
+/** 取详情时带上下架判断：已下架的只有管理员/本人能看 */
+export function getFeedForViewer(id, viewer) {
+  const f = feeds().get(id);
+  if (!f) throw httpError(404, '内容不存在');
+  if (f.status === 'removed') {
+    const allowed = viewer && (viewer.isAdmin || viewer.id === f.ownerId);
+    if (!allowed) throw httpError(404, '内容已下架');
+  }
   return f;
 }
 
@@ -234,8 +275,14 @@ export function listFavorites(userId, { type = '' } = {}) {
   return list;
 }
 
-export function viewFeed(id) {
-  getFeed(id); // 不存在则抛 404
+export function viewFeed(id, viewer = null) {
+  // 已下架的内容：除管理员与发布者外，一律当作不存在
+  const f0 = feeds().get(id);
+  if (!f0) throw httpError(404, '内容不存在');
+  if (f0.status === 'removed') {
+    const allowed = viewer && (viewer.isAdmin || viewer.id === f0.ownerId);
+    if (!allowed) throw httpError(404, '内容已下架');
+  }
   // 注意：必须返回自增后的记录，否则详情接口会少算一次播放
   return feeds().bump(id, 'views', 1);
 }
@@ -331,6 +378,9 @@ export function baseUrlOf() {
 }
 
 export default {
+  adminListFeeds,
+  setFeedStatus,
+  getFeedForViewer,
   listFeeds,
   getFeed,
   feedPublic,

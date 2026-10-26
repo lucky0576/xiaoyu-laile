@@ -35,6 +35,9 @@ const DUR = 13;
 const FPS = 25;
 const COUNT = Number(process.argv[2] || 12);
 
+/* 短视频总量上限：先把库里已有的算进来，不超这个数 */
+const MAX_TOTAL = Number(process.env.MAX_TOTAL || 50);
+
 /*
  * 行业优先级。
  * 平台面向产业端，光伏/储能/风电/算力/机器人/无人机/氢能/投融资/政策
@@ -186,11 +189,18 @@ async function makeVideo({ title, tag, sub }) {
     '-y',
     '-f', 'lavfi',
     '-i', `gradients=s=${W}x${H}:c0=0x0b74ff:c1=0x12c7b4:x0=0:y0=0:x1=${W}:y1=${H}:d=${DUR}:r=${FPS}`,
+    '-f', 'lavfi',
+    // 背景音乐：合成的柔和和弦垫，没有版权问题，也不是静音视频
+    '-i', `aevalsrc=0.055*(0.62+0.38*sin(2*PI*0.22*t))*sin(2*PI*220*t)+0.045*(0.62+0.38*sin(2*PI*0.17*t))*sin(2*PI*277.18*t)+0.038*(0.62+0.38*sin(2*PI*0.13*t))*sin(2*PI*329.63*t):s=44100:d=` + DUR,
     '-vf', f.join(','),
     '-t', String(DUR), '-r', String(FPS),
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '30',
     '-maxrate', '700k', '-bufsize', '1400k',
-    '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an',
+    '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+    /* 声音：背景音乐，AAC 64k 单声道，弱网也能很快加载 */
+    '-c:a', 'aac', '-b:a', '64k', '-ac', '1', '-ar', '44100',
+    '-af', 'afade=t=in:ss=0:d=1.2,afade=t=out:st=' + (DUR - 1.4) + ':d=1.4,volume=1.6',
+    '-shortest',
     out,
   ], { timeout: 120000 });
 
@@ -289,13 +299,23 @@ const picks = news
 
 console.log(`  候选 ${picks.length} 条（已排除已生成过的）`);
 
+/* 总量上限：库里已有的自动短视频算进来，整体不超过 MAX_TOTAL */
+const existingCollect = feedsAll.filter((x) => x.source === 'collect' && x.status !== 'removed').length;
+const quota = Math.max(0, MAX_TOTAL - existingCollect);
+if (quota <= 0) {
+console.log("  已有 " + existingCollect + " 条，上限 " + MAX_TOTAL + "，本次最多生成 " + finalPicks.length + " 条");
+  process.exit(0);
+}
+const finalPicks = picks.slice(0, Math.min(picks.length, quota));
+console.log("  已有 " + existingCollect + " 条，上限 " + MAX_TOTAL + "，本次最多生成 " + finalPicks.length + " 条");
+
 const token = await login();
 console.log('  已登录后台\n');
 
 let ok = 0;
 let fail = 0;
 
-for (const n of picks) {
+for (const n of finalPicks) {
   const title = cleanTitle(n.title);
 
   /*

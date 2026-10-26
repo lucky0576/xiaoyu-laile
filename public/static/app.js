@@ -11,6 +11,7 @@ import * as viewsMeeting from './views-meeting.js';
 import * as viewsLive from './views-live.js';
 import * as viewsShorts from './views-shorts.js';
 import * as viewsProvider from './views-provider.js';
+import * as viewsAdminShorts from './views-admin-shorts.js';
 import * as viewsForum from './views-forum.js';
 import * as viewsBindings from './views-bindings.js';
 import * as viewsInvest from './views-invest.js';
@@ -371,6 +372,8 @@ async function resolveView({ segs, query }) {
       // #/provider/:id      服务商详情
       if (p1 && p1 !== 'list') return viewsProvider.renderProviderDetail(ctx, { id: p1 });
       return viewsProvider.renderProvider(ctx, { tab: p1 === 'list' ? 'list' : (query.tab || '') });
+    case 'admin-shorts':
+      return viewsAdminShorts.renderAdminShorts(ctx);
     case 'admin-providers':
       return viewsProvider.renderAdminProviders(ctx, { status: query.status === undefined ? 'pending' : query.status });
     case 'shorts':

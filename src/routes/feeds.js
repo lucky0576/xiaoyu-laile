@@ -33,9 +33,38 @@ export default function registerFeedRoutes(app) {
     });
   });
 
+  /* ---------------- 管理员：短视频管理 ---------------- */
+
+  app.get('/api/admin/feeds', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以访问', 403, 'forbidden');
+    const list = feedsSvc.adminListFeeds({
+      type: str(req.query.type, 20),
+      q: str(req.query.q, 40),
+      limit: num(req.query.limit, 200),
+    });
+    return data(res, {
+      items: list,
+      total: list.length,
+      removed: list.filter((x) => x.status === 'removed').length,
+    });
+  });
+
+  app.post('/api/admin/feeds/:id/takedown', (req, res) => {
+    const user = mustAuth(req);
+    const f = feedsSvc.setFeedStatus(req.params.id, 'removed', user);
+    return data(res, { feed: feedsSvc.feedPublic(f, user.id), status: 'removed' });
+  });
+
+  app.post('/api/admin/feeds/:id/restore', (req, res) => {
+    const user = mustAuth(req);
+    const f = feedsSvc.setFeedStatus(req.params.id, 'published', user);
+    return data(res, { feed: feedsSvc.feedPublic(f, user.id), status: 'published' });
+  });
+
   app.get('/api/feeds/:id', (req, res) => {
     const viewer = authUser(req);
-    const f = feedsSvc.viewFeed(req.params.id);
+    const f = feedsSvc.viewFeed(req.params.id, viewer);
     return data(res, { feed: feedsSvc.feedPublic(f, viewer?.id || null) });
   });
 
