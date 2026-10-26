@@ -67,6 +67,36 @@ def bullet(text):
     return p
 
 
+SHOT_DIR = os.path.join(ROOT, "soft-copyright", "截图")
+
+
+def shot(name, caption, width_cm=8.2):
+    """插入一张界面截图 + 图注。文件不存在就静默跳过。"""
+    if not name:
+        return
+    p = os.path.join(SHOT_DIR, name)
+    if not os.path.isfile(p):
+        print(f"  （缺少截图 {name}，跳过）")
+        return
+
+    pic_para = doc.add_paragraph()
+    pic_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pic_para.paragraph_format.space_before = Pt(8)
+    pic_para.paragraph_format.space_after = Pt(2)
+    run = pic_para.add_run()
+    run.add_picture(p, width=Cm(width_cm))
+
+    cap = doc.add_paragraph()
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cap.paragraph_format.space_before = Pt(0)
+    cap.paragraph_format.space_after = Pt(10)
+    cr = cap.add_run(caption)
+    cr.font.name = "宋体"
+    cr.font.size = Pt(9.5)
+    cr.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+    cr._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
+
+
 def table(rows, headers, widths=None):
     t = doc.add_table(rows=1, cols=len(headers))
     t.style = "Table Grid"
@@ -354,6 +384,7 @@ para("步骤五：在「4. 补充信息要素」中核对并补充关键参数�
 para("步骤六：在「5. 选择发布期限」中选择有效期。")
 para("步骤七：在页面底部「联系方式」中填写联系人、电话、微信、企业名称，可粘贴名片或聊天记录由 AI 自动识别填入。")
 para("步骤八：点击「立即发布」完成发布；也可点击「存为草稿」稍后继续。")
+shot("01-发布信息-板块选择.png", "图 4-1　信息发布页面：板块选择与内容导入")
 
 h("4.3 检索与筛选", 2)
 para("步骤一：在首页点击「项目」「活动赛事」「贸易采供」「科技成果转化」等入口进入对应列表。")
@@ -372,11 +403,13 @@ para("步骤一：确保已输入正文或上传附件，否则 AI 无内容可�
 para("步骤二：点击「第一步：AI 汇总资料」，系统将读取全部文字与附件内容并输出结构化摘要，此过程约需 10 至 60 秒，取决于附件体积。")
 para("步骤三：点击「第二步：生成项目信息」，系统基于摘要生成主标题、副标题、关键词与可靠性分析。")
 para("步骤四：如对生成结果不满意，可修改原文后重新执行两步操作，次数不限。")
+shot("02-AI智能解析.png", "图 4-2　AI 自动提炼的结构化信息要素与可靠性分析", 9.2)
 
 h("4.6 短视频发布与浏览", 2)
 para("发布：进入发布页选择「短视频」，可一次选择最多 3 个视频文件，系统自动解析时长与抽帧生成封面。第一条使用用户填写的标题，其余由 AI 分别生成标题。")
 para("浏览：进入短视频页面，系统自动播放当前视频并带声音；上下滑动切换视频，自动切播下一条。")
 para("互动：右侧操作栏支持点赞、评论、收藏、分享与静音切换；点击「联系我」可向视频发布者发送平台留言。")
+shot("03-短视频.png", "图 4-3　短视频上下滑动播放，支持点赞、收藏与联系发布者")
 
 h("4.7 服务商入驻", 2)
 para("步骤一：首页横栏点击「成为服务商」进入入驻页。")
@@ -385,6 +418,7 @@ para("步骤三：选择服务商种类（单选，选到「企业」或「个�
 para("步骤四：选择服务类型（可多选，选到「平台代理商」或「工程」需再选子类型）。")
 para("步骤五：选择服务区域、填写简介、代表案例、资质证书、成立年份、人员规模、官网与联系人信息。")
 para("步骤六：点击「提交入驻申请」，等待平台审核，通过后出现在服务商名录中。")
+shot("04-服务商入驻.png", "图 4-4　服务商入驻：种类与类型二级选择")
 
 h("4.8 会员开通与付费", 2)
 para("步骤一：进入「我的」页面点击「会员等级」。")
@@ -392,10 +426,12 @@ para("步骤二：选择目标等级并点击「开通」按钮。")
 para("步骤三：在弹出的付款面板中，选择微信收款码、支付宝收款码或银行卡转账任一方式完成付款。")
 para("步骤四：付款后点击「我已付款，提交订单」，系统生成待确认订单并通知管理员。")
 para("步骤五：管理员核对到账后确认，会员立即开通并推送通知。")
+shot("05-会员开通-付款方式.png", "图 4-5　会员开通：微信 / 支付宝 / 银行卡三种付款方式")
 
 h("4.9 联系平台与分享邀请", 2)
 para("联系平台：顶部横栏点击「📮 联系我」，选择想聊的话题（可多选：投资小鱼来了、系统定制、活动赛事策划、咨询、其他、代理合作商、广告、宣传全国行），填写问题后提交，管理员回复后可在同一页面查看。")
 para("分享邀请：顶部横栏点击「📤 分享」按钮，系统生成带个人邀请码的邀请海报与分享文案。可复制文案、保存海报或只复制链接，转发至微信后对方注册即自动归属邀请人。")
+shot("06-分享邀请.png", "图 4-6　分享面板：邀请海报、分享文案与一键复制")
 
 # ==================== 五、技术实现 ====================
 doc.add_page_break()
