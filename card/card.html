@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 1040px; }
+  body {
+    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+    background: #fff;
+    color: #1a1a1a;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .card {
+    width: 1600px;
+    height: 1040px;
+    background: #fff;
+    border: 3px solid #e3e6ea;
+    display: flex;
+  }
+
+  /* ================= 左：整体居中 ================= */
+  .left {
+    width: 900px;
+    padding: 56px 56px 46px 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;   /* 所有内容水平居中 */
+    text-align: center;
+  }
+
+  .slogan {
+    font-family: "KaiTi", "楷体", "Microsoft YaHei", sans-serif;
+    font-weight: 700;
+    font-size: 44px;
+    color: #e60012;
+    letter-spacing: 1px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  /* 中间的 logo + 公司信息块：垂直居中 */
+  .mid {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;   /* 居中对齐 */
+  }
+
+  .logo {
+    width: 190px;
+    height: 190px;
+    border-radius: 43px;
+    box-shadow: 0 10px 26px rgba(28, 96, 214, .20);
+  }
+
+  .company {
+    margin-top: 22px;
+    font-size: 58px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #16305c;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .company-sub {
+    margin-top: 10px;
+    font-size: 29px;
+    font-weight: 600;
+    letter-spacing: 5px;
+    color: #5a6b85;
+  }
+
+  .hours {
+    margin-top: 9px;
+    font-size: 18px;
+    color: #8a95a5;
+    letter-spacing: 0;
+    line-height: 1.5;
+    max-width: 760px;
+    white-space: normal;
+  }
+
+  /* 专注：加入 AI，字号 12pt（本画布约 32px），居中 */
+  .focus {
+    font-family: "KaiTi", "楷体", "Microsoft YaHei", sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: #e60012;
+    letter-spacing: 0.3px;
+    line-height: 1.62;
+    text-align: center;
+    white-space: normal;
+    max-width: 780px;
+  }
+
+  /* ================= 分隔线 ================= */
+  .divider {
+    width: 2px;
+    background: #dfe3e8;
+    margin: 56px 0 52px;
+  }
+
+  /* ================= 右 ================= */
+  .right {
+    flex: 1;
+    position: relative;
+    padding: 74px 60px 54px 62px;
+  }
+
+  .name {
+    font-size: 78px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #101820;
+    line-height: 1.08;
+    white-space: nowrap;
+  }
+
+  .title {
+    margin-top: 18px;
+    font-size: 32px;
+    font-weight: 700;
+    color: #2b2b2b;
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+
+  .qr-wrap {
+    position: absolute;
+    top: 66px;
+    right: 58px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+  }
+  .qr {
+    width: 158px;
+    height: 158px;
+    border: 1px solid #e8ebef;
+    border-radius: 10px;
+    padding: 5px;
+    background: #fff;
+    display: block;
+  }
+  .qr-cap {
+    font-size: 17px;
+    line-height: 1.45;
+    color: #5a6678;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .qr-cap b { color: #0b74ff; }
+
+  .rows {
+    position: absolute;
+    left: 62px;
+    right: 60px;
+    top: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  .row { display: flex; align-items: flex-start; gap: 18px; }
+
+  .k {
+    width: 74px;
+    flex: none;
+    font-size: 26px;
+    color: #6b7789;
+    letter-spacing: 2px;
+    line-height: 1.56;
+  }
+
+  .v {
+    font-size: 30px;
+    color: #14202e;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.4;
+  }
+  .v.small {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.55;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="left">
+      <div class="slogan">找项目、投资、产业，小鱼来了</div>
+
+      <div class="mid">
+        <img class="logo" src="logo.png" alt="">
+        <div class="company">小鱼来了</div>
+        <div class="company-sub">AI 信息发布平台</div>
+        <div class="hours">项目 · 悬赏 · 活动 · 贸易 · 科技成果转化 · 短视频 · 直播</div>
+      </div>
+
+      <div class="focus">
+        专注新能源（光伏、储能、风电、氢能等）、AI、飞行汽车、<br>
+        机器人、低空经济、算力、投融资、园区、<br>
+        科技成果转化、酒店等行业
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="right">
+      <div class="name">Lucas 卢</div>
+      <div class="title">创始人 · 政府事务总监</div>
+
+      <div class="qr-wrap">
+        <img class="qr" src="qr.png" alt="">
+        <div class="qr-cap">扫码进入 <b>小鱼来了</b><br>自动带上我的邀请码</div>
+      </div>
+
+      <div class="rows">
+        <div class="row">
+          <span class="k">手机</span>
+          <span class="v">134 5669 3544</span>
+        </div>
+        <div class="row">
+          <span class="k">邮箱</span>
+          <span class="v small">luyun@shouyu.com</span>
+        </div>
+        <div class="row">
+          <span class="k">网址</span>
+          <span class="v small">xiaoyulaile.online</span>
+        </div>
+        <div class="row">
+          <span class="k">地址</span>
+          <span class="v small">浙江省杭州市之江路 1300 号<br>钱塘银座 13 楼</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
