@@ -1064,6 +1064,29 @@ export const BOUNTY_ELIGIBILITY = [
  * 5. CATEGORIES —— 四大板块
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * 4.7 TECH_TYPES —— 科技成果转化类型
+ *     连接「高校/院所的成果」和「企业/资本的产业化能力」。
+ *     与「项目」「悬赏」的区别：
+ *       · 项目是找钱建设，成果转化是把技术变成生意
+ *       · 悬赏是出钱买本事，成果转化是双方坐下来谈作价与分成
+ * ------------------------------------------------------------------ */
+
+export const TECH_TYPES = [
+  { id: 'achievement-publish', name: '成果发布', icon: '📢', desc: '高校院所发布可转化成果，寻找承接企业' },
+  { id: 'tech-demand', name: '技术需求', icon: '🎯', desc: '企业发布技术难题，寻求高校院所攻关解决' },
+  { id: 'patent-transfer', name: '专利转让', icon: '📜', desc: '发明 / 实用新型 / 外观设计的整体转让' },
+  { id: 'patent-license', name: '专利许可', icon: '🔑', desc: '独占 / 排他 / 普通许可，按年或按量收费' },
+  { id: 'tech-transfer', name: '技术转让', icon: '🔬', desc: '工艺、配方、know-how 等非专利技术转让' },
+  { id: 'joint-development', name: '合作开发', icon: '🤝', desc: '校企 / 院企联合，共同投入、共享成果' },
+  { id: 'tech-equity', name: '技术作价入股', icon: '📈', desc: '成果评估作价，换取目标公司股权' },
+  { id: 'software-copyright', name: '软著转让', icon: '💻', desc: '软件著作权的转让与授权许可' },
+  { id: 'pilot-testing', name: '中试熟化', icon: '🧪', desc: '实验室成果的中试验证、工艺放大与工程化' },
+  { id: 'industry-academia', name: '产学研合作', icon: '🏫', desc: '共建实验室 / 联合中心 / 人才联合培养' },
+  { id: 'standard-patent', name: '标准必要专利', icon: '⚖️', desc: '标准相关专利的许可与专利池运营' },
+  { id: 'other', name: '其他', icon: '📌', desc: '以上未覆盖的其他成果转化形式' }
+]
+
 export const CATEGORIES = [
   { id: 'project', name: '项目', icon: '📁', desc: '投资 · 融资 · EPC · 招投标', types: PROJECT_TYPES },
   { id: 'bounty', name: '悬赏', icon: '🎯', desc: '技术 · 方案 · 资源 · 人才', types: BOUNTY_TYPES },
@@ -1074,7 +1097,14 @@ export const CATEGORIES = [
     desc: '展会 · 沙龙 · 赛事 · 饭局 · 团建',
     types: EVENT_TYPES,
   },
-  { id: 'trade', name: '贸易', icon: '🤝', desc: '采购 · 供应 · 委托加工', types: TRADE_TYPES }
+  { id: 'trade', name: '贸易', icon: '🤝', desc: '采购 · 供应 · 委托加工', types: TRADE_TYPES },
+  {
+    id: 'tech',
+    name: '科技成果转化',
+    icon: '🔬',
+    desc: '专利 · 技术转让 · 产学研 · 作价入股',
+    types: TECH_TYPES
+  }
 ]
 
 /* ------------------------------------------------------------------ *

@@ -47,11 +47,11 @@ export function itemHtml(l) {
 }
 
 export function categoryIcon(category) {
-  return { project: '📁', event: '🎪', trade: '🤝' }[category] || '📄';
+  return { project: '📁', bounty: '🎯', event: '🎪', trade: '🤝', tech: '🔬' }[category] || '📄';
 }
 
 export function categoryName(category) {
-  return { project: '项目', event: '活动', trade: '贸易' }[category] || '信息';
+  return { project: '项目', bounty: '悬赏', event: '活动', trade: '贸易', tech: '科技成果转化' }[category] || '信息';
 }
 
 /* ---------------- AI 解析卡片 ---------------- */

@@ -19,7 +19,7 @@ const shares = () => db.collection('shares');
 const registrations = () => db.collection('registrations');
 const users = () => db.collection('users');
 
-export const CATEGORY_IDS = ['project', 'bounty', 'event', 'trade'];
+export const CATEGORY_IDS = ['project', 'bounty', 'event', 'trade', 'tech'];
 
 export function categoryName(id) {
   return CATEGORIES.find((c) => c.id === id)?.name || '信息';
