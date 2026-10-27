@@ -291,17 +291,14 @@ export async function renderHome(ctx, query) {
     </div>`;
 
   const promoHtml = `<div class="home-promo-list">
-    <div class="promo-group promo-group-publish">
-    <a class="home-promo promo-publish" href="#/publish" data-auth="1">
-      <div class="promo-ico">✍️</div>
-      <div class="promo-body">
-        <div class="promo-t">发布信息</div>
-        <div class="promo-d">项目 · 短视频 · 直播，AI 自动生成标题与解析</div>
-      </div>
-      <div class="promo-go">去发布 ›</div>
-    </a>
-    ${promoItems(latestListings)}
-    </div>
+    ${
+      latestListings.length
+        ? `<div class="promo-group promo-group-publish">
+      <div class="promo-group-head">🔥 最新发布</div>
+      ${promoItems(latestListings)}
+    </div>`
+        : ''
+    }
     <div class="promo-group promo-group-provider">
     <a class="home-promo promo-provider" href="#/provider">
       <div class="promo-ico">🤝</div>
@@ -476,10 +473,41 @@ export async function renderHome(ctx, query) {
       .join('')}
   </div>`;
 
+  /*
+   * 发布横栏：紧跟在 AI 搜索下面，单独一条。
+   * 上面是搜索，下面是发布 —— 首页最核心的两件事并排放，用户一眼看到。
+   * 主按钮进通用发布页，后面几个小胶囊直接进对应分类，少点一次。
+   */
+  const publishBarHtml = `<div class="publish-bar">
+    <a class="pb-main" href="#/publish" data-auth="1">
+      <span class="pb-ico">✍️</span>
+      <span class="pb-txt">
+        <span class="pb-t">发布信息</span>
+        <span class="pb-d">项目 · 活动 · 贸易 · 成果转化，AI 自动生成标题与解析</span>
+      </span>
+      <span class="pb-go">去发布 ›</span>
+    </a>
+    <div class="pb-cats">
+      ${[
+        ['project', '项目', '📁'],
+        ['event', '活动', '🎪'],
+        ['trade', '贸易', '🤝'],
+        ['tech', '成果', '🔬'],
+        ['feed', '短视频', '🎬'],
+      ]
+        .map(
+          ([k, label, ico]) =>
+            `<a class="pb-cat" href="#/publish?category=${k}" data-auth="1">${ico} ${label}</a>`,
+        )
+        .join('')}
+    </div>
+  </div>`;
+
   const html = `<div class="home-wrap">
     ${noticeHtml}
     ${bannerHtml}
     ${aiBarHtml}
+    ${publishBarHtml}
     ${gridHtml}
     ${projectBarHtml}
     ${ecomBarHtml}
