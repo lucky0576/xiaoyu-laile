@@ -521,6 +521,8 @@ export const service = {
   feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
   aiContact: (text) => api.post('/api/ai/contact', { text }),
   aiContactImage: (images) => api.post('/api/ai/contact-image', { images }),
+  geocode: (q) => api.get(`/api/geo/search?q=${encodeURIComponent(q)}`),
+  reverseGeocode: (lat, lng) => api.get(`/api/geo/reverse?lat=${lat}&lng=${lng}`),
   aiSearch: (q) => api.post('/api/ai/search', { q }),
   coverCandidates: () => api.get('/api/admin/covers/candidates'),
   coverQueries: () => api.get('/api/admin/covers/queries'),

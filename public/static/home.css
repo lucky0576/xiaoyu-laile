@@ -2824,3 +2824,52 @@ a.sp-item:active { background: #f7fbff; }
   line-height: 1.6;
 }
 .cv-note.cv-ok { background: #f2fdf7; border-color: #cdeedb; color: #0e8f5f; }
+
+
+/* ---------------- 位置定位 ---------------- */
+.loc-map { margin-top: 10px; }
+.loc-pick { display: flex; flex-direction: column; gap: 8px; }
+.loc-pick-item {
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.loc-pick-item:active { background: #f5f9ff; }
+
+
+/* 位置地图预览：静态瓦片 + 定位标记 */
+.loc-map-box {
+  position: relative;
+  width: 100%;
+  height: 168px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #eef3f9;
+  border: 1px solid var(--line);
+}
+.loc-map-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.loc-map-pin {
+  position: absolute;
+  transform: translate(-50%, -90%);
+  font-size: 26px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+.loc-map-attr {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 6px;
+  border-radius: 4px;
+}

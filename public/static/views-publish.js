@@ -874,9 +874,13 @@ export async function renderPublish(ctx, params) {
             <span class="tiny dim" id="pub-loc-status" style="align-self:center"></span>
           </div>
           <div class="field mt8">
-            <label>地址 <span class="tiny dim">（可手填）</span></label>
-            <input class="input" id="pub-address" maxlength="200" placeholder="如：上海市黄浦区人民广场" value="${ui.esc(editing?.location?.address || '')}">
+            <label>地址 <span class="tiny dim">（手填后点「定位」即可换成坐标）</span></label>
+            <div class="row gap8">
+              <input class="input grow" id="pub-address" maxlength="200" placeholder="如：上海市黄浦区人民广场" value="${ui.esc(editing?.location?.address || '')}">
+              <button class="btn btn-sm btn-outline" id="pub-loc-search" type="button">🔍 定位</button>
+            </div>
           </div>
+          <div id="pub-loc-map" class="loc-map hide"></div>
           <div class="row between">
             <span class="small">对其他人公开位置</span>
             <label class="switch"><input type="checkbox" id="pub-loc-public" ${editing?.location?.public ? 'checked' : ''}><span class="slider"></span></label>
@@ -2410,10 +2414,158 @@ export async function renderPublish(ctx, params) {
       useLocEl?.addEventListener('change', () => locBody.classList.toggle('hide', !useLocEl.checked));
 
       if (editing?.location?.lat) pubGeo = { lat: editing.location.lat, lng: editing.location.lng };
-      if (pubGeo.lat) {
+
+      /*
+       * 地图预览用 OpenStreetMap 的 embed 页面：
+       * 不用加载任何第三方 JS 库，一个 iframe 就行，
+       * 也不需要 Key（高德/百度都要企业 Key）。
+       */
+      const renderLocMap = () => {
+        const box = $('#pub-loc-map');
+        if (!box) return;
+        if (!pubGeo.lat || !pubGeo.lng) {
+          box.classList.add('hide');
+          box.innerHTML = '';
+          return;
+        }
+        /*
+         * 用一张 OSM 静态瓦片当预览，而不是 iframe。
+         * iframe 要拉整个 embed 页面，经常被墙/超时，出来一片空白；
+         * 单张瓦片是普通图片，几百毫秒就回来了。
+         * 再把 📍 按经纬度算到瓦片里的真实像素位置，标记才不会飘。
+         */
+        const zoom = 14;
+        const n = 2 ** zoom;
+        const fx = ((pubGeo.lng + 180) / 360) * n;
+        const latRad = (pubGeo.lat * Math.PI) / 180;
+        const fy =
+          ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
+        const tx = Math.floor(fx);
+        const ty = Math.floor(fy);
+        const px = (fx - tx) * 100;
+        const py = (fy - ty) * 100;
+        const tile = `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+        box.classList.remove('hide');
+        /*
+         * 地图瓦片用的是 OpenStreetMap，国内网络可能打不开。
+         * 所以图片加载失败就把地图区块整个隐藏，只留坐标 + 高德链接 ——
+         * 宁可少一张图，也不要给用户看一块碎图。
+         * 「在地图上看」优先走高德 uri.amap.com，国内打开快且不需要 Key。
+         */
+        const amapUrl = `https://uri.amap.com/marker?position=${pubGeo.lng},${pubGeo.lat}&name=${encodeURIComponent('位置')}&coordinate=gaode&callnative=1`;
+        box.innerHTML = `<div class="loc-map-box">
+            <img src="${tile}" alt="位置地图" loading="lazy" referrerpolicy="no-referrer">
+            <span class="loc-map-pin" style="left:${px}%;top:${py}%">📍</span>
+            <span class="loc-map-attr">© OpenStreetMap</span>
+          </div>
+          <div class="tiny dim mt4">坐标 ${pubGeo.lat.toFixed(5)}, ${pubGeo.lng.toFixed(5)} ·
+            <a href="${amapUrl}" target="_blank" rel="noopener">在高德地图查看</a>
+          </div>`;
+
+        /*
+         * 瓦片加载失败的兜底。
+         * 不能用行内 onerror —— 站点有 CSP，行内事件处理器会被拦掉，
+         * 结果是图片裂了但区块还占着位置。这里用 addEventListener 绑定，
+         * 同时处理「已经失败过」的情况（naturalWidth 为 0）。
+         */
+        const mapImg = box.querySelector('.loc-map-box img');
+        const hideMap = () => {
+          const mb = box.querySelector('.loc-map-box');
+          if (mb) mb.remove();
+        };
+        if (mapImg) {
+          mapImg.addEventListener('error', hideMap, { once: true });
+          mapImg.addEventListener('load', () => {
+            if (!mapImg.naturalWidth) hideMap();
+          }, { once: true });
+          /*
+           * 国内网络访问 OSM 瓦片常常是「卡住」而不是「报错」，
+           * error 事件一直不触发，画面就停在灰色占位框上。
+           * 3 秒还没出来就直接撤掉，别让用户盯着一块空白。
+           */
+          setTimeout(() => {
+            if (!mapImg.complete || mapImg.naturalWidth === 0) hideMap();
+          }, 3000);
+        }
+      };
+
+      const setGeoStatus = (text) => {
         const st = $('#pub-loc-status');
-        if (st) st.textContent = `已记录坐标 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}`;
+        if (st) st.textContent = text || '';
+      };
+
+      if (pubGeo.lat) {
+        setGeoStatus(`已记录坐标 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}`);
+        renderLocMap();
       }
+
+      /* 地址 → 坐标 */
+      const locSearchBtn = $('#pub-loc-search');
+      locSearchBtn?.addEventListener('click', async () => {
+        const addrEl = $('#pub-address');
+        const q = (addrEl?.value || '').trim();
+        if (!q) {
+          ui.toast('请先填写地址', 'err');
+          return;
+        }
+        locSearchBtn.disabled = true;
+        locSearchBtn.textContent = '定位中…';
+        setGeoStatus('正在解析地址…');
+        try {
+          const r = await service.geocode(q);
+          const items = (r && r.items) || [];
+          if (!items.length) {
+            setGeoStatus('没找到这个地址，换个写法试试（如只写到区县）');
+            ui.toast('没找到这个地址', 'err');
+            return;
+          }
+
+          const apply = (it) => {
+            pubGeo = { lat: it.lat, lng: it.lng };
+            if (addrEl) addrEl.value = it.name;
+            setGeoStatus(`✅ 已定位：${it.name.slice(0, 30)}`);
+            renderLocMap();
+            ui.toast('已定位到该地址', 'ok');
+          };
+
+          if (items.length === 1) {
+            apply(items[0]);
+            return;
+          }
+
+          // 多个候选：让用户选
+          ui.openSheet({
+            title: '选择准确地址',
+            content: `<div class="loc-pick">
+              ${items
+                .map(
+                  (it, i) => `<button type="button" class="loc-pick-item" data-i="${i}">
+                    <div class="strong">${ui.esc(it.name.slice(0, 60))}</div>
+                    <div class="tiny dim mt2">${it.lat.toFixed(5)}, ${it.lng.toFixed(5)}${
+                      it.fallbackFrom ? ` · 按「${ui.esc(it.query || '')}」匹配` : ''
+                    }</div>
+                  </button>`,
+                )
+                .join('')}
+            </div>`,
+            onMount(sheetEl, close) {
+              sheetEl.querySelectorAll('.loc-pick-item').forEach((b) => {
+                b.addEventListener('click', () => {
+                  const it = items[Number(b.dataset.i)];
+                  close();
+                  if (it) apply(it);
+                });
+              });
+            },
+          });
+        } catch (err) {
+          setGeoStatus(err.message || '地址解析失败');
+          ui.toast(err.message || '地址解析失败', 'err');
+        } finally {
+          locSearchBtn.disabled = false;
+          locSearchBtn.textContent = '🔍 定位';
+        }
+      });
 
       $('#pub-loc-get')?.addEventListener('click', () => {
         const st = $('#pub-loc-status');
@@ -2423,10 +2575,22 @@ export async function renderPublish(ctx, params) {
         }
         if (st) st.textContent = '定位中…';
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
+          async (pos) => {
             pubGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            if (st) st.textContent = `已定位 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}（可再手填地址）`;
+            if (st) st.textContent = `已定位 ${pubGeo.lat.toFixed(4)}, ${pubGeo.lng.toFixed(4)}`;
+            renderLocMap();
             ui.toast('已获取当前位置', 'ok');
+            // 反查地址，省得用户自己写
+            try {
+              const r = await service.reverseGeocode(pubGeo.lat, pubGeo.lng);
+              const addrEl = $('#pub-address');
+              if (r && r.address && addrEl && !addrEl.value.trim()) {
+                addrEl.value = r.address;
+                if (st) st.textContent = `已定位并填好地址`;
+              }
+            } catch {
+              /* 反查失败不影响坐标 */
+            }
           },
           (err) => {
             if (st) st.textContent = err.code === 1 ? '定位被拒绝，请手动填写地址' : '定位失败，请手动填写地址';

@@ -17,6 +17,7 @@ import ai from '../services/ai.js';
 import { httpError } from '../http/app.js';
 import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BOUNTY_TYPES, BOUNTY_SETTLE_MODES, BOUNTY_ELIGIBILITY, QUALIFICATION_TYPES, HELPER, PROJECT_QUALIFICATION_PRESETS, QUALIFICATION_LEVELS, COOPERATION_MODES, PRICE_TYPES, PAYMENT_TERMS, SETTLEMENT_MODES, INVOICE_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 import { FEED_TYPES } from '../services/feeds.js';
+import { geocodeAddress, reverseGeocode } from '../services/geocode.js';
 
 let qrModule = null;
 let qrTried = false;
@@ -598,6 +599,29 @@ export default function registerCoreRoutes(app) {
       items: result.items,
       total: result.total,
     });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* 地址定位                                                          */
+  /* ---------------------------------------------------------------- */
+
+  /** 地址 → 经纬度候选（发布信息时用） */
+  app.get('/api/geo/search', async (req, res) => {
+    const q = str(req.query.q, 120).trim();
+    if (!q) return fail(res, '请输入地址', 400, 'empty_query');
+    const items = await geocodeAddress(q);
+    return data(res, { items });
+  });
+
+  /** 经纬度 → 地址（点了「获取当前位置」之后反查） */
+  app.get('/api/geo/reverse', async (req, res) => {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return fail(res, '坐标不合法', 400, 'bad_request');
+    }
+    const address = await reverseGeocode(lat, lng);
+    return data(res, { address });
   });
 
   /* 名片 / 截图 → 联系信息（视觉模型） */
