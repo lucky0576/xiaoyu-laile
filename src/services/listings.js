@@ -1269,7 +1269,11 @@ export function qualificationSummary(l, userId) {
 /* ------------------------------------------------------------------ */
 /* 活动报名                                                            */
 /* ------------------------------------------------------------------ */
-export function registerForEvent(listingId, user, { name, phone, remark = '', payMethod = '' } = {}) {
+export function registerForEvent(
+  listingId,
+  user,
+  { name, phone, remark = '', payMethod = '', company = '', projectName = '', fileIds = [] } = {},
+) {
   const l = listings().get(listingId);
   if (!l) throw httpError(404, '活动不存在');
   if (l.category !== 'event') throw httpError(400, '该信息不是活动');
@@ -1285,6 +1289,10 @@ export function registerForEvent(listingId, user, { name, phone, remark = '', pa
     name: String(name || user.nickname || '').slice(0, 60),
     phone: String(phone || user.phone || '').slice(0, 30),
     remark: String(remark).slice(0, 500),
+    // 报名表新增：公司、项目名称、附件（用于主办方审核与建联）
+    company: String(company || user.company || '').slice(0, 100),
+    projectName: String(projectName || '').slice(0, 120),
+    fileIds: Array.isArray(fileIds) ? fileIds.slice(0, 10) : [],
     fee: needPay ? Number(l.event.fee) : 0,
     payStatus: needPay ? 'pending' : 'free',
     payMethod,
@@ -1310,7 +1318,14 @@ export function listRegistrations(listingId, user) {
   const l = listings().get(listingId);
   if (!l) throw httpError(404, '活动不存在');
   if (l.ownerId !== user.id && !user.isAdmin) throw httpError(403, '只有主办方可以查看报名名单');
-  return registrations().where('listingId', listingId).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return registrations()
+    .where('listingId', listingId)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .map((r) => ({
+      ...r,
+      // 报名时上传的附件，解析成可直接打开的文件信息
+      fileList: listFiles(r.fileIds || []).map(filePublic),
+    }));
 }
 
 export function myRegistrations(userId) {

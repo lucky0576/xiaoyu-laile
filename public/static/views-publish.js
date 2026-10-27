@@ -2170,18 +2170,34 @@ export async function renderPublish(ctx, params) {
               say(r?.note || '没识别到联系信息', '#c0392b');
               return;
             }
-            const setIfEmpty = (sel, val) => {
-              if (!val) return false;
+            /*
+             * 点「识别并填入」就是要覆盖。
+             *
+             * 之前是「只在空字段填」，但联系人/电话两边默认预填了
+             * 昵称和手机号，于是识别永远不生效 —— 用户看到的就是「识别不到姓名」。
+             * 这里是显式点击，覆盖才符合预期。
+             */
+            const setVal = (sel, val) => {
+              if (!val) return '';
               const el = $(sel);
-              if (!el) return false;
-              if (!el.value.trim()) { el.value = val; return true; }
-              return false;
+              if (!el) return '';
+              const before = el.value.trim();
+              if (before === val) return '';
+              el.value = val;
+              return before ? 'update' : 'fill';
             };
             let filled = 0;
-            if (setIfEmpty('#pub-contact-name', r.name)) filled++;
-            if (setIfEmpty('#pub-phone', r.phone)) filled++;
-            if (setIfEmpty('#pub-wechat', r.wechat)) filled++;
-            if (setIfEmpty('#pub-company', r.company)) filled++;
+            let updated = 0;
+            for (const [sel, val] of [
+              ['#pub-contact-name', r.name],
+              ['#pub-phone', r.phone],
+              ['#pub-wechat', r.wechat],
+              ['#pub-company', r.company],
+            ]) {
+              const how = setVal(sel, val);
+              if (how === 'fill') filled++;
+              else if (how === 'update') updated++;
+            }
 
             const parts = [];
             if (r.name) parts.push(`联系人 ${r.name}`);
@@ -2189,14 +2205,12 @@ export async function renderPublish(ctx, params) {
             if (r.wechat) parts.push(`微信 ${r.wechat}`);
             if (r.company) parts.push(`企业 ${r.company}`);
 
-            if (filled) {
-              say(`✅ 已填入：${parts.join(' · ')}`, '#0e8f5f');
-              ui.toast('已自动填入联系信息', 'ok');
-            } else if (parts.length) {
-              // 字段原本就有内容，不覆盖
-              say(`识别到：${parts.join(' · ')}（原有内容未覆盖）`, '');
+            if (parts.length) {
+              const verb = updated ? '已更新' : '已填入';
+              say(`✅ ${verb}：${parts.join(' · ')}`, '#0e8f5f');
+              ui.toast(updated ? '已覆盖原内容' : '已自动填入联系信息', 'ok');
             } else {
-              say('没识别到联系信息', '#c0392b');
+              say('没识别到联系信息，换个格式再试', '#c0392b');
             }
           } catch (err) {
             say(err.message || '识别失败', '#c0392b');

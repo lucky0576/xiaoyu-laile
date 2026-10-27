@@ -685,6 +685,9 @@ export default function registerListingRoutes(app) {
       phone: str(req.body?.phone, 30),
       remark: str(req.body?.remark, 500),
       payMethod: str(req.body?.payMethod, 40),
+      company: str(req.body?.company, 100),
+      projectName: str(req.body?.projectName, 120),
+      fileIds: Array.isArray(req.body?.fileIds) ? req.body.fileIds.slice(0, 10) : [],
     });
     return data(res, result, 201);
   });

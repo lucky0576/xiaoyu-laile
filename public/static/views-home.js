@@ -1346,7 +1346,7 @@ export async function renderDetail(ctx, params) {
                       ${files
                         .map(
                           (f) =>
-                            `<a class="btn btn-sm btn-outline" href="${ui.esc(ui.safeUrl(withFileToken(f.url) + (withFileToken(f.url).includes('?') ? '&' : '?') + 'dl=1'))}" download rel="noopener">⬇︎ ${ui.esc(clip(f.name || '下载', 14))}</a>`,
+                            `<a class="btn btn-sm btn-outline" href="${ui.esc(ui.safeUrl(withFileToken(f.url) + (withFileToken(f.url).includes('?') ? '&' : '?') + 'dl=1'))}" download rel="noopener">⬇︎ ${ui.esc(String(f.name || '下载').slice(0, 16))}</a>`,
                         )
                         .join('')}
                     </div>`
@@ -1731,30 +1731,188 @@ export async function renderDetail(ctx, params) {
         }
       });
 
-      /* 报名 */
+      /* 报名：完整表单（联系人 / 电话 / 公司 / 项目名称 / 附件） */
       root.querySelector('#btn-register')?.addEventListener('click', async () => {
         if (!ctx.requireLogin()) return;
-        const name = await ui.promptDialog({ title: '活动报名', label: '您的姓名', value: ctx.state.user?.nickname || '', okText: '下一步' });
-        if (!name) return;
-        const phone = await ui.promptDialog({ title: '活动报名', label: '联系电话', value: ctx.state.user?.phone || '', okText: '提交报名' });
-        if (!phone) return;
-        try {
-          const res = await service.registerEvent(listing.id, { name, phone });
-          if (res.needPay) {
-            const ok = await ui.confirmDialog({
-              title: '确认支付报名费',
-              message: `本次报名需在线支付 ${listing.event.fee} 元。\n（演示环境不会真实扣款，正式环境将接入微信支付）`,
-              okText: `支付 ${listing.event.fee} 元`,
+
+        const u = ctx.state.user || {};
+        const esc = ui.esc;
+
+        const sheet = ui.openSheet({
+          title: '活动报名',
+          className: 'sheet-form',
+          content: `<form id="reg-form" class="reg-form">
+            <div class="row gap8">
+              <div class="field grow">
+                <label>联系人 <span class="req">*</span></label>
+                <input class="input" id="reg-name" maxlength="40" value="${esc(u.nickname || '')}" placeholder="真实姓名或称呼">
+              </div>
+              <div class="field grow">
+                <label>联系电话 <span class="req">*</span></label>
+                <input class="input" id="reg-phone" maxlength="30" inputmode="tel" value="${esc(u.phone || '')}" placeholder="手机号">
+              </div>
+            </div>
+            <div class="field">
+              <label>公司名称</label>
+              <input class="input" id="reg-company" maxlength="100" value="${esc(u.company || '')}" placeholder="单位 / 企业全称">
+            </div>
+            <div class="field">
+              <label>项目名称 <span class="tiny dim">（选填）</span></label>
+              <input class="input" id="reg-project" maxlength="120" placeholder="参赛或路演的项目名称">
+            </div>
+            <div class="field">
+              <label>备注 <span class="tiny dim">（选填）</span></label>
+              <textarea class="input" id="reg-remark" rows="2" maxlength="500" placeholder="想了解的内容、参会诉求等"></textarea>
+            </div>
+            <div class="field">
+              <label>上传文件 <span class="tiny dim">（选填 · 可多选）</span></label>
+              <input type="file" class="input" id="reg-files" multiple>
+              <div class="tiny dim mt4" id="reg-files-tip">可上传名片、项目介绍 PPT、营业执照等</div>
+            </div>
+
+            <div class="reg-ai-box">
+              <div class="tiny dim mb6">有名片或聊天记录？粘进来自动识别</div>
+              <textarea class="input" id="reg-ai-src" rows="2" placeholder="例如：联系人 张工 13800001234 微信 zhanggong888 山东鲁能新能源有限公司"></textarea>
+              <div class="row gap8 mt8" style="flex-wrap:wrap;align-items:center">
+                <button type="button" class="btn btn-sm" id="reg-ai-btn">🤖 自动识别</button>
+                <button type="button" class="btn btn-sm" id="reg-import-btn">📋 从我的资料导入</button>
+                <span class="tiny dim" id="reg-ai-tip"></span>
+              </div>
+            </div>
+
+            <div class="btn-group mt12">
+              <button type="button" class="btn" id="reg-cancel">取消</button>
+              <button type="submit" class="btn btn-primary" id="reg-submit">提交报名</button>
+            </div>
+          </form>`,
+          onMount(sheetEl, close) {
+            const $ = (sel) => sheetEl.querySelector(sel);
+            const tip = $('#reg-ai-tip');
+            const say = (msg, color) => {
+              if (!tip) return;
+              tip.textContent = msg || '';
+              tip.style.color = color || '';
+            };
+            const setVal = (sel, val) => {
+              if (!val) return false;
+              const el = $(sel);
+              if (!el) return false;
+              el.value = val;
+              return true;
+            };
+
+            // 从我的资料导入
+            $('#reg-import-btn')?.addEventListener('click', () => {
+              let n = 0;
+              if (setVal('#reg-name', u.nickname)) n++;
+              if (setVal('#reg-phone', u.phone)) n++;
+              if (setVal('#reg-company', u.company)) n++;
+              if (n) say('✅ 已从我的资料导入', '#0e8f5f');
+              else say('资料里没有可导入的内容，请手动填写', '#c0392b');
             });
-            if (ok) ui.toast('支付成功（演示），名额已锁定', 'ok');
-            else ui.toast('已登记报名，请在截止前完成支付', '');
-          } else {
-            ui.toast('报名成功！', 'ok');
-          }
-          await ctx.refreshMe();
-        } catch (err) {
-          ui.toast(err.message, 'err');
-        }
+
+            // 粘贴文字自动识别
+            $('#reg-ai-btn')?.addEventListener('click', async (e) => {
+              const btn = e.currentTarget;
+              const src = ($('#reg-ai-src')?.value || '').trim();
+              if (!src) {
+                say('请先粘贴一段文字', '#c0392b');
+                return;
+              }
+              btn.disabled = true;
+              btn.textContent = '识别中…';
+              say('正在识别…');
+              try {
+                const r = await service.aiContact(src);
+                if (!r || !r.ok) {
+                  say(r?.note || '没识别到联系信息', '#c0392b');
+                  return;
+                }
+                const parts = [];
+                if (setVal('#reg-name', r.name)) parts.push(`联系人 ${r.name}`);
+                if (setVal('#reg-phone', r.phone)) parts.push(`电话 ${r.phone}`);
+                if (setVal('#reg-company', r.company)) parts.push(`公司 ${r.company}`);
+                if (parts.length) {
+                  say(`✅ 已填入：${parts.join(' · ')}`, '#0e8f5f');
+                } else {
+                  say('没识别到联系信息，换个格式再试', '#c0392b');
+                }
+              } catch (err) {
+                say(err.message || '识别失败', '#c0392b');
+              } finally {
+                btn.disabled = false;
+                btn.textContent = '🤖 自动识别';
+              }
+            });
+
+            $('#reg-cancel')?.addEventListener('click', close);
+
+            $('#reg-form')?.addEventListener('submit', async (ev) => {
+              ev.preventDefault();
+              const name = ($('#reg-name')?.value || '').trim();
+              const phone = ($('#reg-phone')?.value || '').trim();
+              if (!name) {
+                ui.toast('请填写联系人', 'err');
+                return;
+              }
+              if (!/^[\d\-+\s]{6,20}$/.test(phone)) {
+                ui.toast('请填写正确的联系电话', 'err');
+                return;
+              }
+
+              const submitBtn = $('#reg-submit');
+              submitBtn.disabled = true;
+              submitBtn.textContent = '提交中…';
+
+              try {
+                // 先传附件
+                const fileInput = $('#reg-files');
+                const fileIds = [];
+                const files = [...(fileInput?.files || [])].slice(0, 5);
+                for (let i = 0; i < files.length; i++) {
+                  const f = files[i];
+                  submitBtn.textContent = `上传文件 ${i + 1}/${files.length}…`;
+                  const up = await api.uploadFile(f, {
+                    onProgress: (p) => {
+                      submitBtn.textContent = `上传 ${i + 1}/${files.length} · ${Math.round(p * 100)}%`;
+                    },
+                  });
+                  const rec = (up && up.files && up.files[0]) || up;
+                  if (rec && rec.id) fileIds.push(rec.id);
+                }
+
+                submitBtn.textContent = '提交中…';
+                const res = await service.registerEvent(listing.id, {
+                  name,
+                  phone,
+                  company: ($('#reg-company')?.value || '').trim(),
+                  projectName: ($('#reg-project')?.value || '').trim(),
+                  remark: ($('#reg-remark')?.value || '').trim(),
+                  fileIds,
+                });
+
+                close();
+                if (res.needPay) {
+                  const ok = await ui.confirmDialog({
+                    title: '确认支付报名费',
+                    message: `本次报名需在线支付 ${listing.event.fee} 元。\n（演示环境不会真实扣款，正式环境将接入微信支付）`,
+                    okText: `支付 ${listing.event.fee} 元`,
+                  });
+                  if (ok) ui.toast('支付成功（演示），名额已锁定', 'ok');
+                  else ui.toast('已登记报名，请在截止前完成支付', '');
+                } else {
+                  ui.toast('报名成功！', 'ok');
+                }
+                await ctx.refreshMe();
+              } catch (err) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '提交报名';
+                ui.toast(err.message || '报名失败', 'err');
+              }
+            });
+          },
+        });
+        return sheet;
       });
 
       root.querySelector('#btn-registrations')?.addEventListener('click', async () => {
@@ -1763,9 +1921,27 @@ export async function renderDetail(ctx, params) {
           ui.openSheet({
             title: `报名名单（${res.items.length}）`,
             content: res.items.length
-              ? `<table class="table"><thead><tr><th>姓名</th><th>电话</th><th>状态</th></tr></thead><tbody>
-                  ${res.items.map((r) => `<tr><td>${ui.esc(r.name)}</td><td>${ui.esc(r.phone)}</td><td>${r.payStatus === 'free' ? '免费' : r.payStatus === 'paid' ? '已支付' : '待支付'}</td></tr>`).join('')}
-                </tbody></table>`
+              ? `<div class="reg-list">${res.items
+                  .map((r) => {
+                    const files = r.fileList || [];
+                    return `<div class="reg-item">
+                      <div class="row between">
+                        <div class="strong">${ui.esc(r.name)}</div>
+                        <span class="badge ${r.payStatus === 'paid' ? '' : 'gray'}">${r.payStatus === 'free' ? '免费' : r.payStatus === 'paid' ? '已支付' : '待支付'}</span>
+                      </div>
+                      <div class="tiny dim mt4">${ui.esc(r.phone)}${r.company ? ' · ' + ui.esc(r.company) : ''}</div>
+                      ${r.projectName ? `<div class="tiny dim mt2">项目：${ui.esc(r.projectName)}</div>` : ''}
+                      ${r.remark ? `<div class="tiny dim mt2">备注：${ui.esc(r.remark)}</div>` : ''}
+                      ${
+                        files.length
+                          ? `<div class="row wrap gap6 mt6">${files
+                              .map((f) => `<a class="chip" href="${ui.esc(ui.safeUrl(f.url))}" target="_blank" rel="noopener">📎 ${ui.esc(f.name || '附件')}</a>`)
+                              .join('')}</div>`
+                          : ''
+                      }
+                    </div>`;
+                  })
+                  .join('')}</div>`
               : '<div class="small muted">暂无报名</div>',
           });
         } catch (err) {

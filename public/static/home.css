@@ -2681,3 +2681,21 @@ a.sp-item:active { background: #f7fbff; }
   cursor: pointer;
   text-decoration: underline;
 }
+
+
+/* ---------------- 活动报名表单 ---------------- */
+.reg-form .field { margin-bottom: 12px; }
+.reg-form label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.reg-form .req { color: #e0471c; }
+.reg-ai-box {
+  margin: 4px 0 12px;
+  padding: 12px;
+  background: #f7fbff;
+  border: 1px solid #e2eefc;
+  border-radius: 12px;
+}
+.reg-list .reg-item {
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.reg-list .reg-item:last-child { border-bottom: none; }
