@@ -146,6 +146,8 @@ export async function renderHome(ctx, query) {
 
   const slidesHtml = feedItems.map(feedSlide).join('') + promoSlide(feedItems.length);
   const slideCount = feedItems.length + 1;
+  // ↓ 已停用：模板里不再渲染 ${'bannerHtml'}，短视频区取代了它的位置。
+  //   保留这段代码是为了以后想恢复顶部轮播时不用重写。
   const bannerHtml = `<div class="home-banner" id="home-banner">
     ${slidesHtml}
     <div class="dots">${Array.from({ length: slideCount }, (_, i) => `<i class="${i === 0 ? 'on' : ''}" data-dot="${i}"></i>`).join('')}</div>
@@ -503,9 +505,17 @@ export async function renderHome(ctx, query) {
     </div>
   </div>`;
 
+  /*
+   * 首页顺序：
+   *   通知 → 短视频 → AI 搜索 → 发布横栏 → 主入口宫格 → …
+   *
+   * 原来的顶部轮播（home-banner）已停用：
+   * 它和下面的短视频区其实是同一批内容，重复展示；
+   * 现在把短视频区整体提到最上面，取代轮播的位置。
+   */
   const html = `<div class="home-wrap">
     ${noticeHtml}
-    ${bannerHtml}
+    ${shortHtml}
     ${aiBarHtml}
     ${publishBarHtml}
     ${gridHtml}
@@ -514,7 +524,6 @@ export async function renderHome(ctx, query) {
     ${promoHtml}
     ${loginStrip}
     ${recHtml}
-    ${shortHtml}
     ${industryHtml}
     ${latestHtml}
     ${casesHtml}
