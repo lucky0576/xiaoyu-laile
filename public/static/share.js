@@ -101,7 +101,16 @@ function wrapText(ctx, text, maxWidth, maxLines = 3) {
     }
   }
   if (lines.length < maxLines && cur) lines.push(cur);
-  return lines.slice(0, maxLines);
+  const out = lines.slice(0, maxLines);
+  /*
+   * 如果还有没排下的字，在末行补省略号 ——
+   * 否则用户会看到一句话被硬生生截断，且不知道后面还有内容。
+   */
+  if (out.length && lines.length >= maxLines && cur) {
+    const last = out[out.length - 1];
+    out[out.length - 1] = `${last.replace(/…$/, '')}…`;
+  }
+  return out;
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -133,17 +142,32 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // 封面
-  const coverH = 470;
+  /*
+   * 封面区。
+   *
+   * 之前固定 470 高，再用 Math.max 做「cover 式」填充 ——
+   * 自动生成的封面是 1200×630（1.9:1），塞进 690×470（1.47:1）的框里
+   * 会被左右各裁掉约 100px，标题正好在边缘，于是「文字看不到」。
+   *
+   * 现在让封面高度跟随图片自身比例，最多 520、最少 240，
+   * 这样既能完整显示，也不会把下面的正文卡片挤没。
+   */
   const cover = coverUrl ? await loadImage(coverUrl) : null;
+  const coverW = W - 60;
+  let coverH = 470;
+  if (cover && cover.width && cover.height) {
+    const naturalH = Math.round((coverW * cover.height) / cover.width);
+    coverH = Math.max(240, Math.min(520, naturalH));
+  }
   ctx.save();
-  roundRect(ctx, 30, 30, W - 60, coverH, 24);
+  roundRect(ctx, 30, 30, coverW, coverH, 24);
   ctx.clip();
   if (cover) {
-    const scale = Math.max((W - 60) / cover.width, coverH / cover.height);
+    // 高度已经贴合比例，这里用 contain 保证不裁切
+    const scale = Math.min(coverW / cover.width, coverH / cover.height);
     const dw = cover.width * scale;
     const dh = cover.height * scale;
-    ctx.drawImage(cover, 30 + (W - 60 - dw) / 2, 30 + (coverH - dh) / 2, dw, dh);
+    ctx.drawImage(cover, 30 + (coverW - dw) / 2, 30 + (coverH - dh) / 2, dw, dh);
   } else {
     const g = ctx.createLinearGradient(30, 30, W - 30, coverH);
     g.addColorStop(0, '#0b74ff');
@@ -238,22 +262,49 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
   let y = cardY + 62;
   const maxW = W - padX * 2;
 
-  // 主标题
+  /*
+   * 主标题：自适应字号 + 最多 4 行。
+   * 之前固定 42px、最多 2 行，长标题直接被截掉后半截。
+   */
   ctx.fillStyle = '#16202e';
-  ctx.font = 'bold 42px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-  for (const line of wrapText(ctx, title, maxW, 2)) {
-    ctx.fillText(line, padX, y);
-    y += 56;
+  const FONT_STACK = '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+  let titleFont = 42;
+  let titleLines = [];
+  for (const f of [42, 38, 34, 30, 27, 24]) {
+    ctx.font = `bold ${f}px ${FONT_STACK}`;
+    const lines = wrapText(ctx, title, maxW, 4);
+    // 行数够放下、且最后一行没被截断，就用这个字号
+    const allFit = lines.join('').replace(/…$/, '').length >= String(title).length - 2;
+    if (allFit) {
+      titleFont = f;
+      titleLines = lines;
+      break;
+    }
+    titleFont = f;
+    titleLines = lines;
   }
+  const titleStep = Math.round(titleFont * 1.34);
+  titleLines.forEach((line) => {
+    ctx.fillText(line, padX, y);
+    y += titleStep;
+  });
 
-  // 副标题
+  // 副标题：同样放宽到 3 行
   if (subtitle) {
     ctx.fillStyle = '#5a6b82';
-    ctx.font = '27px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-    for (const line of wrapText(ctx, subtitle, maxW, 2)) {
-      ctx.fillText(line, padX, y);
-      y += 40;
+    let subFont = 27;
+    let subLines = [];
+    for (const f of [27, 24, 21]) {
+      ctx.font = `${f}px ${FONT_STACK}`;
+      subLines = wrapText(ctx, subtitle, maxW, 3);
+      subFont = f;
+      if (subLines.join('').replace(/…$/, '').length >= String(subtitle).length - 2) break;
     }
+    const subStep = Math.round(subFont * 1.45);
+    subLines.forEach((line) => {
+      ctx.fillText(line, padX, y);
+      y += subStep;
+    });
   }
   y += 10;
 

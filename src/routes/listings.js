@@ -354,7 +354,9 @@ export default function registerListingRoutes(app) {
       target = listingsSvc.queryListings({ status: 'published', pageSize: 500 }).items;
     }
 
-    const need = target.filter((x) => !x.coverUrl).slice(0, limit);
+    // force=true 时连已有封面的一起重做（换样式或修文案后用）
+    const force = bool(req.body?.force);
+    const need = (force ? target : target.filter((x) => !x.coverUrl)).slice(0, limit);
 
     let ok = 0;
     let fail = 0;

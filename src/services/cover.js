@@ -126,7 +126,14 @@ export function makeCoverSvg(input = {}) {
   const chips = [];
   if (input.city) chips.push(String(input.city));
   if (input.industry) chips.push(String(input.industry));
-  if (input.kindLabel) chips.push(String(input.kindLabel));
+  /*
+   * kindLabel 只有中文才显示。
+   * 老数据里 typeName 可能存的是原始 id（如 trade-supply），
+   * 印在封面上很突兀，直接不显示。
+   */
+  if (input.kindLabel && /[\u4e00-\u9fa5]/.test(String(input.kindLabel))) {
+    chips.push(String(input.kindLabel));
+  }
 
   let chipX = PAD_X;
   const CHIP_FONT = 19;
