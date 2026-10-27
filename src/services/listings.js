@@ -1331,9 +1331,14 @@ export function registerForEvent(
     payStatus: needPay ? 'pending' : 'free',
     payMethod,
     status: 'registered',
-    // 报名审核：pending → approved / rejected
-    auditStatus: 'pending',
+    /*
+     * 报名审核状态：
+     *   免费活动 → 自动通过，报了就能来
+     *   付费活动 → 待主办方确认（要对账、要控人数）
+     */
+    auditStatus: needPay ? 'pending' : 'approved',
     auditNote: '',
+    autoApproved: !needPay,
   });
 
   listings().update(listingId, {

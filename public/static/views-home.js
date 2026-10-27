@@ -1070,8 +1070,16 @@ export async function renderDetail(ctx, params) {
           const my = listing.myRegistration;
           if (my) {
             const map = {
-              pending: { t: '⏳ 已提交，等待主办方审核', c: 'badge gray', extra: '' },
-              approved: { t: '✅ 报名已通过', c: 'badge', extra: '' },
+              pending: {
+                t: listing.event.needPay ? '⏳ 已提交，等待主办方确认' : '⏳ 已提交，等待主办方审核',
+                c: 'badge gray',
+                extra: '',
+              },
+              approved: {
+                t: '✅ 报名成功',
+                c: 'badge',
+                extra: '已占名额，请留意活动通知',
+              },
               rejected: { t: '❌ 报名未通过', c: 'badge gray', extra: my.auditNote || '' },
             };
             const st = map[my.status] || map.pending;
@@ -1932,10 +1940,10 @@ export async function renderDetail(ctx, params) {
                     message: `本次报名需在线支付 ${listing.event.fee} 元。\n（演示环境不会真实扣款，正式环境将接入微信支付）`,
                     okText: `支付 ${listing.event.fee} 元`,
                   });
-                  if (ok) ui.toast('支付成功（演示），名额已锁定', 'ok');
+                  if (ok) ui.toast('支付成功（演示），等待主办方确认', 'ok');
                   else ui.toast('已登记报名，请在截止前完成支付', '');
                 } else {
-                  ui.toast('报名已提交，等待主办方审核', 'ok');
+                  ui.toast('报名成功！', 'ok');
                 }
                 await ctx.refreshMe();
               } catch (err) {
@@ -2008,7 +2016,14 @@ export async function renderDetail(ctx, params) {
                               <button class="btn btn-sm btn-primary reg-audit" data-reg="${ui.esc(r.id)}" data-act="approved">✓ 通过</button>
                               <button class="btn btn-sm reg-audit" data-reg="${ui.esc(r.id)}" data-act="rejected">✗ 拒绝</button>
                             </div>`
-                          : `<div class="tiny dim mt6">${r.auditStatus === 'approved' ? '✅ 已通过' : '❌ 已拒绝'}${r.auditNote ? ' · ' + ui.esc(r.auditNote) : ''}</div>`
+                          : `<div class="row gap8 mt8" style="align-items:center">
+                              <span class="tiny dim">${r.auditStatus === 'approved' ? '✅ 已通过' + (r.autoApproved ? '（免费活动自动通过）' : '') : '❌ 已拒绝'}${r.auditNote ? ' · ' + ui.esc(r.auditNote) : ''}</span>
+                              ${
+                                r.auditStatus === 'approved'
+                                  ? `<button class="btn btn-sm reg-audit" data-reg="${ui.esc(r.id)}" data-act="rejected">撤回</button>`
+                                  : `<button class="btn btn-sm btn-primary reg-audit" data-reg="${ui.esc(r.id)}" data-act="approved">改回通过</button>`
+                              }
+                            </div>`
                       }
                     </div>`;
                   })
