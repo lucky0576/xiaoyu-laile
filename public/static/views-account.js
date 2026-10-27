@@ -749,6 +749,7 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/membership"><div class="avatar">👑</div><div class="item-body"><div class="item-title">会员等级</div><div class="item-sub">蝌蚪 · 龙虾 · 电鳗 · 鲨鱼 · 鲸鱼</div></div><span class="dim">›</span></a>
       <a class="item" href="#/notifications"><div class="avatar">🔔</div><div class="item-body"><div class="item-title">消息通知</div><div class="item-sub">${data.unread || 0} 条未读</div></div><span class="dim">›</span></a>
       ${u.isAdmin ? '<a class="item" href="#/admin-shorts"><div class="avatar">🎬</div><div class="item-b"><div class="item-t">短视频管理</div><div class="item-d">下架不合适的内容</div></div></a>' : ''}
+${u.isAdmin ? '<a class="item" href="#/admin-covers"><div class="avatar">🖼</div><div class="item-b"><div class="item-t">封面管理</div><div class="item-d">批量换照片封面、预热图片缓存</div></div></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin-ai"><div class="avatar">🤖</div><div class="item-body"><div class="item-title">AI 设置</div><div class="item-sub">绑定 DeepSeek 等大模型，提升汇总与解析质量</div></div><span class="dim">›</span></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin-level-orders"><div class="avatar">💰</div><div class="item-body"><div class="item-title">会员订单</div><div class="item-sub">确认付款、开通会员</div></div><span class="dim">›</span></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin-feedback"><div class="avatar">📮</div><div class="item-body"><div class="item-title">留言管理</div><div class="item-sub">回复用户提问</div></div><span class="dim">›</span></a>' : ''}

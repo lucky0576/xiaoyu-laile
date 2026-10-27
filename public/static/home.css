@@ -2796,3 +2796,31 @@ a.sp-item:active { background: #f7fbff; }
   color: #0b74ff;
 }
 .ai-parsed-src { margin-left: auto; }
+
+
+/* ---------------- 后台：封面管理 ---------------- */
+.cv-progress { margin-top: 12px; }
+.cv-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e8eef7;
+  overflow: hidden;
+}
+.cv-bar > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0b74ff, #12c7b4);
+  transition: width 0.25s ease;
+}
+.cv-note {
+  padding: 10px 12px;
+  background: #f5f9ff;
+  border: 1px solid #dce9fb;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.cv-note.cv-ok { background: #f2fdf7; border-color: #cdeedb; color: #0e8f5f; }

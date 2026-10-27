@@ -80,6 +80,16 @@ const QUERY_MAP = [
 ];
 const DEFAULT_QUERY = 'industrial energy infrastructure';
 
+/** 所有会用到的搜索词，用于后台「预热缓存」 */
+export const PHOTO_QUERIES = [
+  ...new Set([
+    ...QUERY_MAP.map((x) => x[1]),
+    DEFAULT_QUERY,
+    'renewable energy power plant',
+    'industrial infrastructure factory',
+  ]),
+];
+
 /** 按文本推断搜什么图 */
 export function pickPhotoQuery(text) {
   const t = String(text || '');
@@ -266,6 +276,19 @@ async function resolvePhoto(query) {
   }
 }
 
+/**
+ * 预热某个搜索词的图片缓存。
+ * 后台可以逐个调，避免一次请求跑太久。
+ */
+export async function warmPhotoCache(query) {
+  const q = String(query || '').trim();
+  if (!q) return { ok: false, note: '搜索词为空' };
+  const before = getCached(q);
+  if (before) return { ok: true, cached: true, note: '已有缓存' };
+  const r = await resolvePhoto(q);
+  return r ? { ok: true, cached: Boolean(r.cached), note: '已缓存' } : { ok: false, note: '没找到合适图片' };
+}
+
 /* ------------------------------------------------------------------ */
 /* 排版                                                                */
 /* ------------------------------------------------------------------ */
@@ -393,7 +416,8 @@ export async function generatePhotoCover(input = {}, opts = {}) {
     const markPath = path.join(os.tmpdir(), `pc_mark_${stamp}.txt`);
     const cityMarkPath = path.join(os.tmpdir(), `pc_citymark_${stamp}.txt`);
     const creditPath = path.join(os.tmpdir(), `pc_credit_${stamp}.txt`);
-    tmpFiles.push(outPath, titlePath, badgePath, markPath, cityMarkPath, creditPath);
+    const hintPath = path.join(os.tmpdir(), `pc_hint_${stamp}.txt`);
+    tmpFiles.push(outPath, titlePath, badgePath, markPath, cityMarkPath, creditPath, hintPath);
 
     // 字号自适应：先 58，放不下就缩
     let fontSize = 58;
@@ -421,6 +445,8 @@ export async function generatePhotoCover(input = {}, opts = {}) {
     fs.writeFileSync(markPath, BRAND, utf8);
     fs.writeFileSync(cityMarkPath, cityMark, utf8);
     fs.writeFileSync(creditPath, credit, utf8);
+    // 右上角明确标注「示意图」，避免被当成项目实拍
+    fs.writeFileSync(hintPath, '示意图', utf8);
 
     const titleY = H - 32 - 34 - lines.length * Math.round(fontSize * 1.32);
     const bandTop = Math.max(0, titleY - 30);
@@ -451,6 +477,9 @@ export async function generatePhotoCover(input = {}, opts = {}) {
       `drawtext=fontfile=${FONT}:textfile=${escFilterPath(markPath)}:x=${PADDING}:y=${H - 56}:fontsize=24:fontcolor=white@0.9`,
       // 右下：CC 署名（小字）
       `drawtext=fontfile=${FONT}:textfile=${escFilterPath(creditPath)}:x=w-tw-24:y=${H - 34}:fontsize=15:fontcolor=white@0.62`,
+      // 右上角：示意图标
+      `drawbox=x=${W - 118}:y=46:w=72:h=34:color=black@0.30:t=fill`,
+      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(hintPath)}:x=${W - 110}:y=53:fontsize=18:fontcolor=white@0.9`,
     ];
 
     await run(
@@ -500,4 +529,5 @@ export async function generatePhotoCover(input = {}, opts = {}) {
   }
 }
 
-export default { generatePhotoCover, findPhoto, pickPhotoQuery };
+export default {
+  warmPhotoCache, generatePhotoCover, findPhoto, pickPhotoQuery };

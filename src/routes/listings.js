@@ -9,7 +9,7 @@ import {
 import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
 import { saveUploads, filePublic, getFile } from '../services/files.js';
 import { generateCoverFile } from '../services/cover.js';
-import { generatePhotoCover } from '../services/photo-cover.js';
+import { generatePhotoCover, PHOTO_QUERIES, warmPhotoCache } from '../services/photo-cover.js';
 import { generateAutoInfo } from '../services/auto-info.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
@@ -374,6 +374,48 @@ export default function registerListingRoutes(app) {
    * 用法：POST /api/admin/covers/photo  { listingId, force? }
    * 会覆盖已有封面；生成失败返回 ok:false，由前端决定是否退回 SVG。
    */
+  /**
+   * 后台批量换封面用：返回「可以换」的信息列表。
+   * 已经上传过实拍图的信息会跳过，绝不覆盖用户内容。
+   */
+  app.get('/api/admin/covers/candidates', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+    const all = listingsSvc.queryListings({ status: 'published', pageSize: 500 }).items;
+    const items = [];
+    let skipped = 0;
+    for (const it of all) {
+      const raw = listings().get(it.id);
+      if (!raw) continue;
+      // 用户自己传过图片的不动
+      const rawFiles = (raw.files || []).map((id) => db.collection('files').get(id)).filter(Boolean);
+      const hasUserImage = rawFiles.some((f) => f.kind === 'image');
+      if (hasUserImage) {
+        skipped += 1;
+        continue;
+      }
+      items.push({ id: raw.id, title: raw.title, coverUrl: raw.coverUrl || '' });
+    }
+    return data(res, { items, skipped, total: all.length });
+  });
+
+  /** 后台预热图片缓存：返回全部搜索词 */
+  app.get('/api/admin/covers/queries', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+    return data(res, { queries: PHOTO_QUERIES });
+  });
+
+  /** 后台预热图片缓存：预热单个搜索词（前端逐个调，避免一次请求太久） */
+  app.post('/api/admin/covers/warm', async (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+    const q = str(req.body?.query, 120);
+    if (!q) return fail(res, '缺少 query', 400, 'bad_request');
+    const r = await warmPhotoCache(q);
+    return data(res, r);
+  });
+
   app.post('/api/admin/covers/photo', async (req, res) => {
     const user = mustAuth(req);
     if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
