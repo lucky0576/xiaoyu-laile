@@ -1315,17 +1315,44 @@ export async function renderDetail(ctx, params) {
               <button class="btn btn-primary" id="file-unlock">查看</button>
             </div>
             <div class="tiny dim mt8">🔐 仅供在线查看，页面不提供下载入口。但请注意：能看到的内容仍可能被截图或录屏保存。</div>
-          </div>` : `<div class="card card-pad" id="project-files">
-            <div class="row between mb8">
-              <div class="strong">📁 项目文件（${files.length}）</div>
-              <span class="tiny dim">点击文件即可在线查看${fileSecretOn ? '' : '或下载'}</span>
-            </div>
-            ${fileSecretOn ? '<div class="file-unlocked-tip mb8">🔓 密码已验证 <span id="file-countdown" class="file-countdown"></span></div>' : ''}
-            <div class="row wrap gap8">
-              ${files.map((f) => fileCardHtml({ ...f, url: withFileToken(f.url) })).join('')}
-            </div>
-            <div class="tiny dim mt8">发布方上传的项目资料，${listing.isOwner ? '其他人需登录后才能看到。' : '已登录用户均可查看。'}</div>
-          </div>`) : (listing.gated ? `<div class="card card-pad center">
+          </div>` : (() => {
+            /*
+             * 附件区：图片直接内联显示，不用点开才看得到。
+             * 活动资料、项目现场照这类东西，先看到缩略图才知道要不要细看，
+             * 全做成「📎 文件名」的 chip，等于逼用户一个个点。
+             */
+            const imgFiles = files.filter((f) => f.kind === 'image');
+            const otherFiles = files.filter((f) => f.kind !== 'image');
+            const isEvent = listing.category === 'event';
+            const boxTitle = isEvent ? '🖼 活动资料' : '📁 项目文件';
+            return `<div class="card card-pad" id="project-files">
+              <div class="row between mb8">
+                <div class="strong">${boxTitle}（${files.length}）</div>
+                <span class="tiny dim">${imgFiles.length ? '图片可直接预览' : '点击文件即可在线查看'}${fileSecretOn ? '' : '或下载'}</span>
+              </div>
+              ${fileSecretOn ? '<div class="file-unlocked-tip mb8">🔓 密码已验证 <span id="file-countdown" class="file-countdown"></span></div>' : ''}
+              ${
+                imgFiles.length
+                  ? `<div class="detail-block-imgs">${imgFiles
+                      .map(
+                        (f) =>
+                          `<a href="${ui.esc(ui.safeUrl(withFileToken(f.url)))}" target="_blank" rel="noopener" title="点击查看大图">
+                            <img src="${ui.esc(ui.safeUrl(withFileToken(f.url)))}" alt="${ui.esc(f.name || '')}" loading="lazy">
+                          </a>`,
+                      )
+                      .join('')}</div>`
+                  : ''
+              }
+              ${
+                otherFiles.length
+                  ? `<div class="row wrap gap8${imgFiles.length ? ' mt12' : ''}">
+                      ${otherFiles.map((f) => fileCardHtml({ ...f, url: withFileToken(f.url) })).join('')}
+                    </div>`
+                  : ''
+              }
+              <div class="tiny dim mt8">发布方上传的资料，${listing.isOwner ? '其他人登录后即可查看。' : '可直接查看。'}</div>
+            </div>`;
+          })()) : (listing.gated ? `<div class="card card-pad center">
             <div class="strong">📁 项目文件</div>
             <div class="small muted mt4">发布方上传了项目资料，登录后可查看。</div>
             <a class="btn btn-primary btn-sm mt12" href="#/login?redirect=${encodeURIComponent(`#/detail/${listing.id}`)}">登录后查看</a>
