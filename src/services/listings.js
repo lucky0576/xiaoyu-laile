@@ -1580,6 +1580,80 @@ function sanitizeCities(raw, text = '') {
   return out.slice(0, 5);
 }
 
+/**
+ * 按 AI 解析出的意图检索。
+ *
+ * 策略是「逐步放宽」：全条件搜不到 3 条，就依次去掉类别、去掉城市，
+ * 最后退回纯关键词，避免「条件一多就零结果」。
+ */
+export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
+  const words = (intent.keywords || []).map((x) => String(x || '').trim()).filter(Boolean);
+  const base = String(intent.q || '').trim();
+  const city = String(intent.city || '').trim();
+  const industry = String(intent.industry || '').trim();
+  const category = String(intent.category || '').trim();
+
+  const tries = [
+    { category, q: [...words, city, industry].filter(Boolean).join(' ') },
+    { category, q: [...words, industry].filter(Boolean).join(' ') },
+    { category, q: [...words].filter(Boolean).join(' ') },
+    { q: [...words, industry, city].filter(Boolean).join(' ') },
+    { q: [...words, city].filter(Boolean).join(' ') },
+    { q: words.join(' ') },
+    { q: base },
+  ].filter((t) => t.q || t.category);
+
+  let best = [];
+  for (const t of tries) {
+    let items = [];
+    try {
+      items = queryListings({
+        status: 'published',
+        pageSize: 200,
+        q: t.q || undefined,
+        category: t.category || undefined,
+      }).items || [];
+    } catch {
+      items = [];
+    }
+    if (items.length > best.length) best = items;
+    if (items.length >= 3) {
+      best = items;
+      break;
+    }
+  }
+
+  // 打分：城市、行业命中排前面，其次看关键词与可靠性
+  const lowerWords = words.map((w) => w.toLowerCase());
+  const scored = best.map((l) => {
+    const hay = [
+      l.title,
+      l.subtitle,
+      l.summary,
+      ...(l.cities || []).map((c) => c.name),
+      ...(l.industries || []).map((i) => i.name),
+      ...(l.keywords || []),
+      l.typeName,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    let score = 0;
+    if (city && hay.includes(city.toLowerCase())) score += 8;
+    if (industry && hay.includes(industry.toLowerCase())) score += 6;
+    for (const w of lowerWords) if (w && hay.includes(w)) score += 3;
+    if (base && hay.includes(base.toLowerCase())) score += 2;
+    score += (l.ai?.reliability?.score || 0) / 50;
+    return { l, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+
+  return {
+    items: scored.slice(0, limit).map((x) => x.l),
+    total: scored.length,
+  };
+}
+
 export function queryListings(params = {}) {
   const {
     category = '',
@@ -1929,6 +2003,7 @@ function _canViewFileLegacy(fileRecord, viewer) {
 }
 
 export default {
+  searchWithIntent,
   auditRegistration,
   eventRegisterClosed,
   canDownloadFile,

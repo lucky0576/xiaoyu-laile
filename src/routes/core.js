@@ -582,6 +582,24 @@ export default function registerCoreRoutes(app) {
   /* ---------------------------------------------------------------- */
   /* 实时事件流（SSE）                                                  */
   /* ---------------------------------------------------------------- */
+  /* AI 搜索：把一句话需求解析成条件，再按条件检索 */
+  app.post('/api/ai/search', async (req, res) => {
+    const q = str(req.body?.q, 200);
+    if (!q) return fail(res, '请输入搜索内容', 400, 'empty_query');
+    try {
+      rateLimit(req, 'ai-search', { windowMs: 60000, max: 30 });
+    } catch {
+      /* 限流失败不阻断 */
+    }
+    const parsed = await ai.parseSearchIntent(q);
+    const result = listingsSvc.searchWithIntent(parsed, { limit: 40 });
+    return data(res, {
+      parsed,
+      items: result.items,
+      total: result.total,
+    });
+  });
+
   app.get('/api/events/stream', (req, res) => {
     const user = authUser(req);
     const client = hub.subscribe(req, res, { userId: user?.id || null });

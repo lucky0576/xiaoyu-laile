@@ -1409,6 +1409,92 @@ function regexContact(text) {
   return { phone, wechat };
 }
 
+/**
+ * 把用户的一句话搜索需求解析成检索条件。
+ *
+ * 例：「呼和浩特有哪些风电项目在转让」
+ *   → { keywords:['风电','转让'], category:'project', city:'呼和浩特市', industry:'风电' }
+ *
+ * AI 没配好或解析失败时，退回基于词典的规则解析（城市/行业/类型），
+ * 至少能比纯关键词搜索准一点。
+ */
+export async function parseSearchIntent(text = '') {
+  const src = String(text || '').trim().slice(0, 200);
+  const empty = {
+    q: src,
+    keywords: [],
+    category: '',
+    city: '',
+    industry: '',
+    typeName: '',
+    amountMin: null,
+    amountMax: null,
+    intent: '',
+    source: 'rule',
+  };
+  if (!src) return empty;
+
+  // 先把「城市 / 行业」用词典捞出来，AI 失败时也有得用
+  const rule = { ...empty };
+  try {
+    const [cities, inds] = await Promise.all([matchCities(src), matchIndustries(src)]);
+    if (cities && cities.length) rule.city = cities[0].name || '';
+    if (inds && inds.length) rule.industry = inds[0].sub || inds[0].industry || '';
+  } catch {
+    /* 词典匹配失败就跳过 */
+  }
+  try {
+    const types = await matchTypes(src, '');
+    if (types && types.length) rule.typeName = types[0].name || '';
+  } catch {
+    /* ignore */
+  }
+
+  if (!aiConfigured()) return rule;
+
+  const user = `把用户的一句话搜索需求，解析成结构化检索条件。只输出 JSON，不要解释：
+{"keywords":["检索词"],"category":"project|event|trade|bounty|tech|","city":"城市名","industry":"行业名","typeName":"类型名","amountMin":null,"amountMax":null,"intent":"一句中文说明"}
+
+规则：
+1. keywords 给 1~3 个最有区分度的检索词（产品、动作、专有名词），不要把城市和类别再塞进去；
+2. category 只能取 project(项目) / event(活动) / trade(贸易) / bounty(悬赏) / tech(科技成果转化)，判断不出给空字符串；
+3. city 填可能出现的城市全名（如「杭州市」），没有给空字符串；
+4. industry 填行业名（如「光伏」「储能」「算力」），没有给空字符串；
+5. amountMin / amountMax 单位是「万元」，判断不出给 null；
+6. intent 用一句中文说明你理解他在找什么，不要超过 20 字。
+
+用户说的是：
+"""${src}"""`;
+
+  try {
+    const raw = await chat(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: user },
+      ],
+      { json: true, temperature: 0.1 },
+    );
+    const j = extractJson(raw) || {};
+    const kw = Array.isArray(j.keywords) ? j.keywords : [];
+    const out = {
+      q: src,
+      keywords: kw.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 4),
+      category: ['project', 'event', 'trade', 'bounty', 'tech'].includes(String(j.category || '')) ? String(j.category) : '',
+      city: String(j.city || '').trim().slice(0, 20) || rule.city,
+      industry: String(j.industry || '').trim().slice(0, 20) || rule.industry,
+      typeName: String(j.typeName || '').trim().slice(0, 20) || rule.typeName,
+      amountMin: Number.isFinite(Number(j.amountMin)) && j.amountMin !== null ? Number(j.amountMin) : null,
+      amountMax: Number.isFinite(Number(j.amountMax)) && j.amountMax !== null ? Number(j.amountMax) : null,
+      intent: String(j.intent || '').trim().slice(0, 40),
+      source: 'ai',
+    };
+    if (!out.keywords.length) out.keywords = [src.slice(0, 12)];
+    return out;
+  } catch {
+    return rule;
+  }
+}
+
 export async function extractContactInfo({ text = '' } = {}) {
   const src = String(text || '').trim().slice(0, 2000);
   if (!src) return { ok: false, note: '没有可识别的文字', name: '', phone: '', wechat: '', company: '' };
@@ -1973,6 +2059,7 @@ export function aiStatus() {
 }
 
 export default {
+  parseSearchIntent,
   extractTradeItems,
   splitItems,
   extractContactInfo,

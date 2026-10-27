@@ -458,9 +458,28 @@ export async function renderHome(ctx, query) {
     <span class="btn btn-sm btn-primary">登录 / 注册</span>
   </a>`;
 
+  /*
+   * AI 搜索横栏。
+   * 首页最上面给一条，用户可以直接说人话：
+   * 「呼和浩特有哪些风电项目在转让」→ 后端解析城市/行业/类别再检索。
+   */
+  const aiBarHtml = `<form class="ai-search-bar" id="ai-search-form" autocomplete="off">
+    <span class="ai-search-ico">🤖</span>
+    <input class="ai-search-input" id="ai-search-q" maxlength="60"
+      placeholder="用一句话找信息，如：呼和浩特有哪些风电项目在转让">
+    <button class="ai-search-btn" type="submit">AI 搜索</button>
+  </form>
+  <div class="ai-search-hints">
+    <span class="tiny dim">试试：</span>
+    ${['储能集装箱现货', 'EPC 总承包招标', '科技成果转化', '算力服务器供应']
+      .map((h) => `<a class="chip" href="#/search?q=${encodeURIComponent(h)}">${ui.esc(h)}</a>`)
+      .join('')}
+  </div>`;
+
   const html = `<div class="home-wrap">
     ${noticeHtml}
     ${bannerHtml}
+    ${aiBarHtml}
     ${gridHtml}
     ${projectBarHtml}
     ${ecomBarHtml}
@@ -493,6 +512,14 @@ export async function renderHome(ctx, query) {
     showBack: false,
     noTab: false,
     async mount(root) {
+
+      /* AI 搜索横栏：直接带上关键词跳到搜索页 */
+      root.querySelector('#ai-search-form')?.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const kw = (root.querySelector('#ai-search-q')?.value || '').trim();
+        if (!kw) return;
+        ctx.nav(`#/search?q=${encodeURIComponent(kw)}`);
+      });
 
       /* 电商搜索：回车或点🔍 跳到电商列表并按关键词筛 */
       root.querySelector('#ecom-search-form')?.addEventListener('submit', (ev) => {
@@ -725,26 +752,70 @@ export async function renderList(ctx, params) {
 /* ================================================================== */
 export async function renderSearch(ctx, query) {
   const q = query.q || '';
-  let res = { items: [], total: 0 };
-  if (q) res = await service.listings({ status: 'published', q, pageSize: 30 }).catch(() => ({ items: [], total: 0 }));
+
+  /*
+   * 走 AI 搜索接口：后端把一句话解析成「城市 / 行业 / 类别 / 关键词」，
+   * 再按条件检索，条件搜不到会自动放宽。比纯关键词匹配准得多。
+   * 接口挂了就退回普通关键词搜索。
+   */
+  let res = { items: [], total: 0, parsed: null };
+  if (q) {
+    res = await service.aiSearch(q).catch(async () => {
+      const fallback = await service
+        .listings({ status: 'published', q, pageSize: 30 })
+        .catch(() => ({ items: [], total: 0 }));
+      return { items: fallback.items || [], total: fallback.total || 0, parsed: null };
+    });
+  }
+  const parsed = res.parsed || null;
+
+  // 把解析结果拼成「AI 理解为：项目 · 呼和浩特市 · 风电」这样一行
+  const parsedBits = [];
+  if (parsed) {
+    const catName = { project: '项目', event: '活动', trade: '贸易', bounty: '悬赏', tech: '成果转化' }[parsed.category];
+    if (catName) parsedBits.push(catName);
+    if (parsed.city) parsedBits.push(parsed.city);
+    if (parsed.industry) parsedBits.push(parsed.industry);
+    if (parsed.typeName) parsedBits.push(parsed.typeName);
+    if (parsed.amountMin) parsedBits.push(`${parsed.amountMin} 万元以上`);
+    if (parsed.amountMax) parsedBits.push(`${parsed.amountMax} 万元以下`);
+    if (!parsedBits.length && (parsed.keywords || []).length) parsedBits.push(...parsed.keywords);
+  }
+
+  const parsedHtml =
+    q && parsed
+      ? `<div class="ai-parsed">
+          <span class="ai-parsed-ico">🤖</span>
+          <span class="ai-parsed-t">${
+            parsed.intent ? ui.esc(parsed.intent) : 'AI 理解为'
+          }</span>
+          ${parsedBits.length ? `<span class="ai-parsed-bits">${parsedBits.map((b) => `<span class="ai-bit">${ui.esc(b)}</span>`).join('')}</span>` : ''}
+          <span class="tiny dim ai-parsed-src">${parsed.source === 'ai' ? 'AI 解析' : '规则解析'}</span>
+        </div>`
+      : '';
+
   const taxonomy = ctx.state.taxonomy || {};
   const hot = ['光伏', '储能', 'EPC', '融资租赁', '算力', '机器人', '无人机', '招投标'];
 
   const html = `<div class="page">
-    <div class="input-group mb16">
-      <input class="input input-lg" id="search-input" placeholder="搜索项目 / 活动 / 贸易 / 企业" value="${ui.esc(q)}">
-      <button class="btn btn-primary" id="search-btn" style="height:48px">搜索</button>
-    </div>
+    <form class="ai-search-bar inside" id="search-form">
+      <span class="ai-search-ico">🤖</span>
+      <input class="ai-search-input" id="search-input" maxlength="60"
+        placeholder="用一句话找信息，如：呼和浩特有哪些风电项目在转让" value="${ui.esc(q)}">
+      <button class="ai-search-btn" type="submit" id="search-btn">AI 搜索</button>
+    </form>
+
+    ${parsedHtml}
 
     ${!q ? `
-      <div class="section-head"><h2>热门搜索</h2></div>
+      <div class="section-head mt16"><h2>热门搜索</h2></div>
       <div class="chips">${hot.map((h) => `<a class="chip" href="#/search?q=${encodeURIComponent(h)}">${ui.esc(h)}</a>`).join('')}</div>
       <div class="section-head mt24"><h2>按行业浏览</h2></div>
       <div class="chips">
         ${(taxonomy.industries || []).map((i) => `<a class="chip" href="#/list/project?industry=${encodeURIComponent(i.id)}">${i.icon || ''} ${ui.esc(i.name)}</a>`).join('')}
       </div>
     ` : `
-      <div class="row between mb12"><span class="small muted">找到 ${res.total} 条结果</span></div>
+      <div class="row between mb12 mt12"><span class="small muted">找到 ${res.total} 条结果</span></div>
       <div class="card list-grid" style="overflow:hidden">
         ${(res.items || []).length ? res.items.map(itemHtml).join('') : ui.emptyState('🤷', `没有找到与"${q}"相关的内容`)}
       </div>
@@ -759,11 +830,17 @@ export async function renderSearch(ctx, query) {
     mount(root) {
       const input = root.querySelector('#search-input');
       const go = () => {
-        const v = input.value.trim();
+        const v = (input?.value || '').trim();
         if (v) ctx.nav(`#/search?q=${encodeURIComponent(v)}`);
       };
-      root.querySelector('#search-btn')?.addEventListener('click', go);
-      input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+      root.querySelector('#search-form')?.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        go();
+      });
+      root.querySelector('#search-btn')?.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        go();
+      });
     },
   };
 }
