@@ -444,6 +444,8 @@ export const service = {
   fileAccess: (id, token) => api.get(`/api/listings/${id}/files/access`, token ? { t: token } : undefined),
   dock: (id, note) => api.post(`/api/listings/${id}/dock`, { note }),
   registerEvent: (id, body) => api.post(`/api/listings/${id}/register`, body),
+  auditRegistration: (id, regId, action, note) =>
+    api.post(`/api/listings/${id}/registrations/${regId}/audit`, { action, note }),
   registrations: (id) => api.get(`/api/listings/${id}/registrations`),
   share: (id) => api.get(`/api/listings/${id}/share`),
   recordShare: (id, channel) => api.post(`/api/listings/${id}/share`, { channel }),

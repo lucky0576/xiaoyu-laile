@@ -2699,3 +2699,14 @@ a.sp-item:active { background: #f7fbff; }
   border-bottom: 1px dashed var(--line);
 }
 .reg-list .reg-item:last-child { border-bottom: none; }
+
+
+/* ---------------- 报名状态 ---------------- */
+.reg-status-box {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-soft, #f7f9fc);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: center;
+}

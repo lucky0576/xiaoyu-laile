@@ -697,6 +697,21 @@ export default function registerListingRoutes(app) {
     return data(res, { items: listingsSvc.listRegistrations(req.params.id, user) });
   });
 
+  /* 主办方审核报名：action = approved / rejected */
+  app.post('/api/listings/:id/registrations/:regId/audit', (req, res) => {
+    const user = mustAuth(req);
+    return data(
+      res,
+      listingsSvc.auditRegistration(
+        req.params.id,
+        req.params.regId,
+        user,
+        str(req.body?.action, 20),
+        str(req.body?.note, 200),
+      ),
+    );
+  });
+
   /* ---------------------------------------------------------------- */
   /* 我的信息（按状态分组）                                             */
   /* ---------------------------------------------------------------- */

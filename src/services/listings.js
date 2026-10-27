@@ -170,6 +170,16 @@ export function listingPublic(l, viewer = null, opts = {}) {
     fileLocked: Boolean((l.files || []).length && !fileUnlocked),
     fileGranted: fileAccessGranted,
     fileRequested: Boolean(viewer && (l.fileRequests || []).some((r) => r.userId === viewer.id)),
+    // 活动：报名是否已关闭（'' | 'deadline' | 'full'）
+    eventRegisterClosed: l.category === 'event' ? eventRegisterClosed(l) : '',
+    // 我自己的报名状态（活动详情页展示「待审核 / 已通过 / 未通过」）
+    myRegistration:
+      l.category === 'event' && viewer
+        ? (() => {
+            const r = registrations().findOne((x) => x.listingId === l.id && x.userId === viewer.id);
+            return r ? { status: r.auditStatus || 'pending', auditNote: r.auditNote || '' } : null;
+          })()
+        : null,
     fileRequestCount: (l.fileRequests || []).filter((r) => r.status === 'pending').length,
     fileCount: (l.files || []).length,
 
@@ -1269,6 +1279,21 @@ export function qualificationSummary(l, userId) {
 /* ------------------------------------------------------------------ */
 /* 活动报名                                                            */
 /* ------------------------------------------------------------------ */
+/**
+ * 报名是否关闭。
+ * @returns {'' | 'deadline' | 'full'}
+ */
+export function eventRegisterClosed(l) {
+  const ev = l?.event;
+  if (!ev) return '';
+  const dl = ev.registerDeadline ? new Date(ev.registerDeadline).getTime() : 0;
+  if (dl && Date.now() > dl) return 'deadline';
+  const cap = Number(ev.capacity) || 0;
+  const registered = Number(ev.registered) || 0;
+  if (cap > 0 && registered >= cap) return 'full';
+  return '';
+}
+
 export function registerForEvent(
   listingId,
   user,
@@ -1280,6 +1305,15 @@ export function registerForEvent(
 
   const exists = registrations().findOne((r) => r.listingId === listingId && r.userId === user.id);
   if (exists) return { registration: exists, duplicated: true };
+
+  /*
+   * 报名闸门：截止时间 + 名额。
+   * 之前只在前端显示文案，接口本身照收不误 —— 直接调接口就能在截止后报名。
+   * 现在服务端硬拦。
+   */
+  const closed = eventRegisterClosed(l);
+  if (closed === 'deadline') throw httpError(400, '报名已截止');
+  if (closed === 'full') throw httpError(400, '名额已满，报名已关闭');
 
   const needPay = Boolean(l.event?.needPay) && Number(l.event?.fee) > 0;
   const reg = registrations().insert({
@@ -1297,6 +1331,9 @@ export function registerForEvent(
     payStatus: needPay ? 'pending' : 'free',
     payMethod,
     status: 'registered',
+    // 报名审核：pending → approved / rejected
+    auditStatus: 'pending',
+    auditNote: '',
   });
 
   listings().update(listingId, {
@@ -1312,6 +1349,53 @@ export function registerForEvent(
     });
   }
   return { registration: reg, needPay };
+}
+
+/**
+ * 审核报名。
+ * @param {'approved'|'rejected'} action
+ */
+export function auditRegistration(listingId, regId, user, action, note = '') {
+  if (action !== 'approved' && action !== 'rejected') throw httpError(400, '无效的审核操作');
+  const l = listings().get(listingId);
+  if (!l) throw httpError(404, '活动不存在');
+  if (l.ownerId !== user.id && !user.isAdmin) throw httpError(403, '只有主办方可以审核报名');
+
+  const regs = registrations();
+  const r = regs.get(regId);
+  if (!r || r.listingId !== listingId) throw httpError(404, '报名记录不存在');
+  if (r.auditStatus === action) return { registration: r, changed: false };
+
+  const updated = regs.update(regId, {
+    auditStatus: action,
+    auditNote: String(note || '').slice(0, 200),
+    auditedAt: new Date().toISOString(),
+    auditedBy: user.id,
+  });
+
+  /*
+   * 名额按「非拒绝」计算：
+   *   拒绝 → 释放一个名额
+   *   从拒绝改回通过 → 重新占用
+   */
+  const delta = action === 'rejected' ? -1 : r.auditStatus === 'rejected' ? 1 : 0;
+  if (delta) {
+    const cur = Number(l.event?.registered) || 0;
+    listings().update(listingId, {
+      event: { ...l.event, registered: Math.max(0, cur + delta) },
+    });
+  }
+
+  // 通知报名人
+  notifySvc.notify({
+    userId: r.userId,
+    type: 'system',
+    title: action === 'approved' ? `「${l.title}」报名已通过` : `「${l.title}」报名未通过`,
+    body: action === 'approved' ? '主办方已确认你的报名，请留意现场通知。' : String(note || '主办方未通过本次报名。').slice(0, 120),
+    link: `/#/detail/${listingId}`,
+  });
+
+  return { registration: updated, changed: true };
 }
 
 export function listRegistrations(listingId, user) {
@@ -1840,6 +1924,8 @@ function _canViewFileLegacy(fileRecord, viewer) {
 }
 
 export default {
+  auditRegistration,
+  eventRegisterClosed,
   canDownloadFile,
   sanitizeCities,
   isEcommerceListing,

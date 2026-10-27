@@ -1051,12 +1051,46 @@ export async function renderDetail(ctx, params) {
           ${listing.event.registerDeadline ? `<div>📅 报名截止：${ui.esc(ui.fmtDate(listing.event.registerDeadline))}</div>` : ''}
           ${listing.event.registerUrl ? `<div>🔗 报名方式：主办方自有报名系统</div>` : ''}
         </div>
-        ${listing.event.registerUrl
-          ? `<a class="btn btn-primary btn-block mt12" href="${ui.esc(ui.safeUrl(listing.event.registerUrl))}" target="_blank" rel="noopener noreferrer nofollow">前往报名 ›</a>
-             <div class="tiny dim mt6" style="text-align:center">主办方使用自有报名系统，点按钮直达</div>`
-          : isOwner
-            ? `<button class="btn btn-block mt12" id="btn-registrations">查看报名名单</button>`
-            : `<button class="btn btn-primary btn-block mt12" id="btn-register">立即报名${listing.event.needPay ? ` · ${listing.event.fee} 元` : '（免费）'}</button>`}
+        ${(() => {
+          /*
+           * 报名按钮的四种状态：
+           *   有报名链接 → 直达主办方
+           *   主办方本人 → 查看报名名单
+           *   已截止/名额满 → 禁用
+           *   已报名 → 显示审核状态
+           */
+          const ev = listing.event || {};
+          if (ev.registerUrl) {
+            return `<a class="btn btn-primary btn-block mt12" href="${ui.esc(ui.safeUrl(ev.registerUrl))}" target="_blank" rel="noopener noreferrer nofollow">前往报名 ›</a>
+              <div class="tiny dim mt6" style="text-align:center">主办方使用自有报名系统，点按钮直达</div>`;
+          }
+          if (isOwner) {
+            return `<button class="btn btn-block mt12" id="btn-registrations">查看报名名单</button>`;
+          }
+          const my = listing.myRegistration;
+          if (my) {
+            const map = {
+              pending: { t: '⏳ 已提交，等待主办方审核', c: 'badge gray', extra: '' },
+              approved: { t: '✅ 报名已通过', c: 'badge', extra: '' },
+              rejected: { t: '❌ 报名未通过', c: 'badge gray', extra: my.auditNote || '' },
+            };
+            const st = map[my.status] || map.pending;
+            return `<div class="reg-status-box">
+              <span class="${st.c}">${ui.esc(st.t)}</span>
+              ${st.extra ? `<div class="tiny dim mt6">${ui.esc(st.extra)}</div>` : ''}
+            </div>`;
+          }
+          const closed = listing.eventRegisterClosed;
+          if (closed === 'deadline') {
+            return `<button class="btn btn-block mt12" disabled>报名已截止</button>
+              <div class="tiny dim mt6" style="text-align:center">报名截止时间已过</div>`;
+          }
+          if (closed === 'full') {
+            return `<button class="btn btn-block mt12" disabled>名额已满</button>
+              <div class="tiny dim mt6" style="text-align:center">本次名额已报满，可联系主办方候补</div>`;
+          }
+          return `<button class="btn btn-primary btn-block mt12" id="btn-register">立即报名${ev.needPay ? ` · ${ev.fee} 元` : '（免费）'}</button>`;
+        })()}
       </div>`
     : '';
 
@@ -1901,7 +1935,7 @@ export async function renderDetail(ctx, params) {
                   if (ok) ui.toast('支付成功（演示），名额已锁定', 'ok');
                   else ui.toast('已登记报名，请在截止前完成支付', '');
                 } else {
-                  ui.toast('报名成功！', 'ok');
+                  ui.toast('报名已提交，等待主办方审核', 'ok');
                 }
                 await ctx.refreshMe();
               } catch (err) {
@@ -1920,6 +1954,35 @@ export async function renderDetail(ctx, params) {
           const res = await service.registrations(listing.id);
           ui.openSheet({
             title: `报名名单（${res.items.length}）`,
+            onMount(sheetEl) {
+              sheetEl.querySelectorAll('.reg-audit').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                  const regId = btn.dataset.reg;
+                  const act = btn.dataset.act;
+                  let note = '';
+                  if (act === 'rejected') {
+                    const r = await ui.promptDialog({
+                      title: '拒绝报名',
+                      label: '给报名人一个说明（选填）',
+                      placeholder: '如：本次名额已满 / 资料不完整',
+                      okText: '确认拒绝',
+                    });
+                    if (r === null) return;
+                    note = r;
+                  }
+                  btn.disabled = true;
+                  try {
+                    await service.auditRegistration(listing.id, regId, act, note);
+                    ui.toast(act === 'approved' ? '已通过' : '已拒绝', 'ok');
+                    close();
+                    render();
+                  } catch (err) {
+                    btn.disabled = false;
+                    ui.toast(err.message || '操作失败', 'err');
+                  }
+                });
+              });
+            },
             content: res.items.length
               ? `<div class="reg-list">${res.items
                   .map((r) => {
@@ -1927,7 +1990,7 @@ export async function renderDetail(ctx, params) {
                     return `<div class="reg-item">
                       <div class="row between">
                         <div class="strong">${ui.esc(r.name)}</div>
-                        <span class="badge ${r.payStatus === 'paid' ? '' : 'gray'}">${r.payStatus === 'free' ? '免费' : r.payStatus === 'paid' ? '已支付' : '待支付'}</span>
+                        <span class="badge ${r.payStatus === 'paid' || r.auditStatus === 'approved' ? '' : 'gray'}">${r.auditStatus === 'approved' ? '已通过' : r.auditStatus === 'rejected' ? '已拒绝' : '待审核'}</span>
                       </div>
                       <div class="tiny dim mt4">${ui.esc(r.phone)}${r.company ? ' · ' + ui.esc(r.company) : ''}</div>
                       ${r.projectName ? `<div class="tiny dim mt2">项目：${ui.esc(r.projectName)}</div>` : ''}
@@ -1938,6 +2001,14 @@ export async function renderDetail(ctx, params) {
                               .map((f) => `<a class="chip" href="${ui.esc(ui.safeUrl(f.url))}" target="_blank" rel="noopener">📎 ${ui.esc(f.name || '附件')}</a>`)
                               .join('')}</div>`
                           : ''
+                      }
+                      ${
+                        r.auditStatus === 'pending'
+                          ? `<div class="row gap8 mt8">
+                              <button class="btn btn-sm btn-primary reg-audit" data-reg="${ui.esc(r.id)}" data-act="approved">✓ 通过</button>
+                              <button class="btn btn-sm reg-audit" data-reg="${ui.esc(r.id)}" data-act="rejected">✗ 拒绝</button>
+                            </div>`
+                          : `<div class="tiny dim mt6">${r.auditStatus === 'approved' ? '✅ 已通过' : '❌ 已拒绝'}${r.auditNote ? ' · ' + ui.esc(r.auditNote) : ''}</div>`
                       }
                     </div>`;
                   })
