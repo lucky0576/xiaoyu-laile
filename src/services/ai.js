@@ -1495,6 +1495,65 @@ export async function parseSearchIntent(text = '') {
   }
 }
 
+/**
+ * 从名片照片或聊天截图里提取联系信息。
+ *
+ * 直接用视觉模型出 JSON，比「先 OCR 再正则」准得多 ——
+ * 名片上的「手机」「Tel」「M」「微信/WeChat」这些标法太杂，正则很难覆盖。
+ * 视觉模型失败时退回：先用 ocrImages 拿文字，再走 extractContactInfo。
+ */
+export async function extractContactFromImages({ images = [] } = {}) {
+  const list = (images || []).filter(Boolean).slice(0, 3);
+  if (!list.length) return { ok: false, note: '没有图片', name: '', phone: '', wechat: '', company: '' };
+  if (!visionConfigured()) {
+    return { ok: false, note: '未配置视觉模型（后台 → AI 设置里绑定支持读图的模型）', name: '', phone: '', wechat: '', company: '' };
+  }
+
+  const prompt = [
+    '这是一张名片，或包含联系方式的截图/照片。请提取联系信息。只输出 JSON，不要解释：',
+    '{"name":"联系人姓名","phone":"手机号或座机号","wechat":"微信号","company":"公司全称","title":"职务"}',
+    '规则：',
+    '1. 找不到的字段给空字符串，不要编造；',
+    '2. name 只填人名，不要带职务；',
+    '3. phone 手机号优先，11 位纯数字，不要带空格横线；座机保留区号；',
+    '4. wechat 只填微信号本身，不要把手机号当微信号；',
+    '5. company 填完整的企业/单位名称；',
+    '6. title 填职务（如 总经理、项目经理），没有就留空。',
+  ].join('\n');
+
+  try {
+    const r = await visionDescribe({ images: list, prompt });
+    if (r.ok && r.text) {
+      const j = extractJson(r.text);
+      if (j && typeof j === 'object') {
+        const out = {
+          name: String(j.name || '').trim().slice(0, 20),
+          phone: String(j.phone || '').replace(/[^\d\-]/g, '').slice(0, 20),
+          wechat: String(j.wechat || '').trim().slice(0, 40),
+          company: String(j.company || '').trim().slice(0, 60),
+          title: String(j.title || '').trim().slice(0, 20),
+          source: 'vision',
+        };
+        if (out.name || out.phone || out.wechat || out.company) {
+          return { ok: true, ...out, note: '' };
+        }
+      }
+      // 视觉模型没吐合法 JSON，退回「文字 + 正则」
+      const rx = regexContact(r.text);
+      const fallback = { ...rx, name: '', company: '' };
+      return {
+        ok: Boolean(fallback.phone || fallback.wechat),
+        ...fallback,
+        source: 'vision-text',
+        note: fallback.phone || fallback.wechat ? '' : '名片上没识别到电话或微信',
+      };
+    }
+    return { ok: false, note: r.note || '图片识别失败', name: '', phone: '', wechat: '', company: '' };
+  } catch (err) {
+    return { ok: false, note: err.message || '识别失败', name: '', phone: '', wechat: '', company: '' };
+  }
+}
+
 export async function extractContactInfo({ text = '' } = {}) {
   const src = String(text || '').trim().slice(0, 2000);
   if (!src) return { ok: false, note: '没有可识别的文字', name: '', phone: '', wechat: '', company: '' };
@@ -2059,6 +2118,7 @@ export function aiStatus() {
 }
 
 export default {
+  extractContactFromImages,
   parseSearchIntent,
   extractTradeItems,
   splitItems,

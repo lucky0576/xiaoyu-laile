@@ -1894,6 +1894,8 @@ export async function renderDetail(ctx, params) {
               <textarea class="input" id="reg-ai-src" rows="2" placeholder="例如：联系人 张工 13800001234 微信 zhanggong888 山东鲁能新能源有限公司"></textarea>
               <div class="row gap8 mt8" style="flex-wrap:wrap;align-items:center">
                 <button type="button" class="btn btn-sm" id="reg-ai-btn">🤖 自动识别</button>
+                <button type="button" class="btn btn-sm" id="reg-photo-btn">📷 名片 / 截图</button>
+                <input type="file" id="reg-photo-input" accept="image/*" hidden>
                 <button type="button" class="btn btn-sm" id="reg-import-btn">📋 从我的资料导入</button>
                 <span class="tiny dim" id="reg-ai-tip"></span>
               </div>
@@ -1961,6 +1963,40 @@ export async function renderDetail(ctx, params) {
               } finally {
                 btn.disabled = false;
                 btn.textContent = '🤖 自动识别';
+              }
+            });
+
+            /* 名片 / 截图识别 */
+            const photoBtn = $('#reg-photo-btn');
+            const photoInput = $('#reg-photo-input');
+            photoBtn?.addEventListener('click', () => {
+              photoInput.value = '';
+              photoInput.click();
+            });
+            photoInput?.addEventListener('change', async () => {
+              const file = photoInput.files && photoInput.files[0];
+              if (!file) return;
+              photoBtn.disabled = true;
+              photoBtn.textContent = '识别中…';
+              say('正在识别名片…');
+              try {
+                const dataUrl = await ui.readImageAsDataUrl(file);
+                const r = await service.aiContactImage([dataUrl]);
+                if (!r || !r.ok) {
+                  say(r?.note || '没识别到联系信息', '#c0392b');
+                  return;
+                }
+                const parts = [];
+                if (setVal('#reg-name', r.name)) parts.push(`联系人 ${r.name}`);
+                if (setVal('#reg-phone', r.phone)) parts.push(`电话 ${r.phone}`);
+                if (setVal('#reg-company', r.company)) parts.push(`公司 ${r.company}`);
+                if (parts.length) say(`✅ 已填入：${parts.join(' · ')}`, '#0e8f5f');
+                else say('名片上没读到可用字段', '#c0392b');
+              } catch (err) {
+                say(err.message || '识别失败', '#c0392b');
+              } finally {
+                photoBtn.disabled = false;
+                photoBtn.textContent = '📷 名片 / 截图';
               }
             });
 

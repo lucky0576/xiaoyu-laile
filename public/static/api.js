@@ -520,6 +520,7 @@ export const service = {
   feedShare: (id) => api.get(`/api/feeds/${id}/share`),
   feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
   aiContact: (text) => api.post('/api/ai/contact', { text }),
+  aiContactImage: (images) => api.post('/api/ai/contact-image', { images }),
   aiSearch: (q) => api.post('/api/ai/search', { q }),
   coverCandidates: () => api.get('/api/admin/covers/candidates'),
   coverQueries: () => api.get('/api/admin/covers/queries'),

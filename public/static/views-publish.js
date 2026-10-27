@@ -989,6 +989,8 @@ export async function renderPublish(ctx, params) {
           placeholder="把名片、微信签名、聊天记录，或带联系方式的文字粘到这里，例如：&#10;联系人 张工 13800001234 微信 zhanggong888 山东鲁能新能源工程有限公司"></textarea>
         <div class="row gap8 mt8" style="align-items:center;flex-wrap:wrap">
           <button class="btn btn-sm btn-primary" id="pub-contact-ai" type="button">🤖 识别并填入</button>
+          <button class="btn btn-sm" id="pub-contact-photo" type="button">📷 名片 / 截图</button>
+          <input type="file" id="pub-contact-photo-input" accept="image/*" hidden>
           <span class="tiny dim" id="pub-contact-ai-tip"></span>
         </div>
       </div>
@@ -2219,6 +2221,59 @@ export async function renderPublish(ctx, params) {
             contactAiBtn.textContent = '🤖 识别并填入';
           }
         });
+
+        /* 名片 / 截图识别：选图 → 视觉模型抽字段 → 覆盖填入 */
+        const photoBtn = $('#pub-contact-photo');
+        const photoInput = $('#pub-contact-photo-input');
+        if (photoBtn && photoInput) {
+          photoBtn.addEventListener('click', () => {
+            if (contactAiBtn.disabled) return;
+            photoInput.value = '';
+            photoInput.click();
+          });
+
+          photoInput.addEventListener('change', async () => {
+            const file = photoInput.files && photoInput.files[0];
+            if (!file) return;
+            photoBtn.disabled = true;
+            photoBtn.textContent = '识别中…';
+            say('正在识别名片…');
+            try {
+              const dataUrl = await ui.readImageAsDataUrl(file);
+              const r = await service.aiContactImage([dataUrl]);
+              if (!r || !r.ok) {
+                say(r?.note || '没识别到联系信息', '#c0392b');
+                return;
+              }
+              let n = 0;
+              for (const [sel, val] of [
+                ['#pub-contact-name', r.name],
+                ['#pub-phone', r.phone],
+                ['#pub-wechat', r.wechat],
+                ['#pub-company', r.company],
+              ]) {
+                if (!val) continue;
+                const el = $(sel);
+                if (!el) continue;
+                el.value = val;
+                n += 1;
+              }
+              const bits = [];
+              if (r.name) bits.push(`联系人 ${r.name}`);
+              if (r.phone) bits.push(`电话 ${r.phone}`);
+              if (r.wechat) bits.push(`微信 ${r.wechat}`);
+              if (r.company) bits.push(`企业 ${r.company}`);
+              if (r.title) bits.push(r.title);
+              say(n ? `✅ 已识别：${bits.join(' · ')}` : '名片上没读到可用字段', n ? '#0e8f5f' : '#c0392b');
+              if (n) ui.toast('已从名片填入联系信息', 'ok');
+            } catch (err) {
+              say(err.message || '识别失败', '#c0392b');
+            } finally {
+              photoBtn.disabled = false;
+              photoBtn.textContent = '📷 名片 / 截图';
+            }
+          });
+        }
       }
 
       /* ---------------- 内容段落 ---------------- */

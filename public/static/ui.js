@@ -198,6 +198,43 @@ export function promptDialog({ title = '输入', label = '', value = '', placeho
 }
 
 /* ---------------- 底部抽屉 ---------------- */
+/**
+ * 把用户选的图片读成压缩后的 dataUrl。
+ *
+ * 名片拍出来动辄 3~5MB，直接传会把视觉接口打爆，
+ * 所以先按最长边缩到 1280、转成 JPEG 0.82，一般 150~300KB 就够识别了。
+ */
+export function readImageAsDataUrl(file, { maxSide = 1280, quality = 0.82 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type || '')) {
+      reject(new Error('请选择图片文件'));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+        const w = Math.max(1, Math.round((img.naturalWidth || 1) * scale));
+        const h = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('图片读取失败'));
+    };
+    img.src = url;
+  });
+}
+
 export function openSheet({ title = '', content = '', onMount, className = '' } = {}) {
   const host = document.getElementById('sheet-host');
   const mask = document.createElement('div');

@@ -600,6 +600,24 @@ export default function registerCoreRoutes(app) {
     });
   });
 
+  /* 名片 / 截图 → 联系信息（视觉模型） */
+  app.post('/api/ai/contact-image', async (req, res) => {
+    const user = mustAuth(req);
+    const images = Array.isArray(req.body?.images) ? req.body.images.filter((x) => typeof x === 'string' && x.startsWith('data:image/')) : [];
+    if (!images.length) return fail(res, '请上传一张名片或截图', 400, 'no_image');
+    // 单张别超过 4MB，避免把视觉接口打爆
+    if (images.some((x) => x.length > 5.5 * 1024 * 1024)) {
+      return fail(res, '图片太大，请压缩后再传', 400, 'too_large');
+    }
+    try {
+      rateLimit(req, 'ai-contact-image', { windowMs: 60000, max: 20 });
+    } catch {
+      /* 限流失败不阻断 */
+    }
+    const r = await ai.extractContactFromImages({ images });
+    return data(res, r);
+  });
+
   app.get('/api/events/stream', (req, res) => {
     const user = authUser(req);
     const client = hub.subscribe(req, res, { userId: user?.id || null });
