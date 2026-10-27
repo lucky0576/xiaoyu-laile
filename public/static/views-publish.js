@@ -2429,22 +2429,12 @@ export async function renderPublish(ctx, params) {
           return;
         }
         /*
-         * 用一张 OSM 静态瓦片当预览，而不是 iframe。
-         * iframe 要拉整个 embed 页面，经常被墙/超时，出来一片空白；
-         * 单张瓦片是普通图片，几百毫秒就回来了。
-         * 再把 📍 按经纬度算到瓦片里的真实像素位置，标记才不会飘。
+         * 地图走自己的服务端代理（/api/geo/staticmap）：
+         *   · 服务端用高德静态地图出图，国内加载快、中文地名准
+         *   · 高德 Key 不下发到前端，避免被刷额度
+         * 标记由高德自己画（markers 参数），前端不用算像素位置。
          */
-        const zoom = 14;
-        const n = 2 ** zoom;
-        const fx = ((pubGeo.lng + 180) / 360) * n;
-        const latRad = (pubGeo.lat * Math.PI) / 180;
-        const fy =
-          ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
-        const tx = Math.floor(fx);
-        const ty = Math.floor(fy);
-        const px = (fx - tx) * 100;
-        const py = (fy - ty) * 100;
-        const tile = `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
+        const tile = `/api/geo/staticmap?lat=${pubGeo.lat}&lng=${pubGeo.lng}&zoom=15`;
         box.classList.remove('hide');
         /*
          * 地图瓦片用的是 OpenStreetMap，国内网络可能打不开。
@@ -2454,9 +2444,8 @@ export async function renderPublish(ctx, params) {
          */
         const amapUrl = `https://uri.amap.com/marker?position=${pubGeo.lng},${pubGeo.lat}&name=${encodeURIComponent('位置')}&coordinate=gaode&callnative=1`;
         box.innerHTML = `<div class="loc-map-box">
-            <img src="${tile}" alt="位置地图" loading="lazy" referrerpolicy="no-referrer">
-            <span class="loc-map-pin" style="left:${px}%;top:${py}%">📍</span>
-            <span class="loc-map-attr">© OpenStreetMap</span>
+            <img src="${tile}" alt="位置地图">
+            <span class="loc-map-attr">© 高德地图</span>
           </div>
           <div class="tiny dim mt4">坐标 ${pubGeo.lat.toFixed(5)}, ${pubGeo.lng.toFixed(5)} ·
             <a href="${amapUrl}" target="_blank" rel="noopener">在高德地图查看</a>
@@ -2474,18 +2463,15 @@ export async function renderPublish(ctx, params) {
           if (mb) mb.remove();
         };
         if (mapImg) {
-          mapImg.addEventListener('error', hideMap, { once: true });
-          mapImg.addEventListener('load', () => {
-            if (!mapImg.naturalWidth) hideMap();
-          }, { once: true });
           /*
-           * 国内网络访问 OSM 瓦片常常是「卡住」而不是「报错」，
-           * error 事件一直不触发，画面就停在灰色占位框上。
-           * 3 秒还没出来就直接撤掉，别让用户盯着一块空白。
+           * 只在真报错时撤掉地图。
+           *
+           * 之前还加了「N 秒没加载出来就撤」的超时，结果是超时和图片加载在赛跑：
+           * 服务端代理要先去高德取图再回传，慢的时候 6~7 秒，
+           * 超时先到就把已经快加载完的地图删了 —— 用户看到的是「没有地图」。
+           * 现在改成只在 error 时兜底，慢就慢点，别误杀。
            */
-          setTimeout(() => {
-            if (!mapImg.complete || mapImg.naturalWidth === 0) hideMap();
-          }, 3000);
+          mapImg.addEventListener('error', hideMap, { once: true });
         }
       };
 

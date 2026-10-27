@@ -17,7 +17,7 @@ import ai from '../services/ai.js';
 import { httpError } from '../http/app.js';
 import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BOUNTY_TYPES, BOUNTY_SETTLE_MODES, BOUNTY_ELIGIBILITY, QUALIFICATION_TYPES, HELPER, PROJECT_QUALIFICATION_PRESETS, QUALIFICATION_LEVELS, COOPERATION_MODES, PRICE_TYPES, PAYMENT_TERMS, SETTLEMENT_MODES, INVOICE_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 import { FEED_TYPES } from '../services/feeds.js';
-import { geocodeAddress, reverseGeocode } from '../services/geocode.js';
+import { geocodeAddress, reverseGeocode, amapEnabled, fetchStaticMap } from '../services/geocode.js';
 
 let qrModule = null;
 let qrTried = false;
@@ -622,6 +622,28 @@ export default function registerCoreRoutes(app) {
     }
     const address = await reverseGeocode(lat, lng);
     return data(res, { address });
+  });
+
+  /**
+   * 高德静态地图代理。
+   *
+   * 为什么不直接把高德的 URL 给前端：
+   * Key 是「Web服务」类型，暴露在前端等于公开，容易被刷额度。
+   * 走服务端代理，Key 只在服务器上，前端只看到 /api/geo/staticmap。
+   */
+  app.get('/api/geo/staticmap', async (req, res) => {
+    if (!amapEnabled()) return fail(res, '未配置高德 Key', 503, 'no_amap');
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return fail(res, '坐标不合法', 400, 'bad_request');
+    }
+    const zoom = Math.min(18, Math.max(10, Number(req.query.zoom) || 15));
+    const img = await fetchStaticMap({ lat, lng, zoom, width: 690, height: 300 });
+    if (!img) return fail(res, '地图生成失败', 502, 'map_failed');
+    res.set('Content-Type', img.contentType || 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.end(img.body);
   });
 
   /* 名片 / 截图 → 联系信息（视觉模型） */

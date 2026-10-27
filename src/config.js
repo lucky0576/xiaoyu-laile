@@ -83,6 +83,12 @@ export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 export const TMP_DIR = path.join(DATA_DIR, 'tmp');
 export const PUBLIC_DIR = path.join(ROOT, 'public');
 
+/*
+ * 高德地图 Web 服务 Key（地理编码 + 静态地图）。
+ * 空字符串时自动退回 OpenStreetMap，功能不会挂。
+ */
+export const AMAP_KEY = env('AMAP_KEY', '');
+
 for (const d of [DATA_DIR, UPLOAD_DIR, TMP_DIR]) {
   fs.mkdirSync(d, { recursive: true });
 }
