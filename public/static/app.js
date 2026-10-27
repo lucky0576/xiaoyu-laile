@@ -200,6 +200,16 @@ function bindShell(root) {
   root.querySelector('#nav-back')?.addEventListener('click', () => back());
   root.querySelector('#topbar-share')?.addEventListener('click', async () => {
     const m = await import('./share.js');
+    /*
+     * 顶栏图标按当前页面决定分享什么：
+     *   在融资页 → 分享融资方案（发投资人）
+     *   其它页面 → 分享邀请（拉新）
+     */
+    if (location.hash.startsWith('#/invest')) {
+      const r = await service.investPlan().catch(() => null);
+      m.openInvestShare(r?.plan || {}, r?.quota || {}).catch(() => ui.toast('生成分享内容失败', 'err'));
+      return;
+    }
     m.openInviteShare().catch(() => ui.toast('生成分享内容失败', 'err'));
   });
 }

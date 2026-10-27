@@ -10,6 +10,7 @@
  */
 
 import { service, isLoggedIn, store } from './api.js';
+import { openInvestShare } from './share.js';
 import * as ui from './ui.js';
 
 const FALLBACK_PLAN = {
@@ -114,6 +115,9 @@ export async function renderInvest(ctx) {
           <div><b>${num(p.valuation)}<i>万</i></b><span>投后估值</span></div>
           <div><b>${num(p.stake)}<i>%</i></b><span>出让股份</span></div>
         </div>
+        <div class="row gap8 mt12" style="justify-content:center;position:relative;z-index:2">
+          <button class="btn btn-sm inv-share-btn" id="inv-share" type="button">📤 分享融资信息</button>
+        </div>
       </div>
 
       ${quotaHtml}
@@ -214,6 +218,11 @@ export async function renderInvest(ctx) {
     showBack: true,
     mount(root) {
       const $ = (s) => root.querySelector(s);
+
+      /* 分享融资方案 */
+      $('#inv-share')?.addEventListener('click', () => {
+        openInvestShare(p, q).catch(() => ui.toast('生成分享内容失败', 'err'));
+      });
       const amountEl = $('#inv-amount');
       const hintEl = $('#inv-shares-hint');
 

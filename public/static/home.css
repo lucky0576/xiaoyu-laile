@@ -2710,3 +2710,14 @@ a.sp-item:active { background: #f7fbff; }
   border-radius: 12px;
   text-align: center;
 }
+
+
+/* 融资页 hero 里的分享按钮 */
+.inv-share-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+.inv-share-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

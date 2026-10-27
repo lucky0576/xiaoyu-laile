@@ -126,7 +126,7 @@ function roundRect(ctx, x, y, w, h, r) {
 /**
  * 生成分享海报。尺寸 750 × 1050。
  */
-export async function renderPoster({ title, subtitle, summary, qrText, coverUrl, meta = [], sharerName = '', avatarUrl = '' }) {
+export async function renderPoster({ title, subtitle, summary, qrText, coverUrl, meta = [], sharerName = '', avatarUrl = '', coverHeight = 0 }) {
   const W = 750;
   const H = 1050;
   const canvas = document.createElement('canvas');
@@ -154,7 +154,7 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
    */
   const cover = coverUrl ? await loadImage(coverUrl) : null;
   const coverW = W - 60;
-  let coverH = 470;
+  let coverH = Number(coverHeight) > 0 ? Math.round(Number(coverHeight)) : 470;
   if (cover && cover.width && cover.height) {
     const naturalH = Math.round((coverW * cover.height) / cover.width);
     coverH = Math.max(240, Math.min(520, naturalH));
@@ -818,4 +818,147 @@ export async function openInviteShare() {
   });
 }
 
-export default { openInviteShare, openShareSheet, setupWechatShare, renderPoster, downloadCanvas, isWechatBrowser };
+/**
+ * 分享「小鱼来了种子轮融资」。
+ *
+ * 融资页原来是纯站内页面，没法转发 —— 想发给潜在投资人只能截屏。
+ * 这里复用邀请海报那套渲染，换成融资的关键数字。
+ *
+ * @param {object} plan   融资方案（round / raiseAmount / valuation / stake / minInvest ...）
+ * @param {object} quota  募集进度（remaining / percent / closed）
+ */
+export async function openInvestShare(plan = {}, quota = {}) {
+  const p = plan || {};
+  const q = quota || {};
+  showLoading('正在生成分享内容…');
+
+  const link = `${location.origin}/#/invest`;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v).toLocaleString('zh-CN') : String(v ?? ''));
+
+  let sharerName = '';
+  let avatarUrl = '';
+  try {
+    const me = await service.me().catch(() => null);
+    const u = me?.user || null;
+    if (u) {
+      sharerName = u.nickname || '';
+      avatarUrl = u.avatar || '';
+    }
+  } catch {
+    /* 未登录就不带头像 */
+  }
+
+  const key = [
+    p.raiseAmount ? `融资 ${num(p.raiseAmount)} 万` : '',
+    p.valuation ? `投后估值 ${num(p.valuation)} 万` : '',
+    p.stake ? `出让 ${num(p.stake)}%` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const shareText = [
+    `【小鱼来了 · ${p.round || '种子轮'}融资】`,
+    '',
+    'AI 产业信息发布与对接平台，产品已上线运行。',
+    '',
+    key,
+    p.minInvest ? `最低起投 ${num(p.minInvest)} 万元，${p.pricePerShare || 1} 元/股` : '',
+    Number.isFinite(Number(q.remaining)) ? `剩余额度 ${num(q.remaining)} 万元${q.closed ? '（本轮已满）' : ''}` : '',
+    '',
+    `👉 ${link}`,
+    '（查看完整融资方案与认购规则）',
+  ]
+    .filter((x) => x !== '')
+    .join('\n');
+
+  let canvas = null;
+  try {
+    canvas = await renderPoster({
+      title: `小鱼来了 · ${p.round || '种子轮'}融资`,
+      subtitle: 'AI 产业信息发布与对接平台 · 产品已上线',
+      summary: [
+        key,
+        p.minInvest ? `最低起投 ${num(p.minInvest)} 万元` : '',
+        Number.isFinite(Number(q.remaining)) ? `剩余 ${num(q.remaining)} 万元额度` : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      qrText: `/api/share/qrcode?text=${encodeURIComponent(link)}&size=360`,
+      coverUrl: '',
+      coverHeight: 300,
+      meta: ['小鱼来了 · xiaoyulaile.online'],
+      sharerName,
+      avatarUrl,
+    });
+  } catch {
+    canvas = null;
+  }
+
+  hideLoading();
+
+  const posterUrl = canvas ? canvas.toDataURL('image/png') : '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'inv-mask';
+  wrap.innerHTML = `<div class="inv-sheet">
+    <div class="inv-head">
+      <div>
+        <div class="inv-t">📤 分享融资信息</div>
+        <div class="inv-d">转发给潜在投资人，对方扫码即可看到完整方案</div>
+      </div>
+      <button class="inv-x" type="button" aria-label="关闭">✕</button>
+    </div>
+
+    ${
+      posterUrl
+        ? `<div class="inv-poster-wrap"><img class="inv-poster" src="${posterUrl}" alt="融资海报"></div>`
+        : '<div class="empty">海报生成失败，可直接复制文案分享</div>'
+    }
+
+    <div class="inv-sec">分享文案</div>
+    <textarea class="inv-text" id="inv-text" rows="7" readonly></textarea>
+
+    <div class="inv-actions">
+      <button class="btn btn-primary grow" id="inv-copy" type="button">复制文案 + 链接</button>
+      ${posterUrl ? '<button class="btn btn-outline" id="inv-save" type="button" style="flex:none">保存海报</button>' : ''}
+    </div>
+    <button class="btn btn-outline btn-block mt8" id="inv-copy-link" type="button">只复制链接</button>
+
+    <div class="inv-foot">
+      复制后打开微信 → 选择好友或群 → 粘贴发送<br>
+      融资页展示完整方案、认购规则与风险提示
+    </div>
+  </div>`;
+
+  document.body.appendChild(wrap);
+  const ta = wrap.querySelector('#inv-text');
+  if (ta) ta.value = shareText;
+  requestAnimationFrame(() => wrap.classList.add('show'));
+
+  const close = () => {
+    wrap.classList.remove('show');
+    setTimeout(() => wrap.remove(), 220);
+  };
+  wrap.querySelector('.inv-x').addEventListener('click', close);
+  wrap.addEventListener('click', (ev) => {
+    if (ev.target === wrap) close();
+  });
+
+  wrap.querySelector('#inv-copy').addEventListener('click', async () => {
+    const ok = await copyText(shareText);
+    toast(ok ? '已复制，去微信粘贴发送' : '复制失败，请长按文案手动复制', ok ? 'ok' : 'err');
+  });
+
+  wrap.querySelector('#inv-copy-link')?.addEventListener('click', async () => {
+    const ok = await copyText(link);
+    toast(ok ? '链接已复制' : '复制失败', ok ? 'ok' : 'err');
+  });
+
+  wrap.querySelector('#inv-save')?.addEventListener('click', async () => {
+    if (!canvas) return;
+    const ok = await downloadCanvas(canvas, '小鱼来了-融资方案.png');
+    toast(ok ? '海报已保存，去微信发给投资人' : '保存失败，请长按图片保存', ok ? 'ok' : 'err');
+  });
+}
+
+export default { openInviteShare, openInvestShare, openShareSheet, setupWechatShare, renderPoster, downloadCanvas, isWechatBrowser };
