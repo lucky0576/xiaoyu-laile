@@ -1290,19 +1290,7 @@ export async function renderDetail(ctx, params) {
             </div>`).join('')}
           </div>` : ''}
 
-          ${listing.fileLocked ? `<div class="card card-pad" id="project-files">
-            <div class="file-locked">
-              <div class="file-locked-ico">🔐</div>
-              <div class="file-locked-txt">
-                <div class="strong">项目文件（${listing.fileCount || 0} 个）· 需发布方授权</div>
-                <div class="tiny dim mt4">项目资料默认仅发布方可见。管理员可直接查看；其他用户需向发布方申请，通过后才能打开。</div>
-              </div>
-            </div>
-            <div class="row gap8 mt12">
-              <button class="btn btn-primary grow" id="file-req" ${listing.fileRequested ? 'disabled' : ''}>${listing.fileRequested ? '已申请，等待发布方处理' : '申请查看文件'}</button>
-            </div>
-            <div class="tiny dim center mt8" id="file-req-hint">${listing.fileRequested ? '发布方处理后会通知你' : ''}</div>
-          </div>` : files.length ? (fileLocked ? `<div class="card card-pad" id="project-files">
+          ${files.length ? (fileLocked ? `<div class="card card-pad" id="project-files">
             <div class="file-locked">
               <div class="file-locked-ico">🔒</div>
               <div class="file-locked-txt">
@@ -1325,6 +1313,8 @@ export async function renderDetail(ctx, params) {
             const otherFiles = files.filter((f) => f.kind !== 'image');
             const isEvent = listing.category === 'event';
             const boxTitle = isEvent ? '🖼 活动资料' : '📁 项目文件';
+            const canDownload = Boolean(listing.fileDownloadable);
+            const isAdmin = Boolean(ctx.state.user && ctx.state.user.isAdmin);
             return `<div class="card card-pad" id="project-files">
               <div class="row between mb8">
                 <div class="strong">${boxTitle}（${files.length}）</div>
@@ -1350,7 +1340,27 @@ export async function renderDetail(ctx, params) {
                     </div>`
                   : ''
               }
-              <div class="tiny dim mt8">发布方上传的资料，${listing.isOwner ? '其他人登录后即可查看。' : '可直接查看。'}</div>
+              ${
+                canDownload
+                  ? `<div class="file-dl-row">
+                      ${files
+                        .map(
+                          (f) =>
+                            `<a class="btn btn-sm btn-outline" href="${ui.esc(ui.safeUrl(withFileToken(f.url) + (withFileToken(f.url).includes('?') ? '&' : '?') + 'dl=1'))}" download rel="noopener">⬇︎ ${ui.esc(clip(f.name || '下载', 14))}</a>`,
+                        )
+                        .join('')}
+                    </div>`
+                  : `<div class="file-dl-apply">
+                      <div class="file-dl-apply-t">🔒 在线预览不限，下载需要发布方或管理员同意</div>
+                      ${
+                        listing.isOwner || isAdmin
+                          ? '<div class="tiny dim mt4">你是发布方/管理员，可直接下载</div>'
+                          : `<button class="btn btn-sm btn-primary mt8" id="file-req" ${listing.fileRequested ? 'disabled' : ''}>${listing.fileRequested ? '已申请，等待处理' : '申请下载权限'}</button>
+                             <div class="tiny dim mt6" id="file-req-hint">${listing.fileRequested ? '对方处理后会通知你' : ''}</div>`
+                      }
+                    </div>`
+              }
+              <div class="tiny dim mt8">发布方上传的资料，预览不限，下载需授权。</div>
             </div>`;
           })()) : (listing.gated ? `<div class="card card-pad center">
             <div class="strong">📁 项目文件</div>

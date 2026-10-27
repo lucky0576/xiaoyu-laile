@@ -163,11 +163,10 @@ export function listingPublic(l, viewer = null, opts = {}) {
     // l.files 存的是文件 ID 数组，必须解析成记录，否则 filePublic(字符串)
     // 会对字符串做解构，产出 {"0":"f","1":"_",...} 这种垃圾对象，前端渲染不出来
     // 附件需要发布方授权才能查看；发布方 / 管理员 / 已授权用户才拿得到列表
-    fileList:
-      l.category === 'event' || (signedIn && fileUnlocked)
-        ? listFiles(l.files || []).map(filePublic)
-        : [],
-    fileVisible: fileUnlocked,
+    // 预览一律下发文件列表；能不能下载看 fileDownloadable
+    fileList: listFiles(l.files || []).map(filePublic),
+    fileVisible: true,           // 预览：谁都能看
+    fileDownloadable: fileUnlocked, // 下载：需要授权
     fileLocked: Boolean((l.files || []).length && !fileUnlocked),
     fileGranted: fileAccessGranted,
     fileRequested: Boolean(viewer && (l.fileRequests || []).some((r) => r.userId === viewer.id)),
@@ -1748,7 +1747,51 @@ export function revokeFileAccess(listingId, targetUserId) {
  * 服务端校验：某个文件能不能给这个 viewer 看。
  * 只有「该信息的上传附件」需要授权；封面（含自动生成封面）不受限。
  */
-export function canViewFile(fileRecord, viewer) {
+export function canViewFile(fileRecord) {
+  if (!fileRecord) return { allowed: false, reason: 'not_found' };
+  /*
+   * 预览一律放开。
+   *
+   * 规则改了：以前「能不能看」和「能不能存」是同一道门，
+   * 结果连图片都要申请授权才能看，很难用。
+   * 现在拆开 —— 看随便看（在线预览），下载才需要授权。
+   * 真正的下载限制在 canDownloadFile 里。
+   */
+  return { allowed: true };
+}
+
+/**
+ * 能不能下载。
+ *
+ * 规则：发布者本人、管理员、以及被授权过的用户才能下载。
+ * 其他人可以预览，但下载要走「申请下载」。
+ */
+export function canDownloadFile(fileRecord, viewer) {
+  if (!fileRecord) return { allowed: false, reason: 'not_found' };
+  const listingId = fileRecord.listingId;
+  // 不挂在任何信息下的文件（例如自动生成封面）不受限
+  if (!listingId) return { allowed: true };
+  const l = listings().get(listingId);
+  if (!l) return { allowed: true };
+
+  // 封面图必须公开下载，否则首页/列表会裂图
+  const isCover =
+    (l.coverFileId && l.coverFileId === fileRecord.id) ||
+    (l.coverId && l.coverId === fileRecord.id) ||
+    (l.coverUrl && l.coverUrl === fileRecord.url);
+  if (isCover) return { allowed: true };
+
+  const isAttachment = Array.isArray(l.files) && l.files.includes(fileRecord.id);
+  if (!isAttachment) return { allowed: true };
+
+  if (!viewer) return { allowed: false, reason: 'login_required' };
+  if (viewer.id === l.ownerId) return { allowed: true };
+  if (viewer.isAdmin) return { allowed: true };
+  if (Array.isArray(l.fileGrants) && l.fileGrants.includes(viewer.id)) return { allowed: true };
+  return { allowed: false, reason: 'need_approval' };
+}
+
+function _canViewFileLegacy(fileRecord, viewer) {
   if (!fileRecord) return { allowed: false, reason: 'not_found' };
   const listingId = fileRecord.listingId;
   if (!listingId) return { allowed: true };
@@ -1782,6 +1825,7 @@ export function canViewFile(fileRecord, viewer) {
 }
 
 export default {
+  canDownloadFile,
   sanitizeCities,
   isEcommerceListing,
   ECOMMERCE_TYPES,

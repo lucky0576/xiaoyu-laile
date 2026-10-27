@@ -306,9 +306,56 @@ export function canvasToBlob(canvas) {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png', 0.92));
 }
 
+/**
+ * 保存分享图。
+ *
+ * 按环境走不同路径，目标都是「用户能直接把图存下来」：
+ *   手机  → 系统分享面板里的「存储图像」= 存进相册
+ *   电脑  → 文件系统访问 API，弹「另存为」让用户选目录和文件名
+ *   兜底  → 传统 a[download]
+ *
+ * 注意：浏览器不允许网页直接静默写入相册/磁盘，
+ * 所以这里都是「唤起系统 UI 让用户确认」，这已经是 Web 能给到的上限。
+ */
 export async function downloadCanvas(canvas, filename = 'xiaoyu-share.png') {
   const blob = await canvasToBlob(canvas);
   if (!blob) return false;
+
+  const ua = navigator.userAgent || '';
+  const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i.test(ua);
+
+  // ---- 手机：走系统分享，选「存储图像」即保存到相册 ----
+  if (isMobile) {
+    try {
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: '小鱼来了' });
+        return true;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return false; // 用户取消
+      // 其它错误继续走兜底下载
+    }
+  }
+
+  // ---- 电脑：弹「另存为」 ----
+  if (!isMobile && typeof window.showSaveFilePicker === 'function') {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'PNG 图片', accept: { 'image/png': ['.png'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return false; // 用户取消
+      // 其它错误继续走兜底下载
+    }
+  }
+
+  // ---- 兜底 ----
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

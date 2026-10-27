@@ -409,7 +409,7 @@ let rendering = false;
 /* 邀请引导：从 /r/CODE 进来，逛 10 秒后再问要不要注册                    */
 /* ------------------------------------------------------------------ */
 
-const INVITE_GATE_DELAY = 10000;
+const INVITE_GATE_DELAY = 30000; // 扫码进主页后 30 秒再弹登录/注册
 
 let inviteGateTimer = null;
 
@@ -488,10 +488,8 @@ async function showInviteGate() {
     <div class="invite-gate-t">${ui.esc(title)}</div>
     <div class="invite-gate-d">免费发布项目需求、活动赛事、贸易采供、科技成果转化<br>AI 自动生成标题与解析，按行业和城市推给对口的人</div>
     <button class="btn btn-primary btn-block" id="ig-go" type="button">立即免费注册</button>
-    <button class="btn btn-outline btn-block mt8" id="ig-skip" type="button">再看看</button>
-    <div class="invite-gate-foot">
-      已有账号？<a href="#/login" id="ig-login">直接登录</a>
-    </div>
+    <button class="btn btn-outline btn-block mt8" id="ig-login-btn" type="button">已有账号，直接登录</button>
+    <button class="invite-gate-skip" id="ig-skip" type="button">先随便看看</button>
   </div>`;
 
   document.body.appendChild(wrap);
@@ -511,8 +509,9 @@ async function showInviteGate() {
     markInviteGateSkipped();
     close();
   });
-  wrap.querySelector('#ig-login').addEventListener('click', () => {
+  wrap.querySelector('#ig-login-btn')?.addEventListener('click', () => {
     close();
+    nav(`#/login?redirect=${encodeURIComponent('#/home')}`);
   });
   wrap.addEventListener('click', (ev) => {
     if (ev.target === wrap) close();

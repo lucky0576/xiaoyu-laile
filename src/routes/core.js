@@ -147,14 +147,21 @@ export default function registerCoreRoutes(app) {
     const ownerListing = f.listingId ? db.collection('listings').get(f.listingId) : null;
     const viewer = authUser(req);
 
-    // 项目附件：需要发布方授权（发布方本人 / 管理员 / 已授权用户除外）
-    // 注意：封面（含发布时自动生成的封面）不算附件，不受此限制
-    const filePermission = listingsSvc.canViewFile(f, viewer);
-    if (!filePermission.allowed) {
-      if (filePermission.reason === 'login_required') {
-        throw httpError(401, '登录后可申请查看附件', 'login_required');
+    /*
+     * 预览 vs 下载。
+     *   默认（预览）：所有人都能看
+     *   ?dl=1（下载）：需要发布者或管理员同意
+     * 之前两者共用一道门，导致「看」也要授权，很难用。
+     */
+    const wantDownload = String(req.query.dl || '') === '1';
+    if (wantDownload) {
+      const dlPerm = listingsSvc.canDownloadFile(f, viewer);
+      if (!dlPerm.allowed) {
+        if (dlPerm.reason === 'login_required') {
+          throw httpError(401, '登录后可申请下载该文件', 'login_required');
+        }
+        throw httpError(403, '下载需要发布方或管理员同意', 'file_need_approval');
       }
-      throw httpError(403, '该附件需要发布方授权才能查看', 'file_need_approval');
     }
 
     // 保密文件：服务端拦截，没有密码根本不下发字节（不是前端遮罩）
@@ -173,8 +180,11 @@ export default function registerCoreRoutes(app) {
       res.set('Cache-Control', 'private, no-store');
       res.set('X-Robots-Tag', 'noindex, nofollow');
     } else {
-      res.set('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`);
-      res.set('Cache-Control', 'public, max-age=86400');
+      // 只有明确要下载（?dl=1 且已授权）才用 attachment 触发「另存为」；
+      // 其余一律 inline，让浏览器就地预览。
+      const asAttachment = wantDownload;
+      res.set('Content-Disposition', `${asAttachment ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(f.name)}`);
+      res.set('Cache-Control', asAttachment ? 'private, no-store' : 'public, max-age=86400');
     }
     res.set('Accept-Ranges', 'bytes');
     return res.sendFile(f.path, 'stream');
