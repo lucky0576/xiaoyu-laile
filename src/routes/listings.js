@@ -238,18 +238,26 @@ export default function registerListingRoutes(app) {
              * 按标题推断行业，去 Wikimedia Commons 找一张对口照片，
              * 用 ffmpeg 压上文字。找不到图或合成失败，再退回渐变 SVG。
              */
-            const photoCover = await generatePhotoCover(
-              {
-                title: fresh.title,
-                subtitle: fresh.subtitle || "",
-                category: fresh.category,
-                categoryName: listingsSvc.categoryName(fresh.category),
-                city: fresh.cities && fresh.cities[0] ? fresh.cities[0].name : "",
-                industry: fresh.industries && fresh.industries[0] ? fresh.industries[0].name : "",
-                kindLabel: fresh.typeName || "",
-              },
-              { ownerId: user.id, listingId: fresh.id }
-            ).catch(() => null);
+            /*
+             * 加超时保护：跨境下载图片可能慢到二三十秒，
+             * 不能让「发布」按钮干等着。12 秒内没拿到就直接退回渐变封面，
+             * 用户先把信息发出去要紧。
+             */
+            const photoCover = await Promise.race([
+              generatePhotoCover(
+                {
+                  title: fresh.title,
+                  subtitle: fresh.subtitle || "",
+                  category: fresh.category,
+                  categoryName: listingsSvc.categoryName(fresh.category),
+                  city: fresh.cities && fresh.cities[0] ? fresh.cities[0].name : "",
+                  industry: fresh.industries && fresh.industries[0] ? fresh.industries[0].name : "",
+                  kindLabel: fresh.typeName || "",
+                },
+                { ownerId: user.id, listingId: fresh.id }
+              ).catch(() => null),
+              new Promise((resolve) => setTimeout(() => resolve(null), 12000)),
+            ]);
             if (photoCover) {
               autoPatch.coverUrl = photoCover.url;
               autoPatch.coverFileId = photoCover.id;
