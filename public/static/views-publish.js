@@ -1387,12 +1387,12 @@ export async function renderPublish(ctx, params) {
             <div class="row between mb12"><span class="small">需要在线支付报名费</span><label class="switch"><input type="checkbox" id="f-needPay" ${editing?.event?.needPay ? 'checked' : ''}><span class="slider"></span></label></div>
             <div class="field"><label>报名费（元）</label><input class="input" type="number" id="f-fee" placeholder="0 表示免费" value="${editing?.event?.fee || ''}"></div>
             <div class="field"><label>报名截止时间</label><input class="input" type="datetime-local" id="f-registerDeadline" value="${ui.esc((editing?.event?.registerDeadline || '').slice(0, 16))}"></div>
-            <div class="field"><label>主办方</label><input class="input" id="f-organizer" value="${ui.esc(editing?.event?.organizer || ctx.state.user?.company || '')}"></div>
             <div class="field">
-              <label>报名链接 <span class="tiny dim">（选填）</span></label>
+              <label>报名链接 <span class="tiny dim">（选填 · 主办方有自己的报名系统就填这里）</span></label>
               <input class="input" id="f-registerUrl" placeholder="https://… 填了就直接跳转对方报名页" value="${ui.esc(editing?.event?.registerUrl || '')}">
-              <div class="tiny dim mt4">填了这条：详情页按钮变成「前往报名 ›」，点开直达对方页面，不用站内报名。</div>
-            </div>`;
+              <div class="tiny dim mt4">填了之后：详情页不再显示「立即报名」，改成「前往报名 ›」直接跳到这个链接，不占站内名额。</div>
+            </div>
+            <div class="field"><label>主办方</label><input class="input" id="f-organizer" value="${ui.esc(editing?.event?.organizer || ctx.state.user?.company || '')}"></div>`;
         } else if (category === 'trade') {
           const items = editing?.trade?.items || [];
           box.innerHTML = `

@@ -287,7 +287,9 @@ export default function registerListingRoutes(app) {
     listing = listingsSvc.viewListing(listing.id, viewer);
     return data(res, {
       listing: listingsSvc.listingPublic(listing, viewer, { unlocked }),
-      pipeline: listingsSvc.pipelineOf(listing),
+      // 项目推进流程只对「项目」有意义；活动/贸易/悬赏/成果一律不返回，
+      // 否则活动详情页会冒出一个「项目推进流程」板块
+      pipeline: listing.category === 'project' ? listingsSvc.pipelineOf(listing) : [],
       chatRoomId: listing.chatRoomId || '',
       isOwner: Boolean(isOwner),
     });

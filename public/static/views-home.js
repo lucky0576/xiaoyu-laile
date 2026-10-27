@@ -1352,7 +1352,9 @@ export async function renderDetail(ctx, params) {
 
           ${termsCard}
           ${qualCard}
-          ${pipeline && pipeline.length ? pipelineHtml(pipeline, listing.pipeline?.history || []) : ''}
+          ${pipeline && pipeline.length && listing.category === 'project'
+            ? pipelineHtml(pipeline, listing.pipeline?.history || [])
+            : ''}
           ${stagePanel}
           ${casesCard}
 

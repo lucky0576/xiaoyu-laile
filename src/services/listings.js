@@ -86,7 +86,8 @@ export function listingPublic(l, viewer = null, opts = {}) {
   //        其他人需要发布方授权（l.aiGrants 记录已授权用户），未授权时只给主副标题。
   // 附件授权（与 AI 解析授权相互独立）
   const fileAccessGranted = Boolean(viewer && Array.isArray(l.fileGrants) && l.fileGrants.includes(viewer.id));
-  const fileUnlocked = Boolean(isOwner || isAdmin || fileAccessGranted);
+  // 活动附件公开，不需要授权
+  const fileUnlocked = Boolean(isOwner || isAdmin || fileAccessGranted || l.category === 'event');
 
   const aiGranted = Boolean(viewer && Array.isArray(l.aiGrants) && l.aiGrants.includes(viewer.id));
   const aiVisible = isOwner || isAdmin || aiGranted;
@@ -162,7 +163,10 @@ export function listingPublic(l, viewer = null, opts = {}) {
     // l.files 存的是文件 ID 数组，必须解析成记录，否则 filePublic(字符串)
     // 会对字符串做解构，产出 {"0":"f","1":"_",...} 这种垃圾对象，前端渲染不出来
     // 附件需要发布方授权才能查看；发布方 / 管理员 / 已授权用户才拿得到列表
-    fileList: signedIn && fileUnlocked ? listFiles(l.files || []).map(filePublic) : [],
+    fileList:
+      l.category === 'event' || (signedIn && fileUnlocked)
+        ? listFiles(l.files || []).map(filePublic)
+        : [],
     fileVisible: fileUnlocked,
     fileLocked: Boolean((l.files || []).length && !fileUnlocked),
     fileGranted: fileAccessGranted,
@@ -1762,6 +1766,13 @@ export function canViewFile(fileRecord, viewer) {
   // 不是这条信息的附件（例如自动生成封面）→ 放行
   const isAttachment = Array.isArray(l.files) && l.files.includes(fileRecord.id);
   if (!isAttachment) return { allowed: true };
+
+  /*
+   * 活动类信息的附件一律公开。
+   * 活动资料通常是议程、参会指南、展位图这类「越多人看到越好」的东西，
+   * 套用项目附件的授权逻辑（要登录 + 要发布方同意）反而挡住报名。
+   */
+  if (l.category === 'event') return { allowed: true };
 
   if (!viewer) return { allowed: false, reason: 'login_required' };
   if (viewer.id === l.ownerId) return { allowed: true };
