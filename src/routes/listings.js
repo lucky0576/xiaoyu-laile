@@ -9,6 +9,7 @@ import {
 import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
 import { saveUploads, filePublic, getFile } from '../services/files.js';
 import { generateCoverFile } from '../services/cover.js';
+import { generatePhotoCover } from '../services/photo-cover.js';
 import { generateAutoInfo } from '../services/auto-info.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
@@ -232,6 +233,30 @@ export default function registerListingRoutes(app) {
           const fresh = listings().get(created.id);
           const autoPatch = {};
           if (!fresh.coverUrl) {
+            /*
+             * 优先用「实景照片 + 标题 + 城市徽标」的封面：
+             * 按标题推断行业，去 Wikimedia Commons 找一张对口照片，
+             * 用 ffmpeg 压上文字。找不到图或合成失败，再退回渐变 SVG。
+             */
+            const photoCover = await generatePhotoCover(
+              {
+                title: fresh.title,
+                subtitle: fresh.subtitle || "",
+                category: fresh.category,
+                categoryName: listingsSvc.categoryName(fresh.category),
+                city: fresh.cities && fresh.cities[0] ? fresh.cities[0].name : "",
+                industry: fresh.industries && fresh.industries[0] ? fresh.industries[0].name : "",
+                kindLabel: fresh.typeName || "",
+              },
+              { ownerId: user.id, listingId: fresh.id }
+            ).catch(() => null);
+            if (photoCover) {
+              autoPatch.coverUrl = photoCover.url;
+              autoPatch.coverFileId = photoCover.id;
+              db.collection("files").update(photoCover.id, { listingId: fresh.id });
+            }
+          }
+          if (!autoPatch.coverUrl && !fresh.coverUrl) {
             const cover = await generateCoverFile(
               {
                 title: fresh.title,
@@ -335,6 +360,38 @@ export default function registerListingRoutes(app) {
    * 用法：POST /api/admin/covers/backfill  { category?: 'ecommerce'|'project'|..., limit?: 50 }
    * 生成的是品牌色 + 标题的 SVG 封面，不依赖外部图片。
    */
+  /**
+   * 给单条信息生成「实景照片 + 标题 + 城市徽标」封面。
+   *
+   * 用法：POST /api/admin/covers/photo  { listingId, force? }
+   * 会覆盖已有封面；生成失败返回 ok:false，由前端决定是否退回 SVG。
+   */
+  app.post('/api/admin/covers/photo', async (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+    const raw = listings().get(str(req.body?.listingId, 40));
+    if (!raw) return fail(res, '信息不存在', 404, 'not_found');
+    if (raw.coverUrl && !bool(req.body?.force)) {
+      return data(res, { ok: false, note: '已有封面，加 force=true 可覆盖', coverUrl: raw.coverUrl });
+    }
+    const cover = await generatePhotoCover(
+      {
+        title: raw.title,
+        subtitle: raw.subtitle || '',
+        category: raw.category,
+        categoryName: listingsSvc.categoryName(raw.category),
+        city: raw.cities && raw.cities[0] ? raw.cities[0].name : '',
+        industry: raw.industries && raw.industries[0] ? raw.industries[0].name : '',
+        kindLabel: raw.typeName || '',
+      },
+      { ownerId: raw.ownerId || user.id, listingId: raw.id },
+    );
+    if (!cover) return data(res, { ok: false, note: '没找到合适的图片或合成失败' });
+    listings().update(raw.id, { coverUrl: cover.url, coverFileId: cover.id });
+    db.collection('files').update(cover.id, { listingId: raw.id });
+    return data(res, { ok: true, coverUrl: cover.url });
+  });
+
   app.post('/api/admin/covers/backfill', async (req, res) => {
     const user = mustAuth(req);
     if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
