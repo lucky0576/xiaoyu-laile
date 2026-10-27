@@ -21,6 +21,86 @@ import { AMAP_KEY, DATA_DIR } from '../config.js';
 
 /** 静态地图磁盘缓存：同一地点只向高德取一次 */
 const MAP_CACHE_DIR = path.join(DATA_DIR, 'geo-cache');
+const MAP_CACHE_DIR_OK = MAP_CACHE_DIR;
+
+/*
+ * 高德每日调用配额闸门。
+ *
+ * 免费额度是每天 5000 次，超了当天的请求会开始失败。
+ * 万一 Key 泄漏被人刷，或者哪天量突然起来，这里兜一层：
+ * 超过上限就停用高德、自动退回 OpenStreetMap，站点功能不受影响。
+ * 上限可以用 AMAP_DAILY_LIMIT 环境变量调。
+ */
+const AMAP_DAILY_LIMIT = Math.max(0, Number(process.env.AMAP_DAILY_LIMIT || 4000));
+let amapDay = '';
+let amapCount = 0;
+
+/*
+ * 用量落盘。
+ * 只放在内存里的话，服务一重启计数就归零，配额闸门等于形同虚设。
+ * 每次 +1 后节流写盘（最多 5 秒一次），重启后还能接着算。
+ */
+const USAGE_FILE = path.join(DATA_DIR, 'amap-usage.json');
+let usageLoaded = false;
+let lastSave = 0;
+
+function loadUsage() {
+  if (usageLoaded) return;
+  usageLoaded = true;
+  try {
+    const j = JSON.parse(fs.readFileSync(USAGE_FILE, 'utf8'));
+    amapDay = String(j.day || '');
+    amapCount = Math.max(0, Number(j.count) || 0);
+  } catch {
+    /* 没有文件就当 0 */
+  }
+}
+
+function saveUsage() {
+  /*
+   * 每次都写。
+   * 之前按 5 秒节流，结果服务在这种间隔内重启就会丢掉几次计数，
+   * 配额闸门算得偏少。这个文件只有 30 字节，一天最多写几千次，不值得省。
+   */
+  lastSave = Date.now();
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(USAGE_FILE, JSON.stringify({ day: amapDay, count: amapCount }));
+  } catch {
+    /* 写失败不影响主流程 */
+  }
+}
+
+/** 上海时区的 YYYY-MM-DD */
+function todayKey() {
+  const t = new Date(Date.now() + 8 * 3600 * 1000);
+  return t.toISOString().slice(0, 10);
+}
+
+/** 取一次配额；返回 false 表示今天额度用完了 */
+function amapBudgetOk() {
+  if (!AMAP_DAILY_LIMIT) return true;
+  loadUsage();
+  const d = todayKey();
+  if (d !== amapDay) {
+    amapDay = d;
+    amapCount = 0;
+    lastSave = 0;
+    saveUsage();
+  }
+  if (amapCount >= AMAP_DAILY_LIMIT) return false;
+  amapCount += 1;
+  saveUsage();
+  return true;
+}
+
+/** 给后台看的高德用量 */
+export function amapUsage() {
+  loadUsage();
+  const d = todayKey();
+  const used = d === amapDay ? amapCount : 0;
+  return { day: d, used, limit: AMAP_DAILY_LIMIT, remaining: Math.max(0, AMAP_DAILY_LIMIT - used) };
+}
 
 const UA = 'XiaoYuLaile/1.0 (address geocoding; +https://xiaoyulaile.online)';
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -72,6 +152,7 @@ export function amapEnabled() {
 
 async function amapJson(path, params) {
   if (!AMAP_KEY) return null;
+  if (!amapBudgetOk()) return null; // 今日额度已用完 → 让调用方退回 OSM
   const qs = new URLSearchParams({ ...params, key: AMAP_KEY, output: 'JSON' });
   try {
     const res = await httpsGet(`https://restapi.amap.com${path}?${qs}`, { timeout: 12000 });
@@ -201,6 +282,7 @@ export async function fetchStaticMap(opts) {
     /* 读缓存失败就当没有 */
   }
 
+  if (!amapBudgetOk()) return null; // 今日额度已用完
   try {
     const res = await httpsGet(url, { timeout: 15000 });
     if (res.status !== 200) return null;
@@ -368,4 +450,5 @@ export async function reverseGeocode(lat, lng) {
   return name;
 }
 
-export default { geocodeAddress, reverseGeocode, amapEnabled, amapStaticMapUrl, fetchStaticMap };
+export default {
+  amapUsage, geocodeAddress, reverseGeocode, amapEnabled, amapStaticMapUrl, fetchStaticMap };

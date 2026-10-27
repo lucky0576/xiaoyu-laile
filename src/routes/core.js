@@ -17,7 +17,7 @@ import ai from '../services/ai.js';
 import { httpError } from '../http/app.js';
 import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BOUNTY_TYPES, BOUNTY_SETTLE_MODES, BOUNTY_ELIGIBILITY, QUALIFICATION_TYPES, HELPER, PROJECT_QUALIFICATION_PRESETS, QUALIFICATION_LEVELS, COOPERATION_MODES, PRICE_TYPES, PAYMENT_TERMS, SETTLEMENT_MODES, INVOICE_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 import { FEED_TYPES } from '../services/feeds.js';
-import { geocodeAddress, reverseGeocode, amapEnabled, fetchStaticMap } from '../services/geocode.js';
+import { geocodeAddress, reverseGeocode, amapEnabled, fetchStaticMap, amapUsage } from '../services/geocode.js';
 
 let qrModule = null;
 let qrTried = false;
@@ -587,11 +587,9 @@ export default function registerCoreRoutes(app) {
   app.post('/api/ai/search', async (req, res) => {
     const q = str(req.body?.q, 200);
     if (!q) return fail(res, '请输入搜索内容', 400, 'empty_query');
-    try {
-      rateLimit(req, 'ai-search', { windowMs: 60000, max: 30 });
-    } catch {
-      /* 限流失败不阻断 */
-    }
+    // 每个 IP 每分钟最多 20 次 AI 搜索
+    const rl = rateLimit(`ai-search:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) return fail(res, `搜索太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
     const parsed = await ai.parseSearchIntent(q);
     const result = listingsSvc.searchWithIntent(parsed, { limit: 40 });
     return data(res, {
@@ -605,10 +603,20 @@ export default function registerCoreRoutes(app) {
   /* 地址定位                                                          */
   /* ---------------------------------------------------------------- */
 
+  /** 高德今日用量（管理员看配额） */
+  app.get('/api/admin/geo/usage', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+    return data(res, { amapEnabled: amapEnabled(), ...amapUsage() });
+  });
+
   /** 地址 → 经纬度候选（发布信息时用） */
   app.get('/api/geo/search', async (req, res) => {
     const q = str(req.query.q, 120).trim();
     if (!q) return fail(res, '请输入地址', 400, 'empty_query');
+    // 每个 IP 每分钟最多 20 次地址解析，防止有人刷高德配额
+    const rl = rateLimit(`geo-search:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
     const items = await geocodeAddress(q);
     return data(res, { items });
   });
@@ -638,6 +646,9 @@ export default function registerCoreRoutes(app) {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return fail(res, '坐标不合法', 400, 'bad_request');
     }
+    // 每个 IP 每分钟最多 40 次地图请求（图有磁盘缓存，正常浏览远低于这个数）
+    const rl = rateLimit(`geo-map:${clientIp(req)}`, 40, 60_000);
+    if (!rl.ok) return fail(res, `请求太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
     const zoom = Math.min(18, Math.max(10, Number(req.query.zoom) || 15));
     const img = await fetchStaticMap({ lat, lng, zoom, width: 690, height: 300 });
     if (!img) return fail(res, '地图生成失败', 502, 'map_failed');
@@ -655,11 +666,9 @@ export default function registerCoreRoutes(app) {
     if (images.some((x) => x.length > 5.5 * 1024 * 1024)) {
       return fail(res, '图片太大，请压缩后再传', 400, 'too_large');
     }
-    try {
-      rateLimit(req, 'ai-contact-image', { windowMs: 60000, max: 20 });
-    } catch {
-      /* 限流失败不阻断 */
-    }
+    // 每个 IP 每分钟最多 15 次名片识别
+    const rl = rateLimit(`ai-card:${clientIp(req)}`, 15, 60_000);
+    if (!rl.ok) return fail(res, `识别太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
     const r = await ai.extractContactFromImages({ images });
     return data(res, r);
   });
