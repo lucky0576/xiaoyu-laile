@@ -112,7 +112,7 @@ async function pdfToImages(pdfPath, outDir) {
 }
 
 /** Office → PDF（soffice），返回临时 PDF 路径 */
-async function officeToPdf(srcPath, tmpDir) {
+export async function officeToPdf(srcPath, tmpDir) {
   fs.mkdirSync(tmpDir, { recursive: true });
   await run(
     'soffice',

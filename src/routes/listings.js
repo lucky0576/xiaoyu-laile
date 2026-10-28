@@ -10,6 +10,7 @@ import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
 import { saveUploads, filePublic, getFile } from '../services/files.js';
 import { generateCoverFile } from '../services/cover.js';
 import { generatePhotoCover, PHOTO_QUERIES, warmPhotoCache } from '../services/photo-cover.js';
+import { extractDocCover, canExtractFrom } from '../services/doc-images.js';
 import { generateAutoInfo } from '../services/auto-info.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
@@ -234,7 +235,29 @@ export default function registerListingRoutes(app) {
           const autoPatch = {};
           if (!fresh.coverUrl) {
             /*
-             * 优先用「实景照片 + 标题 + 城市徽标」的封面：
+             * 第一优先：附件里 PDF / PPT / Word 内嵌的图片。
+             * 用户只传了招标文件或方案 PPT 时，文件里的现场照 / 效果图
+             * 比合成封面贴切得多。
+             */
+            // 最多试 2 个文件、每个 10 秒：发布不能被抽图拖太久
+            const docCandidates = (files || []).filter(canExtractFrom).slice(0, 2);
+            for (const df of docCandidates) {
+              const docCover = await Promise.race([
+                extractDocCover(df, { ownerId: user.id }).catch(() => null),
+                new Promise((resolve) => setTimeout(() => resolve(null), 10000)),
+              ]);
+              if (docCover && docCover.url) {
+                autoPatch.coverUrl = docCover.url;
+                autoPatch.coverFileId = docCover.id;
+                autoPatch.coverFrom = 'document';
+                db.collection('files').update(docCover.id, { listingId: fresh.id });
+                console.log('[listings] 用文档内图片作封面:', df.name, '→', docCover.url);
+                break;
+              }
+            }
+
+            /*
+             * 没有可用文档图片时，退回「实景照片 + 标题 + 城市徽标」的封面：
              * 按标题推断行业，去 Wikimedia Commons 找一张对口照片，
              * 用 ffmpeg 压上文字。找不到图或合成失败，再退回渐变 SVG。
              */
@@ -243,7 +266,9 @@ export default function registerListingRoutes(app) {
              * 不能让「发布」按钮干等着。12 秒内没拿到就直接退回渐变封面，
              * 用户先把信息发出去要紧。
              */
-            const photoCover = await Promise.race([
+            const photoCover = autoPatch.coverUrl
+              ? null
+              : await Promise.race([
               generatePhotoCover(
                 {
                   title: fresh.title,
