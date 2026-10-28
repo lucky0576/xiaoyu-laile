@@ -84,29 +84,33 @@ foreach ($rel in $Files) {
 }
 
 Say "Uploaded ok=$ok fail=$fail"
-if ($fail -gt 0) { exit 1 }
 
-# ---------- 3.5) 冒烟测试：注册链路 ----------
-# 2026-10-26 那次提交把注册页改成引用未定义变量，手机注册坏了整整两天，
-# 页面上只显示「注册失败」，没人发现。现在每次部署都跑一遍真实注册流程，
-# 不通过就不算部署成功（包括纯前端改动，因为那次 bug 就是纯前端的）。
-Say ""
-Say "Smoke test: register flow..."
-$NodeExe = "C:\Users\Administrator\nodejs\node.exe"
-$smoke = Join-Path $Root "scripts\smoke-register.mjs"
-if ((Test-Path $NodeExe) -and (Test-Path $smoke)) {
+# ---------- 冒烟测试 ----------
+# 必须在重启之后跑：否则测的是正在跑的旧进程，等于没测。
+# 2026-10-26 那次把注册页改成引用未定义变量，手机注册坏了整整两天才被发现。
+function Invoke-SmokeTest {
+  Say ""
+  Say "Smoke test: register flow..."
+  $NodeExe = "C:\Users\Administrator\nodejs\node.exe"
+  $smoke = Join-Path $Root "scripts\smoke-register.mjs"
+  if (-not (Test-Path $NodeExe) -or -not (Test-Path $smoke)) {
+    Say "  (skipped: node or smoke script missing)"
+    return
+  }
   & $NodeExe $smoke 2>&1 | ForEach-Object { Say $_ }
   if ($LASTEXITCODE -ne 0) {
     Say ""
     Say "FAILED: register smoke test did not pass"
     exit 1
   }
-} else {
-  Say "  (skipped: node or smoke script missing)"
 }
+
+if ($fail -gt 0) { exit 1 }
+
 
 # ---------- 4) restart if needed ----------
 if (-not $needRestart) {
+  Invoke-SmokeTest
   Say ''
   Say 'DONE (no restart, zero downtime)'
   exit 0
@@ -123,6 +127,7 @@ $content = [System.IO.File]::ReadAllText($remoteScript) -replace "`r`n", "`n"
 & $Plink -pw $Pw -hostkey $HostKey -batch $Ip -m $tmp 2>&1 | ForEach-Object { Say $_ }
 
 if ($LASTEXITCODE -eq 0) {
+  Invoke-SmokeTest
   Say ''
   Say 'DONE (restarted, health check passed)'
 } else {

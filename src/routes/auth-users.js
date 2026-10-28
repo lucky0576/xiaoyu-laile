@@ -178,11 +178,12 @@ export default function registerAuthUserRoutes(app) {
   /* ================================================================ */
   /* 图形验证码（替代短信验证码）                                        */
   /* ================================================================ */
-  app.get('/api/auth/captcha', (req, res) => {
+  app.get('/api/auth/captcha', async (req, res) => {
     const rl = rateLimit(`captcha:${clientIp(req)}`, 60, 60_000);
     if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
-    const { id, svg, ttl } = captchaSvc.issueCaptcha();
-    return data(res, { id, svg, ttl });
+    const { id, image, svg, ttl } = await captchaSvc.issueCaptcha();
+    // 有 PNG 就只给 PNG —— 绝不把含字符的 SVG 一起下发
+    return data(res, image ? { id, image, ttl } : { id, svg, ttl });
   });
 
   /** 手机号注册：手机号 + 密码 + 图形验证码 */

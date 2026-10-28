@@ -232,7 +232,7 @@ export async function renderLogin(ctx, query) {
           const r = await service.captcha();
           capId = r.id;
           const img = root.querySelector('#lg-cap-img');
-          if (img) img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.svg);
+          if (img) img.src = r.image || 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.svg || '');
           const inp = capInput();
           if (inp) inp.value = '';
         } catch {
@@ -593,7 +593,7 @@ export async function renderRegister(ctx, query) {
           captchaId = res.id;
           const img = $('#rg-captcha-img');
           if (img) {
-            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(res.svg);
+            img.src = res.image || 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(res.svg || '');
           }
           const input = $('#rg-captcha');
           if (input) input.value = '';
