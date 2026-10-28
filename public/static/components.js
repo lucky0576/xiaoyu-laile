@@ -11,8 +11,16 @@ export function itemHtml(l) {
   if (!l) return '';
   const cover = thumbUrl(safeUrl(l.coverUrl), 400); // 列表卡片用缩略图，别下原图
   const badges = [];
-  if (l.categoryName) badges.push(`<span class="badge">${esc(l.categoryName)}</span>`);
-  if (l.typeName) badges.push(`<span class="badge gray">${esc(l.typeName)}</span>`);
+  /*
+   * typeName / categoryName 偶尔会退化成英文 id（project / trade / event），
+   * 显示出来像 bug，这种就跳过。
+   */
+  const cn = (v) => {
+    const t = String(v || '').trim();
+    return t && !/^[a-z_]+$/.test(t) ? t : '';
+  };
+  if (cn(l.categoryName)) badges.push(`<span class="badge">${esc(cn(l.categoryName))}</span>`);
+  if (cn(l.typeName)) badges.push(`<span class="badge gray">${esc(cn(l.typeName))}</span>`);
   if (l.reliability && l.reliability.score != null) {
     badges.push(`<span class="badge ${l.reliability.level === 'high' ? 'ok' : l.reliability.level === 'low' ? 'danger' : 'accent'}">AI ${l.reliability.score}分</span>`);
   }

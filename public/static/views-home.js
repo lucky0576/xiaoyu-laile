@@ -731,7 +731,10 @@ export async function renderList(ctx, params) {
   const html = `<div class="page">
     <div class="row between mb12">
       <h2 style="font-size:19px">${ui.esc(ctx.state.site?.categories?.find((c) => c.id === category)?.icon || '')} ${ui.esc(name)}信息</h2>
-      <span class="tiny dim">共 ${res.total} 条</span>
+      <div class="row gap8" style="align-items:center">
+        <span class="tiny dim">共 ${res.total} 条</span>
+        ${isLoggedIn() ? '<button class="btn btn-sm" id="pick-toggle" type="button">☑ 多选群发</button>' : ''}
+      </div>
     </div>
 
     <div class="chips scroll mb8">
@@ -763,6 +766,14 @@ export async function renderList(ctx, params) {
     activeTab: category,
     showBack: false,
     async mount(root) {
+      /* 多选群发：勾几条 → 生成文案 → 复制到微信 */
+      const pickBtn = root.querySelector('#pick-toggle');
+      const listBox = root.querySelector('#list-box');
+      if (pickBtn && listBox) {
+        const { bindPicking } = await import('./broadcast.js');
+        bindPicking(root, listBox, pickBtn);
+      }
+
       const more = root.querySelector('#load-more');
       if (!more) return;
       let page = 1;

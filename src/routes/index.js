@@ -14,6 +14,7 @@ import registerProviderRoutes from './providers.js';
 import registerNewsRoutes from './news.js';
 import registerReferralRoutes from './referral.js';
 import registerFeedbackRoutes from './feedback.js';
+import registerBroadcastRoutes from './broadcast.js';
 
 export default function registerRoutes(app) {
   registerCoreRoutes(app);
@@ -29,5 +30,6 @@ export default function registerRoutes(app) {
   registerNewsRoutes(app);
   registerReferralRoutes(app);
   registerFeedbackRoutes(app);
+  registerBroadcastRoutes(app);
   return app;
 }
