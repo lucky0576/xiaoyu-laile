@@ -500,6 +500,29 @@ export function evaluateQualification(listing, submitted = {}) {
  * 创建信息。会自动跑 AI：生成主副标题 + 可靠性与风险解析 + 行业/城市归类。
  * @param {{user:object, body:object, files:Array}} args
  */
+/**
+ * 期货阶梯报价。
+ *
+ * 同一批货，交期越短价格越高，是贸易里的常态：
+ *   4-6 周  1180 万
+ *   6-8 周  1100 万
+ *   8-12 周 980 万
+ * 所以要能一条信息里挂多档，而不是拆成三条发布。
+ */
+export function normalizeFuturesTiers(input) {
+  if (!Array.isArray(input)) return [];
+  const out = [];
+  for (const row of input) {
+    if (!row) continue;
+    const term = String(row.term || '').trim().slice(0, 40);
+    const price = String(row.price || '').trim().slice(0, 60);
+    if (!term && !price) continue;
+    out.push({ term, price });
+    if (out.length >= 12) break;
+  }
+  return out;
+}
+
 export async function createListing({ user, body = {}, files = [] }) {
   const category = CATEGORY_IDS.includes(body.category) ? body.category : 'project';
   const text = String(body.text || body.content || '').trim();
@@ -619,6 +642,8 @@ export async function createListing({ user, body = {}, files = [] }) {
             futuresTerm: clean(body.futuresTerm || '').slice(0, 60),
             // 交割地：期货常要写交割仓库 / 港口，现货也可写发货地
             deliveryPlace: clean(body.deliveryPlace || '').slice(0, 80),
+            // 期货阶梯报价：交期越短价格越高，一条信息挂多档
+            futuresTiers: normalizeFuturesTiers(body.futuresTiers),
             quantity: clean(body.quantity || ''),
             unit: clean(body.unit || ''),
             price: clean(body.price || ''),

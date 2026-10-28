@@ -1961,7 +1961,12 @@ export async function renderPublish(ctx, params) {
                 value="${ui.esc(editing?.trade?.futuresTerm || '')}">
             </div>
 
-            <div class="field">
+            <div class="form-section-title mt16">期货报价档位</div>
+            <div class="tiny dim mb8">同一批货，交期越短价格越高 —— 逐条填，2 条以上详情页用表格展示</div>
+            <div id="f-tier-rows"></div>
+            <button class="btn btn-sm btn-outline btn-block mt8" id="f-tier-add" type="button">＋ 添加一个交期档位</button>
+
+            <div class="field mt16">
               <label>交割地 <span class="tiny dim">（选填 · 交割仓库 / 港口 / 发货地）</span></label>
               <input class="input" id="f-deliveryPlace" maxlength="80"
                 placeholder="如「上海保税区仓库」「连云港港区」"
@@ -2094,6 +2099,41 @@ export async function renderPublish(ctx, params) {
               .forEach((el) => el.classList.toggle('active', el.dataset.term === termInput.value.trim()));
           });
         }
+
+        /* ---------------- 期货报价档位 ---------------- */
+        const rowsBox = box.querySelector('#f-tier-rows');
+        const addBtn = box.querySelector('#f-tier-add');
+
+        const tierRow = (t = {}) => {
+          const div = document.createElement('div');
+          div.className = 'row gap8 mb8 tier-row';
+          div.innerHTML = `
+            <input class="input" data-k="term" style="flex:1;min-width:0" maxlength="40"
+              placeholder="4-6 周" value="${ui.esc(t.term || '')}">
+            <input class="input" data-k="price" style="flex:1;min-width:0" maxlength="60"
+              placeholder="1180 万" value="${ui.esc(t.price || '')}">
+            <button class="btn btn-sm" data-del type="button" title="删掉这一档">✕</button>`;
+          return div;
+        };
+
+        if (rowsBox) {
+          const initial = Array.isArray(editing?.trade?.futuresTiers) && editing.trade.futuresTiers.length
+            ? editing.trade.futuresTiers
+            : [{ term: '', price: '' }];
+          for (const t of initial) rowsBox.appendChild(tierRow(t));
+
+          addBtn?.addEventListener('click', () => {
+            if (rowsBox.children.length >= 12) return ui.toast('最多 12 个档位', 'err');
+            rowsBox.appendChild(tierRow());
+            rowsBox.lastElementChild?.querySelector('input')?.focus();
+          });
+
+          rowsBox.addEventListener('click', (e) => {
+            if (!e.target.closest('[data-del]')) return;
+            if (rowsBox.children.length <= 1) return ui.toast('至少留一档', 'err');
+            e.target.closest('.tier-row')?.remove();
+          });
+        }
       };
 
       const collectCategoryFields = () => {
@@ -2124,6 +2164,12 @@ export async function renderPublish(ctx, params) {
             tradeMode: $('#f-tradeMode .chip.active')?.dataset.mode || 'spot',
             futuresTerm: v('#f-futuresTerm'),
             deliveryPlace: v('#f-deliveryPlace'),
+            futuresTiers: [...(catBox?.querySelectorAll('.tier-row') || [])]
+              .map((row) => ({
+                term: row.querySelector('[data-k="term"]')?.value?.trim() || '',
+                price: row.querySelector('[data-k="price"]')?.value?.trim() || '',
+              }))
+              .filter((t) => t.term || t.price),
             quantity: v('#f-quantity'), price: v('#f-price'),
             payment: v('#f-payment'), delivery: v('#f-delivery'), deadline: v('#f-deadline'),
             items: collectTradeItems(catBox),

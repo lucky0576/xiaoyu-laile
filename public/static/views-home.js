@@ -1434,7 +1434,7 @@ export async function renderDetail(ctx, params) {
   const futuresInfo = (() => {
     const t = listing.trade;
     if (!t || t.tradeMode !== 'futures') return null;
-    const term = String(t.futuresTerm || '').trim();
+    const term = String(t.futuresTerm || t.futuresTiers?.[0]?.term || '').trim();
     if (!term) return null;
 
     const now = Date.now();
@@ -1481,6 +1481,22 @@ export async function renderDetail(ctx, params) {
           ${listing.trade.delivery ? `<div>交付：${ui.esc(listing.trade.delivery)}</div>` : ''}
           ${listing.trade.deliveryPlace ? `<div>交割地：${ui.esc(listing.trade.deliveryPlace)}</div>` : ''}
           ${listing.trade.destination ? `<div>地点：${ui.esc(listing.trade.destination)}</div>` : ''}
+          ${
+            (listing.trade.futuresTiers || []).length >= 2
+              ? `<div class="tier-title">按交期分档报价</div>
+                 <div class="news-table-wrap"><table class="news-table">
+                   <thead><tr><th>交期</th><th>报价</th></tr></thead>
+                   <tbody>${listing.trade.futuresTiers
+                     .map(
+                       (t) =>
+                         `<tr><td>${ui.esc(t.term || '—')}</td><td><b>${ui.esc(t.price || '—')}</b></td></tr>`,
+                     )
+                     .join('')}</tbody>
+                 </table></div>`
+              : (listing.trade.futuresTiers || []).length === 1
+                ? `<div>交期：${ui.esc(listing.trade.futuresTiers[0].term || '—')} · 报价：${ui.esc(listing.trade.futuresTiers[0].price || '—')}</div>`
+                : ''
+          }
           ${
             futuresInfo
               ? `<div class="futures-timeline">

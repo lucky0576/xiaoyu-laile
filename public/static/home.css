@@ -3230,3 +3230,14 @@ a.sp-item:active { background: #f7fbff; }
   font-size: 11px;
   color: #8894a6;
 }
+/* ---------------- 期货档位报价 ---------------- */
+.tier-title {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #223;
+}
+.tier-row .btn {
+  flex: 0 0 auto;
+  padding: 0 12px;
+}
