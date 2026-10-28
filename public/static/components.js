@@ -9,7 +9,7 @@ import {
 /* ---------------- 信息列表项 ---------------- */
 export function itemHtml(l) {
   if (!l) return '';
-  const cover = safeUrl(l.coverUrl);
+  const cover = thumbUrl(safeUrl(l.coverUrl), 400); // 列表卡片用缩略图，别下原图
   const badges = [];
   if (l.categoryName) badges.push(`<span class="badge">${esc(l.categoryName)}</span>`);
   if (l.typeName) badges.push(`<span class="badge gray">${esc(l.typeName)}</span>`);
@@ -82,6 +82,16 @@ export function aiCardHtml(ai) {
 }
 
 /* ---------------- 附件 ---------------- */
+/**
+ * 把 /files/<id>/<name> 换成缩略图地址。
+ * 不是 /files 开头的（自动生成的 SVG 封面、外链）原样返回。
+ */
+export function thumbUrl(url, width = 400) {
+  const m = /^\/files\/([^/]+)\//.exec(String(url || ''));
+  if (!m) return url;
+  return `/api/img/${m[1]}?w=${width}`;
+}
+
 export function filesHtml(files, { title = '附件资料' } = {}) {
   if (!files || !files.length) return '';
   return `<div class="card card-pad">

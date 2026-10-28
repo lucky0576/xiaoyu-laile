@@ -5,7 +5,7 @@ import { api, service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import {
   itemHtml, aiCardHtml, filesHtml, fileCardHtml, pipelineHtml, commentHtml, userCardHtml,
-  sortBarHtml, categoryIcon, categoryName,
+  sortBarHtml, categoryIcon, categoryName, thumbUrl,
 } from './components.js';
 import { openShareSheet, setupWechatShare } from './share.js';
 import { applyAutoCover, drawProjectCover } from './cover.js';
@@ -258,7 +258,7 @@ export async function renderHome(ctx, query) {
       <div class="ecom-thumb">
         ${
           l.coverUrl
-            ? `<img src="${ui.esc(ui.safeUrl(l.coverUrl))}" alt="" loading="lazy">`
+            ? `<img src="${ui.esc(ui.safeUrl(thumbUrl(l.coverUrl, 400)))}" alt="" loading="lazy">`
             : `<span class="ecom-thumb-ph">${ui.esc(categoryIcon(l.category))}</span>`
         }
         <span class="ecom-kind">${ecomKind(l)}</span>
@@ -364,7 +364,7 @@ export async function renderHome(ctx, query) {
   const shortCard = (v) => `<a class="short-card" href="#/shorts/${ui.esc(v.id)}">
     <div class="short-thumb">
       ${v.coverUrl
-        ? `<img src="${ui.esc(ui.safeUrl(v.coverUrl))}" alt="" loading="lazy">`
+        ? `<img src="${ui.esc(ui.safeUrl(thumbUrl(v.coverUrl, 800)))}" alt="" loading="lazy">`
         : `<div class="short-ph">🎬</div>`}
       <span class="short-play">▶</span>
       <span class="short-tag">短视频</span>
@@ -409,7 +409,7 @@ export async function renderHome(ctx, query) {
     return `<a class="home-item" href="#/detail/${ui.esc(l.id)}">
       <div class="cover">
         ${hasImg
-          ? `<img src="${ui.esc(ui.safeUrl(l.coverUrl))}" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+          ? `<img src="${ui.esc(ui.safeUrl(thumbUrl(l.coverUrl, 400)))}" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
           : categoryIcon(l.category)}
         ${l.reliability?.score >= 80 ? '<span class="badge2">AI 优质</span>' : ''}
       </div>
@@ -535,7 +535,7 @@ export async function renderHome(ctx, query) {
     const gi = CAT_GRAD[l.category] ?? 0;
     return `<a class="home-tile" href="#/detail/${ui.esc(l.id)}">
       <div class="art" style="background:${GRAD[gi]}">
-        ${l.coverUrl ? `<img src="${ui.esc(ui.safeUrl(l.coverUrl))}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:14px" loading="lazy">` : categoryIcon(l.category)}
+        ${l.coverUrl ? `<img src="${ui.esc(ui.safeUrl(thumbUrl(l.coverUrl, 400)))}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:14px" loading="lazy">` : categoryIcon(l.category)}
       </div>
       <div class="t">${ui.esc(clip(l.title, 12))}</div>
       <div class="d">${ui.esc(l.cities?.[0]?.name || l.typeName || '查看详情')}</div>

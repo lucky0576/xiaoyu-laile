@@ -18,6 +18,7 @@ import { httpError } from '../http/app.js';
 import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_TYPES, EVENT_TYPES, BOUNTY_TYPES, BOUNTY_SETTLE_MODES, BOUNTY_ELIGIBILITY, QUALIFICATION_TYPES, HELPER, PROJECT_QUALIFICATION_PRESETS, QUALIFICATION_LEVELS, COOPERATION_MODES, PRICE_TYPES, PAYMENT_TERMS, SETTLEMENT_MODES, INVOICE_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 import { FEED_TYPES } from '../services/feeds.js';
 import { geocodeAddress, reverseGeocode, amapEnabled, fetchStaticMap, amapUsage } from '../services/geocode.js';
+import { ensureThumb } from '../services/thumb.js';
 
 let qrModule = null;
 let qrTried = false;
@@ -189,6 +190,33 @@ export default function registerCoreRoutes(app) {
     }
     res.set('Accept-Ranges', 'bytes');
     return res.sendFile(f.path, 'stream');
+  });
+
+  /**
+   * 图片缩略图：/api/img/:id?w=400
+   *
+   * 列表卡片只显示一百多像素宽，没必要下 900×1600 的原图。
+   * 服务端按需用 ffmpeg 缩一张并缓存，跨境流量能省掉 80% 以上。
+   */
+  app.get('/api/img/:id', async (req, res) => {
+    const f = getFile(req.params.id);
+    if (!f) return fail(res, '图片不存在', 404, 'not_found');
+    if (!/^image\//i.test(String(f.mime || ''))) return fail(res, '不是图片', 400, 'not_image');
+
+    // 权限跟原图一致：预览不限，但要过保密密码
+    const ownerListing = f.listingId ? db.collection('listings').get(f.listingId) : null;
+    const viewer = authUser(req);
+    const access = filesecure.canAccessFile(ownerListing, { viewer, token: String(req.query.t || '') });
+    if (!access.allowed) return fail(res, '该文件已加密，请输入查看密码', 403, 'file_locked');
+
+    const p = await ensureThumb(f, req.query.w);
+    if (!p) {
+      // 缩不了（SVG 等）就 302 回原图，前端不用改逻辑
+      return res.redirect(f.url);
+    }
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=604800');
+    return res.sendFile(p, 'stream');
   });
 
   app.get('/api/files/:id', (req, res) => {
