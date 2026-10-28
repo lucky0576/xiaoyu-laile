@@ -97,6 +97,7 @@ export default function registerListingRoutes(app) {
       page: q.page,
       pageSize: q.pageSize,
       followedBy: String(q.followedBy || (q.mine === 'followed' && viewer ? viewer.id : '')),
+      tradeMode: String(q.tradeMode || ''),
     });
     return data(res, result);
   });

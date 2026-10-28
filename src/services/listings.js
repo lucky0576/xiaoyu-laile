@@ -617,6 +617,8 @@ export async function createListing({ user, body = {}, files = [] }) {
             // 现货 / 期货；期货时 futuresTerm 记周期（「3 个月」「2027 年 3 月交割」都可能）
             tradeMode: clean(body.tradeMode || 'spot') === 'futures' ? 'futures' : 'spot',
             futuresTerm: clean(body.futuresTerm || '').slice(0, 60),
+            // 交割地：期货常要写交割仓库 / 港口，现货也可写发货地
+            deliveryPlace: clean(body.deliveryPlace || '').slice(0, 80),
             quantity: clean(body.quantity || ''),
             unit: clean(body.unit || ''),
             price: clean(body.price || ''),
@@ -1671,6 +1673,7 @@ export function queryListings(params = {}) {
     page = 1,
     pageSize = 20,
     followedBy = '',
+    tradeMode = '',
   } = params;
 
   let list = listings().all();
@@ -1688,6 +1691,10 @@ export function queryListings(params = {}) {
     if (category) list = list.filter((l) => l.category === category);
     if (type) list = list.filter((l) => l.type === type);
   }
+  // 贸易筛选：现货 / 期货。老数据没这个字段，按现货算
+  if (tradeMode === 'spot') list = list.filter((l) => (l.trade?.tradeMode || 'spot') === 'spot');
+  else if (tradeMode === 'futures') list = list.filter((l) => l.trade?.tradeMode === 'futures');
+
   if (industry) list = list.filter((l) => (l.industries || []).some((i) => i.id === industry));
   if (sub) list = list.filter((l) => (l.subs || []).some((s) => s.id === sub));
   if (city) list = list.filter((l) => (l.cities || []).some((c) => c.id === city));

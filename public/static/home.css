@@ -3192,3 +3192,41 @@ a.sp-item:active { background: #f7fbff; }
   color: #223;
 }
 .news-table tbody tr:nth-child(even) td { background: #fafbfd; }
+/* ---------------- 期货交割时间轴 ---------------- */
+.futures-timeline {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #f4f8fc;
+  border-radius: 10px;
+  border: 1px solid #e3e9f2;
+}
+.futures-timeline .ft-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: #556;
+}
+.futures-timeline .ft-head b {
+  color: #0b74ff;
+  font-size: 15px;
+}
+.futures-timeline .ft-bar {
+  margin: 8px 0 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: #dde6f2;
+  overflow: hidden;
+}
+.futures-timeline .ft-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #0b74ff, #35a0ff);
+}
+.futures-timeline .ft-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #8894a6;
+}

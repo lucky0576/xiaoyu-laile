@@ -1961,6 +1961,13 @@ export async function renderPublish(ctx, params) {
                 value="${ui.esc(editing?.trade?.futuresTerm || '')}">
             </div>
 
+            <div class="field">
+              <label>交割地 <span class="tiny dim">（选填 · 交割仓库 / 港口 / 发货地）</span></label>
+              <input class="input" id="f-deliveryPlace" maxlength="80"
+                placeholder="如「上海保税区仓库」「连云港港区」"
+                value="${ui.esc(editing?.trade?.deliveryPlace || '')}">
+            </div>
+
             <div class="form-section-title">物资明细</div>
             <div class="tiny dim mb8">多条物资可逐条添加，也可让 AI 从上面的内容自动汇总；<b>2 条以上会自动用表格展示</b>。</div>
             <div class="trade-ai-bar mb8">
@@ -2116,6 +2123,7 @@ export async function renderPublish(ctx, params) {
             tradeType: v('#f-tradeType'),
             tradeMode: $('#f-tradeMode .chip.active')?.dataset.mode || 'spot',
             futuresTerm: v('#f-futuresTerm'),
+            deliveryPlace: v('#f-deliveryPlace'),
             quantity: v('#f-quantity'), price: v('#f-price'),
             payment: v('#f-payment'), delivery: v('#f-delivery'), deadline: v('#f-deadline'),
             items: collectTradeItems(catBox),
