@@ -3074,3 +3074,14 @@ a.sp-item:active { background: #f7fbff; }
 }
 .bcast-foot { display: flex; gap: 8px; padding: 12px 16px 4px; }
 .bcast-tip { padding: 2px 16px 14px; }
+/* ---------------- 登录记忆 ---------------- */
+.remember-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 0 4px; font-size: 13px; color: #556;
+  cursor: pointer; user-select: none;
+}
+.remember-row input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: var(--brand, #0b74ff);
+  cursor: pointer; flex: none;
+}
+#last-login-box { border: 1px solid #dbe6ff; background: #f5f9ff; }

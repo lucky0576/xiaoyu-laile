@@ -58,11 +58,13 @@ export async function renderLogin(ctx, query) {
       <div class="small muted">${ui.esc(ctx.state.site?.slogan || '')}</div>
     </div>
 
+    <div class="card card-pad mb12" id="last-login-box" style="display:none"></div>
+
     <div class="card card-pad">
       <div class="chips mb12" id="login-tabs">
         <a class="chip active" data-tab="phone">手机密码</a>
         <a class="chip" data-tab="email">邮箱密码</a>
-        <a class="chip" data-tab="wechat">微信开通中</a>
+        <a class="chip" data-tab="wechat">微信登录</a>
       </div>
 
       <div id="pane-phone">
@@ -74,6 +76,10 @@ export async function renderLogin(ctx, query) {
           <label>密码</label>
           <input class="input" id="lg-pw-phone" type="password" placeholder="请输入密码">
         </div>
+        <label class="remember-row">
+          <input type="checkbox" id="lg-remember" checked>
+          <span>记住登录状态，下次直接进入</span>
+        </label>
         <button class="btn btn-primary btn-block" id="lg-submit">登录</button>
         <div class="row between mt12">
           <a class="small" href="#/register">还没有账号？去注册</a>
@@ -89,6 +95,10 @@ export async function renderLogin(ctx, query) {
           <label>密码</label>
           <input class="input" id="lg-password" type="password" placeholder="请输入密码">
         </div>
+        <label class="remember-row">
+          <input type="checkbox" id="lg-remember-email" checked>
+          <span>记住登录状态，下次直接进入</span>
+        </label>
         <button class="btn btn-primary btn-block" id="lg-email-submit">登录</button>
         <div class="row between mt12">
           <a class="small" href="#/register">还没有账号？去注册</a>
@@ -97,17 +107,12 @@ export async function renderLogin(ctx, query) {
       </div>
 
       <div id="pane-wechat" class="hide">
-        <button class="btn btn-block" id="lg-wx-soon" type="button" disabled
-          style="background:#eef1f6;color:#8a94a6;border:1px solid #e2e7f0;cursor:not-allowed">
-          💬 微信开通中
-        </button>
-        <div class="tiny dim mt8 center">
-          正在接入微信公众号授权，开通后可用微信一键登录。
-        </div>
-        <div class="tiny dim mt4 center">
-          现在请先用<b>手机号</b>或<b>邮箱</b>登录。
-        </div>
-        <a class="btn btn-block mt12" href="javascript:;" data-goto-tab="phone">去用手机号登录</a>
+        ${wx.mp
+          ? `<button class="btn btn-primary btn-block" id="lg-wx">微信授权登录</button>
+             <div class="tiny dim mt8 center">已配置微信公众号，微信内打开将直接授权</div>`
+          : `<button class="btn btn-primary btn-block" id="lg-wx-demo">微信一键登录（演示）</button>
+             <div class="tiny dim mt8 center">当前为演示模式：点一下直接用演示账号登录（功能都能体验）；<br>配置 WECHAT_APP_ID / WECHAT_APP_SECRET 后自动走真实微信授权。</div>`}
+        ${wx.open ? `<button class="btn btn-block mt8" id="lg-wx-qr">PC 扫码登录</button>` : ''}
       </div>
     </div>
 
@@ -127,6 +132,78 @@ export async function renderLogin(ctx, query) {
     showBack: true,
     noTab: true,
     async mount(root) {
+      /* 登录记忆：上次用的账号 + 还在有效期内的登录态 */
+      const LAST_KEY = 'xyl_last_login';
+      const readLast = () => {
+        try {
+          return JSON.parse(localStorage.getItem(LAST_KEY) || 'null');
+        } catch {
+          return null;
+        }
+      };
+      const writeLast = (obj) => {
+        try {
+          localStorage.setItem(LAST_KEY, JSON.stringify(obj));
+        } catch {
+          /* ignore */
+        }
+      };
+
+      const last = readLast();
+      if (last && last.account) {
+        const phoneEl = root.querySelector('#lg-phone');
+        const emailEl = root.querySelector('#lg-email');
+        if (phoneEl && last.type !== 'email') phoneEl.value = last.account;
+        if (emailEl && last.type === 'email') emailEl.value = last.account;
+      }
+
+      /*
+       * 如果本地还留着没失效的登录态，就别让用户再输一遍密码 ——
+       * 顶部直接给他一个「继续进入」。
+       */
+      const box = root.querySelector('#last-login-box');
+      const maskPhone = (v) => (v && v.length >= 7 ? `${v.slice(0, 3)}****${v.slice(-4)}` : v || '');
+      const renderLast = async () => {
+        if (!box) return;
+        let me = null;
+        if (store.token) {
+          try {
+            const r = await service.me();
+            me = r?.data?.user || r?.user || null;
+          } catch {
+            me = null;
+          }
+        }
+        if (me) {
+          box.style.display = '';
+          box.innerHTML = `<div class="row between" style="align-items:center;gap:10px">
+            <div style="min-width:0">
+              <div class="strong">欢迎回来，${ui.esc(me.nickname || me.name || '老朋友')}</div>
+              <div class="tiny dim">上次登录的账号还在有效期内，可以直接进入</div>
+            </div>
+            <div class="row gap8" style="flex:none">
+              <button class="btn btn-primary btn-sm" id="last-go" type="button">直接进入</button>
+              <button class="btn btn-sm" id="last-switch" type="button">换账号</button>
+            </div>
+          </div>`;
+          box.querySelector('#last-go')?.addEventListener('click', () => ctx.nav('#/home'));
+          box.querySelector('#last-switch')?.addEventListener('click', () => {
+            store.clear();
+            box.style.display = 'none';
+            ui.toast('已退出，请重新登录', 'ok');
+          });
+        } else if (last && last.account) {
+          box.style.display = '';
+          box.innerHTML = `<div class="tiny dim">
+            上次登录：<b>${ui.esc(last.type === 'email' ? last.account : maskPhone(last.account))}</b>
+            ${last.nickname ? `（${ui.esc(last.nickname)}）` : ''} · 账号已帮你填好
+          </div>`;
+        } else {
+          box.style.display = 'none';
+        }
+      };
+      renderLast();
+
       root.querySelector('#login-tabs').addEventListener('click', (e) => {
         const chip = e.target.closest('[data-tab]');
         if (!chip) return;
@@ -134,9 +211,18 @@ export async function renderLogin(ctx, query) {
         ['phone', 'email', 'wechat'].forEach((t) => root.querySelector(`#pane-${t}`).classList.toggle('hide', t !== chip.dataset.tab));
       });
 
-      const done = async (res, msg) => {
+      const done = async (res, msg, account) => {
         store.token = res.token;
         store.user = res.user;
+        // 记住这次用的账号，下次打开自动填好
+        if (account) {
+          writeLast({
+            account: account.value,
+            type: account.type,
+            nickname: res.user?.nickname || res.user?.name || '',
+            at: Date.now(),
+          });
+        }
         await ctx.refreshMe();
         ui.toast(msg, 'ok');
         const redirect = query.redirect || '#/home';
@@ -147,9 +233,10 @@ export async function renderLogin(ctx, query) {
         const phone = root.querySelector('#lg-phone').value.trim();
         const password = root.querySelector('#lg-pw-phone').value;
         if (!phone || !password) return ui.toast('请填写手机号和密码', 'err');
+        const remember = root.querySelector('#lg-remember')?.checked !== false;
         try {
-          const res = await service.phoneLogin({ phone, password });
-          await done(res, '登录成功');
+          const res = await service.phoneLogin({ phone, password, remember });
+          await done(res, remember ? '登录成功，下次可直接进入' : '登录成功', { value: phone, type: 'phone' });
         } catch (err) {
           if (err.code === 'bad_credentials') {
             ui.toast('手机号或密码不正确，没注册过请先注册', 'err');
@@ -163,9 +250,10 @@ export async function renderLogin(ctx, query) {
         const email = root.querySelector('#lg-email').value.trim();
         const password = root.querySelector('#lg-password').value;
         if (!email || !password) return ui.toast('请填写邮箱和密码', 'err');
+        const remember = root.querySelector('#lg-remember-email')?.checked !== false;
         try {
-          const res = await service.mailLogin({ email, password });
-          await done(res, '登录成功');
+          const res = await service.mailLogin({ email, password, remember });
+          await done(res, remember ? '登录成功，下次可直接进入' : '登录成功', { value: email, type: 'email' });
         } catch (err) {
           ui.toast(err.message, 'err');
         }

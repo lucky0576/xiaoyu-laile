@@ -54,11 +54,23 @@ function applyInvite(newUser, inviteId) {
   }
 }
 
-function issueLogin(res, user, extra = {}) {
+/**
+ * 发放登录态。
+ *
+ * remember = true 时把有效期从默认 30 天延长到 365 天 ——
+ * 用户勾了「记住登录状态」，下次打开就不用再输密码。
+ */
+function issueLogin(res, user, extra = {}, opts = {}) {
   const fresh = touchLogin(user) || user;
-  const token = signToken({ uid: fresh.id });
-  setAuthCookie(res, token);
+  const days = Number(opts.days) || undefined;
+  const token = signToken({ uid: fresh.id }, days);
+  setAuthCookie(res, token, days);
   return data(res, { token, user: selfUser(fresh), ...extra });
+}
+
+/** 从请求里读出「记住登录」要几天 */
+function rememberDays(req) {
+  return req.body?.remember ? 365 : undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -299,7 +311,7 @@ export default function registerAuthUserRoutes(app) {
       return fail(res, '账号或密码不正确', 401, 'bad_credentials');
     }
     if (user.status === 'banned') return fail(res, '账号已被禁用', 403, 'banned');
-    return issueLogin(res, user);
+    return issueLogin(res, user, {}, { days: rememberDays(req) });
   });
 
   /* ================================================================ */
