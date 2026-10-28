@@ -941,8 +941,11 @@ async function renderPublishNews(ctx) {
           linkUrl = u;
 
           // 标题：优先用网页标题，太短就别用
+          // 标题可能抓成域名（公众号的 <title> 就是 mp.weixin.qq.com），这种别填
+          const looksDomain = (v) =>
+            /^https?:\/\//i.test(v) || /^(?:[\w-]+\.)+[a-z]{2,}$/i.test(v);
           const t = String(r.title || '').trim();
-          if (t && t.length >= 4 && !titleEl.value.trim()) titleEl.value = t.slice(0, 200);
+          if (t && t.length >= 4 && !looksDomain(t) && !titleEl.value.trim()) titleEl.value = t.slice(0, 200);
           titleEl.dispatchEvent(new Event('input'));
 
           // 正文

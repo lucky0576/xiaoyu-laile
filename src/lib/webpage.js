@@ -69,6 +69,131 @@ function decodeBody(buf, contentType) {
  * @param {number} opts.minLine  行最小长度。原来是 8，会连正文里较短的段落
  *                               （比如“一、项目概况”）一起丢掉；导入正文时用 4
  */
+/**
+ * 从 html 里切出「<div ... id="xxx" ...> 内部到配对 </div>」的内容。
+ *
+ * 简单正则做不到（div 会嵌套），所以数一遍 div 深度。
+ * 公众号文章的正文在 <div id="js_content"> 里，切出来就不会带上
+ * 页面底部那一堆统计脚本。
+ */
+function sliceBalancedDiv(html, idOrClass) {
+  const src = String(html || '');
+  const openRe = new RegExp(`<div[^>]*(?:id|class)\\s*=\\s*["'][^"']*${idOrClass}[^"']*["'][^>]*>`, 'i');
+  const m = openRe.exec(src);
+  if (!m) return '';
+
+  const startIdx = m.index + m[0].length;
+  let depth = 1;
+  let i = startIdx;
+  const tagRe = /<\/?div\b[^>]*>/gi;
+  tagRe.lastIndex = startIdx;
+  let t;
+  while ((t = tagRe.exec(src))) {
+    if (t[0][1] === '/') depth -= 1;
+    else depth += 1;
+    if (depth === 0) {
+      return src.slice(startIdx, t.index);
+    }
+    i = t.index;
+  }
+  // 没配对上（页面被截断）就返回从开标签到末尾
+  void i;
+  return src.slice(startIdx);
+}
+
+/**
+ * 找到「真正的正文 HTML」。
+ *
+ * 不找的话，整页的导航、侧栏、内联脚本统计代码都会混进正文，
+ * 表现就是正文末尾出现一堆 getActionByData / xhr.status 之类的乱码。
+ */
+function extractMainHtml(html) {
+  const src = String(html || '');
+  // 1. 公众号正文容器
+  for (const id of ['js_content', 'rich_media_content', 'activity-name']) {
+    if (id === 'activity-name') continue; // 标题用，不当正文
+    const part = sliceBalancedDiv(src, id);
+    if (part && part.length > 200) return part;
+  }
+  // 2. 常见文章容器
+  for (const cls of ['article-content', 'article_content', 'artibody', 'post-content', 'entry-content', 'content-body']) {
+    const part = sliceBalancedDiv(src, cls);
+    if (part && part.length > 200) return part;
+  }
+  // 3. <article> 整体
+  const art = /<article[^>]*>([\s\S]*?)<\/article>/i.exec(src);
+  if (art && art[1].length > 200) return art[1];
+  // 4. 兜底：整页
+  return src;
+}
+
+/** 从各种地方找标题，优先 og:title（公众号的 <title> 就是域名） */
+function extractTitle(html) {
+  const src = String(html || '');
+  const meta = (attr, val) => {
+    const re = new RegExp(`<meta[^>]+${attr}\\s*=\\s*["']${val}["'][^>]+content\\s*=\\s*["']([^"']+)["']`, 'i');
+    const re2 = new RegExp(`<meta[^>]+content\\s*=\\s*["']([^"']+)["'][^>]+${attr}\\s*=\\s*["']${val}["']`, 'i');
+    const m = re.exec(src) || re2.exec(src);
+    return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+  };
+
+  const isUrlOrDomain = (t) => {
+    if (!t) return true;
+    const v = t.trim();
+    if (/^https?:\/\//i.test(v)) return true;
+    // 纯域名，如 mp.weixin.qq.com / www.xxx.com
+    if (/^(?:[\w-]+\.)+(com|cn|net|org|io|co|qq|top|info|gov|edu)(?:\.[a-z]{2})?$/i.test(v)) return true;
+    if (/^(?:[\w-]+\.)+[\w-]+$/i.test(v) && !/[\u4e00-\u9fa5]/.test(v)) return true;
+    return false;
+  };
+
+  const candidates = [
+    meta('property', 'og:title'),
+    meta('name', 'twitter:title'),
+    meta('property', 'twitter:title'),
+    // 公众号标题
+    (() => {
+      const m = /<h1[^>]*(?:id|class)\s*=\s*["'][^"']*rich_media_title[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i.exec(src);
+      return m ? m[1] : '';
+    })(),
+    (() => {
+      const m = /<(?:h1|div)[^>]*id\s*=\s*["']activity-name["'][^>]*>([\s\S]*?)<\/(?:h1|div)>/i.exec(src);
+      return m ? m[1] : '';
+    })(),
+    (() => {
+      const m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(src);
+      return m ? m[1] : '';
+    })(),
+  ];
+
+  for (const c of candidates) {
+    const t = String(c || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (t && !isUrlOrDomain(t)) {
+      /*
+       * 去掉站点名后缀，常见几种：
+       *   「标题_新浪新闻」「标题 - IT之家」「标题｜澎湃新闻」「标题-某某网」
+       * 只认已知媒体名与「xx网 / xx资讯 / xx新闻」这类，避免误删标题本身的破折号。
+       */
+      const stripped = t
+        .replace(
+          /\s*[_|｜\-—]\s*(微信公众平台|IT之家|新浪[\w\u4e00-\u9fa5]{0,6}|网易[\w\u4e00-\u9fa5]{0,6}|搜狐[\w\u4e00-\u9fa5]{0,6}|腾讯[\w\u4e00-\u9fa5]{0,6}|凤凰[\w\u4e00-\u9fa5]{0,6}|澎湃[\w\u4e00-\u9fa5]{0,6}|界面[\w\u4e00-\u9fa5]{0,6}|36氪|知乎[\w\u4e00-\u9fa5]{0,4}|财新[\w\u4e00-\u9fa5]{0,4}|\S{1,4}(?:网|资讯|在线|新闻|时报|日报))$/i,
+          '',
+        )
+        .trim();
+      return stripped.length >= 4 ? stripped : t;
+    }
+  }
+  return '';
+}
+
 function htmlToText(html, { max = 150000, minLine = 8 } = {}) {
   let s = String(html || '');
 
@@ -81,9 +206,11 @@ function htmlToText(html, { max = 150000, minLine = 8 } = {}) {
   s = s.replace(/<head[\s\S]*?<\/head>/gi, ' ');
   s = s.replace(/<!--[\s\S]*?-->/g, ' ');
 
-  // 保留标题
-  const titleM = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
-  const title = titleM ? titleM[1].replace(/\s+/g, ' ').trim() : '';
+  // 标题：优先 og:title / 公众号标题，公众号的 <title> 就是域名
+  const title = extractTitle(html);
+
+  // 只保留正文容器，避免把页面底部的统计脚本当正文
+  s = extractMainHtml(s);
 
   // 常见噪音区块
   s = s.replace(/<(nav|header|footer|aside|form)[\s\S]*?<\/\1>/gi, ' ');
@@ -147,6 +274,35 @@ function htmlToText(html, { max = 150000, minLine = 8 } = {}) {
   // 去掉过短的行（导航、按钮文案）
   const lines = s.split('\n').filter((l) => l.length >= minLine);
   let text = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+  // 兜底：万一 <script> 没配成对，从第一个残留的 <script 起全部丢掉
+  text = text.replace(/<script[\s\S]*$/i, ' ').trim();
+
+  /*
+   * 再兜一层：去掉「不像中文文章」的代码行。
+   * 公众号页面底部常有一堆统计脚本被当成文本，表现为
+   * getActionByData / xhr.status / => / || 这类行。
+   */
+  const looksLikeCode = (line) => {
+    if (/[\u4e00-\u9fa5]/.test(line)) return false; // 有中文就留着
+    const codeHints = /(=>|function\s*\(|\bvar\s|\blet\s|\bconst\s|return\s|\|\||&&|xhr\.|window\.|document\.|prototype|JSON\.|undefined|null;|\(\))/;
+    const punct = (line.match(/[{}();=<>[\]]/g) || []).length;
+    return codeHints.test(line) || punct > line.length * 0.18;
+  };
+  const kept = text.split('\n').filter((l) => !looksLikeCode(l));
+
+  // 从中间开始连续出现大量代码行 → 后面都是脚本，直接砍掉
+  let cut = kept.length;
+  let run = 0;
+  for (let i = 0; i < kept.length; i++) {
+    if (looksLikeCode(kept[i])) run += 1;
+    else run = 0;
+    if (run >= 1 && i > kept.length * 0.5) {
+      cut = i;
+      break;
+    }
+  }
+  text = kept.slice(0, cut).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 
   if (text.length > max) text = `${text.slice(0, max)}\n…（内容已截断）`;
   return { title, text };
