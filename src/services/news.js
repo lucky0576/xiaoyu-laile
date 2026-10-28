@@ -385,7 +385,7 @@ export async function refresh({ maxPerSource = 6, maxTotal = 24, maxAgeDays = 12
         sourceCategory: source.category,
         tags,
         summary: pickSummary(bodyText, finalTitle),
-        text: bodyText.slice(0, 20000),
+        text: bodyText.slice(0, 120000),
         coverUrl: '',
         publishedAt,
         fetchedAt: new Date().toISOString(),
@@ -532,7 +532,8 @@ export function createNews({
     sourceCategory: 'user',
     tags: Array.isArray(tags) ? tags.filter(Boolean).slice(0, 4) : [],
     summary: String(summary || '').trim().slice(0, 500),
-    text: String(text || '').trim().slice(0, 20000),
+    // 正文尽量跟原文一致，别在存储这一层又砍一刀
+    text: String(text || '').trim().slice(0, 200000),
     coverUrl: String(coverUrl || '').trim().slice(0, 500),
     // 用户填的原文链接（跟抓取来的 url 复用同一个字段）
     url: String(link || '').trim().slice(0, 800),

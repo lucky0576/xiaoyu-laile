@@ -947,7 +947,8 @@ async function renderPublishNews(ctx) {
 
           // 正文
           const body = String(r.text || '').trim();
-          if (body && !textEl.value.trim()) textEl.value = body.slice(0, 20000);
+          // 正文保留原文全貌，不做截断
+          if (body && !textEl.value.trim()) textEl.value = body;
           textEl.dispatchEvent(new Event('input'));
 
           // 摘要

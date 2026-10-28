@@ -59,7 +59,17 @@ function decodeBody(buf, contentType) {
 }
 
 /** HTML → 纯文本 */
-function htmlToText(html, { max = 40000 } = {}) {
+/**
+ * 把网页 HTML 转成纯文本。
+ *
+ * @param {string} html
+ * @param {object} opts
+ * @param {number} opts.max      最大字符数。原来 40000，长文会被截断，
+ *                               现在默认放宽到 150000，基本等于「不截断」
+ * @param {number} opts.minLine  行最小长度。原来是 8，会连正文里较短的段落
+ *                               （比如“一、项目概况”）一起丢掉；导入正文时用 4
+ */
+function htmlToText(html, { max = 150000, minLine = 8 } = {}) {
   let s = String(html || '');
 
   // 去掉整个块级噪音
@@ -135,7 +145,7 @@ function htmlToText(html, { max = 40000 } = {}) {
     .join('\n');
 
   // 去掉过短的行（导航、按钮文案）
-  const lines = s.split('\n').filter((l) => l.length >= 8);
+  const lines = s.split('\n').filter((l) => l.length >= minLine);
   let text = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 
   if (text.length > max) text = `${text.slice(0, max)}\n…（内容已截断）`;
@@ -496,7 +506,8 @@ export async function fetchWebpage(rawUrl) {
     }
 
     const html = decodeBody(buf, ct);
-    const raw = htmlToText(html);
+    // 导入正文时用宽松参数：尽量还原原文，别提前截断
+  const raw = htmlToText(html, { max: 150000, minLine: 4 });
     const title = raw.title;
     // 清洗：去广告、去二维码提示、去对方联系方式
     const rawLen = raw.text.length;

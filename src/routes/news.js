@@ -52,6 +52,7 @@ export default function registerNewsRoutes(app) {
     if (title.length < 4) return fail(res, '标题至少 4 个字', 400, 'short_title');
     if (title.length > 200) return fail(res, '标题太长了（上限 200 字）', 400, 'long_title');
     if (text.length < 20) return fail(res, '正文至少 20 个字', 400, 'short_text');
+    if (text.length > 200000) return fail(res, '正文太长了（上限 20 万字）', 400, 'long_text');
 
     // 每 IP 10 分钟最多 5 条，避免刷屏
     const rl = rateLimit(`news-create:${clientIp(req)}`, 5, 600_000);
