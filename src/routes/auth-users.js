@@ -302,6 +302,30 @@ export default function registerAuthUserRoutes(app) {
     return issueLogin(res, user);
   });
 
+  /**
+   * 账号是否已注册。
+   *
+   * 登录页用它来做「已注册就登录、没注册就带去注册」的分流。
+   * 注意：只返回存在与否，不返回任何用户信息；
+   * 并且按 IP 限流，避免被拿来批量探测手机号。
+   */
+  app.post('/api/auth/exists', (req, res) => {
+    const rl = rateLimit(`exists:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) return data(res, { exists: false, limited: true });
+
+    const account = String(req.body?.account || '').trim();
+    if (!account) return fail(res, '请填写账号');
+
+    const isEmail = account.includes('@');
+    const user = isEmail ? findByEmail(account.toLowerCase()) : byPhone(normalizePhone(account));
+
+    return data(res, {
+      exists: Boolean(user),
+      hasPassword: Boolean(user && user.passwordHash),
+      type: isEmail ? 'email' : 'phone',
+    });
+  });
+
   /** 通用账号密码登录：自动识别手机号 / 邮箱 */
   app.post('/api/auth/login', (req, res) => {
     const account = String(req.body?.account || '').trim();

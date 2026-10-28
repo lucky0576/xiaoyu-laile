@@ -238,7 +238,23 @@ export async function renderLogin(ctx, query) {
           await done(res, remember ? '登录成功，下次可直接进入' : '登录成功', { value: phone, type: 'phone' });
         } catch (err) {
           if (err.code === 'bad_credentials') {
-            ui.toast('手机号或密码不正确，没注册过请先注册', 'err');
+            /*
+             * 已注册就提示密码错；没注册过直接带去注册页，号码填好。
+             * 这样「登录」和「注册」就是一个入口，用户不用自己想该点哪个。
+             */
+            let exists = false;
+            try {
+              const r = await service.authExists(phone);
+              exists = Boolean(r && r.exists);
+            } catch {
+              exists = false;
+            }
+            if (exists) {
+              ui.toast('密码不正确，再试一次', 'err');
+            } else {
+              ui.toast('这个手机号还没注册，帮你切到注册', 'ok');
+              ctx.nav(`#/register?mode=phone&phone=${encodeURIComponent(phone)}`);
+            }
           } else {
             ui.toast(err.message, 'err');
           }
@@ -254,7 +270,23 @@ export async function renderLogin(ctx, query) {
           const res = await service.mailLogin({ email, password, remember });
           await done(res, remember ? '登录成功，下次可直接进入' : '登录成功', { value: email, type: 'email' });
         } catch (err) {
-          ui.toast(err.message, 'err');
+          if (err.code === 'bad_credentials') {
+            let exists = false;
+            try {
+              const r = await service.authExists(email);
+              exists = Boolean(r && r.exists);
+            } catch {
+              exists = false;
+            }
+            if (exists) {
+              ui.toast('密码不正确，再试一次', 'err');
+            } else {
+              ui.toast('这个邮箱还没注册，帮你切到注册', 'ok');
+              ctx.nav(`#/register?mode=email&email=${encodeURIComponent(email)}`);
+            }
+          } else {
+            ui.toast(err.message, 'err');
+          }
         }
       });
 
@@ -530,6 +562,26 @@ export async function renderRegister(ctx, query) {
         $('#rg-pane-phone')?.classList.toggle('hide', regMode !== 'phone');
         $('#rg-pane-email')?.classList.toggle('hide', regMode !== 'email');
       });
+
+      /*
+       * 从登录页跳过来时会带 ?mode=phone|email 和 ?phone= / ?email=，
+       * 说明这个账号还没注册 —— 直接把注册方式切好、号码填好，
+       * 用户只需要补个密码就能注册。
+       */
+      const wantMode = String(query.mode || '').toLowerCase();
+      const prePhone = String(query.phone || '').replace(/\D/g, '').slice(0, 11);
+      const preEmail = String(query.email || '').trim().toLowerCase();
+      if (wantMode === 'email' || (!wantMode && preEmail && !prePhone)) {
+        regMode = 'email';
+        root.querySelectorAll('#rg-mode .chip').forEach((el) => el.classList.toggle('active', el.dataset.mode === 'email'));
+        $('#rg-pane-phone')?.classList.add('hide');
+        $('#rg-pane-email')?.classList.remove('hide');
+      }
+      if (prePhone && $('#rg-phone')) $('#rg-phone').value = prePhone;
+      if (preEmail && $('#rg-email')) $('#rg-email').value = preEmail;
+      if (prePhone || preEmail) {
+        ui.toast('填个密码就能注册', 'ok');
+      }
 
       /* ---------------- 邮箱验证码 ---------------- */
       let codeTimer = null;

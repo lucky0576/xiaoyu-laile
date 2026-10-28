@@ -356,6 +356,7 @@ export const service = {
   smsSend: (phone, purpose) => api.post('/api/auth/sms/send', { phone, purpose }),
   smsLogin: (body) => api.post('/api/auth/sms/login', body),
   captcha: () => api.get('/api/auth/captcha'),
+  authExists: (account) => api.post('/api/auth/exists', { account }),
   phoneRegister: (body) => api.post('/api/auth/phone/register', body),
   phoneLogin: (body) => api.post('/api/auth/phone/login', body),
   mailSend: (email, purpose) => api.post('/api/auth/email/send-code', { email, purpose }),
