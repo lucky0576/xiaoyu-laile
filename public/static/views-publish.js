@@ -835,6 +835,15 @@ async function renderPublishNews(ctx) {
           accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z">
       </div>
 
+      <!-- AI 帮写：把素材贴到正文框，点这里自动出标题 / 摘要 / 正文 -->
+      <div class="ai-write-bar mt12">
+        <div class="awb-txt">
+          <div class="awb-t">不想自己写？把素材贴进「正文」，点这里</div>
+          <div class="tiny dim">AI 会重新组织成一条资讯，不编造素材里没有的内容</div>
+        </div>
+        <button class="btn btn-sm btn-primary" id="news-ai-write" type="button" style="flex:none">🤖 AI 帮写</button>
+      </div>
+
       <div class="field mt12">
         <label>标题 <span style="color:#e74c3c">*</span></label>
         <input class="input" id="news-title" maxlength="200" placeholder="一句话说清这条资讯的核心">
@@ -1001,6 +1010,51 @@ async function renderPublishNews(ctx) {
         if (e.key === 'Enter') {
           e.preventDefault();
           importUrl();
+        }
+      });
+
+      /* ---------------- AI 帮写 ---------------- */
+      $('#news-ai-write')?.addEventListener('click', async () => {
+        const btn = $('#news-ai-write');
+        const src = String($('#news-text')?.value || '').trim() || String($('#news-url')?.value || '').trim();
+        if (!src) {
+          ui.toast('先把素材贴到「正文」框里（链接也行）', 'err');
+          $('#news-text')?.focus();
+          return;
+        }
+        const old = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'AI 写作中…';
+        say('AI 正在整理素材…');
+        try {
+          // 如果贴的是链接，先抓正文再交给 AI
+          let source = src;
+          if (!String($('#news-text')?.value || '').trim() && /^https?:\/\//i.test(src)) {
+            say('正在抓取链接内容…');
+            const r = await service.aiFetchUrl(src);
+            if (r && r.ok && r.text) source = r.text;
+          }
+
+          const out = await service.newsWrite({ source, sourceName: String($('#news-source')?.value || '').trim() });
+          if (!out || !out.ok) {
+            say(out?.note || 'AI 生成失败', '#c0392b');
+            ui.toast(out?.note || 'AI 生成失败', 'err');
+            return;
+          }
+          titleEl.value = out.title || titleEl.value;
+          textEl.value = out.text || textEl.value;
+          const sumEl = $('#news-summary');
+          if (sumEl && out.summary) sumEl.value = out.summary;
+          titleEl.dispatchEvent(new Event('input'));
+          textEl.dispatchEvent(new Event('input'));
+          say(`✅ AI 已生成：${out.chars} 字，标题和摘要已填好`, '#0e8f5f');
+          ui.toast('AI 帮写完成，可以再手动改', 'ok');
+        } catch (err) {
+          say(err.message || 'AI 生成失败', '#c0392b');
+          ui.toast(err.message || 'AI 生成失败', 'err');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = old;
         }
       });
 

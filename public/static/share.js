@@ -174,21 +174,36 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
     g.addColorStop(1, '#00c2b2');
     ctx.fillStyle = g;
     ctx.fillRect(30, 30, W - 60, coverH);
-    ctx.fillStyle = 'rgba(255,255,255,.95)';
-    ctx.font = 'bold 96px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('🐟', W / 2, coverH / 2 + 30);
-    ctx.textAlign = 'left';
+    // 没配图时放品牌 logo，不再用 emoji
+    const logoBig = await loadImage('/static/logo-white@2x.png').catch(() => null);
+    if (logoBig) {
+      const lw = 360;
+      const lh = Math.round((lw * logoBig.naturalHeight) / logoBig.naturalWidth);
+      ctx.drawImage(logoBig, (W - lw) / 2, coverH / 2 - lh / 2, lw, lh);
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      ctx.font = 'bold 96px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('小鱼来了', W / 2, coverH / 2 + 30);
+      ctx.textAlign = 'left';
+    }
   }
   ctx.restore();
 
-  // 品牌条
-  ctx.fillStyle = 'rgba(11,116,255,.92)';
-  roundRect(ctx, 30, 30, 168, 52, 14);
+  // 品牌条：用真 logo，不再画文字
+  ctx.fillStyle = 'rgba(11,116,255,.96)';
+  roundRect(ctx, 30, 30, 208, 56, 16);
   ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 26px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-  ctx.fillText('小鱼来了', 54, 65);
+  const logoPill = await loadImage('/static/logo-white@2x.png').catch(() => null);
+  if (logoPill) {
+    const ph = 26;
+    const pw = Math.round((ph * logoPill.naturalWidth) / logoPill.naturalHeight);
+    ctx.drawImage(logoPill, 30 + (208 - pw) / 2, 30 + (56 - ph) / 2, pw, ph);
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 26px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.fillText('小鱼来了', 54, 65);
+  }
 
   /*
    * 分享者胶囊：「[头像] 张工 邀请你」
@@ -232,7 +247,7 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
       ctx.font = 'bold 22px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(nameTxt.slice(0, 1) || '鱼', avX, avY + 1);
+      ctx.fillText(nameTxt.slice(0, 1) || '小', avX, avY + 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
     }

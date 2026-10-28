@@ -544,6 +544,7 @@ export const service = {
   aiSplit: (fd, opts) => api.upload('/api/ai/split', fd, opts),
   newsList: (query) => api.get('/api/news', query),
   newsCreate: (body) => api.post('/api/news', body),
+  newsWrite: (body) => api.post('/api/ai/news-write', body),
   referralMe: () => api.get('/api/referral/me'),
   adminFeeds: (q = {}) => api.get('/api/admin/feeds', q),
   adminFeedTakedown: (id) => api.post('/api/admin/feeds/' + id + '/takedown'),

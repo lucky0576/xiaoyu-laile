@@ -71,20 +71,48 @@ const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
  * Wikimedia Commons 的英文内容远比中文全，所以统一翻成英文搜。
  */
 const QUERY_MAP = [
+  // 能源
   [/风电|风机|风场|风力|wind/i, 'wind turbine farm'],
   [/储能|电芯|储能柜|BESS|集装箱电站/i, 'battery energy storage system'],
   [/光伏|组件|逆变器|硅片|电池片|支架|solar/i, 'solar power plant photovoltaic'],
-  [/算力|服务器|显卡|GPU|内存|机房|数据中心/i, 'data center server racks'],
-  [/机器人|机械臂|自动化产线/i, 'industrial robot arm factory'],
-  [/无人机|低空|eVTOL|通航/i, 'drone flying sky'],
+  [/氢能|制氢|电解槽|加氢/i, 'hydrogen production plant'],
+  [/核电|核能|铀/i, 'nuclear power plant'],
+  [/水电|水利|水库|大坝|防洪/i, 'hydroelectric dam'],
+  [/生物质|垃圾发电|焚烧发电/i, 'biomass power plant'],
   [/充电桩|充换电|充电站|超充/i, 'electric vehicle charging station'],
+  [/变压器|开关柜|配电|输变电|变电站/i, 'electrical substation transformer'],
+  [/电缆|线缆|光缆/i, 'power cable industrial'],
+  // 制造
+  [/机器人|机械臂|自动化产线/i, 'industrial robot arm factory'],
+  [/半导体|芯片|晶圆|集成电路|光刻/i, 'semiconductor wafer cleanroom'],
   [/钢铁|冶金|炼钢|钢/i, 'steel mill'],
   [/化工|化学|炼化|化肥/i, 'chemical plant industry'],
-  [/半导体|芯片|晶圆|集成电路/i, 'semiconductor wafer cleanroom'],
-  [/水泥|建材|搅拌站/i, 'cement plant'],
-  [/物流|仓储|冷链|货运/i, 'warehouse logistics'],
-  [/农光|渔光|光伏农业|农业/i, 'agrivoltaics solar farm'],
-  [/商业地产|写字楼|综合体|产业园|物业/i, 'modern office building city'],
+  [/水泥|建材|搅拌站|混凝土/i, 'cement plant'],
+  [/玻璃|浮法玻璃/i, 'glass factory industrial'],
+  [/造纸|纸浆|纸业/i, 'paper mill'],
+  [/纺织|印染|服装|织造/i, 'textile factory weaving'],
+  [/医药|制药|生物医药|原料药/i, 'pharmaceutical factory'],
+  [/食品|粮油|饲料|加工厂/i, 'food processing factory'],
+  [/汽车|整车|新能源车|零部件/i, 'car assembly line factory'],
+  [/船舶|造船|港口|码头|航运/i, 'port container ship crane'],
+  [/飞机|航空|机场|航站楼/i, 'airport terminal aircraft'],
+  [/铁路|高铁|轨道交通|地铁/i, 'high speed railway station'],
+  [/铝|电解铝|氧化铝/i, 'aluminium smelter'],
+  [/铜|冶炼|金属|有色金属/i, 'copper smelter metal'],
+  [/煤矿|煤炭|矿山|采矿|矿/i, 'open pit mine'],
+  [/塔筒|桩基|钢结构|重工/i, 'steel structure fabrication'],
+  // 基建 / 城市
+  [/市政|道路|公路|桥梁|桥|隧道/i, 'highway bridge construction'],
+  [/建筑|工程|施工|工地|厂房/i, 'construction site crane'],
+  [/环保|污水|水处理|垃圾处理|环境治理/i, 'water treatment plant'],
+  [/园区|产业园|开发区|工业园/i, 'industrial park aerial'],
+  [/商业地产|写字楼|综合体|物业|酒店/i, 'modern office building city'],
+  // 数字 / 服务
+  [/算力|服务器|显卡|GPU|内存|机房|数据中心|智算/i, 'data center server racks'],
+  [/无人机|低空|eVTOL|通航/i, 'drone flying sky'],
+  [/物流|仓储|冷链|货运|快递/i, 'warehouse logistics'],
+  [/农业|农光|渔光|光伏农业|种植|养殖/i, 'agrivoltaics solar farm'],
+  // 兜底
   [/新能源|能源|电力|电网|输电/i, 'renewable energy power grid'],
 ];
 const DEFAULT_QUERY = 'industrial energy infrastructure';
@@ -216,7 +244,7 @@ export async function findPhoto(query) {
     generator: 'search',
     gsrsearch: query,
     gsrnamespace: '6',
-    gsrlimit: '10',
+    gsrlimit: '20', // 多拿一些，才有得挑
     prop: 'imageinfo',
     iiprop: 'url|size|mime|extmetadata',
     iiurlwidth: '1400',
@@ -225,13 +253,25 @@ export async function findPhoto(query) {
   if (res.status !== 200) return null;
   const j = JSON.parse(res.body.toString('utf8'));
   const pages = (j && j.query && j.query.pages) || {};
-  const list = Object.values(pages)
-    .map((p) => (Array.isArray(p.imageinfo) ? p.imageinfo[0] : null))
+
+  /*
+   * 必筛：位图、够大、横版
+   * 另外把明显不是「现场照片」的排除掉（图表、地图、logo、徽章、海报…），
+   * 这些以前会混进封面，看着就不专业。
+   */
+  const BAD = /(diagram|chart|map|logo|screenshot|poster|graph|plot|icon|sign|table|seal|coat[ _]of[ _]arms|flag|plan|drawing|schematic|infographic|chart)/i;
+
+  const rows = Object.values(pages)
+    .map((p) => {
+      const ii = Array.isArray(p.imageinfo) ? p.imageinfo[0] : null;
+      if (!ii) return null;
+      return { title: String(p.title || ''), ii };
+    })
     .filter(Boolean)
-    .filter((ii) => /^image\/(jpeg|png)$/i.test(ii.mime || ''))
-    .filter((ii) => (ii.width || 0) >= 1000)
-    .filter((ii) => (ii.width || 0) >= (ii.height || 0)) // 只要横版
-    .map((ii) => {
+    .filter(({ ii }) => /^image\/(jpeg|png)$/i.test(ii.mime || ''))
+    .filter(({ ii }) => (ii.width || 0) >= 1000)
+    .filter(({ ii }) => (ii.width || 0) >= (ii.height || 0)) // 只要横版
+    .map(({ title, ii }) => {
       const meta = ii.extmetadata || {};
       const artist = stripHtml(meta.Artist && meta.Artist.value).slice(0, 40);
       const license = stripHtml(
@@ -245,11 +285,61 @@ export async function findPhoto(query) {
         height: ii.height || 0,
         artist: artist || 'Wikimedia',
         license: license || 'CC',
+        title,
+        desc: stripHtml((meta.ImageDescription && meta.ImageDescription.value) || '').slice(0, 200),
       };
     })
-    .filter((x) => x.url)
-    .sort((a, b) => b.width - a.width);
-  return list[0] || null;
+    .filter((x) => x.url);
+
+  if (!rows.length) return null;
+
+  /* ---- 相关性打分：以前只看宽度，结果经常文不对题 ---- */
+  const STOP = new Set(['the', 'and', 'of', 'in', 'a', 'an', 'on', 'for', 'with', 'at', 'by', 'from', 'to']);
+  const tokens = String(query)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3 && !STOP.has(t));
+
+  const scoreOf = (r) => {
+    const hay = `${r.title} ${r.desc}`.toLowerCase();
+    let s = 0;
+
+    // 整个查询串原样出现，最相关
+    if (hay.includes(String(query).toLowerCase())) s += 60;
+
+    // 关键词命中：命中的词越多越相关
+    let hit = 0;
+    for (const t of tokens) {
+      if (hay.includes(t)) hit += 1;
+    }
+    s += hit * 14;
+
+    // 命中率不足一半 → 扣分，避免「只有一个词碰巧对上」
+    if (tokens.length && hit / tokens.length < 0.5) s -= 18;
+
+    // 不像现场照片的，直接压下去
+    if (BAD.test(r.title) || BAD.test(r.desc)) s -= 45;
+
+    // 同分时用分辨率兜底（原来的唯一标准，现在只作加权）
+    if (r.width >= 2400) s += 6;
+    else if (r.width >= 1600) s += 3;
+
+    // 太窄太扁的图（全景长条）当封面会裁得很奇怪
+    const ratio = r.width / Math.max(1, r.height);
+    if (ratio > 2.6) s -= 8;
+
+    return s;
+  };
+
+  rows.forEach((r) => {
+    r.score = scoreOf(r);
+  });
+  rows.sort((a, b) => b.score - a.score || b.width - a.width);
+
+  // 分数太低的宁可不给图（外面会退回渐变封面），也别放张完全不搭的
+  const best = rows[0];
+  if (!best || best.score < -10) return null;
+  return best;
 }
 
 async function download(url, dest) {

@@ -4145,6 +4145,15 @@ a.sp-item:active { background: #f7fbff; }
   width: auto;
   margin: 0 auto;
 }
+/* ---------------- AI 帮写 ---------------- */
+.ai-write-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-radius: 12px;
+  background: linear-gradient(135deg, #eef4ff 0%, #f3f8ff 100%);
+  border: 1px solid #dbe6ff;
+}
+.ai-write-bar .awb-txt { flex: 1; min-width: 0; }
+.ai-write-bar .awb-t { font-size: 13px; font-weight: 600; color: #1b3a6b; }
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
