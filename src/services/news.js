@@ -572,6 +572,67 @@ export function createNews({
  *   · 管理端可以从回收站恢复
  *   · 保留 30 天后由定时任务真正清掉
  */
+/**
+ * 批量重抓正文。
+ *
+ * 为什么需要：2026-10 之前抽取器会把表格拍平成文字，
+ * 历史资讯的正文都是「供应商 | 单价 | 交期 隆基 | 0.89 …」这种糊在一起的文字。
+ * 抽取器修好后，已经入库的内容不会自动更新，得重新抓一遍。
+ *
+ * 用 bodyVersion 记版本，抓过的跳过，可以断点续跑。
+ */
+export async function refetchBodies({ limit = 10, offset = 0, force = false } = {}) {
+  const store = news();
+  const rows = store
+    .all()
+    .filter((n) => !n.deletedAt)
+    .filter((n) => /^https?:\/\//i.test(String(n.url || '')))
+    .filter((n) => (force ? true : Number(n.bodyVersion) !== 2))
+    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)));
+
+  const total = rows.length;
+  const batch = rows.slice(offset, offset + limit);
+
+  let updated = 0;
+  let failed = 0;
+  const errors = [];
+
+  for (const n of batch) {
+    try {
+      const r = await fetchWebpage(n.url, { keepAll: true });
+      if (!r || !r.ok || !r.text) {
+        failed += 1;
+        errors.push(`${n.id}: ${(r && r.note) || '抓取失败'}`);
+        continue;
+      }
+      const patch = {
+        text: String(r.text).slice(0, 120000),
+        bodyVersion: 2,
+        bodyRefetchedAt: new Date().toISOString(),
+      };
+      // 原来没有摘要的顺手补上
+      if (!String(n.summary || '').trim()) {
+        patch.summary = String(r.text).replace(/\s+/g, ' ').slice(0, 120);
+      }
+      store.update(n.id, patch);
+      updated += 1;
+    } catch (err) {
+      failed += 1;
+      errors.push(`${n.id}: ${err.message}`);
+    }
+  }
+
+  return {
+    total,
+    offset,
+    processed: batch.length,
+    updated,
+    failed,
+    remaining: Math.max(0, total - offset - batch.length),
+    errors: errors.slice(0, 10),
+  };
+}
+
 export function deleteNews(id, operator) {
   const store = news();
   const row = store.get(id);
@@ -639,4 +700,5 @@ export default {
   restoreNews,
   listDeletedNews,
   purgeDeleted,
+  refetchBodies,
 };

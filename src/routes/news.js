@@ -93,6 +93,19 @@ export default function registerNewsRoutes(app) {
     return data(res, newsSvc.listDeletedNews({ page: num(q.page, 1), size: num(q.size, 20) }));
   });
 
+  /**
+   * 批量重抓正文（管理员）。
+   * 一次只处理一小批，前端循环调用，避免单请求超时。
+   */
+  app.post('/api/admin/news/refetch', async (req, res) => {
+    requireAdmin(req);
+    const limit = Math.min(15, Math.max(1, num(req.body?.limit, 8)));
+    const offset = Math.max(0, num(req.body?.offset, 0));
+    const force = Boolean(req.body?.force);
+    const r = await newsSvc.refetchBodies({ limit, offset, force });
+    return data(res, r);
+  });
+
   /** 从回收站恢复 */
   app.post('/api/admin/news/:id/restore', (req, res) => {
     requireAdmin(req);
