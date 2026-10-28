@@ -2062,7 +2062,7 @@ export async function renderDetail(ctx, params) {
             </div>
 
             <div class="reg-ai-box">
-              <div class="tiny dim mb6">有名片或聊天记录？粘进来自动识别</div>
+              <div class="tiny dim mb6">有名片或聊天记录？粘进来、拖进来、或 Ctrl+V 都能自动识别</div>
               <textarea class="input" id="reg-ai-src" rows="2" placeholder="例如：联系人 张工 13800001234 微信 zhanggong888 山东鲁能新能源有限公司"></textarea>
               <div class="row gap8 mt8" style="flex-wrap:wrap;align-items:center">
                 <button type="button" class="btn btn-sm" id="reg-ai-btn">🤖 自动识别</button>
@@ -2138,15 +2138,11 @@ export async function renderDetail(ctx, params) {
               }
             });
 
-            /* 名片 / 截图识别 */
+            /* 名片 / 截图识别（点选 + 拖入 + 粘贴 三种方式都行） */
             const photoBtn = $('#reg-photo-btn');
             const photoInput = $('#reg-photo-input');
-            photoBtn?.addEventListener('click', () => {
-              photoInput.value = '';
-              photoInput.click();
-            });
-            photoInput?.addEventListener('change', async () => {
-              const file = photoInput.files && photoInput.files[0];
+
+            const recognizeCard = async (file) => {
               if (!file) return;
               photoBtn.disabled = true;
               photoBtn.textContent = '识别中…';
@@ -2170,7 +2166,17 @@ export async function renderDetail(ctx, params) {
                 photoBtn.disabled = false;
                 photoBtn.textContent = '📷 名片 / 截图';
               }
+            };
+
+            photoBtn?.addEventListener('click', () => {
+              photoInput.value = '';
+              photoInput.click();
             });
+            photoInput?.addEventListener('change', () => {
+              const f = photoInput.files && photoInput.files[0];
+              if (f) recognizeCard(f);
+            });
+            ui.bindImageDrop($('.reg-ai-box'), recognizeCard);
 
             $('#reg-cancel')?.addEventListener('click', close);
 

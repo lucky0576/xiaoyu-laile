@@ -204,6 +204,67 @@ export function promptDialog({ title = '输入', label = '', value = '', placeho
  * 名片拍出来动辄 3~5MB，直接传会把视觉接口打爆，
  * 所以先按最长边缩到 1280、转成 JPEG 0.82，一般 150~300KB 就够识别了。
  */
+/**
+ * 让某个容器支持「拖入图片」和「Ctrl+V 粘贴图片」。
+ *
+ * 用在名片识别上：用户经常是把微信里的名片截图直接拖进来、
+ * 或者截图后顺手 Ctrl+V，比让他点按钮选文件自然得多。
+ *
+ * @param {HTMLElement} el     容器（拖放高亮就加在它身上）
+ * @param {(file:File)=>void} onFile  拿到图片后的回调
+ */
+export function bindImageDrop(el, onFile) {
+  if (!el) return;
+
+  const pick = (dt) => {
+    if (!dt) return null;
+    const files = [...(dt.files || [])];
+    const img = files.find((f) => /^image\//.test(f.type || ''));
+    return img || null;
+  };
+
+  let depth = 0; // dragenter/leave 会在子元素间反复触发，用计数避免闪烁
+
+  el.addEventListener('dragenter', (ev) => {
+    if (!pick(ev.dataTransfer)) return;
+    ev.preventDefault();
+    depth += 1;
+    el.classList.add('drop-active');
+  });
+
+  el.addEventListener('dragover', (ev) => {
+    if (!pick(ev.dataTransfer)) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'copy';
+  });
+
+  el.addEventListener('dragleave', () => {
+    depth = Math.max(0, depth - 1);
+    if (!depth) el.classList.remove('drop-active');
+  });
+
+  el.addEventListener('drop', (ev) => {
+    const f = pick(ev.dataTransfer);
+    if (!f) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    depth = 0;
+    el.classList.remove('drop-active');
+    onFile(f);
+  });
+
+  // 粘贴：paste 会从容器里的 textarea / input 冒泡上来
+  el.addEventListener('paste', (ev) => {
+    const items = [...((ev.clipboardData && ev.clipboardData.items) || [])];
+    const item = items.find((i) => i.kind === 'file' && /^image\//.test(i.type || ''));
+    if (!item) return;
+    const f = item.getAsFile();
+    if (!f) return;
+    ev.preventDefault();
+    onFile(f);
+  });
+}
+
 export function readImageAsDataUrl(file, { maxSide = 1280, quality = 0.82 } = {}) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type || '')) {

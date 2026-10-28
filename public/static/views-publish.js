@@ -997,6 +997,7 @@ export async function renderPublish(ctx, params) {
           <input type="file" id="pub-contact-photo-input" accept="image/*" hidden>
           <span class="tiny dim" id="pub-contact-ai-tip"></span>
         </div>
+        <div class="tiny dim mt4">名片图可以直接拖到这块区域，或截图后 Ctrl+V 粘贴</div>
       </div>
 
       <div class="row gap8">
@@ -2236,8 +2237,8 @@ export async function renderPublish(ctx, params) {
             photoInput.click();
           });
 
-          photoInput.addEventListener('change', async () => {
-            const file = photoInput.files && photoInput.files[0];
+          /* 一张名片图：识别 → 覆盖填入四个字段 */
+          const recognizeCard = async (file) => {
             if (!file) return;
             photoBtn.disabled = true;
             photoBtn.textContent = '识别中…';
@@ -2276,7 +2277,15 @@ export async function renderPublish(ctx, params) {
               photoBtn.disabled = false;
               photoBtn.textContent = '📷 名片 / 截图';
             }
+          };
+
+          photoInput.addEventListener('change', () => {
+            const f = photoInput.files && photoInput.files[0];
+            if (f) recognizeCard(f);
           });
+
+          // 名片图也能直接拖进来，或在输入框里 Ctrl+V 粘贴
+          ui.bindImageDrop(photoBtn.closest('.contact-ai'), recognizeCard);
         }
       }
 

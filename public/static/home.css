@@ -2989,3 +2989,20 @@ a.sp-item:active { background: #f7fbff; }
 }
 .docv-nav:disabled { opacity: 0.35; }
 .docv-page { color: rgba(255, 255, 255, 0.85); font-size: 13px; min-width: 70px; text-align: center; }
+/* 名片识别区：拖入时高亮 */
+.contact-ai.drop-active,
+.reg-ai-box.drop-active {
+  border: 1.5px dashed var(--brand, #0b74ff) !important;
+  background: #eef6ff !important;
+  border-radius: 12px;
+}
+.contact-ai.drop-active::after,
+.reg-ai-box.drop-active::after {
+  content: '松手即可识别这张名片';
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--brand, #0b74ff);
+  text-align: center;
+}
+.contact-ai { border: 1.5px dashed transparent; transition: background 0.15s ease, border-color 0.15s ease; }
