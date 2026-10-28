@@ -19,6 +19,7 @@ import { CATEGORIES, INDUSTRIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, TRADE_T
 import { FEED_TYPES } from '../services/feeds.js';
 import { geocodeAddress, reverseGeocode, amapEnabled, fetchStaticMap, amapUsage } from '../services/geocode.js';
 import { ensureThumb } from '../services/thumb.js';
+import { ensurePreview, previewPagePath, previewKind } from '../services/doc-preview.js';
 
 let qrModule = null;
 let qrTried = false;
@@ -235,6 +236,49 @@ export default function registerCoreRoutes(app) {
     }
     res.set('Accept-Ranges', 'bytes');
     return res.sendFile(f.path, 'stream');
+  });
+
+  /**
+   * 文档预览：/api/preview/:id
+   *
+   * 首次调用会触发转换（Office 要先用 soffice 转 PDF，再渲染成图），
+   * 慢的话 5~15 秒；转换结果落盘，第二次就是秒开。
+   * 返回 { ok, pages, kind, note }
+   */
+  app.get('/api/preview/:id', async (req, res) => {
+    const user = mustAuth(req);
+    const f = getFile(req.params.id);
+    if (!f) return fail(res, '文件不存在', 404, 'not_found');
+    if (!previewKind(f)) return fail(res, '该文件不支持在线预览', 400, 'not_supported');
+
+    // 权限跟浏览附件一致：需要登录；保密文件要过密码
+    const ownerListing = f.listingId ? db.collection('listings').get(f.listingId) : null;
+    const access = filesecure.canAccessFile(ownerListing, { viewer: user, token: String(req.query.t || '') });
+    if (!access.allowed) return fail(res, '该文件已加密，请输入查看密码', 403, 'file_locked');
+
+    // 每个 IP 每分钟最多 10 次转换，防止被刷着转大文件
+    const rl = rateLimit(`preview:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) return fail(res, `转换请求太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const r = await ensurePreview(f);
+    if (!r.pages) return data(res, { ok: false, pages: 0, kind: r.kind || '', note: r.note || '无法预览' });
+    return data(res, { ok: true, pages: r.pages, kind: r.kind, note: '' });
+  });
+
+  /** 文档预览的第 N 页图片 */
+  app.get('/api/preview/:id/:page', (req, res) => {
+    const user = mustAuth(req);
+    const f = getFile(req.params.id);
+    if (!f) return fail(res, '文件不存在', 404, 'not_found');
+    const ownerListing = f.listingId ? db.collection('listings').get(f.listingId) : null;
+    const access = filesecure.canAccessFile(ownerListing, { viewer: user, token: String(req.query.t || '') });
+    if (!access.allowed) return fail(res, '该文件已加密，请输入查看密码', 403, 'file_locked');
+
+    const p = previewPagePath(f.id, req.params.page);
+    if (!p) return fail(res, '这一页还没生成', 404, 'no_page');
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'private, max-age=86400');
+    return res.sendFile(p, 'stream');
   });
 
   /**

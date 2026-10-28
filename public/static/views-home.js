@@ -784,6 +784,122 @@ export async function renderList(ctx, params) {
   };
 }
 
+/**
+ * 这些格式可以在平台内翻页预览（服务端转成图片）。
+ * 其他类型（压缩包、CAD 等）只能下载。
+ */
+function isDocPreviewable(f) {
+  if (!f) return false;
+  const name = String(f.name || '').toLowerCase();
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const mime = String(f.mime || '').toLowerCase();
+  if (ext === 'pdf' || mime === 'application/pdf') return true;
+  return ['ppt', 'pptx', 'pps', 'ppsx', 'doc', 'docx', 'xls', 'xlsx', 'odp', 'odt', 'ods'].includes(ext);
+}
+
+/**
+ * 文档预览器：全屏铺开，左右翻页。
+ *
+ * 服务端把 PDF / PPT 转成每页一张图，前端只负责翻 —— 
+ * 这样手机和电脑表现一致，不会出现「点了变成下载」。
+ */
+export async function openDocPreview(file) {
+  if (!file || !file.id) return;
+  try {
+    ui.showLoading('正在准备预览…');
+  } catch {
+    /* 没有 loading 组件也不影响 */
+  }
+
+  let info = null;
+  try {
+    info = await service.docPreview(file.id);
+  } catch (err) {
+    try { ui.hideLoading(); } catch { /* ignore */ }
+    ui.toast(err.message || '预览失败', 'err');
+    return;
+  }
+  try { ui.hideLoading(); } catch { /* ignore */ }
+
+  if (!info || !info.ok) {
+    ui.toast((info && info.note) || '该文件暂时无法预览，可先下载查看', 'err');
+    return;
+  }
+
+  const total = info.pages;
+  let cur = 1;
+  const wrap = document.createElement('div');
+  wrap.className = 'docv-mask';
+  wrap.innerHTML = `<div class="docv">
+    <div class="docv-head">
+      <div class="docv-title">${ui.esc(String(file.name || '文档').slice(0, 28))}</div>
+      <button class="docv-x" type="button" aria-label="关闭">✕</button>
+    </div>
+    <div class="docv-body" id="docv-body">
+      <img id="docv-img" alt="第 1 页">
+    </div>
+    <div class="docv-foot">
+      <button class="docv-nav" id="docv-prev" type="button">‹ 上一页</button>
+      <span class="docv-page" id="docv-page">1 / ${total}</span>
+      <button class="docv-nav" id="docv-next" type="button">下一页 ›</button>
+    </div>
+  </div>`;
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add('show'));
+
+  const img = wrap.querySelector('#docv-img');
+  const pageEl = wrap.querySelector('#docv-page');
+  const body = wrap.querySelector('#docv-body');
+
+  const render = () => {
+    img.src = service.previewPageUrl(file.id, cur);
+    pageEl.textContent = `${cur} / ${total}`;
+  };
+  render();
+
+  const close = () => {
+    wrap.classList.remove('show');
+    setTimeout(() => wrap.remove(), 200);
+  };
+  const go = (n) => {
+    const next = Math.min(total, Math.max(1, n));
+    if (next === cur) return;
+    cur = next;
+    render();
+  };
+
+  wrap.querySelector('.docv-x').addEventListener('click', close);
+  wrap.addEventListener('click', (ev) => {
+    if (ev.target === wrap) close();
+  });
+  wrap.querySelector('#docv-prev').addEventListener('click', () => go(cur - 1));
+  wrap.querySelector('#docv-next').addEventListener('click', () => go(cur + 1));
+
+  // 手机上左右滑
+  let sx = 0;
+  let sy = 0;
+  body.addEventListener('touchstart', (e) => {
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+  }, { passive: true });
+  body.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) go(cur + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+
+  // 键盘翻页
+  const onKey = (e) => {
+    if (e.key === 'ArrowLeft') go(cur - 1);
+    else if (e.key === 'ArrowRight') go(cur + 1);
+    else if (e.key === 'Escape') {
+      close();
+      document.removeEventListener('keydown', onKey);
+    }
+  };
+  document.addEventListener('keydown', onKey);
+}
+
 /* ================================================================== */
 /* 搜索                                                                */
 /* ================================================================== */
@@ -1492,7 +1608,19 @@ export async function renderDetail(ctx, params) {
               ${
                 otherFiles.length
                   ? `<div class="row wrap gap8${imgFiles.length ? ' mt12' : ''}">
-                      ${otherFiles.map((f) => fileCardHtml({ ...f, url: withFileToken(f.url) })).join('')}
+                      ${otherFiles
+                        .map((f) => {
+                          const canView = isDocPreviewable(f);
+                          return `<div class="file-row">
+                            ${fileCardHtml({ ...f, url: withFileToken(f.url) })}
+                            ${
+                              canView
+                                ? `<button class="btn btn-sm docv-open" type="button" data-fid="${ui.esc(f.id)}" data-fname="${ui.esc(f.name || '文档')}">👁 预览</button>`
+                                : ''
+                            }
+                          </div>`;
+                        })
+                        .join('')}
                     </div>`
                   : ''
               }
@@ -1614,6 +1742,13 @@ export async function renderDetail(ctx, params) {
       const $ = (s) => root.querySelector(s);
 
       /* ---------------- 附件查看授权 ---------------- */
+      /* 文档预览：点「预览」在全屏翻页器里看，不再跳浏览器下载 */
+      root.querySelectorAll('.docv-open').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          openDocPreview({ id: btn.dataset.fid, name: btn.dataset.fname || '文档' });
+        });
+      });
+
       const fileReqBtn = root.querySelector('#file-req');
       if (fileReqBtn && !fileReqBtn.disabled) {
         fileReqBtn.addEventListener('click', async () => {

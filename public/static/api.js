@@ -521,6 +521,15 @@ export const service = {
   feedAiTitle: (body) => api.post('/api/feeds/ai-title', body),
   aiContact: (text) => api.post('/api/ai/contact', { text }),
   aiContactImage: (images) => api.post('/api/ai/contact-image', { images }),
+  docPreview: (fileId) => api.get(`/api/preview/${fileId}`),
+  /*
+   * 预览页图片是 <img> 加载的，发不了 Authorization 头，
+   * 所以把登录 token 拼在 query 上（后端 readToken 支持 ?token=）。
+   */
+  previewPageUrl: (fileId, page) => {
+    const t = store.token;
+    return `/api/preview/${fileId}/${page}${t ? `?token=${encodeURIComponent(t)}` : ''}`;
+  },
   geocode: (q) => api.get(`/api/geo/search?q=${encodeURIComponent(q)}`),
   reverseGeocode: (lat, lng) => api.get(`/api/geo/reverse?lat=${lat}&lng=${lng}`),
   aiSearch: (q) => api.post('/api/ai/search', { q }),

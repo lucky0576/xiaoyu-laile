@@ -3939,6 +3939,50 @@ a.sp-item:active { background: #f7fbff; }
   padding: 4px 2px 8px;
 }
 
+/* ---------------- 文档预览器 ---------------- */
+.file-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+.docv-mask {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #0a121e; /* 文档阅读器不需要透出背景，用不透明底色最稳 */
+  display: flex; align-items: stretch;
+  opacity: 0; transition: opacity 0.2s ease;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.docv-mask.show { opacity: 1; }
+.docv { flex: 1; display: flex; flex-direction: column; min-height: 0; background: #0a121e; }
+.docv-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; color: #fff;
+}
+.docv-title { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docv-x {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: rgba(255, 255, 255, 0.14); color: #fff;
+  font-size: 16px; cursor: pointer;
+}
+.docv-body {
+  flex: 1; min-height: 0; overflow: auto;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 0 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.docv-body img {
+  width: 100%; max-width: 900px; height: auto;
+  background: #fff; border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+.docv-foot {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 12px 14px 16px;
+}
+.docv-nav {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff; font-size: 13px;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer;
+}
+.docv-nav:disabled { opacity: 0.35; }
+.docv-page { color: rgba(255, 255, 255, 0.85); font-size: 13px; min-width: 70px; text-align: center; }
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
