@@ -71,7 +71,7 @@ export async function openBroadcast(ids) {
   mask.innerHTML = `<div class="bcast">
     <div class="bcast-head">
       <div>
-        <div class="bcast-title">群发文案</div>
+        <div class="bcast-title">转发文案</div>
         <div class="tiny dim">已选 ${r.count || ids.length} 条 · 可直接改</div>
       </div>
       <button class="bcast-x" type="button" aria-label="关闭">✕</button>
@@ -143,14 +143,14 @@ export function bindPicking(root, box, btn) {
   bar.className = 'pick-bar';
   bar.innerHTML = `<span class="pick-count">已选 <b>0</b> 条</span>
     <button class="btn btn-sm" type="button" data-act="clear">清空</button>
-    <button class="btn btn-sm btn-primary" type="button" data-act="go">生成群发文案</button>`;
+    <button class="btn btn-sm btn-primary" type="button" data-act="go">生成转发文案</button>`;
   box.parentNode.insertBefore(bar, box.nextSibling);
 
   const paint = () => {
     bar.querySelector('.pick-count b').textContent = String(picked.size);
     bar.classList.toggle('show', on && picked.size > 0);
     btn.classList.toggle('active', on);
-    btn.textContent = on ? '✕ 退出多选' : '☑ 多选群发';
+    btn.textContent = on ? '✕ 退出转发' : '☑ 转发';
   };
 
   const toggle = (el) => {

@@ -63,7 +63,7 @@ export async function renderLogin(ctx, query) {
       <div class="chips mb12" id="login-tabs">
         <a class="chip active" data-tab="phone">手机密码</a>
         <a class="chip" data-tab="email">邮箱密码</a>
-        <a class="chip" data-tab="wechat">微信登录</a>
+        <a class="chip" data-tab="wechat">微信开发中</a>
       </div>
 
       <div id="pane-phone">
@@ -280,7 +280,13 @@ export async function renderLogin(ctx, query) {
         root.querySelector('#login-tabs .chip[data-tab="phone"]')?.click();
       });
 
-      root.querySelector('#lg-wx-demo')?.addEventListener('click', async () => {
+      root.querySelector('#lg-wx-demo')?.addEventListener('click', async (ev) => {
+        // 点下去先把按钮文案换成「微信登录中」，避免用户以为没反应
+        const wxBtn = ev.currentTarget;
+        if (wxBtn && !wxBtn.disabled) {
+          wxBtn.disabled = true;
+          wxBtn.textContent = '微信登录中…';
+        }
         try {
           const res = await service.wechatDemo({ invite: query.invite });
           await done(res, '微信登录成功（演示）');

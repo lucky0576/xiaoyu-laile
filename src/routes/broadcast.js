@@ -40,54 +40,41 @@ function shortLink(req, id) {
 }
 
 /**
- * 把选中的几条信息拼成一段群发文案。
+ * 把选中的几条信息拼成一段「转发文案」。
  *
- * @param {object[]} items   已过滤的 listing 数组
- * @param {object} opts
- * @param {boolean} opts.includeSummary  是否带副标题
- * @param {boolean} opts.includeMeta     是否带城市·行业
- * @param {boolean} opts.includeContact  是否带联系方式（默认不带）
- * @param {string}  opts.footer          结尾语，空则用默认
+ * 微信里转发讲究短、能扫完，所以：
+ *   · 只取主标题（副标题、标签都不带）
+ *   · 自动排序：最新发布的排前面
+ *   · 自动编号 1. 2. 3.
+ *   · 结尾固定两句话，不让人改
+ *
+ * @param {object[]} items 已过滤的 listing 数组
  */
-function buildText(req, items, opts = {}) {
-  const includeSummary = opts.includeSummary !== false;
-  const includeMeta = opts.includeMeta !== false;
-  const includeContact = Boolean(opts.includeContact);
-  const footer = String(opts.footer || '').trim();
+function buildText(req, items) {
+  /*
+   * 自动排序：按发布时间倒序。
+   * 用户勾选顺序是随手点的，排一下更有「精选几条」的感觉。
+   */
+  const rows = [...items].sort((a, b) => {
+    const ta = Date.parse(a.publishedAt || a.createdAt || '') || 0;
+    const tb = Date.parse(b.publishedAt || b.createdAt || '') || 0;
+    return tb - ta;
+  });
 
   const lines = [];
-  lines.push(`【小鱼来了 · ${items.length} 条精选信息】`);
-  lines.push('');
+  lines.push(`【小鱼来了】精选 ${rows.length} 条项目`);
 
-  items.forEach((l, i) => {
+  rows.forEach((l, i) => {
     const no = i + 1;
-    lines.push(`${no}. ${String(l.title || '').trim()}`);
-    if (includeSummary) {
-      const sub = String(l.subtitle || l.summary || '').trim();
-      if (sub) lines.push(`   ${sub}`);
-    }
-    if (includeMeta) {
-      const tags = tagsOf(l);
-      if (tags) lines.push(`   ${tags}`);
-    }
-    if (includeContact) {
-      const c = l.contact || {};
-      const bits = [];
-      if (c.name) bits.push(c.name);
-      if (c.phone) bits.push(c.phone);
-      if (c.wechat) bits.push(`微信 ${c.wechat}`);
-      if (bits.length) lines.push(`   📞 ${bits.join('  ')}`);
-    }
+    const title = String(l.title || '').trim();
+    lines.push('');
+    lines.push(`${no}. ${title}`);
     lines.push(`   ${shortLink(req, l.id)}`);
-    if (i < items.length - 1) lines.push('');
   });
 
   lines.push('');
-  lines.push('——');
-  lines.push(
-    footer ||
-      '以上信息来自「小鱼来了」\nAI 驱动的产业互联网 B2B 电商平台\n让「非标、低频、高客单」的产业交易，也能像电商一样在线完成',
-  );
+  lines.push('小鱼来了，让每一条好项目，都被对的人看见');
+  lines.push('上小鱼来了，免费发布需求');
   lines.push(baseUrl(req));
 
   return lines.join('\n');
@@ -120,12 +107,7 @@ export default function registerBroadcastRoutes(app) {
     }
     if (!items.length) return fail(res, '选中的信息都不存在或已下架', 404, 'not_found');
 
-    const text = buildText(req, items, {
-      includeSummary: req.body?.includeSummary !== false,
-      includeMeta: req.body?.includeMeta !== false,
-      includeContact: Boolean(req.body?.includeContact),
-      footer: req.body?.footer,
-    });
+    const text = buildText(req, items);
 
     return data(res, {
       text,
@@ -160,7 +142,7 @@ export default function registerBroadcastRoutes(app) {
         .filter((l) => l && l.status === 'published')
         .map((l) => listingPublic(l, req.user));
       if (!items.length) return fail(res, '选中的信息都不存在或已下架', 404, 'not_found');
-      text = buildText(req, items, {});
+      text = buildText(req, items);
     }
     if (!text) return fail(res, '没有可推送的内容', 400, 'empty');
 
