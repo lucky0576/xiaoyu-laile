@@ -496,6 +496,7 @@ export async function renderHome(ctx, query) {
         ['trade', '贸易', '🤝'],
         ['tech', '成果', '🔬'],
         ['feed', '短视频', '🎬'],
+        ['news', '新闻', '📰'],
       ]
         .map(
           ([k, label, ico]) =>

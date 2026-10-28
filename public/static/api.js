@@ -543,6 +543,7 @@ export const service = {
   aiFetchUrl: (url) => api.post('/api/ai/fetch-url', { url }),
   aiSplit: (fd, opts) => api.upload('/api/ai/split', fd, opts),
   newsList: (query) => api.get('/api/news', query),
+  newsCreate: (body) => api.post('/api/news', body),
   referralMe: () => api.get('/api/referral/me'),
   adminFeeds: (q = {}) => api.get('/api/admin/feeds', q),
   adminFeedTakedown: (id) => api.post('/api/admin/feeds/' + id + '/takedown'),

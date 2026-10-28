@@ -501,6 +501,38 @@ export function newsStats() {
   };
 }
 
+/**
+ * 用户发布的新闻资讯。
+ *
+ * 抓取来的新闻有 urlKey 去重；用户发的是原创内容，urlKey 留空即可。
+ * 字段跟抓取来的保持一致，这样列表页 / 详情页不用区分来源。
+ */
+export function createNews({ user, title, summary, text, tags, coverUrl, sourceName } = {}) {
+  const store = news();
+  const now = new Date().toISOString();
+  const row = {
+    id: newId('nw'),
+    urlKey: '',
+    url: '',
+    title: String(title || '').trim().slice(0, 200),
+    sourceName: String(sourceName || '小鱼来了').trim().slice(0, 60) || '小鱼来了',
+    sourceCategory: 'user',
+    tags: Array.isArray(tags) ? tags.filter(Boolean).slice(0, 4) : [],
+    summary: String(summary || '').trim().slice(0, 500),
+    text: String(text || '').trim().slice(0, 20000),
+    coverUrl: String(coverUrl || '').trim().slice(0, 500),
+    publishedAt: now,
+    fetchedAt: now,
+    hot: false,
+    // 记录是谁发的，详情页可显示作者
+    authorId: user?.id || '',
+    authorName: user?.nickname || user?.name || '',
+    fromUser: true,
+  };
+  store.insert(row);
+  return row;
+}
+
 export function deleteNews(id) {
   const store = news();
   if (!store.get(id)) return false;
@@ -510,4 +542,4 @@ export function deleteNews(id) {
 
 export { cleanTitle, dateFromUrl };
 
-export default { refresh, pushLatest, listNews, getNews, newsPublic, newsStats, deleteNews };
+export default { refresh, pushLatest, listNews, getNews, newsPublic, newsStats, deleteNews, createNews };

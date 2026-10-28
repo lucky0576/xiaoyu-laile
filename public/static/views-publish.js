@@ -773,7 +773,204 @@ async function renderPublishMedia(ctx, type, taxonomy) {
 const MEDIA_BLOCKS = [
   { id: 'short', icon: '🎬', name: '短视频', desc: '上传视频，首页轮播展示' },
   { id: 'live', icon: '📡', name: '直播', desc: '建直播间，实时推流互动' },
+  { id: 'news', icon: '📰', name: '新闻资讯', desc: '行业新闻 · 政策解读 · 企业动态' },
 ];
+
+/**
+ * 发布新闻资讯。
+ *
+ * 跟「发布信息」不是一张表 —— 资讯走 news 集合，
+ * 所以这里有独立表单，字段也更像编辑后台：
+ * 标题 / 摘要 / 正文 / 封面 / 来源 / 标签。
+ */
+async function renderPublishNews(ctx) {
+  let tags = [];
+  try {
+    const meta = await service.newsMeta();
+    tags = (meta.tags || []).filter((t) => t.id && t.name).slice(0, 8);
+  } catch {
+    tags = [];
+  }
+
+  const html = `<div class="page">
+    <div class="card card-pad">
+      <div class="strong mb8">📰 发布新闻资讯</div>
+      <div class="tiny dim mb12">
+        行业新闻、政策解读、企业动态、项目进展都可以发。发布后会出现在「资讯」列表里。
+      </div>
+
+      <a class="cat-card mb12" href="#/publish?category=project" style="display:inline-flex;padding:8px 12px">
+        <span class="tiny">← 想发项目 / 活动 / 贸易？点这里</span>
+      </a>
+
+      <div class="field">
+        <label>标题 <span style="color:#e74c3c">*</span></label>
+        <input class="input" id="news-title" maxlength="200" placeholder="一句话说清这条资讯的核心，比如：内蒙古 200MW 风电项目获核准">
+        <div class="tiny dim mt4"><span id="news-title-count">0</span>/200</div>
+      </div>
+
+      <div class="field">
+        <label>摘要 <span class="tiny dim">（选填，列表里显示，不填会自动截取正文）</span></label>
+        <textarea class="textarea" id="news-summary" maxlength="200" style="min-height:66px" placeholder="一两句话说清重点"></textarea>
+      </div>
+
+      <div class="field">
+        <label>正文 <span style="color:#e74c3c">*</span></label>
+        <textarea class="textarea" id="news-text" style="min-height:220px" placeholder="正文内容，至少 20 字。可以分段，空行即分段。"></textarea>
+        <div class="tiny dim mt4"><span id="news-text-count">0</span> 字（至少 20 字）</div>
+      </div>
+
+      <div class="field">
+        <label>封面图 <span class="tiny dim">（选填，列表卡片会用）</span></label>
+        <div class="row gap8" style="align-items:center">
+          <button class="btn btn-sm" id="news-cover-btn" type="button">📷 选择图片</button>
+          <input type="file" id="news-cover-input" accept="image/*" hidden>
+          <span class="tiny dim" id="news-cover-name">未选择</span>
+        </div>
+        <img id="news-cover-prev" class="hide" alt=""
+          style="margin-top:8px;width:100%;max-width:320px;border-radius:10px;display:block">
+      </div>
+
+      <div class="field">
+        <label>来源 <span class="tiny dim">（选填，默认「小鱼来了」）</span></label>
+        <input class="input" id="news-source" maxlength="60" placeholder="比如：小鱼来了 / 某某协会 / 转载自 xx">
+      </div>
+
+      <div class="field">
+        <label>标签 <span class="tiny dim">（选填，最多 3 个）</span></label>
+        <div class="chips" id="news-tags">
+          ${tags.length
+            ? tags.map((t) => `<a class="chip" href="javascript:;" data-tag="${ui.esc(t.id)}">${t.icon || ''} ${ui.esc(t.name)}</a>`).join('')
+            : '<span class="tiny dim">暂无可用标签</span>'}
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block mt12" id="news-submit" type="button">发布资讯</button>
+      <div class="tiny dim center mt8" id="news-tip"></div>
+    </div>
+  </div>`;
+
+  return {
+    title: '发布新闻资讯',
+    content: html,
+    showBack: true,
+    activeTab: 'publish',
+    async mount(root) {
+      const $ = (sel) => root.querySelector(sel);
+      const say = (msg, color) => {
+        const tip = $('#news-tip');
+        if (tip) {
+          tip.textContent = msg || '';
+          tip.style.color = color || '#8a94a6';
+        }
+      };
+
+      /* 字数统计 */
+      const titleEl = $('#news-title');
+      const textEl = $('#news-text');
+      titleEl?.addEventListener('input', () => {
+        const c = $('#news-title-count');
+        if (c) c.textContent = String(titleEl.value.length);
+      });
+      textEl?.addEventListener('input', () => {
+        const c = $('#news-text-count');
+        if (c) c.textContent = String(textEl.value.trim().length);
+      });
+
+      /* 封面图 */
+      let coverFile = null;
+      let coverPreviewUrl = '';
+      const coverInput = $('#news-cover-input');
+      $('#news-cover-btn')?.addEventListener('click', () => coverInput?.click());
+      coverInput?.addEventListener('change', async () => {
+        const f = coverInput.files && coverInput.files[0];
+        if (!f) return;
+        coverFile = f;
+        const nameEl = $('#news-cover-name');
+        if (nameEl) nameEl.textContent = `${f.name} · ${Math.round(f.size / 1024)} KB`;
+        try {
+          const dataUrl = await ui.readImageAsDataUrl(f, { maxSide: 1280, quality: 0.85 });
+          coverPreviewUrl = dataUrl;
+          const prev = $('#news-cover-prev');
+          if (prev) {
+            prev.src = dataUrl;
+            prev.classList.remove('hide');
+            prev.style.display = 'block';
+          }
+        } catch {
+          /* 预览失败不影响上传 */
+        }
+      });
+
+      /* 标签多选，最多 3 个 */
+      const picked = new Set();
+      $('#news-tags')?.addEventListener('click', (ev) => {
+        const chip = ev.target.closest('[data-tag]');
+        if (!chip) return;
+        const id = chip.dataset.tag;
+        if (picked.has(id)) {
+          picked.delete(id);
+          chip.classList.remove('active');
+        } else {
+          if (picked.size >= 3) {
+            ui.toast('最多选 3 个标签', 'err');
+            return;
+          }
+          picked.add(id);
+          chip.classList.add('active');
+        }
+      });
+
+      /* 提交 */
+      const btn = $('#news-submit');
+      btn?.addEventListener('click', async () => {
+        const title = String(titleEl?.value || '').trim();
+        const summary = String($('#news-summary')?.value || '').trim();
+        const text = String(textEl?.value || '').trim();
+        const sourceName = String($('#news-source')?.value || '').trim();
+
+        if (title.length < 4) return ui.toast('标题至少 4 个字', 'err');
+        if (text.length < 20) return ui.toast('正文至少 20 个字', 'err');
+
+        btn.disabled = true;
+        const old = btn.textContent;
+        try {
+          let coverUrl = coverPreviewUrl;
+          // 只有真的选了文件才上传，且不阻塞正文发布
+          if (coverFile) {
+            btn.textContent = '上传封面…';
+            try {
+              const up = await service.uploadFile(coverFile);
+              const f0 = (up && up.files && up.files[0]) || up;
+              if (f0 && f0.url) coverUrl = f0.url;
+            } catch (err) {
+              console.warn('[news] 封面上传失败，改为不带封面发布', err);
+              coverUrl = '';
+            }
+          }
+
+          btn.textContent = '发布中…';
+          const r = await service.newsCreate({
+            title,
+            summary,
+            text,
+            coverUrl,
+            sourceName,
+            tags: [...picked],
+          });
+          ui.toast('资讯已发布', 'ok');
+          const id = (r && (r.id || (r.news && r.news.id))) || r?.data?.id;
+          ctx.nav(id ? `#/news/${id}` : '#/news');
+        } catch (err) {
+          say(err.message || '发布失败', '#c0392b');
+          ui.toast(err.message || '发布失败', 'err');
+          btn.disabled = false;
+          btn.textContent = old;
+        }
+      });
+    },
+  };
+}
 
 export async function renderPublish(ctx, params) {
   if (!isLoggedIn()) {
@@ -784,6 +981,11 @@ export async function renderPublish(ctx, params) {
   const taxonomy = ctx.state.taxonomy || {};
   const editing = params.edit ? await service.listing(params.edit).then((r) => r.listing).catch(() => null) : null;
   const category = editing?.category || params.category || 'project';
+
+  // 新闻资讯走独立表单
+  if (category === 'news') {
+    return renderPublishNews(ctx);
+  }
 
   // 短视频 / 直播走独立表单
   if (category === 'short' || category === 'live') {
