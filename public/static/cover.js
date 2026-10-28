@@ -216,9 +216,35 @@ export async function drawProjectCover(listing, { width = 1200, height = 675, qr
   ctx.textBaseline = 'middle';
   ctx.fillText(facts.slice(0, 3).join('　·　'), padX, barY + 42);
 
-  ctx.font = '400 22px -apple-system,"Microsoft YaHei",sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,.62)';
-  ctx.fillText('小鱼来了 · 让每一条好项目，都被对的人看见', padX, barY + 94);
+  /*
+   * 品牌行：用真实 logo 图，不再画文字。
+   * 底栏压在照片上、偏暗，所以用白色版 logo；
+   * 加载失败才退回原来的文字，保证封面不会开天窗。
+   */
+  const TAGLINE = '让每一条好项目，都被对的人看见';
+  const logoH = 26;
+  const logoW = Math.round((logoH * 272) / 39); // 原图 272x39
+  let brandDrawn = false;
+  try {
+    const brand = await loadImage('/static/logo-white@2x.png');
+    if (brand) {
+      ctx.drawImage(brand, padX, barY + 94 - logoH / 2, logoW, logoH);
+      brandDrawn = true;
+    }
+  } catch {
+    /* 退回文字 */
+  }
+
+  ctx.textBaseline = 'middle';
+  if (brandDrawn) {
+    ctx.font = '400 20px -apple-system,"Microsoft YaHei",sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.62)';
+    ctx.fillText(TAGLINE, padX + logoW + 16, barY + 94);
+  } else {
+    ctx.font = '400 22px -apple-system,"Microsoft YaHei",sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.62)';
+    ctx.fillText(`小鱼来了 · ${TAGLINE}`, padX, barY + 94);
+  }
 
   /* 二维码 */
   if (qrText) {

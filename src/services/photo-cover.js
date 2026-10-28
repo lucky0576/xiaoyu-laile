@@ -50,6 +50,15 @@ const H = 630;
 const PADDING = 56;
 const FONT = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc';
 const BRAND = '小鱼来了 · xiaoyulaile.online';
+
+/*
+ * 品牌 logo：压在照片上、底色偏暗，所以用白色版。
+ * 这是用户上传的正式 logo，不要再用「小鱼」两个字当占位。
+ */
+const LOGO_PATH = path.resolve(import.meta.dirname, '../../public/static/logo-white.png');
+const LOGO_H = 26; // 封面上的显示高度
+const LOGO_RATIO = 272 / 39; // 原图 272x39
+const LOGO_W = Math.round(LOGO_H * LOGO_RATIO);
 const UA = 'XiaoYuLaile/1.0 (auto cover; +https://xiaoyulaile.online)';
 
 /** 照片缓存：同行业复用同一张图 */
@@ -466,11 +475,10 @@ export async function generatePhotoCover(input = {}, opts = {}) {
       `drawbox=x=0:y=0:w=${W}:h=${H}:color=0x0B2A4A@0.32:t=fill`,
       // 底部再压一层，保证标题可读
       `drawbox=x=0:y=${bandTop}:w=${W}:h=${H - bandTop}:color=0x061A2E@0.40:t=fill`,
-      // 左上：城市方块徽标
-      `drawbox=x=${PADDING}:y=46:w=64:h=64:color=white@0.92:t=fill`,
-      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(cityMarkPath)}:x=${PADDING}:y=66:fontsize=30:fontcolor=0x0B74FF`,
+      // 左上：品牌 logo 的底衬（半透明黑，保证在任何照片上都看得清）
+      `drawbox=x=${PADDING - 12}:y=${46 - 11}:w=${LOGO_W + 24}:h=${LOGO_H + 22}:color=black@0.32:t=fill`,
       // 「城市 · 行业」标签
-      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(badgePath)}:x=${PADDING + 80}:y=68:fontsize=28:fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2`,
+      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(badgePath)}:x=${PADDING + LOGO_W + 40}:y=66:fontsize=26:fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2`,
       // 主标题
       `drawtext=fontfile=${FONT}:textfile=${escFilterPath(titlePath)}:x=${PADDING}:y=${titleY}:fontsize=${fontSize}:fontcolor=white:line_spacing=${Math.round(fontSize * 0.32)}:shadowcolor=black@0.55:shadowx=3:shadowy=3`,
       // 左下：品牌
@@ -482,21 +490,25 @@ export async function generatePhotoCover(input = {}, opts = {}) {
       `drawtext=fontfile=${FONT}:textfile=${escFilterPath(hintPath)}:x=${W - 110}:y=53:fontsize=18:fontcolor=white@0.9`,
     ];
 
+    /*
+     * logo 作为第二路输入叠上去。
+     * 文件不存在就跳过，封面照常生成（不至于因为缺个图就发不出去）。
+     */
+    const hasLogo = fs.existsSync(LOGO_PATH);
+    const inputs = ['-y', '-hide_banner', '-loglevel', 'error', '-i', photo.path];
+    let filterComplex = `[0:v]${filters.join(',')}`;
+
+    if (hasLogo) {
+      inputs.push('-i', LOGO_PATH);
+      filterComplex =
+        `[0:v]${filters.join(',')}[bg];` +
+        `[1:v]scale=-1:${LOGO_H}[lg];` +
+        `[bg][lg]overlay=x=${PADDING}:y=${46 + Math.round((LOGO_H + 22 - LOGO_H) / 2)}:format=auto`;
+    }
+
     await run(
       'ffmpeg',
-      [
-        '-y',
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-i',
-        photo.path,
-        '-filter_complex',
-        `[0:v]${filters.join(',')}`,
-        '-frames:v',
-        '1',
-        outPath,
-      ],
+      [...inputs, '-filter_complex', filterComplex, '-frames:v', '1', outPath],
       { timeout: 45000, maxBuffer: 8 * 1024 * 1024 },
     );
 
