@@ -62,7 +62,7 @@ export async function renderLogin(ctx, query) {
       <div class="chips mb12" id="login-tabs">
         <a class="chip active" data-tab="phone">手机密码</a>
         <a class="chip" data-tab="email">邮箱密码</a>
-        <a class="chip" data-tab="wechat">微信登录</a>
+        <a class="chip" data-tab="wechat">微信开通中</a>
       </div>
 
       <div id="pane-phone">
@@ -97,12 +97,17 @@ export async function renderLogin(ctx, query) {
       </div>
 
       <div id="pane-wechat" class="hide">
-        ${wx.mp
-          ? `<button class="btn btn-primary btn-block" id="lg-wx">微信授权登录</button>
-             <div class="tiny dim mt8 center">已配置微信公众号，微信内打开将直接授权</div>`
-          : `<button class="btn btn-primary btn-block" id="lg-wx-demo">微信一键登录（演示）</button>
-             <div class="tiny dim mt8 center">当前未配置微信 AppID，使用演示账号完整体验流程；<br>配置 WECHAT_APP_ID / WECHAT_APP_SECRET 后即接入真实微信登录。</div>`}
-        ${wx.open ? `<button class="btn btn-block mt8" id="lg-wx-qr">PC 扫码登录</button>` : ''}
+        <button class="btn btn-block" id="lg-wx-soon" type="button" disabled
+          style="background:#eef1f6;color:#8a94a6;border:1px solid #e2e7f0;cursor:not-allowed">
+          💬 微信开通中
+        </button>
+        <div class="tiny dim mt8 center">
+          正在接入微信公众号授权，开通后可用微信一键登录。
+        </div>
+        <div class="tiny dim mt4 center">
+          现在请先用<b>手机号</b>或<b>邮箱</b>登录。
+        </div>
+        <a class="btn btn-block mt12" href="javascript:;" data-goto-tab="phone">去用手机号登录</a>
       </div>
     </div>
 
@@ -181,6 +186,11 @@ export async function renderLogin(ctx, query) {
         } catch (err) {
           ui.toast(err.message, 'err');
         }
+      });
+
+      /* 「去用手机号登录」：切回手机号 tab */
+      root.querySelector('[data-goto-tab="phone"]')?.addEventListener('click', () => {
+        root.querySelector('#login-tabs .chip[data-tab="phone"]')?.click();
       });
 
       root.querySelector('#lg-wx-demo')?.addEventListener('click', async () => {

@@ -452,7 +452,7 @@ export async function renderHome(ctx, query) {
   const loginStrip = logged ? '' : `<a class="login-banner mt12" href="#/login">
     <div class="grow">
       <div class="strong" style="font-size:14px">登录后即可发布项目、建群开会</div>
-      <div class="tiny dim">支持手机号、邮箱、微信登录</div>
+      <div class="tiny dim">支持手机号、邮箱登录（微信登录开通中）</div>
     </div>
     <span class="btn btn-sm btn-primary">登录 / 注册</span>
   </a>`;

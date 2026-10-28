@@ -72,7 +72,7 @@ export async function renderBindings(ctx) {
     <div class="card card-pad mt12">
       <div class="strong mb8">第三方账号</div>
       ${bindRow({
-        icon: '💬', name: '微信', desc: '绑定后可微信一键登录',
+        icon: '💬', name: '微信', desc: '微信登录开通中，可先绑定账号',
         bound: b.wechat?.bound, value: b.wechat?.nickname || '已绑定', actionId: 'wechat',
       })}
       ${bindRow({
