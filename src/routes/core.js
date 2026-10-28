@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import db from '../store/db.js';
-import { config, PUBLIC_DIR } from '../config.js';
+import { config, PUBLIC_DIR, DATA_DIR } from '../config.js';
 import { data, fail, str, num, mustAuth, authUser, baseUrl, queryOf, rateLimit, clientIp, list } from './_util.js';
 import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND } from '../services/files.js';
 import filesecure from '../services/filesecure.js';
@@ -704,6 +704,59 @@ export default function registerCoreRoutes(app) {
     });
     if (!r.ok) return data(res, { ok: false, note: r.note });
     return data(res, { ok: true, title: r.title, summary: r.summary, text: r.text, chars: r.text.length });
+  });
+
+  /**
+   * 前端错误上报。
+   *
+   * 不需要登录 —— 报错往往发生在登录之前（比如注册页崩了）。
+   * 只记录错误信息、堆栈、路由和 UA，不采集用户输入。
+   */
+  app.post('/api/client-error', (req, res) => {
+    const rl = rateLimit(`cerr:${clientIp(req)}`, 30, 60_000);
+    if (!rl.ok) return data(res, { ok: false });
+
+    const kind = str(req.body?.kind, 20) || 'error';
+    const message = str(req.body?.message, 500);
+    const stack = str(req.body?.stack, 2000);
+    const page = str(req.body?.page, 200);
+    const src = str(req.body?.src, 300);
+    if (!message) return data(res, { ok: true });
+
+    const ua = String(req.headers['user-agent'] || '').slice(0, 200);
+    const line = `${new Date().toISOString()}\t${kind}\t${page}\t${message}\t${src}\t${ua}`;
+    try {
+      const logFile = path.join(DATA_DIR, 'client-errors.log');
+      fs.appendFileSync(logFile, line + '\n');
+    } catch {
+      /* 写不进日志也不能影响响应 */
+    }
+    console.error('[client-error]', page, '|', message, stack ? `\n${stack.slice(0, 500)}` : '');
+    return data(res, { ok: true });
+  });
+
+  /** 管理端：看最近的前端报错（排查「点了没反应」这类静默故障用） */
+  app.get('/api/admin/client-errors', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+    let lines = [];
+    try {
+      const logFile = path.join(DATA_DIR, 'client-errors.log');
+      if (fs.existsSync(logFile)) {
+        lines = fs.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).slice(-100);
+      }
+    } catch {
+      /* ignore */
+    }
+    return data(res, {
+      count: lines.length,
+      items: lines
+        .map((l) => {
+          const [at, kind, page, message, src, ua] = l.split('\t');
+          return { at, kind, page, message, src, ua };
+        })
+        .reverse(),
+    });
   });
 
   /** 从一段文字里识别联系人 / 电话 / 微信 / 企业名 */

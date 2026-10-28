@@ -167,7 +167,7 @@ export default function registerInvestRoutes(app) {
     const note = str(req.body?.note, 500).trim();
 
     if (!name) return fail(res, '请填写姓名');
-    if (!/^1[3-9]\d{9}$/.test(phone.replace(/[-\s]/g, ''))) return fail(res, '请填写正确的手机号');
+    if (!/^\d{11}$/.test(phone.replace(/[-\s]/g, ''))) return fail(res, '请填写 11 位手机号');
     if (amount < FINANCING.minInvest) return fail(res, `最低认购金额为 ${FINANCING.minInvest} 万元`);
 
     const q = quotaOf();

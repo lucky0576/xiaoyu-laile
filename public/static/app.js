@@ -3,6 +3,7 @@
  */
 import { service, store, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
+import { installErrorReport } from './error-report.js';
 /*
  * 视图模块全部改成「按需加载」。
  *
@@ -51,6 +52,9 @@ const viewsFeedback = lazyView(() => import('./views-feedback.js'));
 const viewsLevelAdmin = lazyView(() => import('./views-level-admin.js'));
 
 const appEl = document.getElementById('app');
+
+// 先装错误上报，再初始化应用 —— 这样初始化过程中的报错也能被记下来
+installErrorReport();
 
 /* ------------------------------------------------------------------ */
 /* 全局状态                                                            */

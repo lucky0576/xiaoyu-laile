@@ -307,7 +307,7 @@ export async function renderProvider(ctx, params) {
             }
           }
           if (!contactName) return ui.toast('请填写联系人', 'err');
-          if (!/^1[3-9]\d{9}$/.test(contactPhone)) return ui.toast('请填写正确的手机号', 'err');
+          if (!/^\d{11}$/.test(contactPhone)) return ui.toast('请填写 11 位手机号', 'err');
 
           btn.disabled = true;
           btn.textContent = '提交中…';

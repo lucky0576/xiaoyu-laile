@@ -130,7 +130,8 @@ export default function registerAuthUserRoutes(app) {
   app.post('/api/auth/sms/send', (req, res) => {
     const phone = normalizePhone(req.body?.phone);
     const purpose = String(req.body?.purpose || 'login');
-    if (!/^1[3-9]\d{9}$/.test(phone)) return fail(res, '请输入正确的手机号');
+    // 手机号就是 11 位数字；不卡 1[3-9] 号段，虚拟运营商号段也能注册
+    if (!/^\d{11}$/.test(phone)) return fail(res, '请输入 11 位手机号');
     const rl = rateLimit(`sms:${clientIp(req)}:${phone}`, 5, 60_000);
     if (!rl.ok) return fail(res, `发送过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
 
@@ -149,7 +150,7 @@ export default function registerAuthUserRoutes(app) {
     const phone = normalizePhone(req.body?.phone);
     const code = String(req.body?.code || '');
     const purpose = String(req.body?.purpose || 'login');
-    if (!/^1[3-9]\d{9}$/.test(phone)) return fail(res, '请输入正确的手机号');
+    if (!/^\d{11}$/.test(phone)) return fail(res, '请输入 11 位手机号');
 
     const check = verifyOtp({ target: phone, purpose, code });
     if (!check.ok) return fail(res, check.reason, 400, 'bad_code');
@@ -191,7 +192,7 @@ export default function registerAuthUserRoutes(app) {
     const captchaId = String(req.body?.captchaId || '');
     const captchaCode = String(req.body?.captchaCode || '');
 
-    if (!/^1[3-9]\d{9}$/.test(phone)) return fail(res, '请输入正确的手机号');
+    if (!/^\d{11}$/.test(phone)) return fail(res, '请输入 11 位手机号');
     if (password.length < 6) return fail(res, '密码至少 6 位');
 
     const cap = captchaSvc.verifyCaptcha(captchaId, captchaCode);
@@ -220,7 +221,7 @@ export default function registerAuthUserRoutes(app) {
   app.post('/api/auth/phone/login', (req, res) => {
     const phone = normalizePhone(req.body?.phone);
     const password = String(req.body?.password || '');
-    if (!/^1[3-9]\d{9}$/.test(phone)) return fail(res, '请输入正确的手机号');
+    if (!/^\d{11}$/.test(phone)) return fail(res, '请输入 11 位手机号');
     if (!password) return fail(res, '请输入密码');
 
     const user = byPhone(phone);
@@ -718,7 +719,7 @@ export default function registerAuthUserRoutes(app) {
     for (const f of textFields) if (b[f] !== undefined) patch[f] = str(b[f], f === 'bio' ? 2000 : 200);
     if (b.phone !== undefined) {
       const p = normalizePhone(b.phone);
-      if (p && !/^1[3-9]\d{9}$/.test(p)) return fail(res, '手机号格式不正确');
+      if (p && !/^\d{11}$/.test(p)) return fail(res, '请输入 11 位手机号');
       const other = p ? users().findOne((u) => u.phone === p && u.id !== user.id) : null;
       if (other) return fail(res, '该手机号已被其他账号绑定', 409, 'exists');
       patch.phone = p;

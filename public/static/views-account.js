@@ -382,7 +382,7 @@ export async function renderRegister(ctx, query) {
       <div id="rg-pane-phone">
         <div class="field">
           <label>手机号 <span style="color:var(--danger)">*</span></label>
-          <input class="input" id="rg-phone" type="tel" maxlength="11" placeholder="11 位手机号，用于登录">
+          <input class="input" id="rg-phone" type="tel" maxlength="11" placeholder="11 位数字手机号，用于登录">
         </div>
         <div class="field">
           <label>图形验证码 <span style="color:var(--danger)">*</span></label>
@@ -638,7 +638,8 @@ export async function renderRegister(ctx, query) {
         const phone = ($('#rg-phone').value || '').trim();
         const captchaCode = ($('#rg-captcha').value || '').trim();
 
-        if (!/^1[3-9]\d{9}$/.test(phone)) return ui.toast('请输入正确的手机号', 'err');
+        // 11 位数字即为合法手机号
+        if (!/^\d{11}$/.test(phone)) return ui.toast('请输入 11 位手机号', 'err');
         if (!captchaCode) return ui.toast('请输入图形验证码', 'err');
         if (password.length < 6) return ui.toast('密码至少 6 位', 'err');
         if (password !== password2) return ui.toast('两次输入的密码不一致', 'err');

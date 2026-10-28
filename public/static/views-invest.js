@@ -238,7 +238,7 @@ export async function renderInvest(ctx) {
         const note = ($('#inv-note').value || '').trim();
 
         if (!name) return ui.toast('请填写姓名', 'err');
-        if (!/^1[3-9]\d{9}$/.test(phone)) return ui.toast('请填写正确的手机号', 'err');
+        if (!/^\d{11}$/.test(phone)) return ui.toast('请填写 11 位手机号', 'err');
         if (amount < p.minInvest) return ui.toast(`最低认购 ${p.minInvest} 万元`, 'err');
         if (amount > q.remaining) return ui.toast(`剩余可认购额度仅 ${q.remaining} 万元`, 'err');
 
