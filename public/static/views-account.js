@@ -66,6 +66,17 @@ export async function renderLogin(ctx, query) {
         <a class="chip" data-tab="wechat">微信开发中</a>
       </div>
 
+      <!-- 登录失败一次后才需要图形验证码（保护「账号是否注册」的探测接口） -->
+      <div class="field hide" id="lg-cap-wrap">
+        <label>图形验证码 <span style="color:var(--danger)">*</span></label>
+        <div class="input-group">
+          <input class="input" id="lg-cap-code" maxlength="6" placeholder="输入右侧图中字符" autocomplete="off">
+          <img id="lg-cap-img" alt="图形验证码" title="点击刷新"
+            style="height:44px;width:132px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#f4f8fc;flex:0 0 auto" />
+        </div>
+        <div class="hint">输错一次后需要验证码，点图片可换一张</div>
+      </div>
+
       <div id="pane-phone">
         <div class="field">
           <label>手机号</label>
@@ -203,6 +214,82 @@ export async function renderLogin(ctx, query) {
       };
       renderLast();
 
+      /*
+       * 登录失败分流。
+       *
+       * 第一次失败：先让用户过图形验证码（保护「账号是否注册」这个探测接口，
+       * 否则知道手机号的人就能批量查谁注册过本站）。
+       * 验证码填好后：查账号存不存在 —— 存在就提示密码错，不存在就带去注册。
+       */
+      let capShown = false;
+      let capId = '';
+
+      const capWrap = () => root.querySelector('#lg-cap-wrap');
+      const capInput = () => root.querySelector('#lg-cap-code');
+
+      const refreshLoginCaptcha = async () => {
+        try {
+          const r = await service.captcha();
+          capId = r.id;
+          const img = root.querySelector('#lg-cap-img');
+          if (img) img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.svg);
+          const inp = capInput();
+          if (inp) inp.value = '';
+        } catch {
+          /* 加载失败就让用户再点一次 */
+        }
+      };
+
+      const showCaptcha = async () => {
+        capShown = true;
+        capWrap()?.classList.remove('hide');
+        await refreshLoginCaptcha();
+        capInput()?.focus();
+      };
+
+      root.querySelector('#lg-cap-img')?.addEventListener('click', refreshLoginCaptcha);
+
+      /** 登录失败后的统一处理 */
+      const handleBadCredentials = async (account, kind) => {
+        if (!capShown) {
+          await showCaptcha();
+          ui.toast('请填写图形验证码后再试一次', 'err');
+          return;
+        }
+        const code = String(capInput()?.value || '').trim();
+        if (!code) {
+          ui.toast('请填写图形验证码', 'err');
+          return;
+        }
+
+        let exists = false;
+        try {
+          const r = await service.authExists(account, { id: capId, code });
+          exists = Boolean(r && r.exists);
+        } catch (err) {
+          if (err.code === 'bad_captcha') {
+            await refreshLoginCaptcha();
+            ui.toast('验证码不对，换一张再来', 'err');
+            return;
+          }
+          exists = false;
+        }
+
+        // 用完就换一张，防止被复用
+        await refreshLoginCaptcha();
+
+        if (exists) {
+          ui.toast('密码不正确，再试一次', 'err');
+        } else {
+          ui.toast(kind === 'email' ? '这个邮箱还没注册，帮你切到注册' : '这个手机号还没注册，帮你切到注册', 'ok');
+          const q =
+            kind === 'email'
+              ? `#/register?mode=email&email=${encodeURIComponent(account)}`
+              : `#/register?mode=phone&phone=${encodeURIComponent(account)}`;
+          ctx.nav(q);
+        }
+      };
+
       root.querySelector('#login-tabs').addEventListener('click', (e) => {
         const chip = e.target.closest('[data-tab]');
         if (!chip) return;
@@ -238,23 +325,7 @@ export async function renderLogin(ctx, query) {
           await done(res, remember ? '登录成功，下次可直接进入' : '登录成功', { value: phone, type: 'phone' });
         } catch (err) {
           if (err.code === 'bad_credentials') {
-            /*
-             * 已注册就提示密码错；没注册过直接带去注册页，号码填好。
-             * 这样「登录」和「注册」就是一个入口，用户不用自己想该点哪个。
-             */
-            let exists = false;
-            try {
-              const r = await service.authExists(phone);
-              exists = Boolean(r && r.exists);
-            } catch {
-              exists = false;
-            }
-            if (exists) {
-              ui.toast('密码不正确，再试一次', 'err');
-            } else {
-              ui.toast('这个手机号还没注册，帮你切到注册', 'ok');
-              ctx.nav(`#/register?mode=phone&phone=${encodeURIComponent(phone)}`);
-            }
+            await handleBadCredentials(phone, 'phone');
           } else {
             ui.toast(err.message, 'err');
           }
@@ -271,19 +342,7 @@ export async function renderLogin(ctx, query) {
           await done(res, remember ? '登录成功，下次可直接进入' : '登录成功', { value: email, type: 'email' });
         } catch (err) {
           if (err.code === 'bad_credentials') {
-            let exists = false;
-            try {
-              const r = await service.authExists(email);
-              exists = Boolean(r && r.exists);
-            } catch {
-              exists = false;
-            }
-            if (exists) {
-              ui.toast('密码不正确，再试一次', 'err');
-            } else {
-              ui.toast('这个邮箱还没注册，帮你切到注册', 'ok');
-              ctx.nav(`#/register?mode=email&email=${encodeURIComponent(email)}`);
-            }
+            await handleBadCredentials(email, 'email');
           } else {
             ui.toast(err.message, 'err');
           }

@@ -219,6 +219,10 @@ export default function registerAuthUserRoutes(app) {
 
   /** 手机号 + 密码登录（不再需要短信验证码） */
   app.post('/api/auth/phone/login', (req, res) => {
+    // 同一 IP 每 10 分钟最多试 30 次，防暴力撞库
+    const rlLogin = rateLimit(`login:${clientIp(req)}`, 30, 600_000);
+    if (!rlLogin.ok) return fail(res, `登录尝试太频繁，请 ${rlLogin.retryAfter} 秒后再试`, 429, 'rate_limited');
+
     const phone = normalizePhone(req.body?.phone);
     const password = String(req.body?.password || '');
     if (!/^\d{11}$/.test(phone)) return fail(res, '请输入 11 位手机号');
@@ -292,6 +296,9 @@ export default function registerAuthUserRoutes(app) {
   });
 
   app.post('/api/auth/email/login', (req, res) => {
+    const rlLogin = rateLimit(`login:${clientIp(req)}`, 30, 600_000);
+    if (!rlLogin.ok) return fail(res, `登录尝试太频繁，请 ${rlLogin.retryAfter} 秒后再试`, 429, 'rate_limited');
+
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     const user = findByEmail(email);
@@ -313,6 +320,17 @@ export default function registerAuthUserRoutes(app) {
     const rl = rateLimit(`exists:${clientIp(req)}`, 20, 60_000);
     if (!rl.ok) return data(res, { exists: false, limited: true });
 
+    /*
+     * 必须过图形验证码。
+     * 否则知道手机号的人可以直接探测「这个号注册过没有」，
+     * 拿来撞库或判断某人是不是本站用户。
+     */
+    const cap = captchaSvc.verifyCaptcha(
+      String(req.body?.captchaId || ''),
+      String(req.body?.captchaCode || ''),
+    );
+    if (!cap.ok) return fail(res, cap.reason || '请输入图形验证码', 400, 'bad_captcha');
+
     const account = String(req.body?.account || '').trim();
     if (!account) return fail(res, '请填写账号');
 
@@ -328,6 +346,9 @@ export default function registerAuthUserRoutes(app) {
 
   /** 通用账号密码登录：自动识别手机号 / 邮箱 */
   app.post('/api/auth/login', (req, res) => {
+    const rlLogin = rateLimit(`login:${clientIp(req)}`, 30, 600_000);
+    if (!rlLogin.ok) return fail(res, `登录尝试太频繁，请 ${rlLogin.retryAfter} 秒后再试`, 429, 'rate_limited');
+
     const account = String(req.body?.account || '').trim();
     const password = String(req.body?.password || '');
     if (!account || !password) return fail(res, '请填写账号和密码');
