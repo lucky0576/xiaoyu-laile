@@ -958,21 +958,36 @@ async function renderPublishNews(ctx) {
           const sumEl = $('#news-summary');
           if (sumEl && !sumEl.value.trim() && body) sumEl.value = body.slice(0, 120);
 
-          // 封面：抓到的第一张图
-          const f0 = Array.isArray(r.files) ? r.files[0] : null;
-          if (f0 && f0.url && !coverPreviewUrl) {
-            coverPreviewUrl = f0.url;
+          /*
+           * 原文配图：第一张当封面，其余全部作为附件 ——
+           * 「按源文件复制」不能把正文里的图丢掉。
+           */
+          const saved = Array.isArray(r.files) ? r.files : [];
+          const first = saved[0];
+          if (first && first.url && !coverPreviewUrl) {
+            coverPreviewUrl = first.url;
             const prev = $('#news-cover-prev');
             if (prev) {
-              prev.src = f0.url;
+              prev.src = first.url;
               prev.classList.remove('hide');
               prev.style.display = 'block';
             }
             const nm = $('#news-cover-name');
             if (nm) nm.textContent = '已用网页配图';
           }
+          // 去掉第一张（已作封面），其余进附件
+          for (const f0 of saved.slice(first ? 1 : 0)) {
+            if (!f0 || !f0.url) continue;
+            if (picked.length >= 24) break;
+            picked.push({ rec: f0, kind: 'image' });
+          }
+          paintFiles();
 
-          setTip(`✅ 已抓取 ${r.chars || body.length} 字${f0 ? ' + 配图' : ''}`, '#0e8f5f');
+          const imgN = saved.length;
+          setTip(
+            `✅ 已按原文抓取 ${r.chars || body.length} 字${imgN ? ` + ${imgN} 张配图` : ''}`,
+            '#0e8f5f',
+          );
           ui.toast('链接已导入', 'ok');
         } catch (err) {
           setTip(err.message || '导入失败', '#c0392b');
@@ -1036,14 +1051,16 @@ async function renderPublishNews(ctx) {
           return;
         }
         box.innerHTML = picked
-          .map(
-            (p, i) => `<div class="nf-row">
+          .map((p, i) => {
+            const nm = p.file ? p.file.name : (p.rec?.name || '附件');
+            const sz = p.file ? p.file.size : Number(p.rec?.size) || 0;
+            return `<div class="nf-row">
               <span class="nf-ico">${ICON[p.kind] || '📎'}</span>
-              <span class="nf-name">${ui.esc(p.file.name)}</span>
-              <span class="nf-size">${Math.max(1, Math.round(p.file.size / 1024))} KB</span>
+              <span class="nf-name">${ui.esc(nm)}</span>
+              <span class="nf-size">${Math.max(1, Math.round(sz / 1024))} KB</span>
               <button class="nf-x" type="button" data-i="${i}">✕</button>
-            </div>`,
-          )
+            </div>`;
+          })
           .join('');
       };
       paintFiles();
@@ -1064,8 +1081,8 @@ async function renderPublishNews(ctx) {
             await setCoverFromFile(f);
             continue;
           }
-          if (picked.length >= 9) {
-            ui.toast('附件最多 9 个', 'err');
+          if (picked.length >= 24) {
+            ui.toast('附件最多 24 个', 'err');
             break;
           }
           picked.push({ file: f, kind: k });
@@ -1176,16 +1193,29 @@ async function renderPublishNews(ctx) {
           }
 
           for (let i = 0; i < picked.length; i++) {
+            const p = picked[i];
+            // 网页配图导进来时已经上传好了，直接用
+            if (p.rec) {
+              attachments.push({
+                id: p.rec.id,
+                name: p.rec.name || '配图',
+                mime: p.rec.mime || '',
+                size: Number(p.rec.size) || 0,
+                url: p.rec.url,
+                kind: p.kind || 'image',
+              });
+              continue;
+            }
             btn.textContent = `上传附件 ${i + 1}/${picked.length}…`;
-            const rec = await uploadOne(picked[i].file);
+            const rec = await uploadOne(p.file);
             if (rec) {
               attachments.push({
                 id: rec.id,
-                name: rec.name || picked[i].file.name,
-                mime: rec.mime || picked[i].file.type,
-                size: rec.size || picked[i].file.size,
+                name: rec.name || p.file.name,
+                mime: rec.mime || p.file.type,
+                size: rec.size || p.file.size,
                 url: rec.url,
-                kind: picked[i].kind,
+                kind: p.kind,
               });
             }
           }

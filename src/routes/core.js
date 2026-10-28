@@ -643,7 +643,8 @@ export default function registerCoreRoutes(app) {
     if (!url.trim()) return fail(res, '请填写链接', 400, 'empty');
 
     const webMod = await import('../lib/webpage.js');
-    const r = await webMod.fetchWebpage(url);
+    // 导入链接的目的是「原文照抄」，所以走 keepAll，不做广告过滤
+    const r = await webMod.fetchWebpage(url, { keepAll: true });
     if (!r.ok) return data(res, r);
 
     // 把页面里的图片下载下来，注册成普通附件，
@@ -654,7 +655,8 @@ export default function registerCoreRoutes(app) {
     const filesMod = await import('../services/files.js');
 
     const saved = [];
-    const urls = Array.isArray(r.imageUrls) ? r.imageUrls.slice(0, 6) : [];
+    // 原文配图全量保存（最多 24 张），前端会按顺序铺在正文里
+    const urls = Array.isArray(r.imageUrls) ? r.imageUrls.slice(0, 24) : [];
     for (let i = 0; i < urls.length; i++) {
       const img = await webMod.downloadImage(urls[i], r.url);
       if (!img) continue;

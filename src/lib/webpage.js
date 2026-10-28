@@ -596,7 +596,17 @@ export async function downloadImage(url, referer = '') {
  * @param {string} rawUrl
  * @returns {Promise<{ok:boolean, url?:string, title?:string, text?:string, chars?:number, note?:string}>}
  */
-export async function fetchWebpage(rawUrl) {
+/**
+ * 抓取网页正文。
+ *
+ * @param {string} rawUrl
+ * @param {object} opts
+ * @param {boolean} opts.keepAll  true = 原文照抄：
+ *   · 不做广告 / 联系方式过滤（那是给资讯抓取用的，会删掉原文内容）
+ *   · 短行阈值放到 1，不丢任何一行
+ *   · 页面图片最多取 30 张（正文配图多）
+ */
+export async function fetchWebpage(rawUrl, opts = {}) {
   let u;
   try {
     u = new URL(String(rawUrl || '').trim());
@@ -663,11 +673,16 @@ export async function fetchWebpage(rawUrl) {
 
     const html = decodeBody(buf, ct);
     // 导入正文时用宽松参数：尽量还原原文，别提前截断
-  const raw = htmlToText(html, { max: 150000, minLine: 4 });
+  const keepAll = Boolean(opts.keepAll);
+    // 原文照抄时不要丢短行（像「一、」「（二）」这种）
+    const raw = htmlToText(html, { max: 150000, minLine: keepAll ? 1 : 4 });
     const title = raw.title;
-    // 清洗：去广告、去二维码提示、去对方联系方式
     const rawLen = raw.text.length;
-    let text = stripContactAndAds(raw.text);
+    /*
+     * 默认会过滤广告、二维码提示和联系方式 —— 那是资讯抓取要的。
+     * 但用户「按原文导入」时不能删任何东西，否则就不叫照抄了。
+     */
+    let text = keepAll ? raw.text : stripContactAndAds(raw.text);
 
     if (!text || text.length < 40) {
       return {
@@ -686,7 +701,7 @@ export async function fetchWebpage(rawUrl) {
       rawChars: rawLen,
       host: u.hostname,
       // 页面里的图片地址，路由层会下载下来存成附件
-      imageUrls: extractImageUrls(html, u.toString(), { max: 8 }),
+      imageUrls: extractImageUrls(html, u.toString(), { max: keepAll ? 30 : 8 }),
       rawHtml: html,
     };
   } catch (err) {
