@@ -986,6 +986,7 @@ export const PROJECT_TYPES = [
 export const TRADE_TYPES = [
   { id: 'procurement', name: '采购', desc: '买方发布采购需求，寻找货源与供应商' },
   { id: 'supply', name: '供应', desc: '卖方发布供应能力与货源信息' },
+  { id: 'lease', name: '租赁', desc: '设备、车辆、机具、场地等对外出租；也可以发求租需求' },
   { id: 'commissioned-processing', name: '委托加工', desc: '提供原料或半成品委托他方加工，按约定标准交付' },
   { id: 'inquiry', name: '询价', desc: '就规格、数量、交期进行价格征询与比价' },
   { id: 'bidding-procurement', name: '招标采购', desc: '以招标方式开展的集中采购与竞价' },
@@ -1090,7 +1091,7 @@ export const CATEGORIES = [
     desc: '展会 · 沙龙 · 赛事 · 饭局 · 团建',
     types: EVENT_TYPES,
   },
-  { id: 'trade', name: '贸易', icon: '🤝', desc: '采购 · 供应 · 委托加工', types: TRADE_TYPES },
+  { id: 'trade', name: '贸易', icon: '🤝', desc: '采购 · 供应 · 租赁 · 委托加工', types: TRADE_TYPES },
   {
     id: 'tech',
     name: '科技成果转化',

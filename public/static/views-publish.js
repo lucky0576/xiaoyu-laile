@@ -1938,7 +1938,7 @@ export async function renderPublish(ctx, params) {
           box.innerHTML = `
             <div class="field"><label>供需类型</label>
               <select class="select" id="f-tradeType">
-                ${['采购', '供应', '委托加工', '询价', '招标采购', '库存尾货', '代理经销', '物流仓储'].map((t) => `<option ${editing?.trade?.tradeType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                ${['采购', '供应', '租赁', '委托加工', '询价', '招标采购', '库存尾货', '代理经销', '物流仓储'].map((t) => `<option ${editing?.trade?.tradeType === t ? 'selected' : ''}>${t}</option>`).join('')}
               </select>
             </div>
 

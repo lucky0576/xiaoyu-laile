@@ -156,7 +156,7 @@ export async function renderHome(ctx, query) {
   /* ---------------- 2×3 主入口 ---------------- */
   const entries = [
     { t: '活动赛事', d: '报名 · 赛事 · 课程', art: '🎪', href: '#/list/event', i: 1 },
-    { t: '贸易采供', d: '采购 · 供应 · 委托加工', art: '🤝', href: '#/list/trade', i: 2 },
+    { t: '贸易采供', d: '采购 · 供应 · 租赁 · 委托加工', art: '🤝', href: '#/list/trade', i: 2 },
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '科技成果转化', d: '专利 · 技术 · 产学研', art: '🔬', href: '#/list/tech', i: 5 },
