@@ -85,6 +85,51 @@ export default function registerCoreRoutes(app) {
     });
   });
 
+  /**
+   * CSS 合并：/static/bundle.css
+   *
+   * 原来 index.html 引了 8 个 CSS，跨境访问时每个都要一次往返，
+   * 光 CSS 就吃掉十几轮 RTT。这里在服务端拼成一个文件，
+   * 按 mtime 生成 ETag，内容没变就 304，变了自动失效。
+   */
+  app.get('/static/bundle.css', (req, res) => {
+    const dir = path.join(PUBLIC_DIR, 'static');
+    // 顺序就是层叠顺序，跟原来 index.html 里一致
+    const ORDER = [
+      'styles.css',
+      'home.css',
+      'live.css',
+      'meeting.css',
+      'forum.css',
+      'bindings.css',
+      'invest.css',
+      'tags.css',
+    ];
+    let etag = '';
+    const parts = [];
+    try {
+      for (const name of ORDER) {
+        const p = path.join(dir, name);
+        if (!fs.existsSync(p)) continue;
+        const st = fs.statSync(p);
+        etag += `${name}:${st.size}:${st.mtimeMs};`;
+        parts.push(fs.readFileSync(p, 'utf8'));
+      }
+    } catch {
+      return fail(res, '样式合并失败', 500, 'bundle_failed');
+    }
+    const tag = `"${Buffer.from(etag).toString('base64').slice(0, 32)}"`;
+    if (String(req.headers['if-none-match'] || '') === tag) {
+      res.statusCode = 304;
+      return res.end();
+    }
+    const body = parts.join('\n');
+    res.set('Content-Type', 'text/css; charset=utf-8');
+    res.set('ETag', tag);
+    res.set('Cache-Control', 'public, max-age=300');
+    return res.end(body);
+  });
+
   /* ---------------------------------------------------------------- */
   /* 字典                                                              */
   /* ---------------------------------------------------------------- */

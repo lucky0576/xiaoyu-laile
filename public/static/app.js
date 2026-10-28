@@ -3,26 +3,52 @@
  */
 import { service, store, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
+/*
+ * 视图模块全部改成「按需加载」。
+ *
+ * 之前这里是 20 个静态 import，浏览器必须先下完所有视图才能启动 ——
+ * 首页要看项目列表，却被迫连「发布页 128KB」「我的 93KB」一起下。
+ * 实测首屏 55 个 JS 请求 / 244KB，跨境 1.6Mbps 下非常明显。
+ *
+ * 现在只静态加载首页（首屏必须），其余等你真的切到那个路由才去拉，
+ * 用一个 Proxy 包成「看起来还是模块」的样子，调用处不用改。
+ */
+const lazyView = (loader) =>
+  new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (typeof prop !== 'string') return undefined;
+        return async (...args) => {
+          const mod = await loader();
+          const fn = mod[prop];
+          if (typeof fn !== 'function') throw new Error(`视图方法不存在：${prop}`);
+          return fn(...args);
+        };
+      },
+    },
+  );
+
 import * as viewsHome from './views-home.js';
-import * as viewsPublish from './views-publish.js';
-import * as viewsAccount from './views-account.js';
-import * as viewsChat from './views-chat.js';
-import * as viewsMeeting from './views-meeting.js';
-import * as viewsLive from './views-live.js';
-import * as viewsShorts from './views-shorts.js';
-import * as viewsProvider from './views-provider.js';
-import * as viewsAdminShorts from './views-admin-shorts.js';
-import * as viewsAdminCovers from './views-admin-covers.js';
-import * as viewsForum from './views-forum.js';
-import * as viewsBindings from './views-bindings.js';
-import * as viewsInvest from './views-invest.js';
-import * as viewsAdminInvest from './views-admin-invest.js';
-import * as viewsTags from './views-tags.js';
-import * as viewsWechatSetup from './views-wechat-setup.js';
-import * as viewsNews from './views-news.js';
-import * as viewsReferral from './views-referral.js';
-import * as viewsFeedback from './views-feedback.js';
-import * as viewsLevelAdmin from './views-level-admin.js';
+const viewsPublish = lazyView(() => import('./views-publish.js'));
+const viewsAccount = lazyView(() => import('./views-account.js'));
+const viewsChat = lazyView(() => import('./views-chat.js'));
+const viewsMeeting = lazyView(() => import('./views-meeting.js'));
+const viewsLive = lazyView(() => import('./views-live.js'));
+const viewsShorts = lazyView(() => import('./views-shorts.js'));
+const viewsProvider = lazyView(() => import('./views-provider.js'));
+const viewsAdminShorts = lazyView(() => import('./views-admin-shorts.js'));
+const viewsAdminCovers = lazyView(() => import('./views-admin-covers.js'));
+const viewsForum = lazyView(() => import('./views-forum.js'));
+const viewsBindings = lazyView(() => import('./views-bindings.js'));
+const viewsInvest = lazyView(() => import('./views-invest.js'));
+const viewsAdminInvest = lazyView(() => import('./views-admin-invest.js'));
+const viewsTags = lazyView(() => import('./views-tags.js'));
+const viewsWechatSetup = lazyView(() => import('./views-wechat-setup.js'));
+const viewsNews = lazyView(() => import('./views-news.js'));
+const viewsReferral = lazyView(() => import('./views-referral.js'));
+const viewsFeedback = lazyView(() => import('./views-feedback.js'));
+const viewsLevelAdmin = lazyView(() => import('./views-level-admin.js'));
 
 const appEl = document.getElementById('app');
 
