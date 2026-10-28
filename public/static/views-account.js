@@ -480,8 +480,8 @@ export async function renderRegister(ctx, query) {
       let regMode = 'phone'; // phone | email
 
       const typeHint = {
-        personal: '注册后需完成实名认证：填写姓名与身份证号，并上传身份证正反面照片。',
-        company: '注册后需完成企业认证：上传营业执照并填写企业信息，由 AI 征信审核。',
+        personal: '认证是选填的：填姓名与身份证号并上传照片即可完成。发布项目或成为服务商时需要认证。',
+        company: '认证是选填的：上传营业执照并填写企业信息，由 AI 征信审核。发布项目或成为服务商时需要认证。',
       };
       const applyType = (t) => {
         accountType = t;
@@ -624,7 +624,8 @@ export async function renderRegister(ctx, query) {
             store.user = res.user;
             await ctx.refreshMe();
             ui.toast('注册成功', 'ok');
-            const redirectE = query.redirect || '#/verify';
+            // 注册完直接进首页；认证改成「需要时再做」，不再卡流程
+            const redirectE = query.redirect || '#/home';
             ctx.nav(redirectE.startsWith('#') ? redirectE : `#${redirectE}`);
           } catch (err) {
             ui.toast(err.message || '注册失败', 'err');
@@ -668,7 +669,8 @@ export async function renderRegister(ctx, query) {
           store.user = res.user;
           await ctx.refreshMe();
           ui.toast('注册成功', 'ok');
-          const redirect = query.redirect || '#/verify';
+          // 注册完直接进首页；认证改成「需要时再做」，不再卡流程
+          const redirect = query.redirect || '#/home';
           const to = redirect.startsWith('#') ? redirect : '#' + redirect;
           ctx.nav(to);
         } catch (err) {
@@ -799,11 +801,26 @@ export async function renderVerify(ctx, query) {
     <div class="center" style="padding:16px 0 10px">
       <div style="font-size:40px">🛡️</div>
       <h1 style="font-size:19px;margin-top:6px">实名认证</h1>
-      <div class="small muted">${verified ? '您已完成认证，可放心发布与对接' : '完成认证后才能发布项目和发起对接'}</div>
+      <div class="small muted">${
+        verified
+          ? '您已完成认证，可放心发布与对接'
+          : '现在不认证也能先逛；发布项目、发起对接、成为服务商时需要认证'
+      }</div>
     </div>
     ${resultCard}
     ${verified ? '' : formCard}
     ${verified ? `<div class="center"><button class="btn btn-outline" id="vf-again">重新提交认证</button></div>` : ''}
+    ${
+      verified
+        ? ''
+        : `<div class="verify-skip">
+            <button class="btn btn-block" id="vf-skip" type="button">稍后再说，先去逛逛</button>
+            <div class="tiny dim center mt8">
+              不认证也能浏览、收藏、进群聊；<br>
+              发布项目 / 发起对接 / 入驻成为服务商时才需要认证。
+            </div>
+          </div>`
+    }
   </div>`;
 
   let type = v.type || ctx.state.user?.accountType || 'personal';
@@ -816,6 +833,17 @@ export async function renderVerify(ctx, query) {
     async mount(root) {
       const $ = (s) => root.querySelector(s);
       let showForm = !verified;
+
+      /* 稍后再说：不认证也能用，回首页并记一笔 */
+      $('#vf-skip')?.addEventListener('click', () => {
+        try {
+          localStorage.setItem('xyl_verify_skipped_at', String(Date.now()));
+        } catch {
+          /* ignore */
+        }
+        ui.toast('随时可以在「我的 → 实名认证」里补上', 'ok');
+        ctx.nav('#/home');
+      });
 
       const applyType = (t) => {
         type = t;

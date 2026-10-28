@@ -3160,3 +3160,9 @@ a.sp-item:active { background: #f7fbff; }
 }
 .ai-write-bar .awb-txt { flex: 1; min-width: 0; }
 .ai-write-bar .awb-t { font-size: 13px; font-weight: 600; color: #1b3a6b; }
+/* 认证页「稍后再说」 */
+.verify-skip {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line, #e3e9f2);
+}
