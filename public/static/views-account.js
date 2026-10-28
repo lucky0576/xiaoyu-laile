@@ -328,6 +328,20 @@ export async function renderRegister(ctx, query) {
   const industries = ctx.state.taxonomy?.industries || [];
   const provinces = ctx.state.taxonomy?.cities || [];
 
+  /*
+   * 推荐码。
+   * 这里之前漏了这个变量 —— 但下面注册请求里又写了 ref: refCode，
+   * 一提交就抛 ReferenceError，被 catch 包成「注册失败」，
+   * 所以手机号和邮箱注册其实都发不出去。补上。
+   */
+  let pendingRef = '';
+  try {
+    pendingRef = sessionStorage.getItem('xyl_ref') || '';
+  } catch {
+    /* ignore */
+  }
+  const refCode = String(query.ref || pendingRef || '').trim().toUpperCase();
+
   const html = `<div class="page">
     <div class="center" style="padding:20px 0 8px">
       <img class="auth-logo" src="/static/logo.png" srcset="/static/logo.png 1x, /static/logo@2x.png 2x" alt="小鱼来了">
@@ -354,17 +368,39 @@ export async function renderRegister(ctx, query) {
 
     <div class="card card-pad">
       <div class="strong mb12">账号信息</div>
-      <div class="field">
-        <label>手机号 <span style="color:var(--danger)">*</span></label>
-        <input class="input" id="rg-phone" type="tel" maxlength="11" placeholder="11 位手机号，用于登录">
+      <div class="chips mb12" id="rg-mode">
+        <a class="chip active" data-mode="phone" href="javascript:;">手机号注册</a>
+        <a class="chip" data-mode="email" href="javascript:;">邮箱注册</a>
       </div>
-      <div class="field">
-        <label>图形验证码 <span style="color:var(--danger)">*</span></label>
-        <div class="input-group">
-          <input class="input" id="rg-captcha" maxlength="6" placeholder="输入右侧图中字符" autocomplete="off">
-          <img id="rg-captcha-img" alt="图形验证码" title="点击刷新" style="height:44px;width:132px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#f4f8fc;flex:0 0 auto" />
+
+      <div id="rg-pane-phone">
+        <div class="field">
+          <label>手机号 <span style="color:var(--danger)">*</span></label>
+          <input class="input" id="rg-phone" type="tel" maxlength="11" placeholder="11 位手机号，用于登录">
         </div>
-        <div class="hint">看不清？点击图片换一张</div>
+        <div class="field">
+          <label>图形验证码 <span style="color:var(--danger)">*</span></label>
+          <div class="input-group">
+            <input class="input" id="rg-captcha" maxlength="6" placeholder="输入右侧图中字符" autocomplete="off">
+            <img id="rg-captcha-img" alt="图形验证码" title="点击刷新" style="height:44px;width:132px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#f4f8fc;flex:0 0 auto" />
+          </div>
+          <div class="hint">看不清？点击图片换一张</div>
+        </div>
+      </div>
+
+      <div id="rg-pane-email" class="hide">
+        <div class="field">
+          <label>邮箱 <span style="color:var(--danger)">*</span></label>
+          <div class="input-group">
+            <input class="input" id="rg-email" type="email" placeholder="you@example.com" autocomplete="email">
+            <button class="btn btn-sm" id="rg-send-code" type="button" style="flex:none;white-space:nowrap">获取验证码</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>邮箱验证码 <span style="color:var(--danger)">*</span></label>
+          <input class="input" id="rg-code" maxlength="6" placeholder="6 位验证码" autocomplete="one-time-code">
+          <div class="hint" id="rg-code-tip">点「获取验证码」后会发到你的邮箱</div>
+        </div>
       </div>
       <div class="field">
         <label>设置密码 <span style="color:var(--danger)">*</span></label>
@@ -425,6 +461,7 @@ export async function renderRegister(ctx, query) {
       const $ = (s) => root.querySelector(s);
       let accountType = 'personal';
       let captchaId = '';
+      let regMode = 'phone'; // phone | email
 
       const typeHint = {
         personal: '注册后需完成实名认证：填写姓名与身份证号，并上传身份证正反面照片。',
@@ -460,11 +497,122 @@ export async function renderRegister(ctx, query) {
       await refreshCaptcha();
       $('#rg-captcha-img')?.addEventListener('click', refreshCaptcha);
 
+      /* ---------------- 手机号 / 邮箱 切换 ---------------- */
+      $('#rg-mode')?.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-mode]');
+        if (!chip) return;
+        regMode = chip.dataset.mode || 'phone';
+        root.querySelectorAll('#rg-mode .chip').forEach((el) => el.classList.toggle('active', el === chip));
+        $('#rg-pane-phone')?.classList.toggle('hide', regMode !== 'phone');
+        $('#rg-pane-email')?.classList.toggle('hide', regMode !== 'email');
+      });
+
+      /* ---------------- 邮箱验证码 ---------------- */
+      let codeTimer = null;
+      $('#rg-send-code')?.addEventListener('click', async () => {
+        const btn = $('#rg-send-code');
+        const email = String($('#rg-email')?.value || '').trim().toLowerCase();
+        const tip = $('#rg-code-tip');
+        const setTip = (m, c) => {
+          if (tip) {
+            tip.textContent = m;
+            tip.style.color = c || '';
+          }
+        };
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          setTip('请先填正确的邮箱', '#c0392b');
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = '发送中…';
+        try {
+          const r = await service.mailSend(email, 'register');
+          /*
+           * 没配 SMTP 时服务端会直接把验证码返回（demo 模式）。
+           * 以前前端完全没接这个入口，用户根本不知道要填什么；
+           * 现在直接显示出来并自动填入，先让人把账号注册上。
+           */
+          if (r && r.demoCode) {
+            const codeEl = $('#rg-code');
+            if (codeEl) codeEl.value = r.demoCode;
+            setTip(`演示模式（未配置 SMTP）：验证码 ${r.demoCode} 已自动填入`, '#0e8f5f');
+          } else {
+            setTip('验证码已发送，请查收邮箱（5 分钟内有效）', '#0e8f5f');
+          }
+          // 60 秒倒计时
+          let left = 60;
+          btn.textContent = `${left}s 后可重发`;
+          clearInterval(codeTimer);
+          codeTimer = setInterval(() => {
+            left -= 1;
+            if (left <= 0) {
+              clearInterval(codeTimer);
+              btn.disabled = false;
+              btn.textContent = '重新获取';
+            } else {
+              btn.textContent = `${left}s 后可重发`;
+            }
+          }, 1000);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = '获取验证码';
+          setTip(err.message || '发送失败', '#c0392b');
+          ui.toast(err.message || '验证码发送失败', 'err');
+        }
+      });
+
+      await refreshCaptcha();
+      $('#rg-captcha-img')?.addEventListener('click', refreshCaptcha);
+
       $('#rg-submit')?.addEventListener('click', async () => {
-        const phone = ($('#rg-phone').value || '').trim();
-        const captchaCode = ($('#rg-captcha').value || '').trim();
         const password = $('#rg-password').value || '';
         const password2 = $('#rg-password2').value || '';
+
+        /* ---------------- 邮箱注册 ---------------- */
+        if (regMode === 'email') {
+          const email = String($('#rg-email')?.value || '').trim().toLowerCase();
+          const code = String($('#rg-code')?.value || '').trim();
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return ui.toast('请输入正确的邮箱', 'err');
+          if (!code) return ui.toast('请输入邮箱验证码', 'err');
+          if (password.length < 6) return ui.toast('密码至少 6 位', 'err');
+          if (password !== password2) return ui.toast('两次输入的密码不一致', 'err');
+          if (!$('#rg-agree').checked) return ui.toast('请先同意服务条款', 'err');
+
+          const btnE = $('#rg-submit');
+          btnE.disabled = true;
+          btnE.textContent = '注册中…';
+          try {
+            const res = await service.mailRegister({
+              email,
+              password,
+              code,
+              nickname: ($('#rg-nickname').value || '').trim(),
+              company: ($('#rg-company').value || '').trim(),
+              profession: ($('#rg-profession').value || '').trim(),
+              industry: $('#rg-industry').value || '',
+              city: ($('#rg-city').value || '').trim(),
+              wechatId: ($('#rg-wechat').value || '').trim(),
+              accountType,
+              invite: query.invite,
+              ref: refCode,
+            });
+            store.token = res.token;
+            store.user = res.user;
+            await ctx.refreshMe();
+            ui.toast('注册成功', 'ok');
+            const redirectE = query.redirect || '#/verify';
+            ctx.nav(redirectE.startsWith('#') ? redirectE : `#${redirectE}`);
+          } catch (err) {
+            ui.toast(err.message || '注册失败', 'err');
+            btnE.disabled = false;
+            btnE.textContent = '注册并登录';
+          }
+          return;
+        }
+
+        /* ---------------- 手机号注册 ---------------- */
+        const phone = ($('#rg-phone').value || '').trim();
+        const captchaCode = ($('#rg-captcha').value || '').trim();
 
         if (!/^1[3-9]\d{9}$/.test(phone)) return ui.toast('请输入正确的手机号', 'err');
         if (!captchaCode) return ui.toast('请输入图形验证码', 'err');
@@ -489,8 +637,8 @@ export async function renderRegister(ctx, query) {
             wechatId: ($('#rg-wechat').value || '').trim(),
             accountType,
             invite: query.invite,
-      ref: refCode,
-          });
+              ref: refCode,
+            });
           store.token = res.token;
           store.user = res.user;
           await ctx.refreshMe();
