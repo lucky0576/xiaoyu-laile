@@ -783,6 +783,16 @@ const MEDIA_BLOCKS = [
  * 所以这里有独立表单，字段也更像编辑后台：
  * 标题 / 摘要 / 正文 / 封面 / 来源 / 标签。
  */
+/**
+ * 发布新闻资讯。
+ *
+ * 三种输入方式：
+ *   1. 手写（标题 / 摘要 / 正文）
+ *   2. 粘贴链接 → 自动抓正文、标题、封面
+ *   3. 拖入图片 / 文件 / 视频 → 图片作封面，其余作附件
+ *
+ * 附件跟正文一起提交，详情页能预览 PDF/PPT（复用 /api/preview）和播放视频。
+ */
 async function renderPublishNews(ctx) {
   let tags = [];
   try {
@@ -793,35 +803,57 @@ async function renderPublishNews(ctx) {
   }
 
   const html = `<div class="page">
-    <div class="card card-pad">
+    <div class="card card-pad" id="news-card">
       <div class="strong mb8">📰 发布新闻资讯</div>
       <div class="tiny dim mb12">
-        行业新闻、政策解读、企业动态、项目进展都可以发。发布后会出现在「资讯」列表里。
+        行业新闻、政策解读、企业动态都可以发。可以直接粘链接，也可以把图片 / 文件 / 视频拖进来。
       </div>
 
       <a class="cat-card mb12" href="#/publish?category=project" style="display:inline-flex;padding:8px 12px">
         <span class="tiny">← 想发项目 / 活动 / 贸易？点这里</span>
       </a>
 
-      <div class="field">
+      <!-- 从链接导入 -->
+      <div class="url-import mb12">
+        <div class="row between mb6">
+          <div class="strong" style="font-size:13px">🔗 从链接导入</div>
+          <span class="tiny dim">自动抓取标题、正文和封面</span>
+        </div>
+        <div class="row gap8" style="align-items:center">
+          <input class="input grow" id="news-url" maxlength="800" placeholder="粘贴新闻 / 公众号 / 招标公告链接">
+          <button class="btn btn-sm btn-primary" id="news-url-btn" type="button" style="flex:none">导入</button>
+        </div>
+        <div class="tiny dim mt6" id="news-url-tip">抓取后可再手动改</div>
+      </div>
+
+      <!-- 拖入 -->
+      <div class="news-drop" id="news-drop">
+        <div class="nd-ico">📥</div>
+        <div class="nd-t">把图片 / 文件 / 视频拖到这里</div>
+        <div class="nd-d">图片自动作封面 · 文档和视频作为附件 · 也可以点这里选文件</div>
+        <input type="file" id="news-file-input" multiple hidden
+          accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z">
+      </div>
+
+      <div class="field mt12">
         <label>标题 <span style="color:#e74c3c">*</span></label>
-        <input class="input" id="news-title" maxlength="200" placeholder="一句话说清这条资讯的核心，比如：内蒙古 200MW 风电项目获核准">
+        <input class="input" id="news-title" maxlength="200" placeholder="一句话说清这条资讯的核心">
         <div class="tiny dim mt4"><span id="news-title-count">0</span>/200</div>
       </div>
 
       <div class="field">
-        <label>摘要 <span class="tiny dim">（选填，列表里显示，不填会自动截取正文）</span></label>
+        <label>摘要 <span class="tiny dim">（选填，列表里显示）</span></label>
         <textarea class="textarea" id="news-summary" maxlength="200" style="min-height:66px" placeholder="一两句话说清重点"></textarea>
       </div>
 
       <div class="field">
         <label>正文 <span style="color:#e74c3c">*</span></label>
-        <textarea class="textarea" id="news-text" style="min-height:220px" placeholder="正文内容，至少 20 字。可以分段，空行即分段。"></textarea>
+        <textarea class="textarea" id="news-text" style="min-height:220px" placeholder="正文内容，至少 20 字。空行即分段。"></textarea>
         <div class="tiny dim mt4"><span id="news-text-count">0</span> 字（至少 20 字）</div>
       </div>
 
       <div class="field">
-        <label>封面图 <span class="tiny dim">（选填，列表卡片会用）</span></label>
+        <label>封面图 <span class="tiny dim">（选填，拖入图片会自动填这里）</span></label>
         <div class="row gap8" style="align-items:center">
           <button class="btn btn-sm" id="news-cover-btn" type="button">📷 选择图片</button>
           <input type="file" id="news-cover-input" accept="image/*" hidden>
@@ -829,6 +861,11 @@ async function renderPublishNews(ctx) {
         </div>
         <img id="news-cover-prev" class="hide" alt=""
           style="margin-top:8px;width:100%;max-width:320px;border-radius:10px;display:block">
+      </div>
+
+      <div class="field">
+        <label>附件 <span class="tiny dim">（选填，文档 / 视频 / 图片都行）</span></label>
+        <div id="news-files" class="news-files"></div>
       </div>
 
       <div class="field">
@@ -865,7 +902,7 @@ async function renderPublishNews(ctx) {
         }
       };
 
-      /* 字数统计 */
+      /* ---------------- 字数统计 ---------------- */
       const titleEl = $('#news-title');
       const textEl = $('#news-text');
       titleEl?.addEventListener('input', () => {
@@ -877,14 +914,79 @@ async function renderPublishNews(ctx) {
         if (c) c.textContent = String(textEl.value.trim().length);
       });
 
-      /* 封面图 */
+      /* ---------------- 从链接导入 ---------------- */
       let coverFile = null;
       let coverPreviewUrl = '';
-      const coverInput = $('#news-cover-input');
-      $('#news-cover-btn')?.addEventListener('click', () => coverInput?.click());
-      coverInput?.addEventListener('change', async () => {
-        const f = coverInput.files && coverInput.files[0];
-        if (!f) return;
+      let linkUrl = '';
+
+      const importUrl = async () => {
+        const u = String($('#news-url')?.value || '').trim();
+        const tip = $('#news-url-tip');
+        const setTip = (m, c) => {
+          if (tip) {
+            tip.textContent = m;
+            tip.style.color = c || '';
+          }
+        };
+        if (!u) return setTip('请先粘贴链接', '#c0392b');
+        if (!/^https?:\/\//i.test(u)) return setTip('链接要以 http:// 或 https:// 开头', '#c0392b');
+
+        const btn = $('#news-url-btn');
+        btn.disabled = true;
+        btn.textContent = '抓取中…';
+        setTip('正在抓取并解析…');
+        try {
+          const r = await service.aiFetchUrl(u);
+          if (!r || !r.ok) return setTip(r?.note || '解析失败', '#c0392b');
+          linkUrl = u;
+
+          // 标题：优先用网页标题，太短就别用
+          const t = String(r.title || '').trim();
+          if (t && t.length >= 4 && !titleEl.value.trim()) titleEl.value = t.slice(0, 200);
+          titleEl.dispatchEvent(new Event('input'));
+
+          // 正文
+          const body = String(r.text || '').trim();
+          if (body && !textEl.value.trim()) textEl.value = body.slice(0, 20000);
+          textEl.dispatchEvent(new Event('input'));
+
+          // 摘要
+          const sumEl = $('#news-summary');
+          if (sumEl && !sumEl.value.trim() && body) sumEl.value = body.slice(0, 120);
+
+          // 封面：抓到的第一张图
+          const f0 = Array.isArray(r.files) ? r.files[0] : null;
+          if (f0 && f0.url && !coverPreviewUrl) {
+            coverPreviewUrl = f0.url;
+            const prev = $('#news-cover-prev');
+            if (prev) {
+              prev.src = f0.url;
+              prev.classList.remove('hide');
+              prev.style.display = 'block';
+            }
+            const nm = $('#news-cover-name');
+            if (nm) nm.textContent = '已用网页配图';
+          }
+
+          setTip(`✅ 已抓取 ${r.chars || body.length} 字${f0 ? ' + 配图' : ''}`, '#0e8f5f');
+          ui.toast('链接已导入', 'ok');
+        } catch (err) {
+          setTip(err.message || '导入失败', '#c0392b');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '导入';
+        }
+      };
+      $('#news-url-btn')?.addEventListener('click', importUrl);
+      $('#news-url')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          importUrl();
+        }
+      });
+
+      /* ---------------- 封面 ---------------- */
+      const setCoverFromFile = async (f) => {
         coverFile = f;
         const nameEl = $('#news-cover-name');
         if (nameEl) nameEl.textContent = `${f.name} · ${Math.round(f.size / 1024)} KB`;
@@ -900,28 +1002,141 @@ async function renderPublishNews(ctx) {
         } catch {
           /* 预览失败不影响上传 */
         }
+      };
+
+      const coverInput = $('#news-cover-input');
+      $('#news-cover-btn')?.addEventListener('click', () => coverInput?.click());
+      coverInput?.addEventListener('change', () => {
+        const f = coverInput.files && coverInput.files[0];
+        if (f) setCoverFromFile(f);
       });
 
-      /* 标签多选，最多 3 个 */
-      const picked = new Set();
+      /* ---------------- 附件 ---------------- */
+      const picked = []; // { file, name, size, kind }
+      const kindOf = (f) => {
+        const mime = String(f.type || '');
+        const name = String(f.name || '').toLowerCase();
+        if (/^image\//.test(mime)) return 'image';
+        if (/^video\//.test(mime)) return 'video';
+        if (/\.(pdf|docx?|xlsx?|pptx?|txt)$/.test(name) || mime.includes('pdf') || mime.includes('officedocument'))
+          return 'doc';
+        return 'other';
+      };
+      const ICON = { image: '🖼', video: '🎬', doc: '📄', other: '📎' };
+
+      const paintFiles = () => {
+        const box = $('#news-files');
+        if (!box) return;
+        if (!picked.length) {
+          box.innerHTML = '<div class="tiny dim">还没有附件</div>';
+          return;
+        }
+        box.innerHTML = picked
+          .map(
+            (p, i) => `<div class="nf-row">
+              <span class="nf-ico">${ICON[p.kind] || '📎'}</span>
+              <span class="nf-name">${ui.esc(p.file.name)}</span>
+              <span class="nf-size">${Math.max(1, Math.round(p.file.size / 1024))} KB</span>
+              <button class="nf-x" type="button" data-i="${i}">✕</button>
+            </div>`,
+          )
+          .join('');
+      };
+      paintFiles();
+
+      $('#news-files')?.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('.nf-x');
+        if (!btn) return;
+        picked.splice(Number(btn.dataset.i), 1);
+        paintFiles();
+      });
+
+      const addFiles = async (files) => {
+        const list = [...files];
+        for (const f of list) {
+          const k = kindOf(f);
+          // 第一张图片且还没有封面 → 直接当封面
+          if (k === 'image' && !coverFile && !coverPreviewUrl) {
+            await setCoverFromFile(f);
+            continue;
+          }
+          if (picked.length >= 9) {
+            ui.toast('附件最多 9 个', 'err');
+            break;
+          }
+          picked.push({ file: f, kind: k });
+        }
+        paintFiles();
+        if (list.length) say(`已添加 ${list.length} 个文件`, '#0e8f5f');
+      };
+
+      $('#news-file-input')?.addEventListener('change', (e) => {
+        addFiles(e.target.files || []);
+        e.target.value = '';
+      });
+
+      /* ---------------- 拖放 ---------------- */
+      const drop = $('#news-drop');
+      if (drop) {
+        const multi = () => $('#news-file-input')?.click();
+        drop.addEventListener('click', multi);
+        let depth = 0;
+        drop.addEventListener('dragenter', (e) => {
+          e.preventDefault();
+          depth += 1;
+          drop.classList.add('over');
+        });
+        drop.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        });
+        drop.addEventListener('dragleave', () => {
+          depth = Math.max(0, depth - 1);
+          if (!depth) drop.classList.remove('over');
+        });
+        drop.addEventListener('drop', (e) => {
+          e.preventDefault();
+          // 必须阻止冒泡，否则卡片上的兜底监听会再收一次，附件重复两份
+          e.stopPropagation();
+          depth = 0;
+          drop.classList.remove('over');
+          const files = e.dataTransfer?.files;
+          if (files && files.length) addFiles(files);
+        });
+      }
+
+      // 整张卡片也接受拖放，避免用户拖歪
+      const card = $('#news-card');
+      if (card) {
+        card.addEventListener('dragover', (e) => {
+          if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+        });
+        card.addEventListener('drop', (e) => {
+          if (!e.dataTransfer?.files?.length) return;
+          e.preventDefault();
+          // 拖到拖入区已经处理过了，这里不再重复
+          if (e.target.closest('#news-drop')) return;
+          addFiles(e.dataTransfer.files);
+        });
+      }
+
+      /* ---------------- 标签 ---------------- */
+      const tagPicked = new Set();
       $('#news-tags')?.addEventListener('click', (ev) => {
         const chip = ev.target.closest('[data-tag]');
         if (!chip) return;
         const id = chip.dataset.tag;
-        if (picked.has(id)) {
-          picked.delete(id);
+        if (tagPicked.has(id)) {
+          tagPicked.delete(id);
           chip.classList.remove('active');
         } else {
-          if (picked.size >= 3) {
-            ui.toast('最多选 3 个标签', 'err');
-            return;
-          }
-          picked.add(id);
+          if (tagPicked.size >= 3) return ui.toast('最多选 3 个标签', 'err');
+          tagPicked.add(id);
           chip.classList.add('active');
         }
       });
 
-      /* 提交 */
+      /* ---------------- 提交 ---------------- */
       const btn = $('#news-submit');
       btn?.addEventListener('click', async () => {
         const title = String(titleEl?.value || '').trim();
@@ -935,17 +1150,39 @@ async function renderPublishNews(ctx) {
         btn.disabled = true;
         const old = btn.textContent;
         try {
+          /* 附件和封面上传；单个失败不阻塞整体 */
+          const attachments = [];
+          const uploadOne = async (file) => {
+            try {
+              const up = await api.uploadFile(file);
+              const f0 = (up && up.files && up.files[0]) || up;
+              return f0 && f0.url ? f0 : null;
+            } catch (err) {
+              console.warn('[news] 上传失败:', file.name, err && err.message);
+              return null;
+            }
+          };
+
           let coverUrl = coverPreviewUrl;
-          // 只有真的选了文件才上传，且不阻塞正文发布
           if (coverFile) {
             btn.textContent = '上传封面…';
-            try {
-              const up = await service.uploadFile(coverFile);
-              const f0 = (up && up.files && up.files[0]) || up;
-              if (f0 && f0.url) coverUrl = f0.url;
-            } catch (err) {
-              console.warn('[news] 封面上传失败，改为不带封面发布', err);
-              coverUrl = '';
+            const c = await uploadOne(coverFile);
+            if (c) coverUrl = c.url;
+            else coverUrl = '';
+          }
+
+          for (let i = 0; i < picked.length; i++) {
+            btn.textContent = `上传附件 ${i + 1}/${picked.length}…`;
+            const rec = await uploadOne(picked[i].file);
+            if (rec) {
+              attachments.push({
+                id: rec.id,
+                name: rec.name || picked[i].file.name,
+                mime: rec.mime || picked[i].file.type,
+                size: rec.size || picked[i].file.size,
+                url: rec.url,
+                kind: picked[i].kind,
+              });
             }
           }
 
@@ -956,10 +1193,16 @@ async function renderPublishNews(ctx) {
             text,
             coverUrl,
             sourceName,
-            tags: [...picked],
+            link: linkUrl,
+            tags: [...tagPicked],
+            attachments,
           });
-          ui.toast('资讯已发布', 'ok');
           const id = (r && (r.id || (r.news && r.news.id))) || r?.data?.id;
+          if (attachments.length < picked.length) {
+            ui.toast(`已发布，${picked.length - attachments.length} 个附件上传失败`, 'err');
+          } else {
+            ui.toast('资讯已发布', 'ok');
+          }
           ctx.nav(id ? `#/news/${id}` : '#/news');
         } catch (err) {
           say(err.message || '发布失败', '#c0392b');

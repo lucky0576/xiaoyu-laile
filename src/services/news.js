@@ -507,7 +507,17 @@ export function newsStats() {
  * 抓取来的新闻有 urlKey 去重；用户发的是原创内容，urlKey 留空即可。
  * 字段跟抓取来的保持一致，这样列表页 / 详情页不用区分来源。
  */
-export function createNews({ user, title, summary, text, tags, coverUrl, sourceName } = {}) {
+export function createNews({
+  user,
+  title,
+  summary,
+  text,
+  tags,
+  coverUrl,
+  sourceName,
+  link,
+  attachments,
+} = {}) {
   const store = news();
   const now = new Date().toISOString();
   const row = {
@@ -521,6 +531,22 @@ export function createNews({ user, title, summary, text, tags, coverUrl, sourceN
     summary: String(summary || '').trim().slice(0, 500),
     text: String(text || '').trim().slice(0, 20000),
     coverUrl: String(coverUrl || '').trim().slice(0, 500),
+    // 用户填的原文链接（跟抓取来的 url 复用同一个字段）
+    url: String(link || '').trim().slice(0, 800),
+    // 附件：文档 / 视频 / 图片，详情页按类型分别渲染
+    attachments: Array.isArray(attachments)
+      ? attachments
+          .filter((f) => f && f.url)
+          .slice(0, 9)
+          .map((f) => ({
+            id: String(f.id || ''),
+            name: String(f.name || '附件').slice(0, 120),
+            mime: String(f.mime || ''),
+            size: Number(f.size) || 0,
+            url: String(f.url),
+            kind: String(f.kind || 'other'),
+          }))
+      : [],
     publishedAt: now,
     fetchedAt: now,
     hot: false,

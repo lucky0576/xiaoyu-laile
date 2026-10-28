@@ -3085,3 +3085,46 @@ a.sp-item:active { background: #f7fbff; }
   cursor: pointer; flex: none;
 }
 #last-login-box { border: 1px solid #dbe6ff; background: #f5f9ff; }
+/* ---------------- 新闻发布：拖入区 ---------------- */
+.news-drop {
+  border: 1.5px dashed #ccd6e4;
+  border-radius: 12px;
+  padding: 20px 14px;
+  text-align: center;
+  background: #fafcff;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.news-drop:hover { background: #f2f7ff; border-color: #9fbdf0; }
+.news-drop.over { background: #e8f2ff; border-color: var(--brand, #0b74ff); }
+.news-drop .nd-ico { font-size: 26px; line-height: 1; }
+.news-drop .nd-t { font-size: 14px; font-weight: 600; margin-top: 6px; color: #223; }
+.news-drop .nd-d { font-size: 12px; color: #8a94a6; margin-top: 4px; line-height: 1.5; }
+
+.news-files { display: flex; flex-direction: column; gap: 6px; }
+.nf-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 9px;
+  background: #f6f8fc; font-size: 13px;
+}
+.nf-ico { flex: none; }
+.nf-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nf-size { flex: none; color: #8a94a6; font-size: 12px; }
+.nf-x { flex: none; border: none; background: transparent; color: #98a2b3; font-size: 14px; cursor: pointer; padding: 2px 4px; }
+.nf-x:hover { color: #e74c3c; }
+
+/* ---------------- 新闻详情 ---------------- */
+.news-cover-wrap { margin-top: 12px; border-radius: 12px; overflow: hidden; }
+.news-cover { width: 100%; display: block; }
+.news-imgs { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.news-imgs img { width: 100%; border-radius: 12px; display: block; }
+.news-vids { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.news-vid { width: 100%; border-radius: 12px; background: #000; display: block; max-height: 70vh; }
+.news-file-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 0; border-bottom: 1px solid #eef1f6; font-size: 13px;
+}
+.news-file-row:last-child { border-bottom: none; }
+.nfr-ico { flex: none; }
+.nfr-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nfr-size { flex: none; color: #8a94a6; font-size: 12px; }

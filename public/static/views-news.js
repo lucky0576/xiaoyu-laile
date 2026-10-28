@@ -154,7 +154,77 @@ export async function renderNewsDetail(ctx, { id }) {
     .map((p) => `<p>${ui.esc(p)}</p>`)
     .join('');
 
-  return {
+  /* 封面 */
+  const cover = n.coverUrl ? ui.safeUrl(n.coverUrl) : '';
+  const coverHtml = cover
+    ? `<div class="news-cover-wrap"><img class="news-cover" src="${ui.esc(cover)}" alt="" loading="lazy"></div>`
+    : '';
+
+  /*
+   * 附件：按类型分别渲染
+   *   图片 → 直接铺开
+   *   视频 → 原生播放器
+   *   文档 → 卡片 + 「预览」（走 /api/preview）
+   *   其他 → 下载
+   */
+  const files = Array.isArray(n.attachments) ? n.attachments : [];
+  const imgFiles = files.filter((f) => /^image\//i.test(f.mime || '') || f.kind === 'image');
+  const vidFiles = files.filter((f) => /^video\//i.test(f.mime || '') || f.kind === 'video');
+  const docFiles = files.filter((f) => !imgFiles.includes(f) && !vidFiles.includes(f));
+
+  const docPreviewable = (f) => {
+    const name = String(f.name || '').toLowerCase();
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    if (ext === 'pdf') return true;
+    return ['ppt', 'pptx', 'pps', 'ppsx', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'ods', 'odp'].includes(ext);
+  };
+
+  const imgsHtml = imgFiles.length
+    ? `<div class="news-imgs">${imgFiles
+        .map((f) => `<img src="${ui.esc(ui.safeUrl(f.url))}" alt="${ui.esc(f.name || '')}" loading="lazy">`)
+        .join('')}</div>`
+    : '';
+
+  const vidsHtml = vidFiles.length
+    ? `<div class="news-vids">${vidFiles
+        .map(
+          (f) => `<video class="news-vid" controls preload="metadata" playsinline
+            src="${ui.esc(ui.safeUrl(f.url))}"></video>`,
+        )
+        .join('')}</div>`
+    : '';
+
+  const docsHtml = docFiles.length
+    ? `<div class="card card-pad mt12">
+        <div class="strong mb8">📎 附件（${docFiles.length}）</div>
+        ${docFiles
+          .map(
+            (f) => `<div class="news-file-row">
+              <span class="nfr-ico">📄</span>
+              <span class="nfr-name">${ui.esc(f.name || '附件')}</span>
+              <span class="nfr-size">${f.size ? `${Math.max(1, Math.round(f.size / 1024))} KB` : ''}</span>
+              ${
+                docPreviewable(f)
+                  ? `<button class="btn btn-sm news-doc-open" type="button" data-fid="${ui.esc(f.id || '')}" data-fname="${ui.esc(f.name || '文档')}">👁 预览</button>`
+                  : ''
+              }
+              <a class="btn btn-sm" href="${ui.esc(ui.safeUrl(f.url))}" target="_blank" rel="noopener">下载</a>
+            </div>`,
+          )
+          .join('')}
+      </div>`
+    : '';
+
+  const linkHtml = n.url
+    ? `<div class="card card-pad mt12">
+        <a class="btn btn-block" href="${ui.esc(ui.safeUrl(n.url))}" target="_blank" rel="noopener noreferrer nofollow">
+          🔗 查看原文（${ui.esc(n.sourceName || '来源')}）
+        </a>
+        ${n.fromUser ? '' : '<div class="tiny dim center mt8">原文版权归原作者所有，本站仅做摘要与索引</div>'}
+      </div>`
+    : '';
+
+  const result = {
     title: n.title,
     showBack: true,
     content: `<div class="page news-detail">
@@ -164,20 +234,44 @@ export async function renderNewsDetail(ctx, { id }) {
           <span class="news-src">${ui.esc(n.sourceName || '')}</span>
           <span class="news-dot">·</span>
           <span>${new Date(n.publishedAt).toLocaleString('zh-CN')}</span>
+          ${n.authorName ? `<span class="news-dot">·</span><span>${ui.esc(n.authorName)}</span>` : ''}
         </div>
         ${(n.tags || []).length ? `<div class="news-tags mt8">${tagsHtml(n.tags)}</div>` : ''}
       </div>
 
-      <div class="card card-pad mt12 news-body">${paras || '<p class="muted">正文抓取失败，请查看原文</p>'}</div>
+      ${coverHtml}
 
-      <div class="card card-pad mt12">
-        <a class="btn btn-block" href="${ui.esc(ui.safeUrl(n.url || '#'))}" target="_blank" rel="noopener noreferrer nofollow">
-          🔗 查看原文（${ui.esc(n.sourceName || '来源')}）
-        </a>
-        <div class="tiny dim center mt8">原文版权归原作者所有，本站仅做摘要与索引</div>
-      </div>
+      ${imgsHtml}
+
+      <div class="card card-pad mt12 news-body">${
+        paras || `<p class="muted">${n.fromUser ? '这条资讯没有正文' : '正文抓取失败，请查看原文'}</p>`
+      }</div>
+
+      ${vidsHtml}
+
+      ${docsHtml}
+
+      ${linkHtml}
     </div>`,
+    async mount(root) {
+      /* 文档预览复用首页那套 /api/preview 翻页器 */
+      const btns = root.querySelectorAll('.news-doc-open');
+      if (!btns.length) return;
+      let mod = null;
+      try {
+        mod = await import('./views-home.js');
+      } catch {
+        return;
+      }
+      btns.forEach((b) => {
+        b.addEventListener('click', () => {
+          mod.openDocPreview({ id: b.dataset.fid, name: b.dataset.fname || '文档' });
+        });
+      });
+    },
   };
+
+  return result;
 }
 
 export default { renderNews, renderNewsDetail };

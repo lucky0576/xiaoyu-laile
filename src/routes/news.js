@@ -65,6 +65,8 @@ export default function registerNewsRoutes(app) {
       tags: Array.isArray(req.body?.tags) ? req.body.tags : [],
       coverUrl: req.body?.coverUrl,
       sourceName: req.body?.sourceName,
+      link: req.body?.link,
+      attachments: Array.isArray(req.body?.attachments) ? req.body.attachments : [],
     });
     return data(res, { id: row.id, title: row.title });
   });
