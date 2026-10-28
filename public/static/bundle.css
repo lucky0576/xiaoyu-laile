@@ -4160,6 +4160,32 @@ a.sp-item:active { background: #f7fbff; }
   padding-top: 16px;
   border-top: 1px dashed var(--line, #e3e9f2);
 }
+/* ---------------- 资讯正文里的表格 ---------------- */
+.news-table-wrap {
+  margin: 14px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.news-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 100%;
+  background: #fff;
+}
+.news-table th,
+.news-table td {
+  border: 1px solid #e3e9f2;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: top;
+}
+.news-table th {
+  background: #f4f7fc;
+  font-weight: 600;
+  color: #223;
+}
+.news-table tbody tr:nth-child(even) td { background: #fafbfd; }
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播

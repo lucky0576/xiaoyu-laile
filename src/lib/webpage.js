@@ -194,8 +194,86 @@ function extractTitle(html) {
   return '';
 }
 
+/* 表格占位符，先挖出来，正文处理完再填回去，避免被当普通标签拍平 */
+const TBL_TOKEN = (i) => `@@TBL${i}@@`;
+
+/** 单元格里的 HTML 清成一行纯文字 */
+function cellText(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+    // 竖线会破坏 Markdown 表格结构
+    .replace(/\|/g, '/');
+}
+
+/**
+ * 把 HTML 表格转成 Markdown 表格。
+ *
+ * 为什么要转：以前表格被拍平成一行行文字，「项目 | 金额 | 时间」全挤在一起，
+ * 数字对不上列表，读者根本看不出这是张表。
+ * Markdown 表格是有结构的纯文本，存得下、也能再渲染成表。
+ */
+function tableToMarkdown(tableHtml) {
+  const rows = [];
+  const trRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let tr;
+  while ((tr = trRe.exec(tableHtml))) {
+    const cells = [];
+    const cellRe = /<(td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+    let td;
+    while ((td = cellRe.exec(tr[1]))) {
+      cells.push(cellText(td[2]));
+    }
+    if (cells.length) rows.push(cells);
+  }
+
+  // 至少两行两列才值得保留
+  if (rows.length < 2) return '';
+  const cols = Math.max(...rows.map((r) => r.length));
+  if (cols < 2) return '';
+
+  const pad = (r) => {
+    const out = r.slice(0, cols);
+    while (out.length < cols) out.push('');
+    return out;
+  };
+
+  const lines = [];
+  const head = pad(rows[0]);
+  lines.push(`| ${head.join(' | ')} |`);
+  lines.push(`| ${head.map(() => '---').join(' | ')} |`);
+  for (let i = 1; i < rows.length; i++) {
+    lines.push(`| ${pad(rows[i]).join(' | ')} |`);
+  }
+  return lines.join('\n');
+}
+
+/** 把正文里的 <table> 换成占位符，返回 { html, tables } */
+function extractTables(html) {
+  const tables = [];
+  const out = String(html || '').replace(/<table\b[\s\S]*?<\/table>/gi, (m) => {
+    const md = tableToMarkdown(m);
+    if (!md) return '\n'; // 太小的表直接丢掉
+    tables.push(md);
+    return `\n${TBL_TOKEN(tables.length - 1)}\n`;
+  });
+  return { html: out, tables };
+}
+
 function htmlToText(html, { max = 150000, minLine = 8 } = {}) {
   let s = String(html || '');
+
+  // 表格先挖出来，正文清洗完再填回，避免被当成普通标签拍平
+  const tbl = extractTables(s);
+  s = tbl.html;
 
   // 去掉整个块级噪音
   s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ');
@@ -303,6 +381,19 @@ function htmlToText(html, { max = 150000, minLine = 8 } = {}) {
     }
   }
   text = kept.slice(0, cut).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+  // 占位符换成真正的 Markdown 表格
+  if (tbl.tables.length) {
+    text = text
+      .split('\n')
+      .map((line) => {
+        const m = /^@@TBL(\d+)@@$/.exec(line.trim());
+        if (!m) return line;
+        return tbl.tables[Number(m[1])] || '';
+      })
+      .filter((x) => x !== '')
+      .join('\n');
+  }
 
   if (text.length > max) text = `${text.slice(0, max)}\n…（内容已截断）`;
   return { title, text };

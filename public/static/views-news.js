@@ -147,12 +147,56 @@ export async function renderNewsDetail(ctx, { id }) {
     };
   }
 
-  const paras = String(n.text || '')
-    .split('\n')
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .map((p) => `<p>${ui.esc(p)}</p>`)
-    .join('');
+  /*
+   * 正文渲染：普通段落照旧，连续的 Markdown 表格行合并成真正的 <table>。
+   *
+   * 从链接导入的资讯里常常带表格（报价、参数、时间表），
+   * 拍平成文字后数字对不上表头，读者根本看不出来这是张表。
+   */
+  const splitCells = (line) =>
+    line
+      .replace(/^\|/, '')
+      .replace(/\|$/, '')
+      .split('|')
+      .map((c) => c.trim());
+
+  const isTableLine = (line) => /^\|.*\|$/.test(line.trim());
+  const isSeparator = (line) => /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/.test(line.trim());
+
+  const renderTable = (rows) => {
+    if (!rows.length) return '';
+    const head = splitCells(rows[0]);
+    const bodyRows = rows.slice(1).filter((r) => !isSeparator(r)).map(splitCells);
+    const th = head.map((c) => `<th>${ui.esc(c)}</th>`).join('');
+    const tb = bodyRows
+      .map((r) => `<tr>${head.map((_, i) => `<td>${ui.esc(r[i] || '')}</td>`).join('')}</tr>`)
+      .join('');
+    return `<div class="news-table-wrap"><table class="news-table"><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+  };
+
+  const bodyHtml = (text) => {
+    const lines = String(text || '').split('\n');
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      if (isTableLine(line)) {
+        const rows = [];
+        while (i < lines.length && isTableLine(lines[i].trim())) {
+          rows.push(lines[i].trim());
+          i += 1;
+        }
+        const html = renderTable(rows);
+        if (html) out.push(html);
+        continue;
+      }
+      if (line) out.push(`<p>${ui.esc(line)}</p>`);
+      i += 1;
+    }
+    return out.join('');
+  };
+
+  const paras = bodyHtml(n.text);
 
   /* 封面 */
   const cover = n.coverUrl ? ui.safeUrl(n.coverUrl) : '';
