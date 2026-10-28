@@ -1419,6 +1419,11 @@ export async function renderDetail(ctx, params) {
         <div class="strong mb8">🤝 供需信息</div>
         <div class="small muted">
           ${listing.trade.tradeType ? `<div>类型：${ui.esc(listing.trade.tradeType)}</div>` : ''}
+          ${
+            listing.trade.tradeMode === 'futures'
+              ? `<div>交易方式：<b>期货</b>${listing.trade.futuresTerm ? ` · 周期 ${ui.esc(listing.trade.futuresTerm)}` : ' · 周期未填'}</div>`
+              : '<div>交易方式：现货</div>'
+          }
           ${listing.trade.quantity ? `<div>数量：${ui.esc(listing.trade.quantity)} ${ui.esc(listing.trade.unit || '')}</div>` : ''}
           ${listing.trade.price ? `<div>价格：${ui.esc(listing.trade.price)}</div>` : ''}
           ${listing.trade.payment ? `<div>付款：${ui.esc(listing.trade.payment)}</div>` : ''}

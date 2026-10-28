@@ -614,6 +614,9 @@ export async function createListing({ user, body = {}, files = [] }) {
       category === 'trade'
         ? {
             tradeType: clean(body.tradeType || ''),
+            // 现货 / 期货；期货时 futuresTerm 记周期（「3 个月」「2027 年 3 月交割」都可能）
+            tradeMode: clean(body.tradeMode || 'spot') === 'futures' ? 'futures' : 'spot',
+            futuresTerm: clean(body.futuresTerm || '').slice(0, 60),
             quantity: clean(body.quantity || ''),
             unit: clean(body.unit || ''),
             price: clean(body.price || ''),

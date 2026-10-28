@@ -1942,6 +1942,25 @@ export async function renderPublish(ctx, params) {
               </select>
             </div>
 
+            <div class="field">
+              <label>交易方式</label>
+              <div class="chips" id="f-tradeMode">
+                <a class="chip ${(editing?.trade?.tradeMode || 'spot') === 'spot' ? 'active' : ''}" href="javascript:;" data-mode="spot">现货</a>
+                <a class="chip ${editing?.trade?.tradeMode === 'futures' ? 'active' : ''}" href="javascript:;" data-mode="futures">期货</a>
+              </div>
+              <div class="tiny dim mt4">现货＝立刻可交；期货＝约定未来某个时间交割</div>
+            </div>
+
+            <div class="field ${editing?.trade?.tradeMode === 'futures' ? '' : 'hide'}" id="f-futures-wrap">
+              <label>期货周期 <span class="tiny dim">（选一个，或自己填）</span></label>
+              <div class="chips mb8" id="f-futures-preset">
+                ${['1 个月', '3 个月', '6 个月', '12 个月'].map((t) => `<a class="chip ${editing?.trade?.futuresTerm === t ? 'active' : ''}" href="javascript:;" data-term="${t}">${t}</a>`).join('')}
+              </div>
+              <input class="input" id="f-futuresTerm" maxlength="60"
+                placeholder="也可以直接写，比如「2027 年 3 月交割」「90 天内」"
+                value="${ui.esc(editing?.trade?.futuresTerm || '')}">
+            </div>
+
             <div class="form-section-title">物资明细</div>
             <div class="tiny dim mb8">多条物资可逐条添加，也可让 AI 从上面的内容自动汇总；<b>2 条以上会自动用表格展示</b>。</div>
             <div class="trade-ai-bar mb8">
@@ -2036,6 +2055,38 @@ export async function renderPublish(ctx, params) {
           bindQualBox(box);
           return;
         }
+
+        // 贸易：现货 / 期货 切换，期货才显示周期
+        const modeBox = box.querySelector('#f-tradeMode');
+        const futuresWrap = box.querySelector('#f-futures-wrap');
+        const termInput = box.querySelector('#f-futuresTerm');
+        const presetBox = box.querySelector('#f-futures-preset');
+        if (modeBox) {
+          modeBox.addEventListener('click', (e) => {
+            const chip = e.target.closest('[data-mode]');
+            if (!chip) return;
+            const mode = chip.dataset.mode;
+            modeBox.querySelectorAll('.chip').forEach((el) => el.classList.toggle('active', el === chip));
+            futuresWrap?.classList.toggle('hide', mode !== 'futures');
+            if (mode === 'futures') termInput?.focus();
+          });
+        }
+        if (presetBox) {
+          presetBox.addEventListener('click', (e) => {
+            const chip = e.target.closest('[data-term]');
+            if (!chip) return;
+            presetBox.querySelectorAll('.chip').forEach((el) => el.classList.toggle('active', el === chip));
+            if (termInput) termInput.value = chip.dataset.term || '';
+          });
+        }
+        if (termInput) {
+          // 手动改输入框时，清掉预设的选中态
+          termInput.addEventListener('input', () => {
+            presetBox
+              ?.querySelectorAll('.chip')
+              .forEach((el) => el.classList.toggle('active', el.dataset.term === termInput.value.trim()));
+          });
+        }
       };
 
       const collectCategoryFields = () => {
@@ -2062,7 +2113,10 @@ export async function renderPublish(ctx, params) {
         }
         if (category === 'trade') {
           return {
-            tradeType: v('#f-tradeType'), quantity: v('#f-quantity'), price: v('#f-price'),
+            tradeType: v('#f-tradeType'),
+            tradeMode: $('#f-tradeMode .chip.active')?.dataset.mode || 'spot',
+            futuresTerm: v('#f-futuresTerm'),
+            quantity: v('#f-quantity'), price: v('#f-price'),
             payment: v('#f-payment'), delivery: v('#f-delivery'), deadline: v('#f-deadline'),
             items: collectTradeItems(catBox),
           };
