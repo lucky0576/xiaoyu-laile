@@ -1343,11 +1343,8 @@ export async function renderPublish(ctx, params) {
     <div class="card card-pad mt12">
       <div class="strong mb8">2. 输入内容 或 导入文件</div>
 
-      <div class="field">
-        <label>相关链接 <span class="tiny dim">（选填，官网 / 招标公告 / 网盘 / 公众号文章等）</span></label>
-        <input class="input" id="pub-link" maxlength="500" placeholder="https://" value="${ui.esc(editing?.link || '')}">
-        <div class="tiny dim mt4" id="pub-link-hint">以 http:// 或 https:// 开头，发布后会显示成可点击的链接</div>
-      </div>
+      <!-- 相关链接输入框已去掉；保留隐藏值，编辑旧信息时不会把原链接清空 -->
+      <input type="hidden" id="pub-link" value="${ui.esc(editing?.link || '')}">
 
       <div class="url-import mb12">
         <div class="row between mb6">
@@ -1360,6 +1357,10 @@ export async function renderPublish(ctx, params) {
         </div>
         <div class="tiny dim mt6" id="pub-url-tip">抓取后会解析出正文，并自动过滤广告、联系方式与二维码；接着点「第一步：AI 汇总资料」即可</div>
         <div id="pub-url-result" class="mt8"></div>
+      </div>
+      <div class="row between mb6">
+        <div class="strong" style="font-size:13px">📝 项目情况</div>
+        <a class="tiny" href="javascript:;" id="pub-text-demo" style="color:var(--brand,#0b74ff)">填入示例</a>
       </div>
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
 山东东营 200MW 渔光互补光伏电站 EPC 总承包招标
@@ -2352,6 +2353,23 @@ export async function renderPublish(ctx, params) {
       };
       $('#pub-text')?.addEventListener('input', checkContacts);
       $('#pub-title')?.addEventListener('input', checkContacts);
+
+      /* 填入示例：给出可改的模板，不默认预填（免得用户没改就发了） */
+      $('#pub-text-demo')?.addEventListener('click', () => {
+        const ta = $('#pub-text');
+        if (!ta) return;
+        if (ta.value.trim()) {
+          ui.toast('正文已有内容，清空后再点「填入示例」', 'err');
+          return;
+        }
+        ta.value =
+          '山东东营 200MW 渔光互补光伏电站 EPC 总承包招标\n' +
+          '总投资约 8.6 亿元，工期 14 个月\n' +
+          '要求电力工程施工总承包一级资质，近三年 100MW 以上业绩不少于 2 个';
+        ta.focus();
+        checkContacts?.();
+        ui.toast('示例已填入，改成你的实际情况', 'ok');
+      });
 
       /* 链接实时校验提示 */
       const linkEl = $('#pub-link');
