@@ -53,9 +53,8 @@ export async function renderLogin(ctx, query) {
   const html = `<div class="page">
     ${refBanner}
     <div class="center" style="padding:26px 0 10px">
-      <div style="font-size:52px">🐟</div>
-      <h1 style="font-size:22px;margin-top:8px">${ui.esc(ctx.state.site?.name || '小鱼来了')}</h1>
-      <div class="small muted">${ui.esc(ctx.state.site?.slogan || '')}</div>
+      <img class="auth-logo" src="/static/logo.png" srcset="/static/logo.png 1x, /static/logo@2x.png 2x" alt="${ui.esc(ctx.state.site?.name || '小鱼来了')}">
+      <div class="small muted mt8">${ui.esc(ctx.state.site?.slogan || '')}</div>
     </div>
 
     <div class="card card-pad mb12" id="last-login-box" style="display:none"></div>
@@ -325,8 +324,8 @@ export async function renderRegister(ctx, query) {
 
   const html = `<div class="page">
     <div class="center" style="padding:20px 0 8px">
-      <div style="font-size:46px">🐟</div>
-      <h1 style="font-size:20px;margin-top:6px">注册${ui.esc(ctx.state.site?.name || '小鱼来了')}</h1>
+      <img class="auth-logo" src="/static/logo.png" srcset="/static/logo.png 1x, /static/logo@2x.png 2x" alt="小鱼来了">
+      <h1 style="font-size:18px;margin-top:10px">创建账号</h1>
       <div class="small muted">完善企业与行业信息，对接成功率更高</div>
     </div>
 

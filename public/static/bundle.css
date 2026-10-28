@@ -4122,6 +4122,29 @@ a.sp-item:active { background: #f7fbff; }
 .nfr-ico { flex: none; }
 .nfr-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nfr-size { flex: none; color: #8a94a6; font-size: 12px; }
+/* ---------------- 品牌 logo ---------------- */
+.brand-logo {
+  height: 19px;
+  width: auto;
+  display: block;
+  vertical-align: middle;
+}
+/* 页头标题链接里有 logo 时不要下划线 */
+.title-link:has(.brand-logo) { text-decoration: none; }
+
+.boot-logo img {
+  display: block;
+  height: 26px;
+  width: auto;
+  margin: 0 auto;
+}
+
+.auth-logo {
+  display: block;
+  height: 30px;
+  width: auto;
+  margin: 0 auto;
+}
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播

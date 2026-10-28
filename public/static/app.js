@@ -177,14 +177,18 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
     ? '<a class="icon-btn" href="#/home" id="nav-home" aria-label="回到首页" title="回到首页">🏠</a>'
     : '';
 
-  // 标题做成回首页的链接：
-  //   · 首页显示「🐟 小鱼来了」品牌
-  //   · 其他页显示页面名，同样点得回首页（满足"点击标题回首页"的预期）
-  //   · 没有底部导航的页面（noTab：登录/注册/通知/后台等）再额外给一个 🏠，
-  //     那些页面没有 tabbar，不放按钮用户会卡住
+  /*
+   * 标题做成回首页的链接：
+   *   · 首页显示品牌 logo（横版）—— 用图片而不是 emoji，视觉统一
+   *   · 其他页显示页面名，同样点得回首页
+   *   · 没有底部导航的页面（noTab：登录/注册/通知/后台等）再额外给一个 🏠，
+   *     那些页面没有 tabbar，不放按钮用户会卡住
+   */
   const titleEl = `<a class="title title-link" href="#/home" aria-label="回到首页" title="回到首页">${
-    isHome ? '🐟 ' : ''
-  }${ui.esc(titleText)}</a>`;
+    isHome
+      ? '<img class="brand-logo" src="/static/logo.png" srcset="/static/logo.png 1x, /static/logo@2x.png 2x" alt="小鱼来了" width="132" height="19">'
+      : ui.esc(titleText)
+  }</a>`;
 
   const topbar = fullscreen ? '' : `<div class="topbar">
     ${showBack ? '<button class="icon-btn" id="nav-back" aria-label="返回">←</button>' : ''}
