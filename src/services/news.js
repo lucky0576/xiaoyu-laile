@@ -463,7 +463,8 @@ export function newsPublic(n) {
 }
 
 export function listNews({ tag = '', q = '', page = 1, size = 20 } = {}) {
-  let rows = news().all();
+  // 软删除的不出现在前台
+  let rows = news().all().filter((n) => !n.deletedAt);
 
   if (tag) rows = rows.filter((n) => Array.isArray(n.tags) && n.tags.includes(tag));
   if (q) {
@@ -485,11 +486,13 @@ export function listNews({ tag = '', q = '', page = 1, size = 20 } = {}) {
 }
 
 export function getNews(id) {
-  return news().get(id) || null;
+  const n = news().get(id);
+  if (!n || n.deletedAt) return null;
+  return n;
 }
 
 export function newsStats() {
-  const rows = news().all();
+  const rows = news().all().filter((n) => !n.deletedAt);
   const counts = {};
   for (const n of rows) {
     for (const t of n.tags || []) counts[t] = (counts[t] || 0) + 1;
@@ -559,13 +562,80 @@ export function createNews({
   return row;
 }
 
-export function deleteNews(id) {
+/**
+ * 删除资讯 —— 改成软删除。
+ *
+ * 之前是真删，一旦误删（比如清理测试数据时条件写宽了）就再也找不回来，
+ * 而抓取来的资讯源站轮换后也补不回来。现在只打 deletedAt 标记：
+ *   · 列表 / 详情默认都看不到
+ *   · 管理端可以从回收站恢复
+ *   · 保留 30 天后由定时任务真正清掉
+ */
+export function deleteNews(id, operator) {
   const store = news();
-  if (!store.get(id)) return false;
-  store.remove(id);
+  const row = store.get(id);
+  if (!row) return false;
+  if (row.deletedAt) return true; // 已经删过
+  store.update(id, {
+    deletedAt: new Date().toISOString(),
+    deletedBy: operator?.id || '',
+    deletedByName: operator?.nickname || '',
+  });
   return true;
+}
+
+/** 从回收站恢复 */
+export function restoreNews(id) {
+  const store = news();
+  const row = store.get(id);
+  if (!row || !row.deletedAt) return false;
+  store.update(id, { deletedAt: '', deletedBy: '', deletedByName: '' });
+  return true;
+}
+
+/** 回收站列表 */
+export function listDeletedNews({ page = 1, size = 20 } = {}) {
+  const rows = news()
+    .all()
+    .filter((n) => n.deletedAt)
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+  const p = Math.max(1, Number(page) || 1);
+  const sz = Math.min(100, Math.max(1, Number(size) || 20));
+  return {
+    items: rows.slice((p - 1) * sz, p * sz),
+    total: rows.length,
+    page: p,
+    size: sz,
+  };
+}
+
+/** 超期清理：回收站里放了 30 天的真删掉 */
+export function purgeDeleted(days = 30) {
+  const store = news();
+  const cutoff = Date.now() - days * 86400_000;
+  let removed = 0;
+  for (const n of store.all()) {
+    if (!n.deletedAt) continue;
+    if (Date.parse(n.deletedAt) < cutoff) {
+      store.remove(n.id);
+      removed += 1;
+    }
+  }
+  return { removed };
 }
 
 export { cleanTitle, dateFromUrl };
 
-export default { refresh, pushLatest, listNews, getNews, newsPublic, newsStats, deleteNews, createNews };
+export default {
+  refresh,
+  pushLatest,
+  listNews,
+  getNews,
+  newsPublic,
+  newsStats,
+  deleteNews,
+  createNews,
+  restoreNews,
+  listDeletedNews,
+  purgeDeleted,
+};

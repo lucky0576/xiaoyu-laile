@@ -85,11 +85,30 @@ export default function registerNewsRoutes(app) {
     return data(res, r);
   });
 
-  app.delete('/api/admin/news/:id', (req, res) => {
+  /** 回收站 */
+  app.get('/api/admin/news/deleted', (req, res) => {
     requireAdmin(req);
-    const ok = newsSvc.deleteNews(req.params.id);
+    const q = queryOf(req);
+    return data(res, newsSvc.listDeletedNews({ page: num(q.page, 1), size: num(q.size, 20) }));
+  });
+
+  /** 从回收站恢复 */
+  app.post('/api/admin/news/:id/restore', (req, res) => {
+    requireAdmin(req);
+    const ok = newsSvc.restoreNews(req.params.id);
+    if (!ok) return fail(res, '资讯不存在或未删除', 404, 'not_found');
+    return data(res, { restored: true, id: req.params.id });
+  });
+
+  /**
+   * 删除资讯（软删除）。
+   * 误删可以 POST /api/admin/news/:id/restore 恢复。
+   */
+  app.delete('/api/admin/news/:id', (req, res) => {
+    const admin = requireAdmin(req);
+    const ok = newsSvc.deleteNews(req.params.id, admin);
     if (!ok) return fail(res, '资讯不存在', 404, 'not_found');
-    return data(res, { deleted: true, id: req.params.id });
+    return data(res, { deleted: true, id: req.params.id, recoverable: true });
   });
 
 }
