@@ -334,9 +334,15 @@ export async function renderRegister(ctx, query) {
    * 一提交就抛 ReferenceError，被 catch 包成「注册失败」，
    * 所以手机号和邮箱注册其实都发不出去。补上。
    */
+  /*
+   * 邀请码来源，按优先级：
+   *   1. 链接里的 ?ref=XXX
+   *   2. 扫码 / 点分享链进来的，app.js 会把码写进 localStorage 的 xyl_pending_ref
+   * 注意是 localStorage 不是 sessionStorage —— 微信里二次转发经常换标签页。
+   */
   let pendingRef = '';
   try {
-    pendingRef = sessionStorage.getItem('xyl_ref') || '';
+    pendingRef = localStorage.getItem('xyl_pending_ref') || '';
   } catch {
     /* ignore */
   }
@@ -413,6 +419,16 @@ export async function renderRegister(ctx, query) {
       <div class="field">
         <label>昵称</label>
         <input class="input" id="rg-nickname" placeholder="用于展示的名称">
+      </div>
+      <div class="field">
+        <label>邀请码 <span class="tiny dim">（选填）</span></label>
+        <input class="input" id="rg-ref" maxlength="20" placeholder="填了会加入邀请人的通讯录"
+          value="${ui.esc(refCode)}" style="text-transform:uppercase">
+        <div class="hint" id="rg-ref-tip">${
+          refCode
+            ? `已从分享链接自动填入：<b>${ui.esc(refCode)}</b>，不用改`
+            : '没有邀请码可以留空'
+        }</div>
       </div>
     </div>
 
@@ -496,6 +512,14 @@ export async function renderRegister(ctx, query) {
       };
       await refreshCaptcha();
       $('#rg-captcha-img')?.addEventListener('click', refreshCaptcha);
+
+      /** 以输入框为准，用户可能手改或粘贴别人的码 */
+      const readRefInput = () => {
+        const v = String($('#rg-ref')?.value || '')
+          .trim()
+          .toUpperCase();
+        return v || refCode;
+      };
 
       /* ---------------- 手机号 / 邮箱 切换 ---------------- */
       $('#rg-mode')?.addEventListener('click', (e) => {
@@ -594,7 +618,7 @@ export async function renderRegister(ctx, query) {
               wechatId: ($('#rg-wechat').value || '').trim(),
               accountType,
               invite: query.invite,
-              ref: refCode,
+              ref: readRefInput(),
             });
             store.token = res.token;
             store.user = res.user;
@@ -637,7 +661,7 @@ export async function renderRegister(ctx, query) {
             wechatId: ($('#rg-wechat').value || '').trim(),
             accountType,
             invite: query.invite,
-              ref: refCode,
+              ref: readRefInput(),
             });
           store.token = res.token;
           store.user = res.user;
