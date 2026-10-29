@@ -748,6 +748,7 @@ export async function renderBroadcast(ctx, params) {
         <button class="btn btn-sm btn-primary" id="bc-ai-go" type="button" style="flex:none">AI 搜索</button>
       </div>
       <div class="tiny dim mt6" id="bc-ai-tip">AI 不可用时会自动退回关键词匹配，不会没结果</div>
+      <div class="chips scroll mt8" id="bc-saved"></div>
     </div>
     <div class="card list-grid" id="list-box">
       ${items.length ? items.map(rowHtml).join('') : ui.emptyState('📭', '还没有可转发的信息')}
@@ -779,6 +780,77 @@ export async function renderBroadcast(ctx, params) {
       const qEl = root.querySelector('#bc-ai-q');
       const goBtn = root.querySelector('#bc-ai-go');
       const tipEl = root.querySelector('#bc-ai-tip');
+      const savedBox = root.querySelector('#bc-saved');
+
+      /*
+       * 常用搜索：每次搜完自动记一条（去重、最多 8 条），存在本地。
+       * 不用另外点「保存」——用户搜过什么本来就是他想反复用的，
+       * 想删掉点 chip 上的 ✕ 就行。
+       */
+      const SAVED_KEY = 'xyl_bcast_saved';
+
+      const loadSaved = () => {
+        try {
+          const arr = JSON.parse(localStorage.getItem(SAVED_KEY) || '[]');
+          return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string').slice(0, 8) : [];
+        } catch {
+          return [];
+        }
+      };
+
+      const storeSaved = (arr) => {
+        try {
+          localStorage.setItem(SAVED_KEY, JSON.stringify(arr.slice(0, 8)));
+        } catch {
+          /* 隐私模式忽略 */
+        }
+      };
+
+      let saved = loadSaved();
+
+      const paintSaved = () => {
+        if (!savedBox) return;
+        if (!saved.length) {
+          savedBox.innerHTML = '';
+          return;
+        }
+        savedBox.innerHTML =
+          `<span class="tiny dim" style="flex:none;display:flex;align-items:center">常用：</span>` +
+          saved
+            .map(
+              (q) =>
+                `<a class="chip" href="javascript:;" data-q="${ui.esc(q)}">${ui.esc(q)}<span class="chip-x" data-del="${ui.esc(q)}">✕</span></a>`,
+            )
+            .join('');
+      };
+
+      const remember = (q) => {
+        const v = String(q || '').trim();
+        if (!v) return;
+        saved = [v, ...saved.filter((x) => x !== v)].slice(0, 8);
+        storeSaved(saved);
+        paintSaved();
+      };
+
+      savedBox?.addEventListener('click', (e) => {
+        const del = e.target.closest('[data-del]');
+        if (del) {
+          e.preventDefault();
+          e.stopPropagation();
+          const q = del.getAttribute('data-del');
+          saved = saved.filter((x) => x !== q);
+          storeSaved(saved);
+          paintSaved();
+          return;
+        }
+        const chip = e.target.closest('[data-q]');
+        if (!chip) return;
+        e.preventDefault();
+        if (qEl) qEl.value = chip.getAttribute('data-q');
+        pick();
+      });
+
+      paintSaved();
 
       const pick = async () => {
         const query = String(qEl?.value || '').trim();
@@ -842,6 +914,7 @@ export async function renderBroadcast(ctx, params) {
               `${r.mode === 'ai' ? 'AI' : '关键词'}在全库 ${r.scanned || 0} 条里挑出 ${hit} 条，已自动勾选` +
               (r.note ? `（${r.note}）` : '');
           }
+          remember(query);
           box.querySelector('.item.sel')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
           ui.toast(`已从全库挑出 ${hit} 条，可直接生成文案`, 'ok');
         } catch (err) {

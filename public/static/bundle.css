@@ -4250,6 +4250,14 @@ a.sp-item:active { background: #f7fbff; }
   height: 16px;
   flex: none;
 }
+/* ---------------- 常用搜索 chip ---------------- */
+.chip .chip-x {
+  display: inline-block;
+  margin-left: 4px;
+  opacity: .45;
+  font-size: 11px;
+}
+.chip .chip-x:hover { opacity: 1; color: var(--danger, #c0392b); }
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
