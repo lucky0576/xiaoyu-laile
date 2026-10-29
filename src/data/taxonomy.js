@@ -996,6 +996,23 @@ export const TRADE_TYPES = [
 ]
 
 /* ------------------------------------------------------------------ *
+ * 3.5 BIDDING_TYPES —— 招投标公告类型
+ *     和「项目」的区别：招投标是明确的公告文件，
+ *     带招标人、项目编号、预算、投标截止时间这些硬字段。
+ * ------------------------------------------------------------------ */
+
+export const BIDDING_TYPES = [
+  { id: 'tender', name: '招标公告', desc: '公开招标 / 邀请招标的正式公告' },
+  { id: 'prequalification', name: '资格预审', desc: '资格预审公告与合格投标人条件' },
+  { id: 'award', name: '中标结果', desc: '中标候选人公示与中标结果公告' },
+  { id: 'change', name: '变更公告', desc: '延期、澄清、更正等变更通知' },
+  { id: 'inquiry', name: '询价采购', desc: '询价、竞价类小额采购公告' },
+  { id: 'negotiation', name: '竞争性磋商', desc: '竞争性磋商 / 谈判采购公告' },
+  { id: 'single-source', name: '单一来源', desc: '单一来源采购公示' },
+  { id: 'other-bidding', name: '其他招采', desc: '以上未覆盖的招标采购信息' },
+];
+
+/* ------------------------------------------------------------------ *
  * 4. EVENT_TYPES —— 活动类型
  * ------------------------------------------------------------------ */
 
@@ -1097,8 +1114,15 @@ export const CATEGORIES = [
     name: '科技成果转化',
     icon: '🔬',
     desc: '专利 · 技术转让 · 产学研 · 作价入股',
-    types: TECH_TYPES
-  }
+    types: TECH_TYPES,
+  },
+  {
+    id: 'bidding',
+    name: '招投标',
+    icon: '📑',
+    desc: '招标公告 · 中标结果 · 变更公告',
+    types: BIDDING_TYPES,
+  },
 ]
 
 /* ------------------------------------------------------------------ *
@@ -2247,6 +2271,7 @@ export default {
   INDUSTRIES,
   PROJECT_TYPES,
   TRADE_TYPES,
+  BIDDING_TYPES,
   EVENT_TYPES,
   BOUNTY_TYPES,
   BOUNTY_SETTLE_MODES,

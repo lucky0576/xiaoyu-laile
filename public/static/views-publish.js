@@ -1980,6 +1980,61 @@ export async function renderPublish(ctx, params) {
               <div class="tiny dim mt4">填了之后：详情页不再显示「立即报名」，改成「前往报名 ›」直接跳到这个链接，不占站内名额。</div>
             </div>
             <div class="field"><label>主办方</label><input class="input" id="f-organizer" value="${ui.esc(editing?.event?.organizer || ctx.state.user?.company || '')}"></div>`;
+        } else if (category === 'bidding') {
+          const b = editing?.bidding || {};
+          box.innerHTML = `
+            <div class="form-section-title">招投标信息</div>
+            <div class="tiny dim mb12">标红的是必填，其余知道多少填多少；不填也能发。</div>
+
+            <div class="field">
+              <label>项目编号</label>
+              <input class="input" id="b-no" maxlength="60" placeholder="如 ZJZC-2026-0315" value="${ui.esc(b.tenderNo || '')}">
+            </div>
+            <div class="row gap8">
+              <div class="field grow">
+                <label>招标人 <span style="color:var(--danger)">*</span></label>
+                <input class="input" id="b-tenderer" maxlength="120" placeholder="采购单位 / 业主" value="${ui.esc(b.tenderer || '')}">
+              </div>
+              <div class="field grow">
+                <label>代理机构</label>
+                <input class="input" id="b-agency" maxlength="120" placeholder="招标代理公司" value="${ui.esc(b.agency || '')}">
+              </div>
+            </div>
+            <div class="row gap8">
+              <div class="field grow">
+                <label>预算金额</label>
+                <input class="input" id="b-budget" maxlength="60" placeholder="如 1280 万元" value="${ui.esc(b.budget || '')}">
+              </div>
+              <div class="field grow">
+                <label>保证金</label>
+                <input class="input" id="b-deposit" maxlength="60" placeholder="如 20 万元" value="${ui.esc(b.deposit || '')}">
+              </div>
+            </div>
+            <div class="row gap8">
+              <div class="field grow">
+                <label>投标截止</label>
+                <input class="input" type="datetime-local" id="b-deadline" value="${ui.esc((b.bidDeadline || '').slice(0, 16))}">
+              </div>
+              <div class="field grow">
+                <label>开标时间</label>
+                <input class="input" type="datetime-local" id="b-open" value="${ui.esc((b.bidOpenAt || '').slice(0, 16))}">
+              </div>
+            </div>
+            <div class="field">
+              <label>开标 / 递交地点</label>
+              <input class="input" id="b-place" maxlength="160" placeholder="如 杭州市公共资源交易中心 3 号开标室" value="${ui.esc(b.place || '')}">
+            </div>
+            <div class="field">
+              <label>资格要求</label>
+              <textarea class="textarea" id="b-qual" rows="3" maxlength="600"
+                placeholder="如：电力工程施工总承包一级，近三年 100MW 以上业绩不少于 2 个">${ui.esc(b.qualification || '')}</textarea>
+            </div>
+            <div class="field">
+              <label>报名 / 联系方式</label>
+              <input class="input" id="b-contact" maxlength="200" placeholder="如 张工 0571-8888xxxx" value="${ui.esc(b.contact || '')}">
+            </div>
+          `;
+          return;
         } else if (category === 'trade') {
           const items = editing?.trade?.items || [];
           box.innerHTML = `
@@ -2205,6 +2260,21 @@ export async function renderPublish(ctx, params) {
             deliverable: v('#f-deliverable'), extra: v('#f-bountyExtra'),
           };
         }
+        if (category === 'bidding') {
+          return {
+            tenderNo: v('#b-no'),
+            tenderer: v('#b-tenderer'),
+            agency: v('#b-agency'),
+            budget: v('#b-budget'),
+            deposit: v('#b-deposit'),
+            bidDeadline: v('#b-deadline'),
+            bidOpenAt: v('#b-open'),
+            bidPlace: v('#b-place'),
+            qualification: v('#b-qual'),
+            bidContact: v('#b-contact'),
+          };
+        }
+
         if (category === 'trade') {
           return {
             tradeType: v('#f-tradeType'),

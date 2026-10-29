@@ -55,12 +55,32 @@ export function itemHtml(l) {
   </a>`;
 }
 
+const CATEGORY_ICONS = {
+  project: '📁',
+  bounty: '🎯',
+  event: '🎪',
+  trade: '🤝',
+  tech: '🔬',
+  bidding: '📑',
+  ecommerce: '🛒',
+};
+
+const CATEGORY_NAMES = {
+  project: '项目',
+  bounty: '悬赏',
+  event: '活动',
+  trade: '贸易',
+  tech: '科技成果转化',
+  bidding: '招投标',
+  ecommerce: '电商',
+};
+
 export function categoryIcon(category) {
-  return { project: '📁', bounty: '🎯', event: '🎪', trade: '🤝', tech: '🔬', ecommerce: '🛒' }[category] || '📄';
+  return CATEGORY_ICONS[category] || '📄';
 }
 
 export function categoryName(category) {
-  return { project: '项目', bounty: '悬赏', event: '活动', trade: '贸易', tech: '科技成果转化', ecommerce: '电商' }[category] || '信息';
+  return CATEGORY_NAMES[category] || '信息';
 }
 
 /* ---------------- AI 解析卡片 ---------------- */

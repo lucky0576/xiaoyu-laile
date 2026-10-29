@@ -102,6 +102,97 @@ export default function registerListingRoutes(app) {
     return data(res, result);
   });
 
+  /**
+   * 列表 AI 搜索：在某个分类（或不限）里用一句话找信息。
+   * 招投标、项目、贸易都能用，关键词兜底 + AI 精排。
+   */
+  app.post('/api/listings/ai-search', async (req, res) => {
+    const rl = rateLimit(`lsearch:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) return fail(res, `搜索太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const query = String(req.body?.query || '').trim().slice(0, 120);
+    const category = String(req.body?.category || '').trim();
+    if (!query) return fail(res, '说说想找什么', 400, 'no_query');
+
+    let pool = listingsSvc.queryListings({ category, status: 'published', page: 1, pageSize: 300 }).items || [];
+    if (!pool.length) return data(res, { ids: [], items: [], mode: 'none', scanned: 0 });
+
+    const scanned = pool.length;
+    const tokens = query.split(/[\s,，、;；/]+/).filter(Boolean);
+    const hayOf = (l) =>
+      [
+        l.title,
+        l.subtitle,
+        l.summary,
+        l.typeName,
+        l.contactName,
+        ...(l.cities || []).map((c) => c.name),
+        ...(l.industries || []).map((x) => x.name),
+        l.bidding && l.bidding.tenderer,
+        l.bidding && l.bidding.tenderNo,
+        l.bidding && l.bidding.budget,
+        l.bidding && l.bidding.qualification,
+        l.trade && l.trade.price,
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+    const scored = pool.map((l) => {
+      const hay = hayOf(l);
+      let score = 0;
+      if (hay.includes(query)) score += 30;
+      for (const t of tokens) if (t && hay.includes(t)) score += 10;
+      if (l.title && l.title.includes(query)) score += 25;
+      return { l, score };
+    });
+
+    let candidates = scored.filter((v) => v.score > 0).sort((a, b) => b.score - a.score).map((v) => v.l);
+    const keywordIds = candidates.slice(0, 20).map((l) => l.id);
+    if (!candidates.length) candidates = pool.slice(0, 40);
+
+    const aiPool = candidates.slice(0, 40);
+    let aiIds = [];
+    let mode = 'keyword';
+    let note = '';
+    try {
+      if (ai.aiStatus && ai.aiStatus().mode === 'ai') {
+        const lines = aiPool.map((l, i) => {
+          const meta = [(l.cities || [])[0] && l.cities[0].name, l.typeName].filter(Boolean).join('/');
+          const extra = l.bidding && l.bidding.budget ? ` 预算${l.bidding.budget}` : '';
+          return `${i + 1}. [${l.id}] ${String(l.title || '').slice(0, 60)}${meta ? ` （${meta}）` : ''}${extra}`;
+        });
+        const out = await ai.chat(
+          [
+            {
+              role: 'system',
+              content:
+                '你是信息检索助手。用户给一个查找需求，从候选里挑出真正相关的。' +
+                '宁可少挑不要凑数。只输出 JSON：{"ids":["id1","id2"]}，按相关度排序，最多 20 条。' +
+                '没有相关的输出 {"ids":[]}。不要解释。',
+            },
+            { role: 'user', content: `查找需求：${query}\n\n候选：\n${lines.join('\n')}` },
+          ],
+          { temperature: 0.1, maxTokens: 600 },
+        );
+        const j = ai.extractJson ? ai.extractJson(out) : null;
+        const arr = (j && j.ids) || [];
+        const valid = new Set(aiPool.map((l) => l.id));
+        aiIds = arr.map(String).filter((x) => valid.has(x)).slice(0, 20);
+        if (aiIds.length) mode = 'ai';
+        else note = 'AI 没找到相关的，下面是关键词结果';
+      }
+    } catch (err) {
+      console.warn('[listings/ai-search] AI 失败:', err.message);
+      note = 'AI 暂时不可用，下面是关键词结果';
+    }
+
+    const finalIds = mode === 'ai' ? aiIds : keywordIds;
+    const byId = new Map(pool.map((l) => [l.id, l]));
+    const items = finalIds.map((id) => byId.get(id)).filter(Boolean);
+
+    return data(res, { ids: finalIds, items, mode, note, scanned });
+  });
+
   app.get('/api/my/listings', (req, res) => {
     const user = mustAuth(req);
     const q = queryOf(req);

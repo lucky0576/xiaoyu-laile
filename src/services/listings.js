@@ -10,7 +10,7 @@ import notifySvc from './notify.js';
 import hub from './hub.js';
 import { aggregateText, pickCover, filePublic, listFiles } from './files.js';
 import { normalizeFileSecret, fileSecretPublic } from './filesecure.js';
-import { CATEGORIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
+import { CATEGORIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BIDDING_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 import { maskContacts } from '../lib/contact-mask.js';
 
 const listings = () => db.collection('listings');
@@ -19,13 +19,13 @@ const shares = () => db.collection('shares');
 const registrations = () => db.collection('registrations');
 const users = () => db.collection('users');
 
-export const CATEGORY_IDS = ['project', 'bounty', 'event', 'trade', 'tech'];
+export const CATEGORY_IDS = ['project', 'bounty', 'event', 'trade', 'tech', 'bidding'];
 
 export function categoryName(id) {
   return CATEGORIES.find((c) => c.id === id)?.name || '信息';
 }
 
-const TYPE_POOLS = { project: PROJECT_TYPES, bounty: BOUNTY_TYPES, trade: TRADE_TYPES, event: EVENT_TYPES };
+const TYPE_POOLS = { project: PROJECT_TYPES, bounty: BOUNTY_TYPES, trade: TRADE_TYPES, event: EVENT_TYPES, bidding: BIDDING_TYPES };
 
 /**
  * 解析类型：先按 id 精确匹配，再按中文名匹配，最后原样保留。
@@ -316,6 +316,7 @@ export function listingBrief(l) {
     event: l.event || null,
     trade: l.trade || null,
     project: l.project || null,
+    bidding: l.bidding || null,
     pipeline: l.pipeline ? { stageIndex: l.pipeline.stageIndex, stage: l.pipeline.stage } : null,
     tags: l.tags || [],
   };
@@ -696,6 +697,26 @@ export async function createListing({ user, body = {}, files = [] }) {
           }
         : null,
 
+    /*
+     * 招投标：公告类信息，字段比普通项目硬。
+     * 全部可留空，发布者只填知道的部分也能发。
+     */
+    bidding:
+      category === 'bidding'
+        ? {
+            tenderNo: clean(body.tenderNo || '').slice(0, 60),
+            tenderer: clean(body.tenderer || '').slice(0, 120),
+            agency: clean(body.agency || '').slice(0, 120),
+            budget: clean(body.budget || '').slice(0, 60),
+            deposit: clean(body.deposit || '').slice(0, 60),
+            bidDeadline: clean(body.bidDeadline || '').slice(0, 40),
+            bidOpenAt: clean(body.bidOpenAt || '').slice(0, 40),
+            place: clean(body.bidPlace || '').slice(0, 160),
+            qualification: clean(body.qualification || '').slice(0, 600),
+            contact: clean(body.bidContact || '').slice(0, 200),
+          }
+        : null,
+
     bounty: category === 'bounty' ? normalizeBounty(body.bounty ?? body) : null,
 
     /*
@@ -809,6 +830,7 @@ export async function updateListing(id, user, patch = {}) {
       project: l.project || null,
       event: l.event || null,
       trade: l.trade || null,
+      bidding: l.bidding || null,
     }),
   );
 

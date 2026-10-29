@@ -552,6 +552,7 @@ export const service = {
   aiFetchUrl: (url) => api.post('/api/ai/fetch-url', { url }),
   aiSplit: (fd, opts) => api.upload('/api/ai/split', fd, opts),
   newsAiSearch: (body) => api.post('/api/news/ai-search', body),
+  listingsAiSearch: (body) => api.post('/api/listings/ai-search', body),
   newsList: (query) => api.get('/api/news', query),
   newsCreate: (body) => api.post('/api/news', body),
   newsWrite: (body) => api.post('/api/ai/news-write', body),

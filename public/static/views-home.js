@@ -1031,6 +1031,18 @@ export async function renderList(ctx, params) {
 
     ${sortBarHtml(query).replace(/data-sort="([^"]+)"/g, (m, s) => `href="${build({ sort: s })}" data-sort="${s}"`)}
 
+    <div class="card card-pad mb12">
+      <div class="row between mb6">
+        <div class="strong" style="font-size:13px">🤖 AI 查一下</div>
+        <span class="tiny dim">说一句话，从全分类里找</span>
+      </div>
+      <div class="row gap8">
+        <input class="input grow" id="list-ai-q" maxlength="60" placeholder="如：余杭 光伏 EPC / 预算 1000 万以上 / 浙江 储能">
+        <button class="btn btn-sm btn-primary" id="list-ai-go" type="button" style="flex:none">AI 搜索</button>
+      </div>
+      <div class="tiny dim mt6" id="list-ai-tip"></div>
+    </div>
+
     <div class="card list-grid" id="list-box" style="overflow:hidden">
       ${(res.items || []).length ? res.items.map(itemHtml).join('') : ui.emptyState('🔍', '没有符合条件的信息，换个筛选试试')}
     </div>
@@ -1044,6 +1056,49 @@ export async function renderList(ctx, params) {
     activeTab: category,
     showBack: false,
     async mount(root) {
+      /* ---------------- AI 搜索 ---------------- */
+      const aiQ = root.querySelector('#list-ai-q');
+      const aiGo = root.querySelector('#list-ai-go');
+      const aiTip = root.querySelector('#list-ai-tip');
+      const aiBox = root.querySelector('#list-box');
+
+      aiGo?.addEventListener('click', async () => {
+        const kw = String(aiQ?.value || '').trim();
+        if (!kw) {
+          ui.toast('说说想找什么，比如「余杭 光伏 EPC」', 'err');
+          aiQ?.focus();
+          return;
+        }
+        const old = aiGo.textContent;
+        aiGo.disabled = true;
+        aiGo.textContent = '搜索中…';
+        try {
+          const r = await service.listingsAiSearch({ query: kw, category });
+          const items = (r && r.items) || [];
+          if (!items.length) {
+            if (aiTip) aiTip.textContent = (r && r.note) || '没找到相关的，换个说法试试';
+            ui.toast('没找到相关的信息', 'err');
+            return;
+          }
+          // 结果里带 trade/project 等快照，itemHtml 需要 brief 结构，这里直接复用
+          aiBox.innerHTML = items.map(itemHtml).join('');
+          if (aiTip) {
+            aiTip.innerHTML = `<span>${r.mode === 'ai' ? 'AI' : '关键词'}在 ${r.scanned || 0} 条里找到 ${items.length} 条</span>
+              <a href="javascript:;" id="list-ai-clear" style="margin-left:8px;color:#0b74ff">恢复列表</a>`;
+          }
+          root.querySelector('#list-ai-clear')?.addEventListener('click', () => {
+            aiBox.innerHTML = (res.items || []).map(itemHtml).join('');
+            if (aiTip) aiTip.textContent = '';
+          });
+          ui.toast(`找到 ${items.length} 条`, 'ok');
+        } catch (err) {
+          ui.toast(err.message || 'AI 搜索失败', 'err');
+        } finally {
+          aiGo.disabled = false;
+          aiGo.textContent = old;
+        }
+      });
+
       /* 多选群发：勾几条 → 生成文案 → 复制到微信 */
       const pickBtn = root.querySelector('#pick-toggle');
       const listBox = root.querySelector('#list-box');
@@ -1816,6 +1871,34 @@ export async function renderDetail(ctx, params) {
         </div>`
       : '';
 
+  /* 招投标信息：角标显示公告类型，字段按有无逐条出 */
+  const bd = listing.bidding;
+  const biddingBlock =
+    listing.category === 'bidding' && bd && Object.values(bd).some(Boolean)
+      ? `<div class="card card-pad">
+          <div class="row between mb8">
+            <div class="strong">📑 招投标信息</div>
+            ${listing.typeName ? `<span class="badge">${ui.esc(listing.typeName)}</span>` : ''}
+          </div>
+          <div class="small muted" style="line-height:1.9">
+            ${bd.tenderNo ? `<div>项目编号：${ui.esc(bd.tenderNo)}</div>` : ''}
+            ${bd.tenderer ? `<div>招标人：<b>${ui.esc(bd.tenderer)}</b></div>` : ''}
+            ${bd.agency ? `<div>代理机构：${ui.esc(bd.agency)}</div>` : ''}
+            ${bd.budget ? `<div>预算金额：<b style="color:#e0471c">${ui.esc(bd.budget)}</b></div>` : ''}
+            ${bd.deposit ? `<div>保证金：${ui.esc(bd.deposit)}</div>` : ''}
+            ${bd.bidDeadline ? `<div>投标截止：${ui.esc(String(bd.bidDeadline).replace('T', ' '))}</div>` : ''}
+            ${bd.bidOpenAt ? `<div>开标时间：${ui.esc(String(bd.bidOpenAt).replace('T', ' '))}</div>` : ''}
+            ${bd.place ? `<div>开标地点：${ui.esc(bd.place)}</div>` : ''}
+            ${bd.contact ? `<div>报名联系：${ui.esc(bd.contact)}</div>` : ''}
+          </div>
+          ${
+            bd.qualification
+              ? `<div class="warn-note mt8">📌 <b>资格要求：</b>${ui.esc(bd.qualification)}</div>`
+              : ''
+          }
+        </div>`
+      : '';
+
   const projectBlock = listing.category === 'project' && listing.project && Object.values(listing.project).some(Boolean)
     ? `<div class="card card-pad">
         <div class="strong mb8">📁 项目要素</div>
@@ -1931,6 +2014,7 @@ export async function renderDetail(ctx, params) {
           ${projectBlock}
           ${eventBlock}
           ${tradeBlock}
+        ${biddingBlock}
         ${intermediaryBlock}
           ${bountyBlock}
           ${linkBlock}
