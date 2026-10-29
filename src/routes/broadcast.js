@@ -255,6 +255,34 @@ export default function registerBroadcastRoutes(app) {
     });
   });
 
+  /**
+   * 常用搜索：存在账号里，换设备也能带走。
+   *
+   * 之前只存 localStorage，换手机就丢了 ——
+   * 而常用的搜索词（储能、光伏 EPC、算力服务器）是长期资产，
+   * 跟着账号走才合理。
+   */
+  app.get('/api/broadcast/saved', (req, res) => {
+    const user = mustAuth(req);
+    const raw = user.settings && user.settings.broadcastSaved;
+    const list = Array.isArray(raw) ? raw.filter((x) => typeof x === 'string').slice(0, 8) : [];
+    return data(res, { list });
+  });
+
+  app.put('/api/broadcast/saved', (req, res) => {
+    const user = mustAuth(req);
+    const rl = rateLimit(`bsaved:${clientIp(req)}`, 60, 60_000);
+    if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const raw = Array.isArray(req.body?.list) ? req.body.list : [];
+    const list = [...new Set(raw.map((x) => String(x || '').trim()).filter(Boolean))].slice(0, 8);
+
+    db.collection('users').update(user.id, {
+      settings: { ...(user.settings || {}), broadcastSaved: list },
+    });
+    return data(res, { list });
+  });
+
   /** 企业微信群机器人是否已配置（前端据此决定要不要显示「推送到群」按钮） */
   app.get('/api/broadcast/wecom', (req, res) => {
     mustAuth(req);

@@ -824,11 +824,17 @@ export async function renderBroadcast(ctx, params) {
             .join('');
       };
 
+      /* 本地存一份做即时反馈，同时推到账号上（换设备也能带走） */
+      const syncSaved = () => {
+        storeSaved(saved);
+        service.broadcastSavedSave(saved).catch(() => {});
+      };
+
       const remember = (q) => {
         const v = String(q || '').trim();
         if (!v) return;
         saved = [v, ...saved.filter((x) => x !== v)].slice(0, 8);
-        storeSaved(saved);
+        syncSaved();
         paintSaved();
       };
 
@@ -839,7 +845,7 @@ export async function renderBroadcast(ctx, params) {
           e.stopPropagation();
           const q = del.getAttribute('data-del');
           saved = saved.filter((x) => x !== q);
-          storeSaved(saved);
+          syncSaved();
           paintSaved();
           return;
         }
@@ -851,6 +857,27 @@ export async function renderBroadcast(ctx, params) {
       });
 
       paintSaved();
+
+      /*
+       * 进页面先拉账号里的常用搜索：
+       *   账号有 → 以账号为准（换设备后本地是空的，这样能立刻看到）
+       *   账号没有但本地有 → 把本地的推上去（老用户第一次用新版时迁移）
+       */
+      (async () => {
+        try {
+          const r = await service.broadcastSaved();
+          const remote = (r && r.list) || [];
+          if (remote.length) {
+            saved = remote.slice(0, 8);
+            storeSaved(saved);
+            paintSaved();
+          } else if (saved.length) {
+            service.broadcastSavedSave(saved).catch(() => {});
+          }
+        } catch {
+          /* 未登录或网络问题就用本地的，不影响使用 */
+        }
+      })();
 
       const pick = async () => {
         const query = String(qEl?.value || '').trim();
