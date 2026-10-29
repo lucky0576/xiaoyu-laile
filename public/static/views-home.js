@@ -268,7 +268,13 @@ export async function renderHome(ctx, query) {
         <div class="ecom-price">${ui.esc(ecomPrice(l))}</div>
         <div class="ecom-meta">
           <span>${ui.esc((l.cities || []).map((c) => c.name).join(' / ') || '全国')}</span>
-          ${l.owner && l.owner.nickname ? `<span>· ${ui.esc(clip(l.owner.nickname, 10))}</span>` : ''}
+          ${
+            l.contactName
+              ? `<span>· ${ui.esc(clip(l.contactName, 12))}</span>`
+              : l.owner && l.owner.nickname
+                ? `<span>· ${ui.esc(clip(l.owner.nickname, 10))}</span>`
+                : ''
+          }
         </div>
       </div>
     </a>`;
@@ -1866,9 +1872,9 @@ export async function renderDetail(ctx, params) {
         <aside class="detail-side">
           <div class="card card-pad">
             <div class="row gap12">
-              ${ui.avatarHtml(listing.ownerSnapshot || { nickname: '发布方' }, 'lg')}
+              ${ui.avatarHtml({ ...(listing.ownerSnapshot || {}), nickname: listing.contactName || listing.ownerSnapshot?.nickname || '发布方' }, 'lg')}
               <div class="grow">
-                <div class="strong">${ui.esc(listing.ownerSnapshot?.nickname || '发布方')}
+                <div class="strong">${ui.esc(listing.contactName || listing.ownerSnapshot?.nickname || '发布方')}
                   ${listing.ownerSnapshot?.verified ? '<span class="badge ok">已认证</span>' : ''}</div>
                 <div class="tiny dim">${ui.esc(listing.company || '未填写企业')}</div>
               </div>

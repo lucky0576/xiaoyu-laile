@@ -227,6 +227,9 @@ export function listingPublic(l, viewer = null, opts = {}) {
         },
     contactVisible: canSeeContact,
 
+    // 联系人名字：即使联系方式被隐藏，也允许展示「跟谁对接」
+    contactName: maskContacts(String(l.contact?.name || '')).text,
+
     isOwner,
     isMember,
     following: viewer ? notifySvc.isFollowing(viewer.id, 'listing', l.id) : false,
@@ -261,6 +264,12 @@ export function listingBrief(l) {
     coverUrl: cover ? cover.url : '',
     ownerId: l.ownerId,
     owner: l.ownerSnapshot || null,
+    /*
+     * 联系人名字。
+     * 卡片上原来显示的是发布者账号昵称（常常是「微信演示用户1258」这种自动名），
+     * 对读者没有意义 —— 大家关心的是「跟谁对接」，所以优先展示发布时填的联系人。
+     */
+    contactName: maskContacts(String(l.contact?.name || '')).text,
     status: l.status,
     publishedAt: l.publishedAt,
     expiresAt: l.expiresAt,
