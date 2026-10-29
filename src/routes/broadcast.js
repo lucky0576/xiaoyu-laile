@@ -12,7 +12,7 @@
 import { data, fail, baseUrl, mustAuth, clientIp, rateLimit } from './_util.js';
 import { requireAdmin } from '../services/auth.js';
 import db from '../store/db.js';
-import { listingPublic } from '../services/listings.js';
+import { listingPublic, listingBrief } from '../services/listings.js';
 import ai, { aiStatus } from '../services/ai.js';
 
 /** 取一条信息的「城市 · 行业 · 类型」小标签 */
@@ -135,50 +135,76 @@ export default function registerBroadcastRoutes(app) {
     const query = String(req.body?.query || '').trim().slice(0, 120);
     if (!query) return fail(res, '请说说要找什么', 400, 'no_query');
 
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 60) : [];
-    if (!ids.length) return data(res, { ids: [], mode: 'none', total: 0 });
-
+    /*
+     * 搜索范围：整个库，不是当前页面加载的那几十条。
+     * 用户要的是「从全部项目里找出我需要的」，翻不到第 3 页就搜不到等于没有。
+     */
     const col = db.collection('listings');
-    const cands = ids
-      .map((id) => col.get(String(id)))
-      .filter((l) => l && l.status === 'published');
-    if (!cands.length) return data(res, { ids: [], mode: 'none', total: 0 });
+    let pool = col.all().filter((l) => l && l.status === 'published');
 
-    /* ---------- 第一步：关键词兜底，永远有结果 ---------- */
+    // 兼容老调用：传了 ids 就只在这些里选
+    const onlyIds = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : null;
+    if (onlyIds && onlyIds.length) {
+      const set = new Set(onlyIds);
+      pool = pool.filter((l) => set.has(l.id));
+    }
+    if (!pool.length) return data(res, { ids: [], items: [], mode: 'none', total: 0, scanned: 0 });
+
+    const scanned = pool.length;
+
+    /* ---------- 第一步：关键词打分（兜底，永远有结果） ---------- */
     const tokens = query.split(/[\s,，、;；/]+/).filter(Boolean);
     const hayOf = (l) =>
       [
         l.title,
         l.subtitle,
         l.ai && l.ai.summary,
+        l.text,
         l.typeName,
         l.contactName,
         ...(l.cities || []).map((c) => c.name),
         ...(l.industries || []).map((x) => x.name),
         ...(l.subs || []).map((x) => x.name),
+        ...(l.tags || []),
       ]
         .filter(Boolean)
         .join(' ');
 
-    const scored = cands.map((l) => {
+    const scored = pool.map((l) => {
       const hay = hayOf(l);
       let score = 0;
       if (hay.includes(query)) score += 30;
       for (const t of tokens) if (t && hay.includes(t)) score += 10;
-      return { id: l.id, score };
+      // 标题命中权重更高
+      if (l.title && l.title.includes(query)) score += 25;
+      return { l, score };
     });
-    const keywordIds = scored
+
+    let candidates = scored
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
-      .map((x) => x.id);
+      .map((x) => x.l);
+
+    const keywordIds = candidates.slice(0, 20).map((l) => l.id);
+
+    // 关键词一条没命中：给 AI 一批最近的，让它自己判断
+    if (!candidates.length) {
+      candidates = [...pool]
+        .sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')))
+        .slice(0, 40);
+    }
+
+    // 送 AI 的候选上限（控制 token）
+    const aiPool = candidates.slice(0, 40);
 
     /* ---------- 第二步：AI 精排（可选） ---------- */
     let aiIds = [];
     let mode = 'keyword';
+    let aiNote = '';
     try {
       const st = aiStatus ? aiStatus() : null;
       if (st && st.mode === 'ai') {
-        const lines = cands.map((l, i) => {
+        const lines = aiPool.map((l, i) => {
           const meta = [
             (l.cities || [])[0] && l.cities[0].name,
             (l.industries || [])[0] && l.industries[0].name,
@@ -194,9 +220,9 @@ export default function registerBroadcastRoutes(app) {
             {
               role: 'system',
               content:
-                '你是信息检索助手。用户会给一个查找需求，你要从候选列表里挑出相关条目。' +
-                '只输出 JSON：{"ids":["id1","id2"]}，按相关度从高到低，最多 20 条。' +
-                '没有相关的就输出 {"ids":[]}。不要解释，不要多余文字。',
+                '你是信息检索助手。用户会给一个查找需求，你要从候选列表里挑出真正相关的条目。' +
+                '宁可少挑也不要凑数。只输出 JSON：{"ids":["id1","id2"]}，按相关度从高到低，最多 20 条。' +
+                '没有相关的就输出 {"ids":[]}。不要解释。',
             },
             { role: 'user', content: `查找需求：${query}\n\n候选列表：\n${lines.join('\n')}` },
           ],
@@ -205,22 +231,27 @@ export default function registerBroadcastRoutes(app) {
 
         const j = ai.extractJson ? ai.extractJson(out) : null;
         const arr = (j && j.ids) || [];
-        const valid = new Set(cands.map((l) => l.id));
+        const valid = new Set(aiPool.map((l) => l.id));
         aiIds = arr.map(String).filter((x) => valid.has(x)).slice(0, 20);
         if (aiIds.length) mode = 'ai';
+        else aiNote = 'AI 没找到相关的，下面是关键词结果';
       }
     } catch (err) {
       console.warn('[broadcast/pick] AI 精排失败，退回关键词:', err.message);
+      aiNote = 'AI 暂时不可用，下面是关键词结果';
     }
 
-    // AI 有结果就以 AI 为准；没有就用关键词
-    const finalIds = mode === 'ai' ? aiIds : keywordIds.slice(0, 20);
+    const finalIds = mode === 'ai' ? aiIds : keywordIds;
+    const byId = new Map(pool.map((l) => [l.id, l]));
+    const items = finalIds.map((id) => byId.get(id)).filter(Boolean).map((l) => listingBrief(l));
 
     return data(res, {
       ids: finalIds,
+      items,
       mode,
-      total: cands.length,
-      query,
+      note: aiNote,
+      total: finalIds.length,
+      scanned,
     });
   });
 

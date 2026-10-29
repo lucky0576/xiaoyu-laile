@@ -789,16 +789,45 @@ export async function renderBroadcast(ctx, params) {
         }
         const old = goBtn.textContent;
         goBtn.disabled = true;
-        goBtn.textContent = 'AI 思考中…';
+        goBtn.textContent = 'AI 搜索中…';
         try {
-          const r = await service.broadcastPick({
-            query,
-            ids: items.map((x) => x.id),
-          });
+          /*
+           * 不传 ids —— 让服务端在整个库里找，而不是只在当前显示的这几十条里找。
+           * 用户要的是「从全部项目里挑出我需要的」，翻不到的页面就等于不存在。
+           */
+          const r = await service.broadcastPick({ query });
           const ids = (r && r.ids) || [];
+          const found = (r && r.items) || [];
 
-          // 先清掉之前勾的，再逐个模拟点击，交给 bindPicking 维护状态
+          // 清掉上一次 AI 注入的结果和已勾状态
           box.querySelectorAll('.item.sel').forEach((el) => el.click());
+          box.querySelectorAll('.item.ai-hit').forEach((el) => el.remove());
+
+          if (!ids.length) {
+            if (tipEl) tipEl.textContent = (r && r.note) || '没找到相关的，换个说法试试（比如只写行业、城市或「有金额」）';
+            ui.toast('没找到相关的，换个说法试试', 'err');
+            return;
+          }
+
+          // 结果里有的、页面上还没渲染的，插到列表最前面
+          const frag = document.createDocumentFragment();
+          for (const brief of found) {
+            const exist = box.querySelector(`a.item[href="#/detail/${brief.id}"]`);
+            if (exist) {
+              exist.classList.add('ai-hit');
+              continue;
+            }
+            const wrap = document.createElement('div');
+            wrap.innerHTML = rowHtml(brief);
+            const node = wrap.firstElementChild;
+            if (node) {
+              node.classList.add('ai-hit');
+              frag.appendChild(node);
+            }
+          }
+          box.insertBefore(frag, box.firstChild);
+
+          // 逐条模拟点击，交给 bindPicking 维护勾选状态
           let hit = 0;
           for (const id of ids) {
             const el = box.querySelector(`a.item[href="#/detail/${id}"]`);
@@ -810,16 +839,11 @@ export async function renderBroadcast(ctx, params) {
 
           if (tipEl) {
             tipEl.textContent =
-              hit > 0
-                ? `${r.mode === 'ai' ? 'AI' : '关键词'}匹配到 ${hit} 条，已自动勾选`
-                : '没找到相关的，换个说法试试（比如只写行业或城市）';
+              `${r.mode === 'ai' ? 'AI' : '关键词'}在全库 ${r.scanned || 0} 条里挑出 ${hit} 条，已自动勾选` +
+              (r.note ? `（${r.note}）` : '');
           }
-          if (hit > 0) {
-            box.querySelector('.item.sel')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            ui.toast(`已勾选 ${hit} 条，可直接生成文案`, 'ok');
-          } else {
-            ui.toast('没找到相关的，换个说法试试', 'err');
-          }
+          box.querySelector('.item.sel')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          ui.toast(`已从全库挑出 ${hit} 条，可直接生成文案`, 'ok');
         } catch (err) {
           ui.toast(err.message || 'AI 搜索失败', 'err');
         } finally {
