@@ -1806,6 +1806,11 @@ export async function renderDetail(ctx, params) {
             ${im.party ? `<div>居间方 / 介绍人：${ui.esc(im.party)}</div>` : ''}
             ${im.fee ? `<div>居间费：${ui.esc(im.fee)}</div>` : ''}
             ${im.note ? `<div class="mt8" style="white-space:pre-wrap">${ui.esc(im.note)}</div>` : ''}
+            ${
+              (listing.intermediaryViewers || []).length
+                ? `<div class="mt8">额外可见人：${listing.intermediaryViewers.map(ui.esc).join('、')}</div>`
+                : ''
+            }
           </div>
           <div class="tiny dim mt8">这段内容不会出现在公开页面、转发文案和搜索结果里。</div>
         </div>`

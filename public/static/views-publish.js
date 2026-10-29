@@ -1596,6 +1596,13 @@ export async function renderPublish(ctx, params) {
         <textarea class="textarea" id="pub-im-note" rows="2" maxlength="500"
           placeholder="分成节点、结算方式、需要注意的约定等">${ui.esc(editing?.intermediary?.note || '')}</textarea>
       </div>
+      <div class="field">
+        <label>额外可见人 <span class="tiny dim">（选填 · 手机号，多个用逗号分隔）</span></label>
+        <input class="input" id="pub-im-viewers" maxlength="200"
+          placeholder="比如你的合伙人、财务，填手机号即可"
+          value="${ui.esc((editing?.intermediaryViewersMasked || editing?.intermediaryViewers || []).join('，'))}">
+        <div class="tiny dim mt4">除了你自己和管理员，这些人也能看到居间信息。对方还没注册也可以先填。</div>
+      </div>
     </div>
 
     <div class="card card-pad mt12" id="pub-actions" style="display:none">
@@ -2761,6 +2768,7 @@ export async function renderPublish(ctx, params) {
           intermediaryParty: $('#pub-im-party')?.value || '',
           intermediaryFee: $('#pub-im-fee')?.value || '',
           intermediaryNote: $('#pub-im-note')?.value || '',
+          intermediaryViewers: $('#pub-im-viewers')?.value || '',
               });
               const res = await service.createListing(fd2);
               const id = res?.listing?.id || res?.id;

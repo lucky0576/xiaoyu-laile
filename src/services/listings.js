@@ -232,16 +232,34 @@ export function listingPublic(l, viewer = null, opts = {}) {
 
     /*
      * 居间信息：接口层面就掐断，不靠前端隐藏。
-     * 不是发布者也不是管理员 → 直接返回 null，响应体里根本没有这段内容。
+     * 可见范围 = 发布者 / 管理员 / 发布时点名的几个同事手机号。
+     * 其他人拿到的是 null，响应体里根本没有这段内容。
      */
-    intermediary:
+    intermediary: (() => {
+      const allowed =
+        isOwner ||
+        isAdmin ||
+        Boolean(
+          viewer &&
+            viewer.phone &&
+            Array.isArray(l.intermediaryViewers) &&
+            l.intermediaryViewers.includes(String(viewer.phone)),
+        );
+      if (!allowed) return null;
+      return {
+        party: l.intermediary?.party || '',
+        fee: l.intermediary?.fee || '',
+        note: l.intermediary?.note || '',
+      };
+    })(),
+
+    // 可见人列表只给发布者和管理员看，手机号做打码
+    intermediaryViewers:
       isOwner || isAdmin
-        ? {
-            party: l.intermediary?.party || '',
-            fee: l.intermediary?.fee || '',
-            note: l.intermediary?.note || '',
-          }
-        : null,
+        ? (Array.isArray(l.intermediaryViewers) ? l.intermediaryViewers : []).map((p) =>
+            String(p).replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2'),
+          )
+        : [],
 
     isOwner,
     isMember,
@@ -690,6 +708,21 @@ export async function createListing({ user, body = {}, files = [] }) {
       fee: clean(body.intermediaryFee || '').slice(0, 120),
       note: clean(body.intermediaryNote || '').slice(0, 500),
     },
+
+    /*
+     * 居间信息可见人：除了发布者和管理员，还允许指定几个同事一起看。
+     * 存手机号而不是用户 id —— 对方还没注册也能先记上，注册后自动生效。
+     */
+    intermediaryViewers: (() => {
+      const raw = String(body.intermediaryViewers || '');
+      const out = [];
+      for (const piece of raw.split(/[,，、;；\s]+/)) {
+        const p = String(piece || '').replace(/[^\d+]/g, '').replace(/^\+?86/, '');
+        if (/^1\d{10}$/.test(p) && !out.includes(p)) out.push(p);
+        if (out.length >= 10) break;
+      }
+      return out;
+    })(),
 
     // 文件保密：发布者可要求凭密码查看附件（带 1–12 小时有效期）
     fileSecret: normalizeFileSecret(body.fileSecret ?? body),
