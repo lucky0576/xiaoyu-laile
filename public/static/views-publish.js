@@ -2544,6 +2544,51 @@ export async function renderPublish(ctx, params) {
         });
       }
 
+      /*
+       * 补充信息要素自动填充。
+       *
+       * 以前导入链接/文件后，正文有了，但「补充信息要素」里招标人、
+       * 预算、投标截止这些还得手打一遍 —— 明明原文里都写着。
+       * 这里在第二步生成完、字段渲染出来之后，拿正文抽一次并回填。
+       * 只填空输入框，用户已经填的一律不动。
+       */
+      const fillBiddingFields = async () => {
+        if (category !== 'bidding') return;
+        const box = $('#pub-cat-fields');
+        if (!box || !$('#b-tenderer')) return; // 表单还没渲染
+        const text = ($('#pub-text')?.value || '').trim();
+        if (!text) return;
+
+        const map = {
+          tenderNo: '#b-no',
+          tenderer: '#b-tenderer',
+          agency: '#b-agency',
+          budget: '#b-budget',
+          deposit: '#b-deposit',
+          bidDeadline: '#b-deadline',
+          bidOpenAt: '#b-open',
+          bidPlace: '#b-place',
+          qualification: '#b-qual',
+          bidContact: '#b-contact',
+        };
+
+        try {
+          const r = await service.biddingFields({ text: text.slice(0, 8000) });
+          const f = (r && r.fields) || {};
+          let filled = 0;
+          for (const [k, sel] of Object.entries(map)) {
+            const el = $(sel);
+            if (!el || !f[k]) continue;
+            if (String(el.value || '').trim()) continue;
+            el.value = f[k];
+            filled += 1;
+          }
+          if (filled > 0) ui.toast(`已从正文自动填入 ${filled} 项要素，可修改`, 'ok');
+        } catch {
+          /* 抽取失败不影响手动填，静默即可 */
+        }
+      };
+
       /* 填入示例：给出可改的模板，不默认预填（免得用户没改就发了） */
       $('#pub-text-demo')?.addEventListener('click', () => {
         const ta = $('#pub-text');
@@ -2896,6 +2941,8 @@ export async function renderPublish(ctx, params) {
           renderAiResult(res);
           showSteps();
           renderCatFields();
+          // 字段渲染出来后立刻尝试回填（招投标等分类）
+          await fillBiddingFields();
           ui.toast('AI 已完成生成与解析', 'ok');
         } catch (err) {
           ui.toast(err.message, 'err');

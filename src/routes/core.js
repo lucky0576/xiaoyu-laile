@@ -615,6 +615,16 @@ export default function registerCoreRoutes(app) {
     return data(res, r);
   });
 
+  /** 从正文抽招投标要素（补充信息要素自动填充） */
+  app.post('/api/ai/bidding-fields', async (req, res) => {
+    const rl = rateLimit(`bfields:${clientIp(req)}`, 30, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const text = str(req.body?.text, 20000);
+    const r = await ai.extractBiddingFields({ text });
+    return data(res, r);
+  });
+
   /** 按品牌 + 型号生成产品名 */
   app.post('/api/ai/product-name', async (req, res) => {
     const rl = rateLimit(`pname:${clientIp(req)}`, 30, 60_000);

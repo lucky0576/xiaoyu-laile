@@ -1849,6 +1849,91 @@ ${input.filename ? `\n主要附件：${input.filename}` : ''}
  *
  * 没有 AI 也能用：直接按「品牌 型号」拼，保证不空手。
  */
+/**
+ * 从公告正文里抽招投标要素。
+ *
+ * 为什么需要：以前导入链接后，正文有了，但「补充信息要素」里
+ * 招标人、预算、投标截止这些还得手打一遍 —— 明明原文里都写着。
+ *
+ * 策略：规则先抽（快、免费、对格式规整的公告很准），
+ *       规则没抽到的再让 AI 补（对格式乱的公告兜底）。
+ * 两者都失败就留空，不编。
+ */
+export async function extractBiddingFields({ text = '' } = {}) {
+  const t = String(text || '').replace(/\r/g, '').slice(0, 20000);
+  if (!t.trim()) return { ok: false, fields: {}, note: '没有可分析的内容' };
+
+  const fields = {};
+  const grab = (re, key, max = 120) => {
+    if (fields[key]) return;
+    const m = re.exec(t);
+    if (m && m[1]) {
+      const v = String(m[1]).replace(/\s+/g, ' ').trim();
+      if (v && v.length <= max) fields[key] = v;
+    }
+  };
+
+  /* ---------- 规则抽取 ---------- */
+  grab(/项目编号[：:\s]*([A-Za-z0-9\-_（）()【】\[\]／/]{4,60})/, 'tenderNo', 60);
+  grab(/(?:采购人|招标人|采购单位|建设单位)(?:名称)?[：:\s]*([^\n，,。；;：:]{2,60})/, 'tenderer', 60);
+  grab(/(?:采购代理机构|招标代理机构|代理机构)(?:名称)?[：:\s]*([^\n，,。；;：:]{2,60})/, 'agency', 60);
+  grab(/(?:预算金额|采购预算|预算|最高限价|控制价)[^0-9]{0,8}([\d,.]+\s*(?:万元|元|亿元))/, 'budget', 40);
+  grab(/(?:保证金|投标保证金)[^0-9]{0,8}([\d,.]+\s*(?:万元|元|亿元))/, 'deposit', 40);
+  grab(/(?:开标|递交|投标截止)(?:时间|地点|地址)?[：:\s]*([^\n]{6,80})/, 'bidOpenAt', 80);
+  grab(/(?:开标地点|递交地点|投标地点)[：:\s]*([^\n]{4,80})/, 'bidPlace', 80);
+  grab(/(?:资格要求|资质要求|投标人资格)[：:\s]*([\s\S]{4,300}?)(?:\n\n|\n(?:[一二三四五六七八九十]|（\d）|\d\.)|\n联系人)/, 'qualification', 300);
+  grab(/(?:联系人|项目联系人)[：:\s]*([^\n]{2,40})/, 'bidContact', 80);
+
+  /* 日期：2026年11月20日 09:30 / 2026-11-20 09:30 */
+  const dateRe = /(20\d{2})\s*[年\-\/.]\s*(\d{1,2})\s*[月\-\/.]\s*(\d{1,2})\s*日?\s*(\d{1,2})?[：:时]?\s*(\d{0,2})?/;
+  const dm = dateRe.exec(t);
+  if (dm) {
+    const iso = `${dm[1]}-${String(dm[2]).padStart(2, '0')}-${String(dm[3]).padStart(2, '0')}T${String(dm[4] || '09').padStart(2, '0')}:${String(dm[5] || '00').padStart(2, '0')}`;
+    fields.bidDeadline = iso;
+    fields.bidOpenAt = iso;
+  }
+
+  /* ---------- AI 补漏 ---------- */
+  let aiUsed = false;
+  try {
+    const st = aiStatus();
+    if (st && st.mode === 'ai' && Object.keys(fields).length < 6) {
+      const out = await chat(
+        [
+          {
+            role: 'system',
+            content:
+              '你是招投标公告信息抽取助手。从公告正文里抽取字段，只输出 JSON：\n' +
+              '{"tenderNo":"项目编号","tenderer":"招标人/采购人","agency":"代理机构","budget":"预算金额",' +
+              '"deposit":"保证金","bidDeadline":"投标截止(YYYY-MM-DDTHH:mm)","bidOpenAt":"开标时间(YYYY-MM-DDTHH:mm)",' +
+              '"bidPlace":"开标地点","qualification":"资格要求","bidContact":"报名联系人/电话"}\n' +
+              '原文没有的字段填空字符串，不要编造、不要猜测。时间必须是 YYYY-MM-DDTHH:mm 格式，缺时刻按 09:00。',
+          },
+          { role: 'user', content: t.slice(0, 6000) },
+        ],
+        { temperature: 0.1, maxTokens: 700 },
+      );
+      const j = extractJson(out);
+      if (j && typeof j === 'object') {
+        for (const [k, v] of Object.entries(j)) {
+          if (!v || typeof v !== 'string') continue;
+          if (!fields[k]) fields[k] = String(v).trim().slice(0, 300);
+        }
+        aiUsed = true;
+      }
+    }
+  } catch (err) {
+    console.warn('[extractBiddingFields] AI 补漏失败:', err.message);
+  }
+
+  return {
+    ok: Object.keys(fields).length > 0,
+    fields,
+    count: Object.keys(fields).length,
+    source: aiUsed ? 'rule+ai' : 'rule',
+  };
+}
+
 export async function productName({ brand = '', model = '', category = '', hint = '' } = {}) {
   const b = cleanText(String(brand || '')).trim().slice(0, 40);
   const m = cleanText(String(model || '')).trim().slice(0, 60);
@@ -2248,6 +2333,7 @@ export function aiStatus() {
 
 export default {
   productName,
+  extractBiddingFields,
   writeNews,
   extractContactFromImages,
   parseSearchIntent,
