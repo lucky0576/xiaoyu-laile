@@ -3264,3 +3264,32 @@ a.sp-item:active { background: #f7fbff; }
   font-size: 11px;
 }
 .chip .chip-x:hover { opacity: 1; color: var(--danger, #c0392b); }
+/* ---------------- 群发文案：两种模式 ---------------- */
+.bcast-modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.bcast-mode {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border: 1.5px solid var(--line, #e3e9f2);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #445;
+  cursor: pointer;
+  transition: all .12s;
+}
+.bcast-mode .tiny { font-weight: 400; }
+.bcast-mode.active {
+  border-color: var(--brand, #0b74ff);
+  background: #f2f8ff;
+  color: var(--brand, #0b74ff);
+}
+.bcast-mode:active { transform: scale(.985); }

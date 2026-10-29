@@ -38,7 +38,16 @@ async function copyText(text) {
  * 打开群发文案面板。
  * @param {string[]} ids 选中的信息 id
  */
-export async function openBroadcast(ids) {
+export async function openBroadcast(ids, opts = {}) {
+  // 不传就沿用上次的选择（默认带链接）
+  let includeLink = opts.includeLink;
+  if (typeof includeLink !== 'boolean') {
+    try {
+      includeLink = localStorage.getItem('xyl_bcast_link') !== '0';
+    } catch {
+      includeLink = true;
+    }
+  }
   if (!ids || !ids.length) {
     ui.toast('先勾选要群发的信息', 'err');
     return;
@@ -49,7 +58,7 @@ export async function openBroadcast(ids) {
   let wecom = { configured: false };
   try {
     const [textRes, wecomRes] = await Promise.all([
-      service.broadcastText({ ids, includeSummary: true, includeMeta: true }),
+      service.broadcastText({ ids, includeSummary: true, includeMeta: true, includeLink }),
       service.broadcastWecomStatus().catch(() => ({ configured: false })),
     ]);
     r = textRes;
@@ -77,10 +86,14 @@ export async function openBroadcast(ids) {
       <button class="bcast-x" type="button" aria-label="关闭">✕</button>
     </div>
     <div class="bcast-body">
-      <label class="bcast-opt">
-        <input type="checkbox" id="bcast-link" ${localStorage.getItem('xyl_bcast_link') === '0' ? '' : 'checked'}>
-        <span>带上站内链接（方便对方点开看详情）</span>
-      </label>
+      <div class="bcast-modes" id="bcast-modes">
+        <button class="bcast-mode ${includeLink ? 'active' : ''}" type="button" data-mode="link">
+          📋 带链接版 <span class="tiny dim">对方能点开看详情</span>
+        </button>
+        <button class="bcast-mode ${includeLink ? '' : 'active'}" type="button" data-mode="plain">
+          📝 纯文字版 <span class="tiny dim">只有标题，适合朋友圈</span>
+        </button>
+      </div>
       <textarea class="bcast-text" id="bcast-text" spellcheck="false"></textarea>
       ${(r.missing || []).length ? `<div class="tiny dim mt6">有 ${r.missing.length} 条已下架，已自动跳过</div>` : ''}
     </div>
@@ -96,31 +109,41 @@ export async function openBroadcast(ids) {
   const ta = mask.querySelector('#bcast-text');
   ta.value = r.text;
 
-  /* 带不带链接：勾掉就重新生成一版不带链接的，选择记在本地，下次沿用 */
-  const linkBox = mask.querySelector('#bcast-link');
-  if (linkBox) {
-    linkBox.addEventListener('change', async () => {
-      const want = linkBox.checked;
+  /* 两种模式：随时切换，重新生成一版，选择记在本地，下次沿用 */
+  const modesBox = mask.querySelector('#bcast-modes');
+  if (modesBox) {
+    modesBox.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('[data-mode]');
+      if (!btn) return;
+      const want = btn.dataset.mode === 'link';
+      if (want === includeLink) return;
+
       try {
         localStorage.setItem('xyl_bcast_link', want ? '1' : '0');
       } catch {
         /* 隐私模式忽略 */
       }
+
+      modesBox.querySelectorAll('.bcast-mode').forEach((el) => el.classList.toggle('active', el === btn));
+      const prev = ta.value;
       try {
-        ui.showLoading(want ? '正在补链接…' : '正在去掉链接…');
+        ui.showLoading(want ? '正在生成带链接版…' : '正在生成纯文字版…');
         const rr = await service.broadcastText({
           ids,
           includeSummary: true,
           includeMeta: true,
           includeLink: want,
         });
-        ta.value = rr.text || ta.value;
+        ta.value = rr.text || prev;
+        includeLink = want;
         ui.hideLoading();
-        ui.toast(want ? '已带上链接' : '已去掉链接，纯文字版', 'ok');
+        ui.toast(want ? '已切到带链接版' : '已切到纯文字版', 'ok');
       } catch (err) {
         ui.hideLoading();
         ui.toast(err.message || '重新生成失败', 'err');
-        linkBox.checked = !want;
+        modesBox
+          .querySelectorAll('.bcast-mode')
+          .forEach((el) => el.classList.toggle('active', (el.dataset.mode === 'link') === includeLink));
       }
     });
   }
@@ -176,7 +199,8 @@ export function bindPicking(root, box, btn) {
   bar.className = 'pick-bar';
   bar.innerHTML = `<span class="pick-count">已选 <b>0</b> 条</span>
     <button class="btn btn-sm" type="button" data-act="clear">清空</button>
-    <button class="btn btn-sm btn-primary" type="button" data-act="go">生成转发文案</button>`;
+    <button class="btn btn-sm btn-primary" type="button" data-act="go-link">📋 带链接</button>
+    <button class="btn btn-sm" type="button" data-act="go-plain">📝 纯文字</button>`;
   box.parentNode.insertBefore(bar, box.nextSibling);
 
   const paint = () => {
@@ -233,8 +257,10 @@ export function bindPicking(root, box, btn) {
       picked.clear();
       box.querySelectorAll('.sel').forEach((x) => x.classList.remove('sel'));
       paint();
-    } else if (act === 'go') {
-      openBroadcast([...picked]);
+    } else if (act === 'go-link') {
+      openBroadcast([...picked], { includeLink: true });
+    } else if (act === 'go-plain') {
+      openBroadcast([...picked], { includeLink: false });
     }
   });
 
