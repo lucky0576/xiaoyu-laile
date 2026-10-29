@@ -1789,6 +1789,28 @@ export async function renderDetail(ctx, params) {
       </div>`
     : '';
 
+  /*
+   * 居间信息：只给发布者和管理员看。
+   * 接口层面已经按身份掐断（不是自己也不是管理员就返回 null），
+   * 这里再判一次，双保险。
+   */
+  const im = listing.intermediary;
+  const intermediaryBlock =
+    im && (im.party || im.fee || im.note)
+      ? `<div class="card card-pad">
+          <div class="row between mb8">
+            <div class="strong">🤝 居间信息</div>
+            <span class="badge">仅你和管理员可见</span>
+          </div>
+          <div class="small muted">
+            ${im.party ? `<div>居间方 / 介绍人：${ui.esc(im.party)}</div>` : ''}
+            ${im.fee ? `<div>居间费：${ui.esc(im.fee)}</div>` : ''}
+            ${im.note ? `<div class="mt8" style="white-space:pre-wrap">${ui.esc(im.note)}</div>` : ''}
+          </div>
+          <div class="tiny dim mt8">这段内容不会出现在公开页面、转发文案和搜索结果里。</div>
+        </div>`
+      : '';
+
   const projectBlock = listing.category === 'project' && listing.project && Object.values(listing.project).some(Boolean)
     ? `<div class="card card-pad">
         <div class="strong mb8">📁 项目要素</div>
@@ -1904,6 +1926,7 @@ export async function renderDetail(ctx, params) {
           ${projectBlock}
           ${eventBlock}
           ${tradeBlock}
+        ${intermediaryBlock}
           ${bountyBlock}
           ${linkBlock}
           ${contactBlock}

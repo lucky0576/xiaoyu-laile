@@ -230,6 +230,19 @@ export function listingPublic(l, viewer = null, opts = {}) {
     // 联系人名字：即使联系方式被隐藏，也允许展示「跟谁对接」
     contactName: maskContacts(String(l.contact?.name || '')).text,
 
+    /*
+     * 居间信息：接口层面就掐断，不靠前端隐藏。
+     * 不是发布者也不是管理员 → 直接返回 null，响应体里根本没有这段内容。
+     */
+    intermediary:
+      isOwner || isAdmin
+        ? {
+            party: l.intermediary?.party || '',
+            fee: l.intermediary?.fee || '',
+            note: l.intermediary?.note || '',
+          }
+        : null,
+
     isOwner,
     isMember,
     following: viewer ? notifySvc.isFollowing(viewer.id, 'listing', l.id) : false,
@@ -666,6 +679,17 @@ export async function createListing({ user, body = {}, files = [] }) {
         : null,
 
     bounty: category === 'bounty' ? normalizeBounty(body.bounty ?? body) : null,
+
+    /*
+     * 居间信息：介绍人 / 居间费 / 分成约定这类内容。
+     * 对读者完全不公开 —— 只有发布者本人和管理员能看。
+     * 存在顶层字段，不下发到列表 brief，详情页按身份判断是否返回。
+     */
+    intermediary: {
+      party: clean(body.intermediaryParty || '').slice(0, 80),
+      fee: clean(body.intermediaryFee || '').slice(0, 120),
+      note: clean(body.intermediaryNote || '').slice(0, 500),
+    },
 
     // 文件保密：发布者可要求凭密码查看附件（带 1–12 小时有效期）
     fileSecret: normalizeFileSecret(body.fileSecret ?? body),

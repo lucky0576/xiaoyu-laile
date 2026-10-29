@@ -1570,6 +1570,34 @@ export async function renderPublish(ctx, params) {
       </div>
     </div>
 
+    <div class="card card-pad mt12">
+      <div class="row between mb8">
+        <div class="strong">🤝 居间信息</div>
+        <span class="tiny dim">选填</span>
+      </div>
+      <div class="tiny dim mb12">
+        介绍人、居间费、分成约定这类内容，<b>对读者完全不公开</b>，
+        只有你自己和管理员能看到，方便内部对账与跟进。
+      </div>
+      <div class="row gap8">
+        <div class="field grow">
+          <label>居间方 / 介绍人</label>
+          <input class="input" id="pub-im-party" maxlength="80" placeholder="姓名或公司"
+            value="${ui.esc(editing?.intermediary?.party || '')}">
+        </div>
+        <div class="field grow">
+          <label>居间费</label>
+          <input class="input" id="pub-im-fee" maxlength="120" placeholder="如 成交额 1%，或 20 万"
+            value="${ui.esc(editing?.intermediary?.fee || '')}">
+        </div>
+      </div>
+      <div class="field">
+        <label>补充说明 <span class="tiny dim">（选填）</span></label>
+        <textarea class="textarea" id="pub-im-note" rows="2" maxlength="500"
+          placeholder="分成节点、结算方式、需要注意的约定等">${ui.esc(editing?.intermediary?.note || '')}</textarea>
+      </div>
+    </div>
+
     <div class="card card-pad mt12" id="pub-actions" style="display:none">
       <div class="btn-group">
         <button class="btn" id="pub-draft">存为草稿</button>
@@ -2730,6 +2758,9 @@ export async function renderPublish(ctx, params) {
                 phone: $('#pub-phone')?.value || '',
                 wechat: $('#pub-wechat')?.value || '',
                 company: $('#pub-company')?.value || '',
+          intermediaryParty: $('#pub-im-party')?.value || '',
+          intermediaryFee: $('#pub-im-fee')?.value || '',
+          intermediaryNote: $('#pub-im-note')?.value || '',
               });
               const res = await service.createListing(fd2);
               const id = res?.listing?.id || res?.id;
