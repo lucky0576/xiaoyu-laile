@@ -187,6 +187,88 @@ export default function registerNewsRoutes(app) {
    * 批量重抓正文（管理员）。
    * 一次只处理一小批，前端循环调用，避免单请求超时。
    */
+  /**
+   * 公众号同步（管理员）。
+   * 用自己的公众号 AppID/AppSecret 拉已发布图文：
+   *   标题含「招标/中标/采购公告」等 → 建成招投标信息
+   *   其余 → 建成新闻资讯
+   * 正文原文照抄，保留原文链接。
+   */
+  app.post('/api/admin/mp/sync', async (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+
+    const rl = rateLimit(`mpsync:${clientIp(req)}`, 6, 60_000);
+    if (!rl.ok) return fail(res, `别太频繁，${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const count = Math.min(10, Math.max(1, Number(req.body?.count) || 5));
+    const dryRun = String(req.body?.dryRun || '') === '1' || req.body?.dryRun === true;
+
+    try {
+      const { mpConfigured, listPublished, toContent } = await import('../services/mp-sync.js');
+      if (!mpConfigured()) {
+        return fail(res, '公众号未配置：请在服务器 .env 里填 WECHAT_APP_ID / WECHAT_APP_SECRET，并把服务器 IP 加入公众号 IP 白名单', 400, 'mp_not_configured');
+      }
+
+      const listed = await listPublished({ offset: 0, count });
+      const report = { total: listed.total, fetched: listed.items.length, created: 0, bidding: 0, news: 0, skipped: 0, items: [], errors: [] };
+
+      for (const art of listed.items) {
+        try {
+          const c = toContent(art);
+          if (!c.title || !c.text) {
+            report.skipped += 1;
+            continue;
+          }
+
+          if (dryRun) {
+            report.items.push({ kind: c.kind, title: c.title, url: c.link, len: c.text.length });
+            continue;
+          }
+
+          if (c.kind === 'bidding') {
+            const listingsSvc = (await import('../services/listings.js')).default;
+            await listingsSvc.createListing({
+              user,
+              body: {
+                category: 'bidding',
+                type: 'tender',
+                title: c.title,
+                subtitle: `来源：公众号 · ${c.summary.slice(0, 40)}`,
+                text: c.text,
+                link: c.link,
+                publish: '1',
+                durationDays: 30,
+              },
+            });
+            report.bidding += 1;
+          } else {
+            await newsSvc.createNews({
+              user,
+              title: c.title,
+              summary: c.summary,
+              text: c.text,
+              link: c.link,
+              coverUrl: c.cover,
+              sourceName: '公众号',
+              tags: [],
+              attachments: [],
+            });
+            report.news += 1;
+          }
+          report.created += 1;
+          report.items.push({ kind: c.kind, title: c.title, url: c.link });
+        } catch (err) {
+          report.errors.push(`${art.title.slice(0, 20)}：${err.message}`);
+        }
+      }
+
+      return data(res, report);
+    } catch (err) {
+      return fail(res, err.message || '同步失败', 500, 'mp_sync_failed');
+    }
+  });
+
   app.post('/api/admin/news/refetch', async (req, res) => {
     requireAdmin(req);
     const limit = Math.min(15, Math.max(1, num(req.body?.limit, 8)));
