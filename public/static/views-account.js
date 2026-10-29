@@ -1144,7 +1144,9 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/my-registrations"><div class="avatar">🎪</div><div class="item-body"><div class="item-title">我的报名</div><div class="item-sub">已报名参加的活动与课程</div></div><span class="dim">›</span></a>
       <a class="item" href="#/chat"><div class="avatar">💬</div><div class="item-body"><div class="item-title">项目群聊与会议</div><div class="item-sub">${data.rooms || 0} 个群聊</div></div><span class="dim">›</span></a>
       <a class="item" href="#/contacts"><div class="avatar">📇</div><div class="item-body"><div class="item-title">通讯录</div><div class="item-sub">导入微信 / 手机通讯录，邀请好友注册</div></div><span class="dim">›</span></a>
-      <a class="item" href="#/verify"><div class="avatar">🪪</div><div class="item-body"><div class="item-title">实名认证</div><div class="item-sub">${
+      <a class="item" href="#/about"><div class="avatar">🐟</div><div class="item-body"><div class="item-title">平台简介</div><div class="item-sub">我们是谁 · 能为地方做什么</div></div><div class="chev">›</div></a>
+
+        <a class="item" href="#/verify"><div class="avatar">🪪</div><div class="item-body"><div class="item-title">实名认证</div><div class="item-sub">${
         u.verification?.status === 'approved'
           ? (u.accountType === 'company' ? '企业已认证' : '个人已认证')
           : u.verification?.status === 'pending'

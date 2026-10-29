@@ -3293,3 +3293,59 @@ a.sp-item:active { background: #f7fbff; }
   color: var(--brand, #0b74ff);
 }
 .bcast-mode:active { transform: scale(.985); }
+/* ---------------- 平台简介页 ---------------- */
+.about-hero {
+  text-align: center;
+  padding: 22px 4px 6px;
+}
+.about-hero h1 {
+  font-size: 20px;
+  margin: 12px 0 6px;
+  line-height: 1.4;
+}
+.about-lead {
+  font-size: 13.5px;
+  color: var(--muted, #6b7686);
+  margin: 0 0 14px;
+}
+.about-aud { justify-content: center; }
+.chip.sm { font-size: 11.5px; padding: 3px 9px; }
+.about-kv {
+  display: flex;
+  gap: 8px;
+}
+.about-kv-item {
+  flex: 1;
+  text-align: center;
+  padding: 10px 6px;
+  background: #f4f8fc;
+  border-radius: 10px;
+}
+.about-kv-item b { display: block; font-size: 14px; color: #0b74ff; }
+.about-kv-item span { font-size: 11px; color: var(--muted, #6b7686); }
+.about-cap {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px dashed var(--line, #e3e9f2);
+}
+.about-cap:first-of-type { border-top: 0; padding-top: 4px; }
+.about-cap-ico {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  background: #f2f8ff;
+  border-radius: 10px;
+}
+.about-cap-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.about-cap-points { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; }
+.about-point {
+  font-size: 11.5px;
+  color: #0b74ff;
+  background: #f2f8ff;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
