@@ -60,6 +60,46 @@ function newsCard(n) {
   </a>`;
 }
 
+/**
+ * 分享一条资讯。
+ * 手机上走系统分享（微信/QQ 都在里面），桌面端复制链接，
+ * 两条路都不通再让用户长按复制。
+ */
+async function shareNews(n) {
+  const url = `${location.origin}/#/news/${n.id}`;
+  const payload = { title: n.title || '小鱼来了', text: n.summary || n.title || '', url };
+
+  if (navigator.share) {
+    try {
+      await navigator.share(payload);
+      return;
+    } catch (err) {
+      // 用户取消不算失败，不弹提示
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(`${payload.title}\n${url}`);
+    ok = true;
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = `${payload.title}\n${url}`;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand('copy');
+      ta.remove();
+    } catch {
+      ok = false;
+    }
+  }
+  ui.toast(ok ? '链接已复制，粘到微信就行' : '复制失败，请长按地址手动复制', ok ? 'ok' : 'err');
+}
+
 /* ------------------------------------------------------------------ */
 /* 列表页                                                              */
 /* ------------------------------------------------------------------ */
@@ -106,9 +146,12 @@ export async function renderNews(ctx, query = {}) {
         </div>
         <div class="news-hero-d">自动抓取官方政策与行业媒体的最新动态，按你关注的行业分类</div>
         <form class="news-search" id="news-search-form">
-          <input class="input" id="news-q" placeholder="搜标题关键词，如 储能 / 光伏 / 十五五" value="${ui.esc(q)}">
+          <input class="input" id="news-q" placeholder="搜标题关键词，或直接说想找什么，如 江浙沪储能政策" value="${ui.esc(q)}">
           <button class="btn btn-sm btn-primary" type="submit">搜索</button>
+          <button class="btn btn-sm" type="button" id="news-ai-btn" style="flex:none">🤖 AI</button>
         </form>
+        <div class="tiny dim" id="news-ai-tip" style="margin-top:6px"></div>
+        <div class="news-list" id="news-ai-list"></div>
         ${total ? `<div class="news-hero-f">共 ${total} 条${meta?.lastAt ? ` · 最近更新 ${relTime(meta.lastAt)}` : ''}</div>` : ''}
       </div>
 
@@ -124,6 +167,55 @@ export async function renderNews(ctx, query = {}) {
           location.hash = v ? `#/news?q=${encodeURIComponent(v)}` : '#/news';
         });
       }
+
+      /* ---------------- AI 搜索 ---------------- */
+      const aiBtn = root.querySelector('#news-ai-btn');
+      const aiList = root.querySelector('#news-ai-list');
+      const aiTip = root.querySelector('#news-ai-tip');
+      const mainList = root.querySelector('.news-list:not(#news-ai-list)');
+      const tabs = root.querySelector('.news-tabs');
+
+      const clearAi = () => {
+        if (aiList) aiList.innerHTML = '';
+        if (aiTip) aiTip.textContent = '';
+        if (mainList) mainList.style.display = '';
+        if (tabs) tabs.style.display = '';
+      };
+
+      aiBtn?.addEventListener('click', async () => {
+        const query = (root.querySelector('#news-q')?.value || '').trim();
+        if (!query) {
+          ui.toast('先说想找什么，比如「江浙沪储能政策」', 'err');
+          root.querySelector('#news-q')?.focus();
+          return;
+        }
+        const old = aiBtn.textContent;
+        aiBtn.disabled = true;
+        aiBtn.textContent = '搜索中…';
+        try {
+          const r = await service.newsAiSearch({ query });
+          const items = (r && r.items) || [];
+          if (!items.length) {
+            if (aiTip) aiTip.textContent = (r && r.note) || '没找到相关的，换个说法试试';
+            ui.toast('没找到相关的资讯', 'err');
+            return;
+          }
+          if (mainList) mainList.style.display = 'none';
+          if (tabs) tabs.style.display = 'none';
+          if (aiList) aiList.innerHTML = items.map(newsCard).join('');
+          if (aiTip) {
+            aiTip.innerHTML = `<span>${r.mode === 'ai' ? 'AI' : '关键词'}在全库 ${r.scanned || 0} 条里找到 ${items.length} 条</span>
+              <a href="javascript:;" id="news-ai-clear" style="margin-left:8px;color:#0b74ff">清除</a>`;
+          }
+          root.querySelector('#news-ai-clear')?.addEventListener('click', clearAi);
+          ui.toast(`找到 ${items.length} 条`, 'ok');
+        } catch (err) {
+          ui.toast(err.message || 'AI 搜索失败', 'err');
+        } finally {
+          aiBtn.disabled = false;
+          aiBtn.textContent = old;
+        }
+      });
     },
   };
 }
@@ -279,6 +371,7 @@ export async function renderNewsDetail(ctx, { id }) {
           <span class="news-dot">·</span>
           <span>${new Date(n.publishedAt).toLocaleString('zh-CN')}</span>
           ${n.authorName ? `<span class="news-dot">·</span><span>${ui.esc(n.authorName)}</span>` : ''}
+          <a class="news-share" href="javascript:;" id="news-share">🔗 分享</a>
         </div>
         ${(n.tags || []).length ? `<div class="news-tags mt8">${tagsHtml(n.tags)}</div>` : ''}
       </div>
@@ -301,6 +394,8 @@ export async function renderNewsDetail(ctx, { id }) {
       /* 文档预览复用首页那套 /api/preview 翻页器 */
       const btns = root.querySelectorAll('.news-doc-open');
       if (!btns.length) return;
+      root.querySelector('#news-share')?.addEventListener('click', () => shareNews(n));
+
       let mod = null;
       try {
         mod = await import('./views-home.js');

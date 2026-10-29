@@ -4380,6 +4380,13 @@ a.about-c-phone {
   display: block;
   text-decoration: none; /* 电话号码：做成 tel: 链接，手机点一下直接拨 */
 }
+/* ---------------- 资讯分享按钮 ---------------- */
+.news-detail-meta .news-share {
+  margin-left: auto;
+  color: #0b74ff;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播

@@ -551,6 +551,7 @@ export const service = {
   coverPhoto: (listingId, force = true) => api.post('/api/admin/covers/photo', { listingId, force }),
   aiFetchUrl: (url) => api.post('/api/ai/fetch-url', { url }),
   aiSplit: (fd, opts) => api.upload('/api/ai/split', fd, opts),
+  newsAiSearch: (body) => api.post('/api/news/ai-search', body),
   newsList: (query) => api.get('/api/news', query),
   newsCreate: (body) => api.post('/api/news', body),
   newsWrite: (body) => api.post('/api/ai/news-write', body),
