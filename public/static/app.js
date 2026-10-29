@@ -201,6 +201,7 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
       ${titleEl}
       ${isHome ? '<a class="invest-pill" href="#/invest" title="小鱼来了 种子轮融资中">💰 融资</a>' : ''}
       <a class="contact-pill" href="#/contact-us" title="有问题？点这里给管理员留言">📮 联系我</a>
+      ${isHome && isLoggedIn() ? '<a class="contact-pill" href="#/broadcast" title="勾选几条信息，一键生成群发文案">📣 群发</a>' : ''}
     </div>
     <span class="topbar-spacer"></span>
     ${actions}${actions ? '' : topbarAuth()}
@@ -337,6 +338,8 @@ async function resolveView({ segs, query }) {
       return viewsHome.renderHome(ctx, query);
     case 'list':
       return viewsHome.renderList(ctx, { category: p1 || 'project', ...query });
+    case 'broadcast':
+      return viewsHome.renderBroadcast(ctx, query);
     case 'search':
       return viewsHome.renderSearch(ctx, query);
     case 'detail':

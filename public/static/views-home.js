@@ -693,6 +693,72 @@ export async function renderHome(ctx, query) {
 /* ================================================================== */
 /* 列表页                                                              */
 /* ================================================================== */
+
+/* ------------------------------------------------------------------ *
+ * 批量转发页面
+ *
+ * 之前「转发」只在列表页右上角，首页根本没有入口 ——
+ * 用户找不到功能等于没有。这里单独做一个页面，
+ * 从首页顶栏「📤 转发」进去，勾几条信息就能生成群发文案。
+ * ------------------------------------------------------------------ */
+
+export async function renderBroadcast(ctx, params) {
+  if (!isLoggedIn()) {
+    ctx.nav(`#/login?redirect=${encodeURIComponent('#/broadcast')}`);
+    return { title: '批量转发', content: '<div class="page"><div class="empty">正在跳转登录…</div></div>', noTab: true };
+  }
+
+  const res = await service.listings({ pageSize: 50, sort: 'latest' }).catch(() => ({ items: [] }));
+  const items = res.items || [];
+
+  const rowHtml = (l) =>
+    l
+      ? `<a class="item" href="#/detail/${ui.esc(l.id)}">
+          <div class="item-body">
+            <div class="item-title">${ui.esc(l.title || '')}</div>
+            <div class="tiny dim mt4">${ui.esc(l.typeName || l.categoryName || '')} · ${ui.esc(ui.fmtDate ? ui.fmtDate(l.publishedAt) : '')}</div>
+          </div>
+        </a>`
+      : '';
+
+  const html = `<div class="page">
+    <div class="row between mb8">
+      <h2 style="font-size:19px">📤 批量转发</h2>
+      <span class="tiny dim">共 ${items.length} 条</span>
+    </div>
+    <div class="tiny dim mb12">
+      勾选要群发的信息（最多 20 条）→ 自动生成一段可粘贴到微信的文案。<br>
+      文案会按发布时间排序、只保留主标题，末尾带站内链接。
+    </div>
+    <div class="card list-grid" id="list-box">
+      ${items.length ? items.map(rowHtml).join('') : ui.emptyState('📭', '还没有可转发的信息')}
+    </div>
+  </div>`;
+
+  return {
+    title: '批量转发',
+    content: html,
+    activeTab: '',
+    showBack: true,
+    async mount(root) {
+      const box = root.querySelector('#list-box');
+      if (!box || !items.length) return;
+
+      // 页面上没有独立的按钮，这里造一个隐藏按钮交给 bindPicking
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm';
+      btn.type = 'button';
+      btn.style.display = 'none';
+      root.querySelector('.page')?.appendChild(btn);
+
+      const { bindPicking } = await import('./broadcast.js');
+      bindPicking(root, box, btn);
+      btn.click(); // 直接进入多选模式
+      btn.style.display = 'none';
+    },
+  };
+}
+
 export async function renderList(ctx, params) {
   const category = params.category || 'project';
   const query = {
