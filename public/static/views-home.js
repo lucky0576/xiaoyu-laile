@@ -160,6 +160,7 @@ export async function renderHome(ctx, query) {
     { t: '群聊', d: '项目群 · 讨论群', art: '💬', href: '#/chat', i: 3, auth: true },
     { t: '会议', d: '9 位会议号入会', art: '📹', href: '#/join', i: 4 },
     { t: '科技成果转化', d: '专利 · 技术 · 产学研', art: '🔬', href: '#/list/tech', i: 5 },
+    { t: '招投标', d: '招标公告 · 中标结果 · 变更', art: '📑', href: '#/list/bidding', i: 6 },
   ];
   /* ---------------- 横栏：每条下面挂 5 条最新 ---------------- */
   /** 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前 */
