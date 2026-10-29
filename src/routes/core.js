@@ -615,6 +615,20 @@ export default function registerCoreRoutes(app) {
     return data(res, r);
   });
 
+  /** 按品牌 + 型号生成产品名 */
+  app.post('/api/ai/product-name', async (req, res) => {
+    const rl = rateLimit(`pname:${clientIp(req)}`, 30, 60_000);
+    if (!rl.ok) return fail(res, `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const r = await ai.productName({
+      brand: str(req.body?.brand, 40),
+      model: str(req.body?.model, 60),
+      category: str(req.body?.category, 20),
+      hint: str(req.body?.hint, 300),
+    });
+    return data(res, r);
+  });
+
   /** 判断资料里包含几个独立条目，需要时返回拆分结果 */
   app.post('/api/ai/split', async (req, res) => {
     const rl = rateLimit(`spl:${clientIp(req)}`, 30, 60_000);

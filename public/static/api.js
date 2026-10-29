@@ -577,6 +577,7 @@ export const service = {
   newsMeta: () => api.get('/api/news/meta'),
   newsDetail: (id) => api.get(`/api/news/${id}`),
   adminNewsRefresh: () => api.post('/api/admin/news/refresh', {}),
+  productName: (body) => api.post('/api/ai/product-name', body),
   aiTradeItems: (fd, opts) => api.upload('/api/ai/trade-items', fd, opts),
   feedTranscribe: (fd, opts) => api.upload('/api/feeds/transcribe', fd, opts),
 

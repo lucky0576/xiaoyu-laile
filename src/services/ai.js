@@ -1840,6 +1840,69 @@ ${input.filename ? `\n主要附件：${input.filename}` : ''}
  * 注意：要求「不编造素材里没有的事实」——
  * 资讯站最怕 AI 自己加戏，写出一堆查无此事的数字。
  */
+/**
+ * 按品牌 + 型号生成产品名。
+ *
+ * 场景：发一条「戴尔 B300-3T 期货供货」，用户手里只有品牌和型号，
+ * 让他自己想标题很费劲，而且各家写法五花八门（戴尔B300-3T / DELL B300 3T / B300-3T戴尔）。
+ * 统一成「品牌 + 型号 + 品类」的写法，搜索结果和转发文案都会好看很多。
+ *
+ * 没有 AI 也能用：直接按「品牌 型号」拼，保证不空手。
+ */
+export async function productName({ brand = '', model = '', category = '', hint = '' } = {}) {
+  const b = cleanText(String(brand || '')).trim().slice(0, 40);
+  const m = cleanText(String(model || '')).trim().slice(0, 60);
+  const h = cleanText(String(hint || '')).trim().slice(0, 300);
+
+  // 本地兜底：品牌 + 型号，去掉重复
+  const localName = [b, m].filter(Boolean).join(' ').trim();
+
+  if (!b && !m) return { ok: false, names: [], note: '请先填品牌或型号' };
+
+  const st = aiStatus();
+  if (!st || st.mode !== 'ai') {
+    return { ok: Boolean(localName), names: localName ? [localName] : [], source: 'rule' };
+  }
+
+  try {
+    const out = await chat(
+      [
+        {
+          role: 'system',
+          content:
+            '你是产品命名助手。根据品牌、型号、以及可选的资料摘要，给出 3 个规范的产品名称。' +
+            '要求：中文为主，品牌与型号之间留空格，型号保持原样不要改写；' +
+            '只有资料里明确出现了品类（服务器 / 光伏组件 / 储能设备…）时，才在名称末尾带上品类；' +
+            '资料里看不出来就只输出「品牌 型号」，绝对不要凭型号去猜品类。' +
+            '不要加「现货」「期货」「出售」「询价」这类交易词，也不要加引号。' +
+            '只输出 JSON：{"names":["名称1","名称2","名称3"]}，每个不超过 30 个字。',
+        },
+        {
+          role: 'user',
+          content:
+            `品牌：${b || '（未填）'}\n型号：${m || '（未填）'}\n` +
+            `资料摘要：${h || '（无）'}\n发布板块：${category || '（未指定）'}`,
+        },
+      ],
+      { temperature: 0.3, maxTokens: 300 },
+    );
+
+    const j = extractJson(out);
+    // 去重：资料少时 AI 容易把同一个名字给三遍
+    const names = [...new Set(
+      ((j && j.names) || [])
+        .map((x) => cleanText(String(x || '')).trim())
+        .filter((x) => x && x.length <= 40),
+    )].slice(0, 3);
+
+    if (names.length) return { ok: true, names, source: 'ai' };
+    return { ok: Boolean(localName), names: localName ? [localName] : [], source: 'rule' };
+  } catch (err) {
+    console.warn('[productName] AI 失败，退回本地拼名:', err.message);
+    return { ok: Boolean(localName), names: localName ? [localName] : [], source: 'rule' };
+  }
+}
+
 export async function writeNews({ source = '', hint = '', sourceName = '' } = {}) {
   const raw = String(source || '').trim();
   if (!raw) return { ok: false, note: '先把素材贴进来' };
@@ -2184,6 +2247,7 @@ export function aiStatus() {
 }
 
 export default {
+  productName,
   writeNews,
   extractContactFromImages,
   parseSearchIntent,

@@ -1475,6 +1475,17 @@ export async function renderPublish(ctx, params) {
           <span class="tiny dim">AI 生成，可直接改</span>
         </div>
         <div class="field">
+          <label>品牌 / 型号 <span class="tiny dim">（填了就自动生成产品名）</span></label>
+          <div class="row gap8">
+            <input class="input grow" id="pub-brand" maxlength="40" placeholder="品牌，如 戴尔">
+            <input class="input grow" id="pub-model" maxlength="60" placeholder="型号，如 B300-3T">
+            <button class="btn btn-sm" id="pub-pname" type="button" style="flex:none">✨ 生成</button>
+          </div>
+          <div class="tiny dim mt4" id="pub-pname-tip">规范成「品牌 + 型号 + 品类」，搜索结果和转发文案都更整齐</div>
+          <div class="chips mt8" id="pub-pname-out"></div>
+        </div>
+
+        <div class="field">
           <label>主标题</label>
           <input class="input" id="pub-title" maxlength="120" placeholder="点上面「第二步」自动生成，也可以自己写" value="${ui.esc(editing?.title || '')}">
         </div>
@@ -2353,6 +2364,80 @@ export async function renderPublish(ctx, params) {
       };
       $('#pub-text')?.addEventListener('input', checkContacts);
       $('#pub-title')?.addEventListener('input', checkContacts);
+
+      /* ---------------- 品牌 + 型号 → 产品名 ---------------- */
+      const pnameBtn = $('#pub-pname');
+      if (pnameBtn) {
+        const out = $('#pub-pname-out');
+        const tip = $('#pub-pname-tip');
+
+        const run = async () => {
+          const brand = ($('#pub-brand')?.value || '').trim();
+          const model = ($('#pub-model')?.value || '').trim();
+          if (!brand && !model) {
+            ui.toast('先填品牌或型号', 'err');
+            $('#pub-brand')?.focus();
+            return;
+          }
+          const old = pnameBtn.textContent;
+          pnameBtn.disabled = true;
+          pnameBtn.textContent = '生成中…';
+          try {
+            const r = await service.productName({
+              brand,
+              model,
+              category,
+              hint: ($('#pub-text')?.value || '').slice(0, 300),
+            });
+            const names = (r && r.names) || [];
+            if (!names.length) {
+              ui.toast('没生成出来，直接把品牌型号填进标题也行', 'err');
+              return;
+            }
+            const titleEl = $('#pub-title');
+            if (titleEl) titleEl.value = names[0];
+
+            if (out) {
+              out.innerHTML =
+                names.length > 1
+                  ? `<span class="tiny dim" style="flex:none;display:flex;align-items:center">换个：</span>` +
+                    names
+                      .slice(1)
+                      .map((x) => `<a class="chip" href="javascript:;" data-name="${ui.esc(x)}">${ui.esc(x)}</a>`)
+                      .join('')
+                  : '';
+            }
+            if (tip) {
+              tip.textContent =
+                r.source === 'ai'
+                  ? 'AI 生成，点下面「换个」可以挑别的写法'
+                  : '未接入 AI，按「品牌 型号」拼接';
+            }
+            ui.toast('已填进主标题', 'ok');
+          } catch (err) {
+            ui.toast(err.message || '生成失败', 'err');
+          } finally {
+            pnameBtn.disabled = false;
+            pnameBtn.textContent = old;
+          }
+        };
+
+        pnameBtn.addEventListener('click', run);
+        $('#pub-model')?.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            run();
+          }
+        });
+
+        out?.addEventListener('click', (ev) => {
+          const chip = ev.target.closest('[data-name]');
+          if (!chip) return;
+          ev.preventDefault();
+          const titleEl = $('#pub-title');
+          if (titleEl) titleEl.value = chip.getAttribute('data-name');
+        });
+      }
 
       /* 填入示例：给出可改的模板，不默认预填（免得用户没改就发了） */
       $('#pub-text-demo')?.addEventListener('click', () => {
