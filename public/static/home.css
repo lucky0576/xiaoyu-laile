@@ -3349,3 +3349,40 @@ a.sp-item:active { background: #f7fbff; }
   padding: 2px 8px;
   border-radius: 999px;
 }
+/* ---------------- 平台简介：联系方式 ---------------- */
+.about-contact {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.about-qr-wrap {
+  flex: none;
+  width: 120px;
+}
+.about-qr {
+  width: 120px;
+  height: 120px;
+  display: block;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e3e9f2);
+  background: #fff;
+}
+.about-contact-info {
+  flex: 1;
+  min-width: 0;
+}
+.about-c-label {
+  font-size: 12px;
+  color: var(--muted, #6b7686);
+}
+.about-c-phone {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  color: #0b74ff;
+  margin: 2px 0 2px;
+}
+a.about-c-phone {
+  display: block;
+  text-decoration: none; /* 电话号码：做成 tel: 链接，手机点一下直接拨 */
+}

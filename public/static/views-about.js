@@ -32,6 +32,9 @@ const CAPABILITIES = [
 const AUDIENCES = ['政府招商部门', '产业园区', '国资 / 城投平台', '投资机构', '本地规模企业', '服务商'];
 
 export function renderAbout(ctx, query) {
+  // 二维码指向本站首页（手机上扫开就能看），用绝对地址
+  const shareUrl = `${location.origin}/#/about`;
+
   const html = `<div class="page about-page">
     <div class="about-hero">
       <div class="about-logo">
@@ -90,10 +93,25 @@ export function renderAbout(ctx, query) {
 
     <div class="card card-pad mt12">
       <div class="strong mb8">📮 联系我们</div>
-      <div class="small muted mb12">想了解具体怎么落地，留言给我们，24 小时内回复。</div>
-      <div class="row gap8">
-        <a class="btn btn-primary grow" href="#/contact-us">留下联系方式</a>
-        ${isLoggedIn() ? '<a class="btn grow" href="#/publish?category=project">先发布一条试试</a>' : '<a class="btn grow" href="#/register">免费注册</a>'}
+      <div class="about-contact">
+        <div class="about-qr-wrap">
+          <img class="about-qr" alt="扫码打开"
+            src="/api/share/qrcode?size=300&text=${encodeURIComponent(shareUrl)}">
+          <div class="tiny dim center mt6">扫码在手机上打开</div>
+        </div>
+        <div class="about-contact-info">
+          <div class="about-c-label">电话 / 微信</div>
+          <a class="about-c-phone" id="about-phone" href="tel:13456693544">13456693544</a>
+          <div class="tiny dim" style="margin-top:-2px">手机上点号码可直接拨号</div>
+          <div class="tiny dim" style="margin-bottom:10px">卢云 · 小鱼来了</div>
+          <button class="btn btn-sm btn-outline btn-block" id="about-copy" type="button">📋 复制号码</button>
+          <a class="btn btn-sm btn-primary btn-block mt8" href="#/contact-us">在线留言</a>
+          <div class="tiny dim mt8">想了解具体怎么落地，留言后可约时间详聊。</div>
+        </div>
+      </div>
+      <div class="row gap8 mt12">
+        ${isLoggedIn() ? '<a class="btn btn-sm grow" href="#/publish?category=project">先发布一条试试</a>' : '<a class="btn btn-sm grow" href="#/register">免费注册</a>'}
+        <a class="btn btn-sm grow" href="#/home">看看站里有什么</a>
       </div>
     </div>
 
@@ -108,6 +126,33 @@ export function renderAbout(ctx, query) {
     showBack: true,
     noTab: false,
     activeTab: '',
+    mount(root) {
+      root.querySelector('#about-copy')?.addEventListener('click', async () => {
+        const phone = root.querySelector('#about-phone')?.innerText?.trim() || '13456693544';
+        let ok = false;
+        try {
+          await navigator.clipboard.writeText(phone);
+          ok = true;
+        } catch {
+          /* 非安全上下文 / 无手势时 clipboard API 会被拒，走下面的兜底 */
+        }
+        if (!ok) {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = phone;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            ok = document.execCommand('copy');
+            ta.remove();
+          } catch {
+            ok = false;
+          }
+        }
+        ui.toast(ok ? '号码已复制：' + phone : '复制失败，请长按号码手动复制', ok ? 'ok' : 'err');
+      });
+    },
   };
 }
 
