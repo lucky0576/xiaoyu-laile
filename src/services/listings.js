@@ -599,6 +599,8 @@ export async function createListing({ user, body = {}, files = [] }) {
     typeName: typeNameOf(category, type),
     title: String(body.title || titles.title || '').slice(0, 120),
     subtitle: String(body.subtitle || titles.subtitle || '').slice(0, 200),
+    // 原文链接：采集/导入来的信息要能点回出处（只收 http(s)）
+    link: /^https?:\/\//i.test(String(body.link || '')) ? String(body.link).slice(0, 500) : '',
     text,
     textFromFiles: fileText.slice(0, 40000),
     industries: (analysis.industries || []).slice(0, 5),

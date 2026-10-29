@@ -28,20 +28,29 @@ const REGION_WORDS = [
 
 /** 公告源：目前打通了江苏站，浙江/上海留了位置 */
 export const SOURCES = [
+  /*
+   * 2026-10 实测（服务器在香港）：
+   *   ✅ 苏州 ggzy.suzhou.gov.cn        列表可解析、详情页能抓到正文
+   *   ✅ 台州 tzztb.zjtz.gov.cn         列表/详情都能读，但首页多为通知，需另找招标栏目
+   *   ❌ ggzy.zj.gov.cn                 整站 405（按 IP 封海外）
+   *   ❌ ggzy.huzhou.gov.cn             403
+   *   ❌ 杭州/温州/嘉兴/金华/南京/无锡/南通  连不上
+   *   ❌ zfcg.czt.zj.gov.cn、上海两站   纯 JS 渲染，抓不到列表
+   */
   {
-    id: 'jiangsu',
-    name: '江苏政府采购网',
-    listUrl: 'http://www.ccgp-jiangsu.gov.cn/',
-    base: 'http://www.ccgp-jiangsu.gov.cn',
-    // 列表页里公告链接长这样：/jiangsu/js_cggg/details.html?gglb=gkzb&ggid=xxx
-    linkRe: /<a[^>]+href="([^"]*js_cggg\/details\.html\?[^"]+)"[^>]*>([^<]{6,120})<\/a>/g,
+    id: 'suzhou',
+    name: '苏州公共资源交易',
+    listUrl: 'https://ggzy.suzhou.gov.cn/jyxx/003001/tradeInfo.html',
+    base: 'https://ggzy.suzhou.gov.cn',
+    // 公告详情长这样：/jyxx/003001/003001001/20261029/<uuid>.html
+    linkRe: /<a[^>]+href="([^"]*\/jyxx\/[^"]*\/\d{8}\/[0-9a-f-]{20,}\.html)"[^>]*>([\s\S]{4,160}?)<\/a>/gi,
   },
   {
-    id: 'zhejiang',
-    name: '浙江政府采购网',
-    listUrl: 'https://zfcg.czt.zj.gov.cn/',
-    base: 'https://zfcg.czt.zj.gov.cn',
-    linkRe: /<a[^>]+href="([^"]*(?:site\/detail|portal\/detail)[^"]*)"[^>]*>([^<]{6,120})<\/a>/g,
+    id: 'taizhou',
+    name: '台州公共资源交易',
+    listUrl: 'https://tzztb.zjtz.gov.cn/',
+    base: 'https://tzztb.zjtz.gov.cn',
+    linkRe: /<a[^>]+href="([^"]*\/art\/\d{4}\/[^"]*\.html)"[^>]*>([\s\S]{4,160}?)<\/a>/gi,
   },
 ];
 
@@ -63,7 +72,11 @@ export function parseLinks(html, source) {
   let m;
   while ((m = source.linkRe.exec(html))) {
     let href = String(m[1] || '').trim();
-    const title = String(m[2] || '').replace(/\s+/g, ' ').trim();
+    // 标题里可能夹着 <span>/<em> 之类标签，先剥干净
+    const title = String(m[2] || '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (!href || title.length < 6) continue;
     if (href.startsWith('/')) href = source.base + href;
     if (!/^https?:/i.test(href)) continue;
@@ -87,11 +100,26 @@ export function extractFields(text) {
     const m = re.exec(t);
     return m ? String(m[1] || '').trim().slice(0, 80) : '';
   };
+
+  /** 去掉「为 / 是 / 名称：」这类前缀和尾部标点 */
+  const clean = (v) =>
+    String(v || '')
+      .replace(/^[\s是为：:、]+/, '')
+      .replace(/^[）)]+/, '')
+      // 同一行里紧跟着「招标代理机构：…」的，截断掉，别混进招标人
+      .replace(/\s*(招标代理机构|采购代理机构|代理机构|联系人|联系电话|地址).*$/, '')
+      .replace(/[\s，,。；;：:）)]+$/, '')
+      .trim();
+
+  /** 代理机构：只要「xx公司/xx中心」这种，抓到「受招标人委托…」就作废 */
+  const agencyRaw = clean(pick(/(?:采购代理机构|招标代理机构|代理机构)(?:名称)?[：:\s|｜]+([^\n|｜，,。；;：:]{2,60})/));
+  const agency = /委托|受|事宜|负责|本工程/.test(agencyRaw) ? '' : agencyRaw;
+
   return {
-    tenderNo: pick(/项目编号[：:]\s*([^\s，,。；;]{4,60})/),
-    tenderer: pick(/(?:采购人|招标人|采购单位)(?:名称)?[：:]\s*([^\n，,。；;]{2,60})/),
-    agency: pick(/(?:代理机构|采购代理机构)(?:名称)?[：:]\s*([^\n，,。；;]{2,60})/),
-    budget: pick(/(?:预算金额|采购预算|最高限价)[^0-9]{0,6}([\d,.]+\s*(?:万元|元|亿元))/),
+    tenderNo: clean(pick(/项目编号[：:\s]*([A-Za-z0-9\-_（）()【】\[\]／/]{4,60})/)),
+    tenderer: clean(pick(/(?:采购人|招标人|采购单位)(?:名称)?[：:\s|｜]+([^\n|｜，,。；;：:]{2,60})/)),
+    agency,
+    budget: clean(pick(/(?:预算金额|采购预算|最高限价|控制价)[^0-9]{0,8}([\d,.]+\s*(?:万元|元|亿元))/)),
     bidDeadline: '',
     bidOpenAt: '',
     bidPlace: '',
@@ -114,8 +142,12 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
    * 要真正落库必须显式开 ALLOW_BETA_COLLECT=1，
    * 否则宁可不收，也不往库里塞模板文字。
    */
-  if (!dryRun && process.env.ALLOW_BETA_COLLECT !== '1') {
-    throw new Error('采集尚在验证阶段：详情页有反爬，正文抽不出来。请先用 dryRun 探测，或改用「从链接导入正文」。');
+  /*
+   * 苏州站实测可用（列表可解析、详情能抓正文），默认放行；
+   * 其他源仍可能被反爬，失败会记进 report.errors 不影响整体。
+   */
+  if (!dryRun && process.env.DISABLE_BIDDING_COLLECT === '1') {
+    throw new Error('采集已被 DISABLE_BIDDING_COLLECT=1 关闭');
   }
 
   const admin = db.collection('users').findOne((u) => u.isAdmin && u.status !== 'banned');
@@ -141,6 +173,22 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
       if (report.created >= limit) break;
       report.picked += 1;
 
+      // 去重：同一个公告链接已经采过就跳过（重复采集会让列表里出现一堆同名条目）
+      try {
+        const dup = db.collection('listings').findOne(
+          (l) =>
+            !l.deletedAt &&
+            l.category === 'bidding' &&
+            (l.link === link.url || String(l.title || '').trim() === String(link.title || '').trim()),
+        );
+        if (dup) {
+          report.skipped += 1;
+          continue;
+        }
+      } catch {
+        /* 查重失败就继续，宁可多一条也别漏 */
+      }
+
       try {
         const r = await fetchWebpage(link.url, { keepAll: true });
         if (!r || !r.ok || !String(r.text || '').trim()) {
@@ -149,8 +197,17 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
         }
 
         const fields = extractFields(r.text);
+        /*
+         * 标题优先用列表页上的链接文字 —— 详情页的 <title> 往往是站点名
+         * （「苏州市公共资源交易平台」），拿来做标题毫无意义。
+         */
+        const titleFromList = String(link.title || '').replace(/\s+/g, ' ').trim();
+        const titleFromPage = String(r.title || '').replace(/\s+/g, ' ').trim();
+        const isSiteName = /公共资源交易平台|政府采购网|招标投标公共服务平台|首页/.test(titleFromPage);
+        const finalTitle = (titleFromList.length >= 6 ? titleFromList : isSiteName ? '' : titleFromPage) || titleFromList || titleFromPage;
+
         const item = {
-          title: String(r.title || link.title).slice(0, 118),
+          title: String(finalTitle).split(/[|｜]/)[0].trim().slice(0, 118),
           subtitle: `来源：${src.name} · ${fields.tenderer || '采购公告'}`,
           text: String(r.text).slice(0, 120000),
           link: link.url,
@@ -164,7 +221,7 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
           continue;
         }
 
-        await listingsSvc.createListing({
+        const created = await listingsSvc.createListing({
           user: admin,
           body: {
             category: 'bidding',
@@ -181,6 +238,15 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
             durationDays: 30,
           },
         });
+
+        /*
+         * createListing 建出来的永远是草稿，必须显式发布一次才会上前台。
+         * 采集的是公开公告，直接发布，不用再人工点。
+         */
+        const newId = created?.id || created?.listing?.id || created?.listingId;
+        if (newId && typeof listingsSvc.publishListing === 'function') {
+          await listingsSvc.publishListing(newId, admin, { days: 30 });
+        }
         report.created += 1;
         report.items.push({ id: item.title, title: item.title, url: link.url });
 
