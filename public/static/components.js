@@ -41,6 +41,7 @@ export function itemHtml(l) {
         ${badges.join('')}
         ${region ? `<span>📍${esc(region)}</span>` : ''}
         ${industry ? `<span>· ${esc(industry)}</span>` : ''}
+        ${l.contactName ? `<span>· ${esc(String(l.contactName).slice(0, 12))}</span>` : ''}
         ${expiry ? `<span>· ${esc(expiry)}</span>` : ''}
       </div>
       <div class="item-meta">

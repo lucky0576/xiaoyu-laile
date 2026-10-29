@@ -423,7 +423,7 @@ export async function renderHome(ctx, query) {
         <div class="t">${ui.esc(l.title)}</div>
         <div class="m">
           <span>${ui.esc(l.cities?.[0]?.name || l.categoryName || '')}</span>
-          <span>${ui.esc((l.typeName || '') || ui.fmtRelative(l.publishedAt))}</span>
+          <span>${ui.esc(l.contactName || (l.typeName || '') || ui.fmtRelative(l.publishedAt))}</span>
         </div>
       </div>
     </a>`;
@@ -736,6 +736,19 @@ export async function renderBroadcast(ctx, params) {
       勾选要群发的信息（最多 20 条）→ 自动生成一段可粘贴到微信的文案。<br>
       文案会按发布时间排序、只保留主标题，末尾带站内链接。
     </div>
+
+    <div class="card card-pad mb12">
+      <div class="row between mb6">
+        <div class="strong" style="font-size:13px">🤖 AI 帮我选</div>
+        <span class="tiny dim">说一句话，自动勾出相关的几条</span>
+      </div>
+      <div class="row gap8">
+        <input class="input grow" id="bc-ai-q" maxlength="60"
+          placeholder="例如：储能相关的 / 华南的算力 / 有金额的转让项目">
+        <button class="btn btn-sm btn-primary" id="bc-ai-go" type="button" style="flex:none">AI 搜索</button>
+      </div>
+      <div class="tiny dim mt6" id="bc-ai-tip">AI 不可用时会自动退回关键词匹配，不会没结果</div>
+    </div>
     <div class="card list-grid" id="list-box">
       ${items.length ? items.map(rowHtml).join('') : ui.emptyState('📭', '还没有可转发的信息')}
     </div>
@@ -761,6 +774,67 @@ export async function renderBroadcast(ctx, params) {
       bindPicking(root, box, btn);
       btn.click(); // 直接进入多选模式
       btn.style.display = 'none';
+
+      /* ---------------- AI 帮我选 ---------------- */
+      const qEl = root.querySelector('#bc-ai-q');
+      const goBtn = root.querySelector('#bc-ai-go');
+      const tipEl = root.querySelector('#bc-ai-tip');
+
+      const pick = async () => {
+        const query = String(qEl?.value || '').trim();
+        if (!query) {
+          ui.toast('说说要找什么，比如「储能相关的」', 'err');
+          qEl?.focus();
+          return;
+        }
+        const old = goBtn.textContent;
+        goBtn.disabled = true;
+        goBtn.textContent = 'AI 思考中…';
+        try {
+          const r = await service.broadcastPick({
+            query,
+            ids: items.map((x) => x.id),
+          });
+          const ids = (r && r.ids) || [];
+
+          // 先清掉之前勾的，再逐个模拟点击，交给 bindPicking 维护状态
+          box.querySelectorAll('.item.sel').forEach((el) => el.click());
+          let hit = 0;
+          for (const id of ids) {
+            const el = box.querySelector(`a.item[href="#/detail/${id}"]`);
+            if (el && !el.classList.contains('sel')) {
+              el.click();
+              hit += 1;
+            }
+          }
+
+          if (tipEl) {
+            tipEl.textContent =
+              hit > 0
+                ? `${r.mode === 'ai' ? 'AI' : '关键词'}匹配到 ${hit} 条，已自动勾选`
+                : '没找到相关的，换个说法试试（比如只写行业或城市）';
+          }
+          if (hit > 0) {
+            box.querySelector('.item.sel')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            ui.toast(`已勾选 ${hit} 条，可直接生成文案`, 'ok');
+          } else {
+            ui.toast('没找到相关的，换个说法试试', 'err');
+          }
+        } catch (err) {
+          ui.toast(err.message || 'AI 搜索失败', 'err');
+        } finally {
+          goBtn.disabled = false;
+          goBtn.textContent = old;
+        }
+      };
+
+      goBtn?.addEventListener('click', pick);
+      qEl?.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          pick();
+        }
+      });
     },
   };
 }

@@ -530,6 +530,7 @@ export const service = {
   broadcastText: (body) => api.post('/api/broadcast/text', body),
   broadcastWecomStatus: () => api.get('/api/broadcast/wecom'),
   broadcastWecom: (body) => api.post('/api/broadcast/wecom', body),
+  broadcastPick: (body) => api.post('/api/broadcast/pick', body),
   docPreview: (fileId) => api.get(`/api/preview/${fileId}`),
   /*
    * 预览页图片是 <img> 加载的，发不了 Authorization 头，

@@ -77,6 +77,10 @@ export async function openBroadcast(ids) {
       <button class="bcast-x" type="button" aria-label="关闭">✕</button>
     </div>
     <div class="bcast-body">
+      <label class="bcast-opt">
+        <input type="checkbox" id="bcast-link" ${localStorage.getItem('xyl_bcast_link') === '0' ? '' : 'checked'}>
+        <span>带上站内链接（方便对方点开看详情）</span>
+      </label>
       <textarea class="bcast-text" id="bcast-text" spellcheck="false"></textarea>
       ${(r.missing || []).length ? `<div class="tiny dim mt6">有 ${r.missing.length} 条已下架，已自动跳过</div>` : ''}
     </div>
@@ -91,6 +95,35 @@ export async function openBroadcast(ids) {
 
   const ta = mask.querySelector('#bcast-text');
   ta.value = r.text;
+
+  /* 带不带链接：勾掉就重新生成一版不带链接的，选择记在本地，下次沿用 */
+  const linkBox = mask.querySelector('#bcast-link');
+  if (linkBox) {
+    linkBox.addEventListener('change', async () => {
+      const want = linkBox.checked;
+      try {
+        localStorage.setItem('xyl_bcast_link', want ? '1' : '0');
+      } catch {
+        /* 隐私模式忽略 */
+      }
+      try {
+        ui.showLoading(want ? '正在补链接…' : '正在去掉链接…');
+        const rr = await service.broadcastText({
+          ids,
+          includeSummary: true,
+          includeMeta: true,
+          includeLink: want,
+        });
+        ta.value = rr.text || ta.value;
+        ui.hideLoading();
+        ui.toast(want ? '已带上链接' : '已去掉链接，纯文字版', 'ok');
+      } catch (err) {
+        ui.hideLoading();
+        ui.toast(err.message || '重新生成失败', 'err');
+        linkBox.checked = !want;
+      }
+    });
+  }
 
   const close = () => {
     mask.classList.remove('show');

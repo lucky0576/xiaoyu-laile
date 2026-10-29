@@ -4235,6 +4235,21 @@ a.sp-item:active { background: #f7fbff; }
   flex: 0 0 auto;
   padding: 0 12px;
 }
+/* ---------------- 群发文案：链接开关 ---------------- */
+.bcast-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #445;
+  cursor: pointer;
+}
+.bcast-opt input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
