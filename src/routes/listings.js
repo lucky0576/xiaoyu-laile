@@ -8,12 +8,14 @@ import {
 } from './_util.js';
 import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
 import { saveUploads, filePublic, getFile } from '../services/files.js';
+import { requireAdmin } from '../services/auth.js';
 import { generateCoverFile } from '../services/cover.js';
 import { generatePhotoCover, PHOTO_QUERIES, warmPhotoCache } from '../services/photo-cover.js';
 import { extractDocCover, canExtractFrom } from '../services/doc-images.js';
 import { generateAutoInfo } from '../services/auto-info.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
+import biddingCollect from '../services/bidding-collect.js';
 import db from '../store/db.js';
 import { buildDocument } from '../services/documents.js';
 import casesSvc from '../services/cases.js';
@@ -191,6 +193,27 @@ export default function registerListingRoutes(app) {
     const items = finalIds.map((id) => byId.get(id)).filter(Boolean);
 
     return data(res, { ids: finalIds, items, mode, note, scanned });
+  });
+
+  /**
+   * 采集江浙沪招投标（管理员）。
+   * dryRun=1 时只抓不落库，先看抓到什么再决定。
+   */
+  app.post('/api/admin/bidding/collect', async (req, res) => {
+    const user = requireAdmin(req);
+    const rl = rateLimit(`bidcollect:${clientIp(req)}`, 6, 60_000);
+    if (!rl.ok) return fail(res, `别太频繁，${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const limit = Math.min(10, Math.max(1, Number(req.body?.limit) || 3));
+    const dryRun = String(req.body?.dryRun || '') === '1' || req.body?.dryRun === true;
+    const sourceId = String(req.body?.sourceId || '').trim();
+
+    try {
+      const report = await biddingCollect.collect({ limit, dryRun, sourceId });
+      return data(res, { ...report, dryRun, by: user.nickname || user.phone });
+    } catch (err) {
+      return fail(res, err.message || '采集失败', 500, 'collect_failed');
+    }
   });
 
   app.get('/api/my/listings', (req, res) => {
