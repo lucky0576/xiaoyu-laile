@@ -51,3 +51,7 @@ video/
 data-scratch/
 *.zip
 .tools/
+
+# Word / Office 临时锁文件
+soft-copyright/~$*
+~$*
