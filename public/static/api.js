@@ -532,6 +532,9 @@ export const service = {
   broadcastWecom: (body) => api.post('/api/broadcast/wecom', body),
   broadcastPick: (body) => api.post('/api/broadcast/pick', body),
   broadcastSaved: () => api.get('/api/broadcast/saved'),
+  contestList: () => api.get('/api/contest/list'),
+  contestFollows: () => api.get('/api/contest/follows'),
+  contestFollow: (id, on) => api.post('/api/contest/follow', { id, on }),
   broadcastSavedSave: (list) => api.put('/api/broadcast/saved', { list }),
   docPreview: (fileId) => api.get(`/api/preview/${fileId}`),
   /*

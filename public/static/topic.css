@@ -215,3 +215,53 @@
   white-space: nowrap;
 }
 .ntb-go { flex: none; color: #c2410c; font-weight: 700; }
+
+/* ---------------- 倒计时 ---------------- */
+.cd {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.cd-urgent { background: #fee2e2; color: #b91c1c; }
+.cd-soon   { background: #fef3c7; color: #92400e; }
+.cd-ok     { background: #e0f2fe; color: #075985; }
+.cd-over   { background: #f1f5f9; color: #64748b; font-weight: 500; }
+.cd-unknown{ background: #f1f5f9; color: #64748b; font-weight: 500; }
+
+.cd-banner {
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fff1f2, #ffe4e6);
+  border: 1px solid #fecdd3;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #9f1239;
+}
+
+/* ---------------- 关注按钮 ---------------- */
+.tp-follow {
+  flex: none;
+  margin-left: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 1.5px solid #0b74ff;
+  background: #fff;
+  color: #0b74ff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .12s;
+}
+.tp-follow.on {
+  background: #0b74ff;
+  color: #fff;
+  border-color: #0b74ff;
+}
+.tp-follow:active { transform: scale(.96); }
+.tp-follow:disabled { opacity: .6; }
