@@ -155,6 +155,13 @@ export async function renderNews(ctx, query = {}) {
         ${total ? `<div class="news-hero-f">共 ${total} 条${meta?.lastAt ? ` · 最近更新 ${relTime(meta.lastAt)}` : ''}</div>` : ''}
       </div>
 
+      <a class="news-topic-bar" href="#/contest">
+        <span class="ntb-ico">🏆</span>
+        <span class="ntb-t">江浙沪创业大赛 · 政策速查</span>
+        <span class="ntb-d">报名条件 / 时间节点 / 补贴政策</span>
+        <span class="ntb-go">›</span>
+      </a>
+
       <div class="news-tabs">${tabHtml}</div>
       <div class="news-list">${body}</div>
     </div>`,

@@ -1,0 +1,217 @@
+/* ---------------- 专题页：江浙沪创业大赛 ---------------- */
+
+.tp-page { padding-bottom: 12px; }
+
+.tp-hero {
+  text-align: center;
+  padding: 20px 6px 8px;
+}
+.tp-hero-t {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1a2433;
+}
+.tp-hero-dot { color: #98a5b8; font-weight: 400; }
+.tp-hero-d {
+  font-size: 12.5px;
+  color: var(--muted, #6b7686);
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+.tp-sec-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1a2433;
+  margin: 20px 2px 10px;
+}
+
+/* 赛事卡 */
+.tp-card {
+  background: #fff;
+  border: 1px solid var(--line, #e3e9f2);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.tp-head {
+  padding: 12px 14px 10px;
+  background: #fafbfd;
+}
+.tp-prov {
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.tp-name {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #1a2433;
+  line-height: 1.45;
+}
+.tp-sub {
+  font-size: 12px;
+  color: var(--muted, #6b7686);
+  margin-top: 4px;
+  line-height: 1.55;
+}
+.tp-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tp-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #0b5fd6;
+  white-space: nowrap;
+}
+.tp-body { padding: 6px 14px 4px; }
+.tp-row {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--line, #e8edf5);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.tp-row:first-child { border-top: 0; }
+.tp-k {
+  flex: none;
+  width: 92px;
+  color: var(--muted, #6b7686);
+}
+.tp-v { flex: 1; min-width: 0; color: #2b3444; }
+.tp-v b { color: #c2410c; }
+
+.tp-highlight {
+  margin: 4px 14px 10px;
+  padding: 9px 11px;
+  background: #fffbeb;
+  border: 1px solid #fde9b8;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #7a5200;
+}
+
+.tp-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--line, #eef2f7);
+}
+.tp-link {
+  font-size: 12px;
+  color: #0b74ff;
+  text-decoration: none;
+}
+.tp-link:hover { text-decoration: underline; }
+
+/* 政策三列 */
+.tp-pol {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 720px) {
+  .tp-pol { grid-template-columns: repeat(3, 1fr); }
+}
+.tp-pol-col {
+  background: #fff;
+  border: 1px solid var(--line, #e3e9f2);
+  border-radius: 12px;
+  padding: 12px;
+}
+.tp-pol-h {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0b74ff;
+  margin-bottom: 8px;
+}
+.tp-pol-i { padding: 6px 0; border-top: 1px dashed var(--line, #eef2f7); }
+.tp-pol-i:first-of-type { border-top: 0; }
+.tp-pol-k { font-size: 12.5px; font-weight: 700; color: #2b3444; }
+.tp-pol-v { font-size: 11.5px; color: var(--muted, #6b7686); line-height: 1.65; margin-top: 2px; }
+
+.tp-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f6f8fb;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: #5b6675;
+}
+
+/* ---------------- 首页专题卡 ---------------- */
+.home-topic {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fff7ed, #fef3e7);
+  border: 1px solid #fde3c4;
+  text-decoration: none;
+}
+.home-topic:active { transform: scale(.99); }
+.ht-ico {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  background: #fff;
+  border-radius: 12px;
+}
+.ht-body { flex: 1; min-width: 0; }
+.ht-t {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #7c3d09;
+}
+.ht-d {
+  font-size: 11.5px;
+  color: #9a6a3a;
+  margin-top: 3px;
+  line-height: 1.55;
+}
+.ht-go {
+  flex: none;
+  font-size: 12px;
+  color: #c2410c;
+  font-weight: 700;
+}
+
+/* ---------------- 资讯页专题条 ---------------- */
+.news-topic-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff7ed, #fef3e7);
+  border: 1px solid #fde3c4;
+  text-decoration: none;
+}
+.ntb-ico { flex: none; font-size: 16px; }
+.ntb-t { font-size: 13px; font-weight: 800; color: #7c3d09; white-space: nowrap; }
+.ntb-d {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: #9a6a3a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ntb-go { flex: none; color: #c2410c; font-weight: 700; }

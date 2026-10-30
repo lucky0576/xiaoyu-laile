@@ -22,6 +22,7 @@ const ORDER = [
   'home.css',
   'live.css',
   'meeting.css',
+  'topic.css',
   'forum.css',
   'bindings.css',
   'invest.css',

@@ -345,6 +345,16 @@ export async function renderHome(ctx, query) {
     </div>
   </div>`;
 
+  /* 专题入口：江浙沪创业大赛与政策速查 */
+  const topicHtml = `<a class="home-topic" href="#/contest">
+    <div class="ht-ico">🏆</div>
+    <div class="ht-body">
+      <div class="ht-t">江浙沪创业大赛 · 政策速查</div>
+      <div class="ht-d">浙江 / 上海 / 江苏赛事报名条件、时间节点与补贴政策，一页看全</div>
+    </div>
+    <div class="ht-go">查看 ›</div>
+  </a>`;
+
   const gridHtml = `<div class="home-grid">
     ${entries.map((e) => `<a class="home-card" href="${e.href}" data-auth="${e.auth ? '1' : ''}">
       <div class="txt"><div class="t">${e.t}</div><div class="d">${ui.esc(e.d)}</div></div>
@@ -527,6 +537,7 @@ export async function renderHome(ctx, query) {
     ${aiBarHtml}
     ${publishBarHtml}
     ${gridHtml}
+    ${topicHtml}
     ${projectBarHtml}
     ${ecomBarHtml}
     ${promoHtml}
