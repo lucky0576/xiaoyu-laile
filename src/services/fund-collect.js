@@ -199,6 +199,19 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
   const sources = sourceId ? SOURCES.filter((s) => s.id === sourceId) : SOURCES;
   const report = { scanned: 0, picked: 0, created: 0, skipped: 0, failed: 0, items: [], errors: [] };
 
+  /*
+   * 待审核积压保护：后台还没有审核界面，采集不能无限往里堆。
+   * 超过上限就停采，等都审完了再继续 —— 否则文件集合越滚越大，
+   * AI 额度也白烧。
+   */
+  const PENDING_CAP = 200;
+  const pendingCount = funds().all().filter((f) => (f.reviewStatus || 'pending') === 'pending').length;
+  report.pendingBefore = pendingCount;
+  if (pendingCount >= PENDING_CAP) {
+    report.note = `待审核已积压 ${pendingCount} 条（上限 ${PENDING_CAP}），本次不采。审完或清掉后会自动恢复。`;
+    return report;
+  }
+
   for (const src of sources) {
     let html = '';
     try {
@@ -332,6 +345,7 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
     }
   }
 
+  report.pendingAfter = funds().all().filter((f) => (f.reviewStatus || 'pending') === 'pending').length;
   return report;
 }
 

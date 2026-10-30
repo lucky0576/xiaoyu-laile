@@ -40,8 +40,10 @@ if (!r.json?.ok) {
 
 const d = r.json.data;
 console.log(
-  `[${ts}] 基金采集：扫描 ${d.scanned}，成功 ${d.created}，跳过 ${d.skipped}，失败 ${d.failed}`,
+  `[${ts}] 基金采集：扫描 ${d.scanned}，成功 ${d.created}，跳过 ${d.skipped}，失败 ${d.failed}` +
+    (d.pendingAfter !== undefined ? `，待审核累计 ${d.pendingAfter} 条` : ''),
 );
+if (d.note) console.log(`  提示：${d.note}`);
 for (const it of d.items || []) {
   console.log(`  · [${it.province}] ${it.name} ${it.scale || ''}${it.split ? ' (拆条)' : ''}`);
 }
