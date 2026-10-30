@@ -811,6 +811,8 @@ export default function registerCoreRoutes(app) {
       parsed,
       items: result.items,
       total: result.total,
+      // 关键词没命中、退化到「最新发布」时给前端提示，别让人以为白搜
+      fellBack: Boolean(result.fellBack),
     });
   });
 

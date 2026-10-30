@@ -1713,7 +1713,12 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
   const industry = String(intent.industry || '').trim();
   const category = String(intent.category || '').trim();
 
-  const tries = [
+  /*
+   * 检索顺序：先精确（关键词+城市+行业+分类），逐级放宽，
+   * 最后两档是「只按分类」和「什么都不限」——
+   * 这两档不能被过滤掉，否则「今天新发布的项目」这类提问会返回 0 条。
+   */
+  const tiers = [
     { category, q: [...words, city, industry].filter(Boolean).join(' ') },
     { category, q: [...words, industry].filter(Boolean).join(' ') },
     { category, q: [...words].filter(Boolean).join(' ') },
@@ -1721,31 +1726,53 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
     { q: [...words, city].filter(Boolean).join(' ') },
     { q: words.join(' ') },
     { q: base },
-  ].filter((t) => t.q || t.category);
+    { category },
+    {},
+  ];
 
-  let best = [];
-  for (const t of tries) {
-    let items = [];
+  const runTier = (t) => {
     try {
-      items = queryListings({
-        status: 'published',
-        pageSize: 200,
-        q: t.q || undefined,
-        category: t.category || undefined,
-      }).items || [];
+      return (
+        queryListings({
+          status: 'published',
+          pageSize: 200,
+          q: t.q || undefined,
+          category: t.category || undefined,
+        }).items || []
+      );
     } catch {
-      items = [];
+      return [];
     }
-    if (items.length > best.length) best = items;
-    if (items.length >= 3) {
-      best = items;
+  };
+
+  /*
+   * 取「第一个有结果的档」作为主结果。
+   * 如果那一档少于 3 条，再并上下一档的结果（去重）把面拓宽一点，
+   * 但不会用更宽的兜底结果去替换掉精确命中。
+   */
+  let primary = [];
+  let primaryTier = -1;
+  for (let idx = 0; idx < tiers.length; idx++) {
+    const items = runTier(tiers[idx]);
+    if (items.length) {
+      primary = items;
+      primaryTier = idx;
       break;
     }
   }
 
-  // 打分：城市、行业命中排前面，其次看关键词与可靠性
+  // 走到最后两档说明关键词一个都没命中
+  const fellBack = primaryTier >= tiers.length - 2 || primaryTier < 0;
+
+  let pool = primary;
+  if (primary.length > 0 && primary.length < 3 && primaryTier < tiers.length - 1) {
+    const more = runTier(tiers[primaryTier + 1]);
+    const seen = new Set(primary.map((l) => l.id));
+    pool = primary.concat(more.filter((l) => !seen.has(l.id)));
+  }
+
   const lowerWords = words.map((w) => w.toLowerCase());
-  const scored = best.map((l) => {
+  const scored = pool.map((l) => {
     const hay = [
       l.title,
       l.subtitle,
@@ -1758,19 +1785,28 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
+
     let score = 0;
     if (city && hay.includes(city.toLowerCase())) score += 8;
     if (industry && hay.includes(industry.toLowerCase())) score += 6;
     for (const w of lowerWords) if (w && hay.includes(w)) score += 3;
     if (base && hay.includes(base.toLowerCase())) score += 2;
     score += (l.ai?.reliability?.score || 0) / 50;
-    return { l, score };
+
+    const ts = Date.parse(l.publishedAt || l.createdAt || '') || 0;
+    return { l, score, ts };
   });
-  scored.sort((a, b) => b.score - a.score);
+
+  scored.sort((a, b) => {
+    // 兜底时纯按发布时间倒序，保证「最新发布的」一定在最前面
+    if (fellBack && b.ts !== a.ts) return b.ts - a.ts;
+    return b.score - a.score;
+  });
 
   return {
     items: scored.slice(0, limit).map((x) => x.l),
     total: scored.length,
+    fellBack,
   };
 }
 

@@ -1291,6 +1291,14 @@ export async function renderSearch(ctx, query) {
     if (!parsedBits.length && (parsed.keywords || []).length) parsedBits.push(...parsed.keywords);
   }
 
+  /* 关键词没命中、退化成「按分类/最新」时，明确告诉用户 */
+  const fallbackHtml =
+    q && res.fellBack && (res.items || []).length
+      ? `<div class="ai-fallback">没找到完全匹配「${ui.esc(q)}」的信息，下面是最近发布的相关内容</div>`
+      : q && !(res.items || []).length
+        ? `<div class="ai-fallback">没找到「${ui.esc(q)}」相关的信息，换个说法试试，或看看下面的热门词</div>`
+        : '';
+
   const parsedHtml =
     q && parsed
       ? `<div class="ai-parsed">
@@ -1315,6 +1323,7 @@ export async function renderSearch(ctx, query) {
     </form>
 
     ${parsedHtml}
+    ${fallbackHtml}
 
     ${!q ? `
       <div class="section-head mt16"><h2>热门搜索</h2></div>
