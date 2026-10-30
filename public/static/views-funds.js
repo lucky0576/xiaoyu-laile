@@ -12,6 +12,7 @@ const REGION_COLOR = {
   江苏: '#e07c1c',
   浙江: '#0e8f7a',
   全国: '#7c3aed',
+  其他地区: '#7c3aed',
 };
 
 const REGION_ORDER = ['上海', '江苏', '浙江'];
@@ -79,7 +80,8 @@ export async function renderFunds(ctx, query) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(f);
   }
-  const orderedKeys = [...REGION_ORDER.filter((k) => groups.has(k)), ...(groups.has('全国') ? ['全国'] : [])];
+  const otherKey = groups.has('全国') ? '全国' : groups.has('其他地区') ? '其他地区' : '';
+  const orderedKeys = [...REGION_ORDER.filter((k) => groups.has(k)), ...(otherKey ? [otherKey] : [])];
 
   const totalCount = funds.length;
 

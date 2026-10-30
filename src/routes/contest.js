@@ -14,6 +14,7 @@ import {
 import { UPDATED_AT, listWithCountdown, POLICIES, daysLeft, CONTESTS } from '../data/contests.js';
 import { FUNDS, UPDATED_AT as FUNDS_UPDATED_AT } from '../data/funds.js';
 import notifySvc from '../services/notify.js';
+import fundSvc from '../services/fund-collect.js';
 
 const users = () => db.collection('users');
 
@@ -34,7 +35,68 @@ export default function registerContestRoutes(app) {
 
   /** 各地政府基金动向（与赛事数据分开维护） */
   app.get('/api/funds/list', (req, res) => {
-    return data(res, { updatedAt: FUNDS_UPDATED_AT, funds: FUNDS });
+    /*
+     * 静态条目（人工核实过的）排在前面，
+     * 采集来的「已审核」条目接在后面 —— 采集的字段可能不如人工核实得准。
+     */
+    /*
+     * 采集来的条目要和静态条目去重：
+     * 静态那条是人工核实过的，同一个基金两边都有时只留静态的。
+     * 用「去掉空格/标点后互相包含」判重，容忍「孚腾 S 基金二期」与「孚腾S基金二期」这种写法差异。
+     */
+    const norm = (x) => String(x || '').replace(/[\s（）()·、,，\-—_]/g, '').toLowerCase();
+    const staticNames = FUNDS.map((f) => norm(f.name));
+    const collected = fundSvc.publishedFunds({ limit: 60 }).filter((c) => {
+      const cn = norm(c.name);
+      if (!cn) return false;
+      return !staticNames.some((sn) => sn && (sn.includes(cn) || cn.includes(sn)));
+    });
+    return data(res, {
+      updatedAt: FUNDS_UPDATED_AT,
+      funds: [...FUNDS, ...collected],
+      staticCount: FUNDS.length,
+      collectedCount: collected.length,
+    });
+  });
+
+  /* ---------------- 基金采集与审核（管理员） ---------------- */
+
+  app.post('/api/admin/funds/collect', async (req, res) => {
+    const user = mustAuth(req);
+    const key = str(req.headers['x-admin-key'] || req.body?.key, 80);
+    const viaKey = Boolean(key && process.env.ADMIN_KEY && key === process.env.ADMIN_KEY);
+    if (!user.isAdmin && !viaKey) return fail(res, '需要管理员权限', 403, 'forbidden');
+
+    const rl = rateLimit(`fundcollect:${clientIp(req)}`, 6, 60_000);
+    if (!rl.ok) return fail(res, `别太频繁，${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const limit = Math.min(8, Math.max(1, Number(req.body?.limit) || 3));
+    const dryRun = String(req.body?.dryRun || '') === '1' || req.body?.dryRun === true;
+    const sourceId = str(req.body?.sourceId, 40);
+
+    try {
+      const report = await fundSvc.collect({ limit, dryRun, sourceId });
+      return data(res, { ...report, dryRun });
+    } catch (err) {
+      return fail(res, err.message || '采集失败', 500, 'collect_failed');
+    }
+  });
+
+  app.get('/api/admin/funds/pending', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+    const status = str(req.query.status, 20) || 'pending';
+    return data(res, { items: fundSvc.listFunds({ reviewStatus: status, limit: 80 }), status });
+  });
+
+  app.post('/api/admin/funds/:id/review', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+    const action = str(req.body?.action, 20);
+    if (!['approve', 'reject'].includes(action)) return fail(res, 'action 只能是 approve 或 reject');
+    const f = fundSvc.reviewFund(String(req.params.id || ''), action);
+    if (!f) return fail(res, '条目不存在', 404, 'not_found');
+    return data(res, { item: f });
   });
 
   app.get('/api/contest/follows', (req, res) => {
