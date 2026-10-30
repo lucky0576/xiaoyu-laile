@@ -12,6 +12,7 @@ import {
   data, fail, str, bool, mustAuth, clientIp, rateLimit,
 } from './_util.js';
 import { UPDATED_AT, listWithCountdown, POLICIES, daysLeft, CONTESTS } from '../data/contests.js';
+import { FUNDS, UPDATED_AT as FUNDS_UPDATED_AT } from '../data/funds.js';
 import notifySvc from '../services/notify.js';
 
 const users = () => db.collection('users');
@@ -29,6 +30,11 @@ export default function registerContestRoutes(app) {
       contests: listWithCountdown(),
       policies: POLICIES,
     });
+  });
+
+  /** 各地政府基金动向（与赛事数据分开维护） */
+  app.get('/api/funds/list', (req, res) => {
+    return data(res, { updatedAt: FUNDS_UPDATED_AT, funds: FUNDS });
   });
 
   app.get('/api/contest/follows', (req, res) => {

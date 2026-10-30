@@ -533,6 +533,7 @@ export const service = {
   broadcastPick: (body) => api.post('/api/broadcast/pick', body),
   broadcastSaved: () => api.get('/api/broadcast/saved'),
   contestList: () => api.get('/api/contest/list'),
+  fundsList: () => api.get('/api/funds/list'),
   contestFollows: () => api.get('/api/contest/follows'),
   contestFollow: (id, on) => api.post('/api/contest/follow', { id, on }),
   broadcastSavedSave: (list) => api.put('/api/broadcast/saved', { list }),

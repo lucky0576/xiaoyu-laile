@@ -128,6 +128,7 @@ export async function renderContest(ctx, query) {
       <div class="row gap8 mt12" style="justify-content:center">
         <button class="btn btn-sm btn-primary" id="tp-share" type="button">🔗 分享这个专题</button>
         <button class="btn btn-sm" id="tp-copy" type="button">📋 复制转发文案</button>
+        <a class="btn btn-sm" href="#/funds">💰 政府基金动向</a>
       </div>
     </div>
 

@@ -5264,6 +5264,78 @@ a.about-c-phone {
 }
 .tp-follow:active { transform: scale(.96); }
 .tp-follow:disabled { opacity: .6; }
+/* ---------------- 政府基金动向 ---------------- */
+.fd-group { margin-bottom: 6px; }
+.fd-count {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted, #6b7686);
+  margin-left: 8px;
+}
+.fd-card {
+  background: #fff;
+  border: 1px solid var(--line, #e3e9f2);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.fd-head { padding: 12px 14px 10px; background: #fafbfd; }
+.fd-where { font-size: 12px; font-weight: 800; margin-bottom: 4px; }
+.fd-name { font-size: 15.5px; font-weight: 800; color: #1a2433; line-height: 1.45; }
+.fd-scale {
+  flex: none;
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #c2410c;
+  white-space: nowrap;
+  text-align: right;
+}
+.fd-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.fd-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #0b5fd6;
+  font-weight: 700;
+}
+.fd-date { font-size: 11.5px; color: var(--muted, #6b7686); }
+.fd-body { padding: 8px 14px 4px; }
+.fd-row {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.fd-k { flex: none; width: 82px; color: var(--muted, #6b7686); }
+.fd-v { flex: 1; min-width: 0; color: #2b3444; }
+.fd-focus {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 7px;
+  margin: 0 5px 5px 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+.fd-note {
+  margin: 4px 0 8px;
+  padding: 9px 11px;
+  background: #f6f8fb;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #5b6675;
+}
+.fd-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 14px 14px;
+  border-top: 1px solid var(--line, #eef2f7);
+}
 /* ==== forum.css ==== */
 
 /* ================================================================== */
