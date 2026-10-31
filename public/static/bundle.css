@@ -5343,6 +5343,43 @@ a.about-c-phone {
   padding: 8px 14px 14px;
   border-top: 1px solid var(--line, #eef2f7);
 }
+/* ---------------- 人才扶持政策 ---------------- */
+.tl-wrap { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.tl-card {
+  background: #fff;
+  border: 1px solid var(--line, #e3e9f2);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.tl-head { padding: 12px 14px 10px; background: #fafbfd; }
+.tl-prov { font-size: 12.5px; font-weight: 800; margin-bottom: 3px; }
+.tl-headline { font-size: 14px; font-weight: 800; color: #1a2433; line-height: 1.45; }
+.tl-body { padding: 4px 14px 12px; }
+.tl-item { padding: 10px 0; border-top: 1px dashed var(--line, #eef2f7); }
+.tl-item:first-child { border-top: 0; }
+.tl-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #2b3444;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.tl-amount {
+  font-size: 11px;
+  font-weight: 800;
+  color: #c2410c;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.tl-target { font-size: 11.5px; color: #0b74ff; margin-top: 5px; line-height: 1.6; }
+.tl-detail { font-size: 12px; color: #5b6675; line-height: 1.75; margin-top: 4px; }
+.tl-item .tp-link { display: inline-block; margin-top: 6px; }
 /* ==== forum.css ==== */
 
 /* ================================================================== */

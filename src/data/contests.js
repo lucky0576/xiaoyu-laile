@@ -184,6 +184,113 @@ export const CONTESTS = [
   },
 ];
 
+
+/**
+ * 人才扶持政策（江浙沪）。
+ * 只收官方/官方媒体明确给过数字或具体举措的内容，
+ * 每条带原文链接；没给具体金额的写「详见原文」，不自己编。
+ */
+export const TALENT = [
+  {
+    province: '上海',
+    color: 'blue',
+    headline: '青年人才安居 + 落户便利',
+    items: [
+      {
+        name: '奉贤 · 青年人才安居「一年免费住、三年低支出」',
+        target: '来奉实习实践、求职应聘、初创孵化、新在奉就业创业四类人才',
+        detail: '在原有租房补贴基础上再升级，覆盖四类青年人才；「十四五」以来全区已累计推出人才安居租赁房源 2.6 万余套，并在煜文苑、青春风华公寓等试点建设「贤才社区」。',
+        link: 'https://chinajob.mohrss.gov.cn/h5/c/2026-05-11/539172.shtml',
+      },
+      {
+        name: '奉贤 · 「五个便利化」配套',
+        target: '在奉人才',
+        detail: '聚焦交通出行、安居优租、健康服务、商旅消费、落户申享五大方面，首期在人才集聚度高、需求强的区域实现全覆盖。',
+        link: 'https://chinajob.mohrss.gov.cn/h5/c/2026-05-11/539172.shtml',
+      },
+      {
+        name: '临港新片区 · 「人才+产业+金融」政策矩阵',
+        target: '初创企业与青年人才',
+        detail: '临港把人才、产业、金融三类政策打包成矩阵，针对初创企业「轻装快跑」需求给组合支持，具体条款见原文。',
+        link: 'https://jrj.sh.gov.cn/ZXYW178/20260129/5eb39fcb82c3451cb9b66a7bfc065548.html',
+      },
+    ],
+  },
+  {
+    province: '江苏',
+    color: 'orange',
+    headline: '全国首个省级青年社区政策（21 条）',
+    items: [
+      {
+        name: '《关于支持青年社区建设的若干措施》21 条',
+        target: '在苏青年（江苏青年人口超 2000 万）',
+        detail: '全国首个省级层面系统部署青年社区建设的文件。在 OPC 社区、高校院所周边、城市核心区、产业园区建设青年社区，省财政给予资金支持，并把青年社区更新项目纳入省「城新贷」财政贴息范围。',
+        link: 'http://jszwb.jiangsu.gov.cn/art/2026/10/11/art_71797_11840535.html',
+      },
+      {
+        name: '安居：驿站免费住 + 房票 + 公积金直付房租',
+        target: '新就业青年',
+        detail: '增加青年驿站免费入住次数和天数；推广公积金按月按实直付房租；加大青年人才房票补贴力度；通过购房补贴、贴息支持住房困难青年购房；探索允许公积金贷款购买产权公寓。',
+        link: 'http://jszwb.jiangsu.gov.cn/art/2026/10/11/art_71797_11840535.html',
+      },
+      {
+        name: '创业：供应链开放 + 培训券',
+        target: '青年创业主体',
+        detail: '鼓励各地把青年社区主理人及新业态青年纳入人才认定范围；支持有条件的地区发放电子职业培训券等；引导链主企业向青年创业主体开放供应链资源、市场渠道及采购需求。',
+        link: 'http://jszwb.jiangsu.gov.cn/art/2026/10/11/art_71797_11840535.html',
+      },
+      {
+        name: '生活：家门口的托育、就学、医疗',
+        target: '青年家庭',
+        detail: '打造潮流消费活力空间，提供「家门口」的子女托育、就学、医疗健康等便捷服务。',
+        link: 'http://jszwb.jiangsu.gov.cn/art/2026/10/11/art_71797_11840535.html',
+      },
+    ],
+  },
+  {
+    province: '浙江',
+    color: 'green',
+    headline: '杭州上城区 · 青年人才引育黄金八条',
+    items: [
+      {
+        name: '应届毕业生生活补贴',
+        target: '新引进 35 周岁以下应届毕业生（含毕业 5 年内回国留学人员、外国人才）',
+        detail: '本科 1 万 / 硕士 3 万 / 博士 10 万元（市、区财政各承担 50%）；在上城就业的优秀应届大学生，在市补贴基础上再加本科 1 万、硕士 3 万、博士 5 万，并给连续 3 年每年最高 30 万元银行贷款贴息。',
+        amount: '本科 1 万 · 硕士 3 万 · 博士 10 万',
+        link: 'http://i-zhejiang.cn/a/zjgx/scq/zcwj/2026/0722/134.html',
+      },
+      {
+        name: '高层次青年人才创业扶持',
+        target: '入选区引进海内外优秀高层次人才创业项目',
+        detail: '最高 1500 万元研发经费补助、最高 200 万元股权激励、最高 1500 万元额度银行贷款贴息、最高 80 万元办公用房租金补助。',
+        amount: '最高 1500 万研发经费',
+        link: 'http://i-zhejiang.cn/a/zjgx/scq/zcwj/2026/0722/134.html',
+      },
+      {
+        name: '大学生创新创业资助',
+        target: '毕业 5 年内在上城区创办企业的大学生',
+        detail: '经评审可享最高 50 万元创业资金资助、最高 10 万元经营场所房租补助；带动 3 人以上就业可享每年最高 2 万元带动就业补贴；可申请最高 50 万元个人创业担保贷款。',
+        amount: '最高 50 万创业资金',
+        link: 'http://i-zhejiang.cn/a/zjgx/scq/zcwj/2026/0722/134.html',
+      },
+      {
+        name: '博士后安家补助',
+        target: '出站 1 年内留上城（来上城）的博士后',
+        detail: '符合条件可一次性领取 40 万元（市、区各半）；在上城工作满 1 年后，可按工资薪金 30% 继续申请补贴，每年不超过 20 万元，累计不超过 3 年。',
+        amount: '一次性 40 万',
+        link: 'http://i-zhejiang.cn/a/zjgx/scq/zcwj/2026/0722/134.html',
+      },
+      {
+        name: '实习补贴 + 青荷礼包 + 免费驿站',
+        target: '毕业学年大学生 / 来杭求职创业青年',
+        detail: '在区级实习基地实习：本科每月 1000 元、博士每月 3000 元（最长 2 个月）；青荷礼包每人每次 300 元、最多申领 3 次；青荷驿站提供 7 天以内免费人才公寓。',
+        amount: '实习 1000~3000 元/月',
+        link: 'http://i-zhejiang.cn/a/zjgx/scq/zcwj/2026/0722/134.html',
+      },
+    ],
+  },
+];
+
 export const POLICIES = [
   {
     province: '浙江',
@@ -233,4 +340,4 @@ export function listWithCountdown(now = Date.now()) {
   }));
 }
 
-export default { CONTESTS, POLICIES, UPDATED_AT, daysLeft, listWithCountdown };
+export default { CONTESTS, POLICIES, TALENT, UPDATED_AT, daysLeft, listWithCountdown };

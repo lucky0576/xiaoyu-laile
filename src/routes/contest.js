@@ -11,7 +11,7 @@ import db from '../store/db.js';
 import {
   data, fail, str, bool, mustAuth, clientIp, rateLimit,
 } from './_util.js';
-import { UPDATED_AT, listWithCountdown, POLICIES, daysLeft, CONTESTS } from '../data/contests.js';
+import { UPDATED_AT, listWithCountdown, POLICIES, TALENT, daysLeft, CONTESTS } from '../data/contests.js';
 import { FUNDS, UPDATED_AT as FUNDS_UPDATED_AT } from '../data/funds.js';
 import notifySvc from '../services/notify.js';
 import fundSvc from '../services/fund-collect.js';
@@ -30,6 +30,7 @@ export default function registerContestRoutes(app) {
       updatedAt: UPDATED_AT,
       contests: listWithCountdown(),
       policies: POLICIES,
+      talent: TALENT,
     });
   });
 

@@ -82,6 +82,32 @@ function contestCard(c, followed) {
   </div>`;
 }
 
+/* ---------------- 人才扶持政策 ---------------- */
+function talentCard(t) {
+  const color = COLOR_MAP[t.color] || COLOR_MAP.blue;
+  return `<div class="tl-card">
+    <div class="tl-head" style="border-left:4px solid ${color}">
+      <div class="tl-prov" style="color:${color}">${ui.esc(t.province)}</div>
+      <div class="tl-headline">${ui.esc(t.headline || '')}</div>
+    </div>
+    <div class="tl-body">
+      ${(t.items || [])
+        .map(
+          (it) => `<div class="tl-item">
+            <div class="tl-name">
+              ${ui.esc(it.name)}
+              ${it.amount ? `<span class="tl-amount">${ui.esc(it.amount)}</span>` : ''}
+            </div>
+            ${it.target ? `<div class="tl-target">👤 ${ui.esc(it.target)}</div>` : ''}
+            ${it.detail ? `<div class="tl-detail">${ui.esc(it.detail)}</div>` : ''}
+            ${it.link ? `<a class="tp-link" href="${ui.esc(it.link)}" target="_blank" rel="noopener">原文 ↗</a>` : ''}
+          </div>`,
+        )
+        .join('')}
+    </div>
+  </div>`;
+}
+
 export async function renderContest(ctx, query) {
   let payload = null;
   try {
@@ -110,6 +136,7 @@ export async function renderContest(ctx, query) {
 
   const contests = payload.contests;
   const policies = payload.policies || [];
+  const talent = payload.talent || [];
 
   /* 30 天内要截止的，置顶提醒 */
   const urgent = contests
@@ -154,13 +181,24 @@ export async function renderContest(ctx, query) {
         )
         .join('')}
     </div>
+    ${
+      talent.length
+        ? `<div class="tp-sec-title">三、人才扶持政策（江浙沪）</div>
+    <div class="tl-wrap">${talent.map(talentCard).join('')}</div>
+    <div class="tp-note">
+      人才政策各区县差异很大、每年调整，上面只列了官方明确给过数字的部分，
+      申领前务必打当地人社局电话确认，别按网上的旧帖子准备材料。
+    </div>`
+        : ''
+    }
+
     <div class="tp-note">
       具体补贴金额各区县每年调整，以当地人社局最新文件为准。
       报名条件里「注册未满 5 年」「上年收入 ≤ 3000 万」这类硬门槛最容易卡人，先对号再报。
       点「+ 关注」的赛事，截止前 7 天会收到站内提醒。
     </div>
 
-    <div class="tp-sec-title">三、需要帮忙对接？</div>
+    <div class="tp-sec-title">四、需要帮忙对接？</div>
     <div class="card card-pad">
       <div class="small muted" style="line-height:1.8">
         平台上有大量正在做项目的团队和投资人。<br>
