@@ -993,11 +993,20 @@ async function renderPublishNews(ctx) {
           paintFiles();
 
           const imgN = saved.length;
-          setTip(
-            `✅ 已按原文抓取 ${r.chars || body.length} 字${imgN ? ` + ${imgN} 张配图` : ''}`,
-            '#0e8f5f',
-          );
-          ui.toast('链接已导入', 'ok');
+          if (!body && imgN) {
+            /*
+             * 图片型文章（公众号邀请函 / 海报最常见）：
+             * 正文容器里只有图没有字，导入其实成功了，但用户看到「0 字」会以为失败。
+             * 这里明确告诉他图已经拿到了，正文要自己补。
+             */
+            setTip(`⚠️ 这篇是图片型文章：已导入 ${imgN} 张图，正文没有文字，建议自己补两句说明`, '#b45309');
+            ui.toast(`已导入 ${imgN} 张图，正文需要你补一下`, 'ok');
+          } else if (!body) {
+            setTip('这个链接没抓到正文（可能是登录页或纯图片页），可以换个链接，或直接粘贴文字', '#b45309');
+          } else {
+            setTip(`✅ 已按原文抓取 ${r.chars || body.length} 字${imgN ? ` + ${imgN} 张配图` : ''}`, '#0e8f5f');
+            ui.toast('链接已导入', 'ok');
+          }
         } catch (err) {
           setTip(err.message || '导入失败', '#c0392b');
         } finally {

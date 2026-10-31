@@ -6,6 +6,7 @@
  */
 import os from 'node:os';
 import path from 'node:path';
+import dns from 'node:dns';
 import { createApp } from './src/http/app.js';
 import { config, PUBLIC_DIR } from './src/config.js';
 import { registerStatic } from './src/http/static.js';
@@ -17,6 +18,18 @@ import notifySvc from './src/services/notify.js';
 import { sweepOtps } from './src/services/auth.js';
 import chunksSvc from './src/services/chunks.js';
 import { seedIfEmpty } from './scripts/seed.js';
+
+/*
+ * 优先用 IPv4 解析。
+ * 这台机器在境外，部分 .gov.cn 站点只有 IPv6 记录或 IPv6 回程不通，
+ * Node 默认按 AAAA 优先会自动选到 IPv6，结果就是 fetch failed。
+ * 实测 www.shanghai.gov.cn 就是这样偶发抓不到的。
+ */
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {
+  /* 老版本 Node 没有这个 API，忽略 */
+}
 
 /* ------------------------------------------------------------------ */
 /* 参数                                                                */

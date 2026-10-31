@@ -512,16 +512,28 @@ export async function fetchHtml(rawUrl, { timeoutMs = 20000 } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(u.toString(), {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-      },
-    });
+    /*
+     * 网络抖动 / IPv6 不通时 fetch 会直接抛「fetch failed」，
+     * 重试一次通常就好了 —— 用户不需要知道这些。
+     */
+    const doFetch = () =>
+      fetch(u.toString(), {
+        signal: ctrl.signal,
+        redirect: 'follow',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9',
+        },
+      });
+
+    let res;
+    try {
+      res = await doFetch();
+    } catch {
+      res = await doFetch();
+    }
     if (!res.ok) return { ok: false, note: `HTTP ${res.status}` };
     const buf = Buffer.from(await res.arrayBuffer());
     return { ok: true, html: decodeBody(buf, res.headers.get('content-type') || ''), url: u.toString() };
@@ -721,19 +733,32 @@ export async function fetchWebpage(rawUrl, opts = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(u.toString(), {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: {
-        // 带一个正常 UA，很多站点会拒绝空 UA 或 curl
-        'User-Agent':
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        // 公众号会校验来源，不带 Referer 容易拿到「环境异常」页
-        ...(/(^|\.)mp\.weixin\.qq\.com$/i.test(u.hostname) ? { Referer: 'https://mp.weixin.qq.com/' } : {}),
-      },
-    });
+    /*
+     * 网络抖动 / IPv6 不通时 fetch 会直接抛「fetch failed」，
+     * 重试一次通常就好了 —— 用户不需要知道这些。
+     */
+    const doFetch = () =>
+      fetch(u.toString(), {
+        signal: ctrl.signal,
+        redirect: 'follow',
+        headers: {
+          // 带一个正常 UA，很多站点会拒绝空 UA 或 curl
+          'User-Agent':
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          // 公众号会校验来源，不带 Referer 容易拿到「环境异常」页
+          ...(/(^|\.)mp\.weixin\.qq\.com$/i.test(u.hostname) ? { Referer: 'https://mp.weixin.qq.com/' } : {}),
+        },
+      });
+
+    let res;
+    try {
+      res = await doFetch();
+    } catch {
+      // 第一次失败（多为网络层）就再试一次
+      res = await doFetch();
+    }
 
     if (!res.ok) {
       return { ok: false, note: `抓取失败：HTTP ${res.status}` };
