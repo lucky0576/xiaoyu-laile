@@ -6,6 +6,7 @@
  */
 
 import * as ui from './ui.js';
+import { copyText as copyToClipboard } from './clipboard.js';
 import { isLoggedIn } from './api.js';
 
 const CAPABILITIES = [
@@ -129,27 +130,9 @@ export function renderAbout(ctx, query) {
     mount(root) {
       root.querySelector('#about-copy')?.addEventListener('click', async () => {
         const phone = root.querySelector('#about-phone')?.innerText?.trim() || '13456693544';
-        let ok = false;
-        try {
-          await navigator.clipboard.writeText(phone);
-          ok = true;
-        } catch {
-          /* 非安全上下文 / 无手势时 clipboard API 会被拒，走下面的兜底 */
-        }
-        if (!ok) {
-          try {
-            const ta = document.createElement('textarea');
-            ta.value = phone;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
-            ok = document.execCommand('copy');
-            ta.remove();
-          } catch {
-            ok = false;
-          }
-        }
+        // copyToClipboard 内部已做多级兜底（含 iOS 友好的选中方式）
+        const cr = await copyToClipboard(phone);
+        const ok = cr === 'ok';
         ui.toast(ok ? '号码已复制：' + phone : '复制失败，请长按号码手动复制', ok ? 'ok' : 'err');
       });
     },

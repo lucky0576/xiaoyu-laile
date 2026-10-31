@@ -6,6 +6,7 @@
  */
 
 import { service } from './api.js';
+import { copyText as copyToClipboard } from './clipboard.js';
 import * as ui from './ui.js';
 
 /* 相对时间 */
@@ -130,21 +131,9 @@ export async function renderReferral(ctx) {
 
       root.querySelector('#ref-copy')?.addEventListener('click', async () => {
         const text = `我在用「小鱼来了」找项目、找投资、找产业，用我的推荐码 ${code} 入驻：${url}`;
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(text);
-          } else {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            ta.remove();
-          }
-          ui.toast('推荐链接已复制', 'ok');
-        } catch {
-          ui.toast('复制失败，请长按上面的链接手动复制', 'err');
-        }
+        const cr = await copyToClipboard(text);
+        if (cr === 'ok') ui.toast('推荐链接已复制', 'ok');
+        else ui.toast('复制失败，请长按上面的链接手动复制', 'err');
       });
 
       root.querySelector('#ref-share')?.addEventListener('click', () => {

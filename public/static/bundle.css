@@ -991,6 +991,13 @@ ul { margin: 0; padding-left: 18px; }
   .wxsetup-grid { grid-template-columns: 1fr; }
 }
 
+/* 复制失败时：高亮文本框，提示用户长按 */
+.bcast-text.copy-hint,
+.copy-failed .bcast-text {
+  outline: 2px solid #f59e0b;
+  outline-offset: -2px;
+  background: #fffbeb;
+}
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

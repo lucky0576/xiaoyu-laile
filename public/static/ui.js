@@ -392,29 +392,15 @@ export function pickFiles({ accept = '', multiple = true } = {}) {
   });
 }
 
-export function copyText(text) {
-  return new Promise((resolve) => {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(() => resolve(true)).catch(() => resolve(fallback()));
-    } else {
-      resolve(fallback());
-    }
-    function fallback() {
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        const ok = document.execCommand('copy');
-        ta.remove();
-        resolve(ok);
-      } catch {
-        resolve(false);
-      }
-    }
-  });
+/**
+ * 复制文本（保持旧的布尔返回值，内部走 clipboard.js 的多级兜底）。
+ * 手机端 Clipboard API 常被拒、iOS 又不认 opacity:0 的临时文本框，
+ * 具体兜底逻辑统一放在 clipboard.js。
+ */
+export async function copyText(text) {
+  const { copyText: copy } = await import('./clipboard.js');
+  const r = await copy(text);
+  return r === 'ok';
 }
 
 export function debounce(fn, ms = 300) {

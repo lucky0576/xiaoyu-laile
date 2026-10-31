@@ -7,6 +7,7 @@
 
 import * as ui from './ui.js';
 import { service, isLoggedIn } from './api.js';
+import { copyText } from './clipboard.js';
 
 const COLOR_MAP = {
   green: '#0e8f7a',
@@ -227,8 +228,8 @@ export async function renderContest(ctx, query) {
             if (err && err.name === 'AbortError') return;
           }
         }
-        const ok = await copyText(`江浙沪创业大赛与政策速查\n${url}`);
-        ui.toast(ok ? '链接已复制' : '复制失败，请长按地址手动复制', ok ? 'ok' : 'err');
+        const r = await copyText(`江浙沪创业大赛与政策速查\n${url}`);
+        ui.toast(r === 'ok' ? '链接已复制' : '复制失败，请长按地址手动复制', r === 'ok' ? 'ok' : 'err');
       });
 
       /* ---------------- 转发文案 ---------------- */
@@ -254,33 +255,12 @@ export async function renderContest(ctx, query) {
         lines.push('完整版（报名入口 + 原文链接 + 截止倒计时）：');
         lines.push(url);
 
-        const ok = await copyText(lines.join('\n'));
-        ui.toast(ok ? '文案已复制，粘到微信就行' : '复制失败，请手动复制', ok ? 'ok' : 'err');
+        const r = await copyText(lines.join('\n'));
+        ui.toast(r === 'ok' ? '文案已复制，粘到微信就行' : '复制失败，请长按手动复制', r === 'ok' ? 'ok' : 'err');
       });
     },
   };
 }
 
-/** 剪贴板兜底：非安全上下文 / 无手势时 clipboard API 会被拒 */
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
 
 export default { renderContest };

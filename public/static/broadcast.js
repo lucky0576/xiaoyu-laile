@@ -11,28 +11,7 @@
 
 import * as ui from './ui.js';
 import { service } from './api.js';
-
-/** 复制文本：优先 Clipboard API，失败退回 execCommand */
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
+import { copyText, copyWithFeedback, selectAll } from './clipboard.js';
 
 /**
  * 打开群发文案面板。
@@ -94,7 +73,7 @@ export async function openBroadcast(ids, opts = {}) {
           📝 纯文字版 <span class="tiny dim">只有标题，适合朋友圈</span>
         </button>
       </div>
-      <textarea class="bcast-text" id="bcast-text" spellcheck="false"></textarea>
+      <textarea class="bcast-text" id="bcast-text" spellcheck="false" readonly></textarea>
       ${(r.missing || []).length ? `<div class="tiny dim mt6">有 ${r.missing.length} 条已下架，已自动跳过</div>` : ''}
     </div>
     <div class="bcast-foot">
@@ -159,9 +138,27 @@ export async function openBroadcast(ids, opts = {}) {
   });
 
   mask.querySelector('#bcast-copy').addEventListener('click', async () => {
-    const ok = await copyText(ta.value);
-    ui.toast(ok ? '已复制，去微信粘贴就行' : '复制失败，请长按选中手动复制', ok ? 'ok' : 'err');
-    if (ok) close();
+    /*
+     * 第 1 优先：直接复制页面上这个可见的文本框。
+     * 手机浏览器里这比临时元素可靠得多 —— 元素可见、在视口内、有真实手势。
+     */
+    const ok = await copyWithFeedback(
+      ta.value,
+      {
+        el: ta,
+        okText: '已复制，去微信粘贴就行',
+        manualText: '自动复制失败，已帮你全选：长按文本框点「复制」',
+      },
+      ui,
+    );
+    if (ok) {
+      close();
+      return;
+    }
+    // 手动兜底：保持面板打开，选中全文，用户长按就有「复制」菜单
+    mask.classList.add('copy-failed');
+    selectAll(ta);
+    ta.scrollIntoView({ block: 'center' });
   });
 
   const wecomBtn = mask.querySelector('#bcast-wecom');

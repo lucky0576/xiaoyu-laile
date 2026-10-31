@@ -6,6 +6,7 @@
 
 import * as ui from './ui.js';
 import { service, isLoggedIn } from './api.js';
+import { copyText } from './clipboard.js';
 
 const REGION_COLOR = {
   上海: '#0b74ff',
@@ -146,25 +147,8 @@ export async function renderFunds(ctx, query) {
             if (err && err.name === 'AbortError') return;
           }
         }
-        let ok = false;
-        try {
-          await navigator.clipboard.writeText(`各地政府投资基金动向\n${url}`);
-          ok = true;
-        } catch {
-          try {
-            const ta = document.createElement('textarea');
-            ta.value = `各地政府投资基金动向\n${url}`;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
-            ok = document.execCommand('copy');
-            ta.remove();
-          } catch {
-            ok = false;
-          }
-        }
-        ui.toast(ok ? '链接已复制' : '复制失败，请长按地址手动复制', ok ? 'ok' : 'err');
+        const r = await copyText(`各地政府投资基金动向\n${url}`);
+        ui.toast(r === 'ok' ? '链接已复制' : '复制失败，请长按地址手动复制', r === 'ok' ? 'ok' : 'err');
       });
     },
   };

@@ -6,6 +6,7 @@
  */
 
 import { service } from './api.js';
+import { copyText as copyToClipboard } from './clipboard.js';
 import * as ui from './ui.js';
 
 const TAG_META = {
@@ -79,24 +80,9 @@ async function shareNews(n) {
     }
   }
 
-  let ok = false;
-  try {
-    await navigator.clipboard.writeText(`${payload.title}\n${url}`);
-    ok = true;
-  } catch {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = `${payload.title}\n${url}`;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      ok = document.execCommand('copy');
-      ta.remove();
-    } catch {
-      ok = false;
-    }
-  }
+  // copyToClipboard 内部已做多级兜底，返回 'ok' | 'manual' | 'fail'
+  const cr = await copyToClipboard(`${payload.title}\n${url}`);
+  const ok = cr === 'ok';
   ui.toast(ok ? '链接已复制，粘到微信就行' : '复制失败，请长按地址手动复制', ok ? 'ok' : 'err');
 }
 
