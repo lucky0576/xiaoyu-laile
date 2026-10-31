@@ -374,3 +374,25 @@
 .tl-target { font-size: 11.5px; color: #0b74ff; margin-top: 5px; line-height: 1.6; }
 .tl-detail { font-size: 12px; color: #5b6675; line-height: 1.75; margin-top: 4px; }
 .tl-item .tp-link { display: inline-block; margin-top: 6px; }
+/* ---------------- 最近发布的赛事 / 路演 ---------------- */
+.ev-list { margin-top: 12px; border-top: 1px solid var(--line, #eef2f7); padding-top: 10px; }
+.ev-list-t { font-size: 11.5px; color: var(--muted, #6b7686); margin-bottom: 6px; }
+.ev-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line, #eef2f7);
+  text-decoration: none;
+}
+.ev-row:last-child { border-bottom: 0; }
+.ev-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: #2b3444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ev-meta { flex: none; font-size: 11px; color: var(--muted, #6b7686); white-space: nowrap; }

@@ -12,6 +12,13 @@
  */
 
 const MAX_BYTES = 3 * 1024 * 1024;
+
+/*
+ * 「按原文导入」时的体积上限单独放宽到 12MB。
+ * 公众号文章普遍 3MB 以上（90% 是内联脚本），原来的 3MB 会在正文 div 中间截断，
+ * 导致切片函数找不到闭合标签、抽取结果为空 —— 用户看到的就是「没解析出正文」。
+ */
+const MAX_BYTES_IMPORT = 12 * 1024 * 1024;
 const TIMEOUT_MS = 20000;
 
 /** 是否为内网/保留地址 */
@@ -723,6 +730,8 @@ export async function fetchWebpage(rawUrl, opts = {}) {
           'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        // 公众号会校验来源，不带 Referer 容易拿到「环境异常」页
+        ...(/(^|\.)mp\.weixin\.qq\.com$/i.test(u.hostname) ? { Referer: 'https://mp.weixin.qq.com/' } : {}),
       },
     });
 
@@ -739,6 +748,8 @@ export async function fetchWebpage(rawUrl, opts = {}) {
     }
 
     // 限制体积
+    // 「按原文导入」放宽到 12MB，普通抓取仍是 3MB
+    const capBytes = opts.keepAll ? MAX_BYTES_IMPORT : MAX_BYTES;
     const reader = res.body?.getReader?.();
     let buf;
     if (reader) {
@@ -749,8 +760,8 @@ export async function fetchWebpage(rawUrl, opts = {}) {
         const { done, value } = await reader.read();
         if (done) break;
         total += value.length;
-        if (total > MAX_BYTES) {
-          chunks.push(value.subarray(0, Math.max(0, value.length - (total - MAX_BYTES))));
+        if (total > capBytes) {
+          chunks.push(value.subarray(0, Math.max(0, value.length - (total - capBytes))));
           try { await reader.cancel(); } catch { /* ignore */ }
           break;
         }
@@ -759,10 +770,28 @@ export async function fetchWebpage(rawUrl, opts = {}) {
       buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
     } else {
       buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > MAX_BYTES) buf = buf.subarray(0, MAX_BYTES);
+      if (buf.length > capBytes) buf = buf.subarray(0, capBytes);
     }
 
-    const html = decodeBody(buf, ct);
+    let html = decodeBody(buf, ct);
+
+    /*
+     * 抽正文前先把 <script> / <style> 整段去掉：
+     * 公众号页面 3MB 里 90% 是内联脚本和样式，留着既费内存又干扰正文判定。
+     */
+    html = html
+      .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+      .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+      .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, '');
+
+    /*
+     * 公众号的正文容器是 visibility:hidden; opacity:0 起手，
+     * 加载完再由 JS 显示出来。抽取器会把「隐藏元素」当广告丢掉，
+     * 于是标题能拿到、正文是空的 —— 所以这里先把这两个样式声明去掉。
+     */
+    html = html
+      .replace(/visibility\s*:\s*hidden/gi, '')
+      .replace(/opacity\s*:\s*0(?:\.0+)?(?=\s*[;\"'])/gi, '');
     // 导入正文时用宽松参数：尽量还原原文，别提前截断
   const keepAll = Boolean(opts.keepAll);
     // 原文照抄时不要丢短行（像「一、」「（二）」这种）
@@ -775,7 +804,28 @@ export async function fetchWebpage(rawUrl, opts = {}) {
      */
     let text = keepAll ? raw.text : stripContactAndAds(raw.text);
 
+    const imageUrls = extractImageUrls(html, u.toString(), { max: keepAll ? 30 : 8 });
+
+    /*
+     * 图片型文章（公众号邀请函/海报最常见）：正文容器里只有图，几乎没有文字。
+     * 这种不能判失败 —— 图才是内容，判失败会让用户什么都拿不到。
+     * 只要抓到了图片就算导入成功，并说明正文需要自己补。
+     */
     if (!text || text.length < 40) {
+      if (imageUrls.length) {
+        return {
+          ok: true,
+          url: u.toString(),
+          title: title || u.hostname,
+          text: text || '',
+          chars: (text || '').length,
+          rawChars: rawLen,
+          host: u.hostname,
+          imageUrls,
+          rawHtml: html,
+          note: `这篇是图片型文章，已抓到 ${imageUrls.length} 张配图，正文文字很少，发布前可以自己补两句说明`,
+        };
+      }
       return {
         ok: false,
         title,
@@ -792,7 +842,7 @@ export async function fetchWebpage(rawUrl, opts = {}) {
       rawChars: rawLen,
       host: u.hostname,
       // 页面里的图片地址，路由层会下载下来存成附件
-      imageUrls: extractImageUrls(html, u.toString(), { max: keepAll ? 30 : 8 }),
+      imageUrls,
       rawHtml: html,
     };
   } catch (err) {

@@ -138,6 +138,19 @@ export async function renderContest(ctx, query) {
   const policies = payload.policies || [];
   const talent = payload.talent || [];
 
+  /*
+   * 最近用户自己发的「赛事 / 路演」——大赛页不能只看官方赛事，
+   * 用户发的路演、训练营、创业饭局也应该在这里露出，形成闭环。
+   */
+  let eventList = [];
+  try {
+    const ev = await service.listings({ category: 'event', status: 'published', pageSize: 24 });
+    const want = new Set(['competition', 'roadshow', 'salon', 'training', 'investment-promotion']);
+    eventList = (ev.items || []).filter((x) => want.has(x.type)).slice(0, 4);
+  } catch {
+    eventList = [];
+  }
+
   /* 30 天内要截止的，置顶提醒 */
   const urgent = contests
     .filter((c) => c.daysLeft !== null && c.daysLeft !== undefined && c.daysLeft >= 0 && c.daysLeft <= 30)
@@ -198,7 +211,37 @@ export async function renderContest(ctx, query) {
       点「+ 关注」的赛事，截止前 7 天会收到站内提醒。
     </div>
 
-    <div class="tp-sec-title">四、需要帮忙对接？</div>
+    <div class="tp-sec-title">四、发布你的赛事 / 路演</div>
+    <div class="card card-pad">
+      <div class="small muted" style="line-height:1.8">
+        自己办的创业大赛、路演、训练营、招商会，都可以发到平台上 ——<br>
+        平台有项目方和投资人，发一次就多一批人看到。
+      </div>
+      <div class="row gap8 mt12" style="flex-wrap:wrap">
+        <a class="btn btn-sm btn-primary" href="#/publish?category=event">🏆 发布赛事 / 路演</a>
+        <a class="btn btn-sm" href="#/publish?category=project">📁 发布参赛项目</a>
+        <a class="btn btn-sm" href="#/list/event">看全部活动</a>
+      </div>
+      ${
+        eventList.length
+          ? `<div class="ev-list">
+              <div class="ev-list-t">最近发布</div>
+              ${eventList
+                .map(
+                  (e) => `<a class="ev-row" href="#/detail/${ui.esc(e.id)}">
+                    <span class="ev-name">${ui.esc(e.title)}</span>
+                    <span class="ev-meta">${ui.esc(e.typeName || '')}${
+                      (e.cities || []).length ? ' · ' + ui.esc(e.cities[0].name) : ''
+                    }</span>
+                  </a>`,
+                )
+                .join('')}
+            </div>`
+          : ''
+      }
+    </div>
+
+    <div class="tp-sec-title">五、需要帮忙对接？</div>
     <div class="card card-pad">
       <div class="small muted" style="line-height:1.8">
         平台上有大量正在做项目的团队和投资人。<br>
