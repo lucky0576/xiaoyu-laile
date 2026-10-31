@@ -45,11 +45,22 @@ function rowsHtml(rows) {
     .join('');
 }
 
+/**
+ * 把「杭州 / 苏州 / 南京」这类市级赛事归到省，方便顶部按省份筛选。
+ */
+function provKeyOf(c) {
+  const p = String(c.province || '');
+  if (p === '浙江' || p === '杭州') return '浙江';
+  if (p === '江苏' || p === '苏州' || p === '南京') return '江苏';
+  if (p === '上海') return '上海';
+  return '其他';
+}
+
 function contestCard(c, followed) {
   const color = COLOR_MAP[c.color] || COLOR_MAP.blue;
   const where = c.city ? `${c.province} · ${c.city}` : c.province;
   const closed = c.daysLeft !== null && c.daysLeft !== undefined && c.daysLeft < 0;
-  return `<div class="tp-card" id="cd-${ui.esc(c.id)}">
+  return `<div class="tp-card" id="cd-${ui.esc(c.id)}" data-prov="${ui.esc(provKeyOf(c))}">
     <div class="tp-head" style="border-left:4px solid ${color}">
       <div class="row between" style="align-items:flex-start">
         <div style="flex:1;min-width:0">
@@ -166,19 +177,30 @@ export async function renderContest(ctx, query) {
     <div class="tp-hero">
       <div class="tp-hero-t">🏆 江浙沪创业大赛 <span class="tp-hero-dot">·</span> 政策速查</div>
       <div class="tp-hero-d">报名条件、截止倒计时、奖励与配套政策 · 更新于 ${ui.esc(payload.updatedAt || '')}</div>
-      <div class="row gap8 mt12" style="justify-content:center">
+      <div class="row gap8 mt12" style="justify-content:center;flex-wrap:wrap">
         <button class="btn btn-sm btn-primary" id="tp-share" type="button">🔗 分享这个专题</button>
         <button class="btn btn-sm" id="tp-copy" type="button">📋 复制转发文案</button>
         <a class="btn btn-sm" href="#/funds">💰 政府基金动向</a>
+      </div>
+
+      <div class="tp-nav" id="tp-nav">
+        <button class="tp-nav-chip active" type="button" data-nav="all">全部赛事</button>
+        <button class="tp-nav-chip" type="button" data-nav="浙江">浙江赛事</button>
+        <button class="tp-nav-chip" type="button" data-nav="江苏">江苏赛事</button>
+        <button class="tp-nav-chip" type="button" data-nav="上海">上海赛事</button>
+        <span class="tp-nav-sep"></span>
+        <button class="tp-nav-chip" type="button" data-nav-scroll="sec-talent">🎓 人才政策</button>
+        <button class="tp-nav-chip" type="button" data-nav-scroll="sec-policy">🧰 政策工具包</button>
+        <a class="tp-nav-chip tp-nav-new" href="#/publish?category=news">📰 发布资讯</a>
       </div>
     </div>
 
     ${urgentHtml}
 
-    <div class="tp-sec-title">一、赛事一览（${contests.length} 个）</div>
+    <div class="tp-sec-title" id="sec-contest-title"><span id="sec-contest"></span>一、赛事一览（${contests.length} 个）</div>
     ${contests.map((c) => contestCard(c, follows.includes(c.id))).join('')}
 
-    <div class="tp-sec-title">二、三地政策工具包</div>
+    <div class="tp-sec-title" id="sec-policy">二、三地政策工具包</div>
     <div class="tp-pol">
       ${policies
         .map(
@@ -196,7 +218,7 @@ export async function renderContest(ctx, query) {
     </div>
     ${
       talent.length
-        ? `<div class="tp-sec-title">三、人才扶持政策（江浙沪）</div>
+        ? `<div class="tp-sec-title" id="sec-talent">三、人才扶持政策（江浙沪）</div>
     <div class="tl-wrap">${talent.map(talentCard).join('')}</div>
     <div class="tp-note">
       人才政策各区县差异很大、每年调整，上面只列了官方明确给过数字的部分，
@@ -265,6 +287,41 @@ export async function renderContest(ctx, query) {
     activeTab: '',
     async mount(root) {
       const url = `${location.origin}/#/contest`;
+
+      /* 顶部快捷条：省份筛选赛事 / 滚动到政策区块 */
+      const nav = root.querySelector('#tp-nav');
+      nav?.addEventListener('click', (ev) => {
+        const chip = ev.target.closest('[data-nav], [data-nav-scroll]');
+        if (!chip) return;
+
+        const scrollTo = chip.getAttribute('data-nav-scroll');
+        if (scrollTo) {
+          root.querySelector(`#${scrollTo}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+
+        ev.preventDefault();
+        const want = chip.getAttribute('data-nav');
+        nav.querySelectorAll('[data-nav]').forEach((el) => el.classList.toggle('active', el === chip));
+
+        // 省份筛选：只显示对应省份的赛事卡
+        const cards = [...root.querySelectorAll('.tp-card[data-prov]')];
+        let shown = 0;
+        for (const card of cards) {
+          const hit = want === 'all' || card.getAttribute('data-prov') === want;
+          card.style.display = hit ? '' : 'none';
+          if (hit) shown += 1;
+        }
+
+        const title = root.querySelector('#sec-contest-title');
+        if (title) {
+          const base = `一、赛事一览（${contests.length} 个）`;
+          title.textContent = want === 'all' ? base : `一、${want}赛事（${shown} 个）`;
+        }
+
+        // 筛选后回到赛事区顶部
+        root.querySelector('#sec-contest')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
 
       /* ---------------- 关注 / 取消关注 ---------------- */
       root.addEventListener('click', async (ev) => {

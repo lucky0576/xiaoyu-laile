@@ -5402,6 +5402,46 @@ a.about-c-phone {
   white-space: nowrap;
 }
 .ev-meta { flex: none; font-size: 11px; color: var(--muted, #6b7686); white-space: nowrap; }
+/* ---------------- 顶部快捷导航条 ---------------- */
+.tp-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 14px 0 4px;
+}
+.tp-nav-chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e3e9f2);
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all .12s;
+}
+.tp-nav-chip:hover { border-color: #c7d2e3; }
+.tp-nav-chip.active {
+  background: #0b74ff;
+  border-color: #0b74ff;
+  color: #fff;
+}
+.tp-nav-new {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+.tp-nav-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--line, #e3e9f2);
+  margin: 2px 2px;
+}
+.tp-sec-title, #sec-contest { scroll-margin-top: 64px; }
+#sec-contest { display: block; height: 0; }
 /* ==== forum.css ==== */
 
 /* ================================================================== */
