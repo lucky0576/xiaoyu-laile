@@ -1267,7 +1267,7 @@ export async function renderSearch(ctx, query) {
    * 再按条件检索，条件搜不到会自动放宽。比纯关键词匹配准得多。
    * 接口挂了就退回普通关键词搜索。
    */
-  let res = { items: [], total: 0, parsed: null, news: [], scanned: 0 };
+  let res = { items: [], total: 0, parsed: null, news: [], boards: [], newsCount: 0, scanned: 0 };
   if (q) {
     res = await service.aiSearch(q).catch(async () => {
       const fallback = await service
@@ -1290,6 +1290,35 @@ export async function renderSearch(ctx, query) {
     if (parsed.amountMax) parsedBits.push(`${parsed.amountMax} 万元以下`);
     if (!parsedBits.length && (parsed.keywords || []).length) parsedBits.push(...parsed.keywords);
   }
+
+  /*
+   * 搜索范围提示：明确告诉用户「这个搜索结果覆盖了哪些板块、各有多少条」。
+   * 不写清楚的话，用户搜不到某个板块的内容时会以为平台根本没有那个板块。
+   */
+  const boards = res.boards || [];
+  const scopeHtml =
+    q && boards.length
+      ? `<div class="search-scope">
+          <div class="ss-line">
+            <span class="ss-ico">🔍</span>
+            <span class="ss-title">已搜索全部板块</span>
+            <span class="ss-total">共比对 ${res.scanned || 0} 条内容</span>
+          </div>
+          <div class="ss-chips">
+            ${boards
+              .map(
+                (b) => `<span class="ss-chip ${b.count ? 'has' : ''}">${ui.esc(b.name)}${
+                  b.count ? `<b>${b.count}</b>` : ''
+                }</span>`,
+              )
+              .join('')}
+            <span class="ss-chip ss-news ${res.newsCount ? 'has' : ''}">资讯${
+              res.newsCount ? `<b>${res.newsCount}</b>` : ''
+            }</span>
+          </div>
+          <div class="ss-note">搜不到的内容不在上面这些板块里；私信、居间信息、隐藏联系方式不参与搜索。</div>
+        </div>`
+      : '';
 
   /* 关键词没命中、退化成「按分类/最新」时，明确告诉用户 */
   const fallbackHtml =
@@ -1323,6 +1352,7 @@ export async function renderSearch(ctx, query) {
     </form>
 
     ${parsedHtml}
+    ${scopeHtml}
     ${fallbackHtml}
     ${q && (res.news || []).length ? `
       <div class="section-head mt16"><h2>📰 相关资讯 <span class="tiny dim">${res.news.length} 条</span></h2></div>

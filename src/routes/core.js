@@ -823,11 +823,30 @@ export default function registerCoreRoutes(app) {
       news = [];
     }
 
+    /*
+     * 搜索范围（前端要显示「已搜索：项目·贸易·活动…」）。
+     * 板块顺序固定，命中数为 0 的也带上 —— 让人知道这个板块搜过但没结果，
+     * 而不是以为平台没有这个板块。
+     */
+    const BOARD_NAMES = [
+      ['project', '项目'],
+      ['bounty', '悬赏'],
+      ['event', '活动'],
+      ['trade', '贸易'],
+      ['tech', '成果转化'],
+      ['bidding', '招投标'],
+    ];
+    const counts = {};
+    for (const it of result.items || []) counts[it.category] = (counts[it.category] || 0) + 1;
+    const boards = BOARD_NAMES.map(([id, name]) => ({ id, name, count: counts[id] || 0 }));
+
     return data(res, {
       parsed,
       items: result.items,
       total: result.total,
       news,
+      boards,
+      newsCount: news.length,
       scanned: result.scanned || 0,
       // 关键词没命中、退化到「最新发布」时给前端提示，别让人以为白搜
       fellBack: Boolean(result.fellBack),
