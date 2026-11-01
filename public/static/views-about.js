@@ -117,6 +117,10 @@ export function renderAbout(ctx, query) {
     </div>
 
     <div class="center tiny dim mt16" style="padding-bottom:24px">
+      <div class="legal-links mt16">
+        <a href="#/privacy">隐私政策</a>·<a href="#/terms">用户协议</a>·<a href="#/disclaimer">免责声明</a>
+      </div>
+      <div class="tiny dim mt6">举报违规信息：13456693544 · service@xiaoyulaile.online</div>
       小鱼来了 · 让每一条好项目，都被对的人看见
     </div>
   </div>`;
