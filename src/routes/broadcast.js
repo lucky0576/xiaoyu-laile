@@ -100,15 +100,32 @@ export default function registerBroadcastRoutes(app) {
     const col = db.collection('listings');
     const items = [];
     const missing = [];
+    const blocked = [];
+    // 默认屏蔽「系统采集」的网上公开信息
+    const onlyUser = req.body?.onlyUser !== false;
     for (const id of ids) {
       const l = col.get(String(id));
       if (!l || l.status !== 'published') {
         missing.push(String(id));
         continue;
       }
+      if (onlyUser && l.origin !== 'user') {
+        blocked.push({ id: l.id, title: l.title });
+        continue;
+      }
       items.push(listingPublic(l, user));
     }
-    if (!items.length) return fail(res, '选中的信息都不存在或已下架', 404, 'not_found');
+    if (!items.length) {
+      if (blocked.length) {
+        return fail(
+          res,
+          `选中的 ${blocked.length} 条是网上来的内容（采集或导入），已自动屏蔽；可关掉开关再试`,
+          400,
+          'all_collected',
+        );
+      }
+      return fail(res, '选中的信息都不存在或已下架', 404, 'not_found');
+    }
 
     const text = buildText(req, items, { includeLink: req.body?.includeLink !== false });
 
@@ -117,6 +134,7 @@ export default function registerBroadcastRoutes(app) {
       count: items.length,
       missing,
       items: items.map((l) => ({ id: l.id, title: l.title, url: shortLink(req, l.id) })),
+      blocked,
     });
   });
 
@@ -127,6 +145,71 @@ export default function registerBroadcastRoutes(app) {
    * 跟标题字面未必对得上，关键词搜不到。先做关键词兜底，再让 AI 精排，
    * AI 不可用时自动退回关键词结果，不会整个功能挂掉。
    */
+  /**
+   * 把文案渲染成一张长图。
+   * 用途：部分微信内置浏览器禁用一切复制 API，用户只能发图。
+   */
+  app.post('/api/broadcast/image', async (req, res) => {
+    const user = mustAuth(req);
+    const rl = rateLimit(`bimg:${clientIp(req)}`, 10, 60_000);
+    if (!rl.ok) return fail(res, `生成太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 20) : [];
+    if (!ids.length) return fail(res, '请先选择要群发的信息', 400, 'no_ids');
+
+    const onlyUser = req.body?.onlyUser !== false;
+    const col = db.collection('listings');
+    const items = [];
+    for (const id of ids) {
+      const l = col.get(String(id));
+      if (!l || l.status !== 'published') continue;
+      if (onlyUser && l.origin !== 'user') continue;
+      items.push(listingPublic(l, user));
+    }
+    if (!items.length) return fail(res, '没有可生成的信息（网上内容已屏蔽）', 400, 'no_items');
+
+    const text = buildText(req, items, { includeLink: req.body?.includeLink !== false });
+
+    try {
+      const imgMod = await import('../services/broadcast-image.js');
+      /*
+       * buildText 生成的第一行本来就是标题，图上再画一遍会重复。
+       * 这里把首行剥掉，标题只保留顶部那一处。
+       */
+      const titleText = `【小鱼来了】精选 ${items.length} 条项目`;
+      const bodyLines = String(text).split('\n');
+      if (bodyLines[0] && bodyLines[0].trim().startsWith('【小鱼来了】')) bodyLines.shift();
+      const { buffer, width, height } = await imgMod.renderPng({
+        title: titleText,
+        body: bodyLines.join('\n'),
+        footer: '小鱼来了 · 让每一条好项目，都被对的人看见',
+      });
+
+      const fsMod = await import('node:fs');
+      const osMod = await import('node:os');
+      const pathMod = await import('node:path');
+      const filesMod = await import('../services/files.js');
+
+      const tmp = pathMod.join(osMod.tmpdir(), `bcast-${Date.now()}.png`);
+      fsMod.writeFileSync(tmp, buffer);
+      const rec = await filesMod.registerStoredFile({
+        srcPath: tmp,
+        name: `群发文案-${items.length}条.png`,
+        mime: 'image/png',
+        opts: { ownerId: user.id, role: 'attachment' },
+      });
+      try {
+        fsMod.unlinkSync(tmp);
+      } catch {
+        /* ignore */
+      }
+      const file = filesMod.filePublic(rec);
+      return data(res, { url: file.url, width, height, bytes: buffer.length, count: items.length });
+    } catch (err) {
+      return fail(res, `生成图片失败：${err.message}`, 500, 'render_failed');
+    }
+  });
+
   app.post('/api/broadcast/pick', async (req, res) => {
     const user = mustAuth(req);
     const rl = rateLimit(`bpick:${clientIp(req)}`, 20, 60_000);
@@ -141,6 +224,10 @@ export default function registerBroadcastRoutes(app) {
      */
     const col = db.collection('listings');
     let pool = col.all().filter((l) => l && l.status === 'published');
+
+    // 默认屏蔽系统采集的网上公开信息（招投标、政务公告等）
+    const onlyUser = req.body?.onlyUser !== false;
+    if (onlyUser) pool = pool.filter((l) => l.origin === 'user');
 
     // 兼容老调用：传了 ids 就只在这些里选
     const onlyIds = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : null;
@@ -262,6 +349,27 @@ export default function registerBroadcastRoutes(app) {
    * 而常用的搜索词（储能、光伏 EPC、算力服务器）是长期资产，
    * 跟着账号走才合理。
    */
+  /**
+   * 一次性回填：给「带原文链接但没有 origin」的老数据打上 web 标记。
+   * 规则：link 是 http(s) 开头 → 网上来的。
+   */
+  app.post('/api/admin/broadcast/backfill-origin', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+    const col = db.collection('listings');
+    let changed = 0;
+    for (const l of col.all()) {
+      if (l.origin) continue;
+      if (!/^https?:\/\//i.test(String(l.link || ''))) {
+        col.update(l.id, { origin: 'user' });
+        continue;
+      }
+      col.update(l.id, { origin: 'web' });
+      changed += 1;
+    }
+    return data(res, { changed, total: col.all().length });
+  });
+
   app.get('/api/broadcast/saved', (req, res) => {
     const user = mustAuth(req);
     const raw = user.settings && user.settings.broadcastSaved;

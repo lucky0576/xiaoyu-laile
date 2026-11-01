@@ -19,6 +19,20 @@ import { stashBroadcastText } from './views-bcast-text.js';
  * @param {string[]} ids 选中的信息 id
  */
 export async function openBroadcast(ids, opts = {}) {
+  /*
+   * 是否屏蔽「系统采集的网上公开信息」（招投标、政务公告等）。
+   * 默认屏蔽：转发别人的公告既没价值，也有版权风险。
+   * 用户可在面板里关掉。
+   */
+  let onlyUser = opts.onlyUser;
+  if (typeof onlyUser !== 'boolean') {
+    try {
+      onlyUser = localStorage.getItem('xyl_bcast_onlyuser') !== '0';
+    } catch {
+      onlyUser = true;
+    }
+  }
+
   // 不传就沿用上次的选择（默认带链接）
   let includeLink = opts.includeLink;
   if (typeof includeLink !== 'boolean') {
@@ -38,7 +52,7 @@ export async function openBroadcast(ids, opts = {}) {
   let wecom = { configured: false };
   try {
     const [textRes, wecomRes] = await Promise.all([
-      service.broadcastText({ ids, includeSummary: true, includeMeta: true, includeLink }),
+      service.broadcastText({ ids, includeSummary: true, includeMeta: true, includeLink, onlyUser }),
       service.broadcastWecomStatus().catch(() => ({ configured: false })),
     ]);
     r = textRes;
@@ -74,11 +88,20 @@ export async function openBroadcast(ids, opts = {}) {
           📝 纯文字版 <span class="tiny dim">只有标题，适合朋友圈</span>
         </button>
       </div>
+      <label class="bcast-filter" for="bcast-onlyuser">
+        <input type="checkbox" id="bcast-onlyuser" ${onlyUser ? 'checked' : ''}>
+        <span>屏蔽网上采集的内容 <span class="tiny dim">（招投标、政务公告等，转发没意义）</span></span>
+      </label>
       <textarea class="bcast-text" id="bcast-text" spellcheck="false" readonly></textarea>
+      <div class="bcast-img-wrap hide" id="bcast-img-wrap">
+        <img class="bcast-img" id="bcast-img" alt="群发文案长图">
+        <div class="tiny dim center mt6">长按图片 → 保存图片 或 直接发送</div>
+      </div>
       ${(r.missing || []).length ? `<div class="tiny dim mt6">有 ${r.missing.length} 条已下架，已自动跳过</div>` : ''}
     </div>
     <div class="bcast-foot">
       <button class="btn btn-primary grow" id="bcast-copy" type="button">📋 复制全部文案</button>
+      <button class="btn grow" id="bcast-image" type="button">🖼 生成图片发群</button>
       ${wecom.configured ? '<button class="btn grow" id="bcast-wecom" type="button">🚀 推送到企业微信群</button>' : ''}
     </div>
     <div class="tiny dim center bcast-tip">复制后打开微信，粘贴到群里发送即可</div>
@@ -113,6 +136,7 @@ export async function openBroadcast(ids, opts = {}) {
           includeSummary: true,
           includeMeta: true,
           includeLink: want,
+          onlyUser,
         });
         ta.value = rr.text || prev;
         includeLink = want;
@@ -136,6 +160,61 @@ export async function openBroadcast(ids, opts = {}) {
   mask.querySelector('.bcast-x').addEventListener('click', close);
   mask.addEventListener('click', (ev) => {
     if (ev.target === mask) close();
+  });
+
+  /* 屏蔽开关：切换后重新生成一版文案 */
+  const onlyUserBox = mask.querySelector('#bcast-onlyuser');
+  onlyUserBox?.addEventListener('change', async () => {
+    onlyUser = Boolean(onlyUserBox.checked);
+    try {
+      localStorage.setItem('xyl_bcast_onlyuser', onlyUser ? '1' : '0');
+    } catch {
+      /* 隐私模式忽略 */
+    }
+    ui.showLoading('正在重新生成…');
+    try {
+      const rr = await service.broadcastText({
+        ids,
+        includeSummary: true,
+        includeMeta: true,
+        includeLink,
+        onlyUser,
+      });
+      ta.value = rr.text || '';
+      const blockedN = (rr.blocked || []).length;
+      ui.toast(
+        onlyUser
+          ? `已屏蔽 ${blockedN} 条采集内容，剩 ${rr.count} 条`
+          : `已包含全部内容，共 ${rr.count} 条`,
+        'ok',
+      );
+    } catch (err) {
+      ui.toast(err.message || '重新生成失败', 'err');
+    } finally {
+      ui.hideLoading();
+    }
+  });
+
+  /* 生成图片：给禁用复制的浏览器留最后一条路 */
+  mask.querySelector('#bcast-image')?.addEventListener('click', async () => {
+    const btn = mask.querySelector('#bcast-image');
+    btn.disabled = true;
+    const old = btn.textContent;
+    btn.textContent = '生成中…';
+    try {
+      const r = await service.broadcastImage({ ids, includeLink, onlyUser });
+      const wrap = mask.querySelector('#bcast-img-wrap');
+      const img = mask.querySelector('#bcast-img');
+      img.src = r.url;
+      wrap.classList.remove('hide');
+      mask.querySelector('.bcast-text').classList.add('hide');
+      ui.toast('图片已生成，长按图片保存或直接发送', 'ok');
+    } catch (err) {
+      ui.toast(err.message || '生成图片失败', 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = old;
+    }
   });
 
   mask.querySelector('#bcast-copy').addEventListener('click', async () => {

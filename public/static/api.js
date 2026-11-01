@@ -531,6 +531,7 @@ export const service = {
   broadcastWecomStatus: () => api.get('/api/broadcast/wecom'),
   broadcastWecom: (body) => api.post('/api/broadcast/wecom', body),
   broadcastPick: (body) => api.post('/api/broadcast/pick', body),
+  broadcastImage: (payload) => api.post('/api/broadcast/image', payload),
   broadcastSaved: () => api.get('/api/broadcast/saved'),
   contestList: () => api.get('/api/contest/list'),
   fundsList: () => api.get('/api/funds/list'),

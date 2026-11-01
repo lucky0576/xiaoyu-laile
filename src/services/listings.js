@@ -601,6 +601,17 @@ export async function createListing({ user, body = {}, files = [] }) {
     subtitle: String(body.subtitle || titles.subtitle || '').slice(0, 200),
     // 原文链接：采集/导入来的信息要能点回出处（只收 http(s)）
     link: /^https?:\/\//i.test(String(body.link || '')) ? String(body.link).slice(0, 500) : '',
+    /*
+     * 来源标记（决定群发时是否屏蔽）：
+     *   user  纯自己写的
+     *   web   带原文链接的 —— 系统采集的公告、用户从网上导入的
+     * 群发默认屏蔽 web：转发别人的公告既没价值，也有版权风险。
+     */
+    origin: (() => {
+      if (body.origin === 'collect' || body.origin === 'web') return 'web';
+      const hasLink = /^https?:\/\//i.test(String(body.link || ''));
+      return hasLink ? 'web' : 'user';
+    })(),
     text,
     textFromFiles: fileText.slice(0, 40000),
     industries: (analysis.industries || []).slice(0, 5),

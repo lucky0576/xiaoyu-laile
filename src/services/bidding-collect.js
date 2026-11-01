@@ -236,6 +236,8 @@ export async function collect({ limit = 5, sourceId = '', dryRun = false } = {})
             budget: item.budget,
             publish: '1',
             durationDays: 30,
+            // 标记为「系统采集」，群发时会被自动屏蔽
+            origin: 'collect',
           },
         });
 
