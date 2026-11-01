@@ -11,7 +11,8 @@
 
 import * as ui from './ui.js';
 import { service } from './api.js';
-import { copyText, copyWithFeedback, selectAll } from './clipboard.js';
+import { copyText, copyWithFeedback, selectAll, shareText } from './clipboard.js';
+import { stashBroadcastText } from './views-bcast-text.js';
 
 /**
  * 打开群发文案面板。
@@ -155,10 +156,46 @@ export async function openBroadcast(ids, opts = {}) {
       close();
       return;
     }
-    // 手动兜底：保持面板打开，选中全文，用户长按就有「复制」菜单
+    /*
+     * 自动复制彻底失败（微信内置浏览器 / 部分 WebView 会禁用 execCommand）。
+     * 三条后路，按成功率排：
+     *   1. 系统分享面板（部分浏览器支持，分享到微信一步到位）
+     *   2. 打开纯文本页，让用户长按走系统复制（最可靠）
+     *   3. 当前页已全选，长按也能复制
+     */
     mask.classList.add('copy-failed');
     selectAll(ta);
     ta.scrollIntoView({ block: 'center' });
+
+    const tipBox = mask.querySelector('.bcast-tip');
+    if (tipBox && !tipBox.dataset.enhanced) {
+      tipBox.dataset.enhanced = '1';
+      const extra = document.createElement('div');
+      extra.className = 'bcast-manual';
+      extra.innerHTML = `
+        <div class="bm-t">这个浏览器不让自动复制，用下面两种方式之一：</div>
+        <button class="btn btn-sm btn-primary" type="button" data-manual="page">📄 打开纯文本页，长按复制</button>
+        <button class="btn btn-sm" type="button" data-manual="share">📤 用系统分享发到微信</button>`;
+      tipBox.appendChild(extra);
+
+      extra.querySelector('[data-manual="page"]')?.addEventListener('click', () => {
+        if (!stashBroadcastText(ta.value)) {
+          ui.toast('存储不可用，请直接长按上面的文字复制', 'err');
+          return;
+        }
+        // 先关面板再跳转，否则弹窗会盖在纯文本页上面
+        close();
+        setTimeout(() => {
+          location.hash = '#/bcast-text';
+        }, 220);
+      });
+
+      extra.querySelector('[data-manual="share"]')?.addEventListener('click', async () => {
+        const ok = await shareText({ title: '转发文案', text: ta.value });
+        if (ok) close();
+        else ui.toast('这个浏览器也不支持分享，请用「打开纯文本页」', 'err');
+      });
+    }
   });
 
   const wecomBtn = mask.querySelector('#bcast-wecom');

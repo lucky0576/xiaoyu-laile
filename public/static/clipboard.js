@@ -55,17 +55,58 @@ export function selectAll(el) {
 
 /**
  * 从「页面上已经可见的元素」复制（成功率最高，真实用户手势下几乎必成）
+ *
+ * 两个坑：
+ *   · readonly 的 textarea 在部分微信 / WebView 里选不中内容，先临时去掉再恢复
+ *   · 只调 setSelectionRange 不调 select()，个别内核不认，所以两个都调
  * @returns {boolean}
  */
 export function copyFromElement(el) {
   if (!el) return false;
+  let wasReadonly = false;
   try {
+    if (el.readOnly) {
+      wasReadonly = true;
+      el.readOnly = false;
+    }
     selectAll(el);
-    return document.execCommand('copy');
+    try {
+      el.select();
+    } catch {
+      /* 部分元素没有 select */
+    }
+    const ok = document.execCommand('copy');
+    return ok;
   } catch {
+    return false;
+  } finally {
+    if (wasReadonly) {
+      try {
+        el.readOnly = true;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+/**
+ * 尝试调用系统分享面板（微信内置浏览器常不支持，但安卓 Chrome / iOS Safari 支持）。
+ * 有些浏览器里分享比复制好使 —— 分享到微信就是一步到位。
+ * @returns {Promise<boolean>}
+ */
+export async function shareText({ title = '', text = '', url = '' } = {}) {
+  if (!navigator.share) return false;
+  try {
+    await navigator.share({ title, text, url });
+    return true;
+  } catch (err) {
+    // 用户取消也算「用过了」，不再提示复制失败
+    if (err && err.name === 'AbortError') return true;
     return false;
   }
 }
+
 
 /**
  * 复制文本。

@@ -47,6 +47,7 @@ const viewsAdminInvest = lazyView(() => import('./views-admin-invest.js'));
 const viewsAbout = lazyView(() => import('./views-about.js'));
 const viewsTopic = lazyView(() => import('./views-topic.js'));
 const viewsFunds = lazyView(() => import('./views-funds.js'));
+const viewsBcastText = lazyView(() => import('./views-bcast-text.js'));
 const viewsTags = lazyView(() => import('./views-tags.js'));
 const viewsWechatSetup = lazyView(() => import('./views-wechat-setup.js'));
 const viewsNews = lazyView(() => import('./views-news.js'));
@@ -347,6 +348,8 @@ async function resolveView({ segs, query }) {
       return viewsTopic.renderContest(ctx, query);
     case 'funds':
       return viewsFunds.renderFunds(ctx, query);
+    case 'bcast-text':
+      return viewsBcastText.renderBcastText(ctx, query);
     case 'broadcast':
       return viewsHome.renderBroadcast(ctx, query);
     case 'search':
