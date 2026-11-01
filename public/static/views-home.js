@@ -2260,7 +2260,8 @@ export async function renderDetail(ctx, params) {
               ${tree.length ? tree.map((c) => commentHtml(c)).join('') : ui.emptyState('💭', '还没有留言，来做第一个提问的人')}
             </div>
             <div class="mt12" id="comment-form">
-              <textarea class="textarea" id="comment-input" placeholder="想问点什么？例如：对承接方有什么资质要求？" style="min-height:76px"></textarea>
+              <textarea class="textarea" id="comment-input" placeholder="想问点什么？例如：对承接方有什么资质要求？（可把文字或文件直接拖进来）" style="min-height:76px"></textarea>
+              <div class="cf-drop" id="comment-drop">松手即可：文字会填进留言框，文件会上传并归入项目资料</div>
               <div class="row between mt8">
                 <div class="row gap8" style="align-items:center">
                   <button class="btn btn-sm" type="button" id="comment-attach" title="上传文件">📎 附件</button>
@@ -3341,30 +3342,107 @@ ${rows}
         root.querySelector('#comment-file')?.click();
       });
 
-      root.querySelector('#comment-file')?.addEventListener('change', async (ev) => {
-        const picked = [...(ev.target.files || [])];
-        ev.target.value = '';
-        if (!picked.length) return;
-        if (commentFileIds.length + picked.length > 6) {
+      /**
+       * 处理一批文件：文本类直接把文字填进留言框，其余作为附件。
+       * 选择文件与拖入共用这一套逻辑。
+       */
+      const uploadCommentFiles = async (picked) => {
+        const list = [...picked];
+        if (!list.length) return;
+        if (commentFileIds.length + list.length > 6) {
           ui.toast('一条留言最多 6 个附件', 'err');
           return;
         }
-        ui.showLoading('上传附件…');
+        const ta = root.querySelector('#comment-input');
+        ui.showLoading('处理附件…');
         try {
-          for (const f of picked) {
+          let filledText = 0;
+          for (const f of list) {
             const rec = await service.uploadFile(f);
             // /api/files 返回 { files: [...] }，兼容单文件写法
             const file = rec?.files?.[0] || rec?.file || rec;
-            if (file && file.id) commentFileIds.push({ id: file.id, name: file.name || f.name });
+            if (!file || !file.id) continue;
+
+            /*
+             * 文本类（txt/md/docx/pdf 等）服务端会抽出文字：
+             * 直接填进留言框比挂个附件更有用 —— 用户拖进来的多半是「这段话帮我看看」。
+             */
+            const extracted = String(file.text || '').trim();
+            const isTexty = file.kind === 'text' || (extracted && extracted.length >= 10);
+            if (isTexty && extracted) {
+              const piece = extracted.slice(0, 1200);
+              if (!ta.value.trim()) ta.value = piece;
+              else ta.value = `${ta.value.trim()}\n\n${piece}`;
+              filledText += 1;
+              continue;
+            }
+            commentFileIds.push({ id: file.id, name: file.name || f.name });
           }
           paintCf();
-          ui.toast('附件已上传，发表留言时会自动归入项目文件', 'ok');
+          if (filledText) ui.toast(`${filledText} 个文本文件的文字已填进留言框`, 'ok');
+          else ui.toast('附件已上传，发表留言时会自动归入项目文件', 'ok');
         } catch (err) {
           ui.toast(err.message || '上传失败', 'err');
         } finally {
           ui.hideLoading();
         }
+      };
+
+      root.querySelector('#comment-file')?.addEventListener('change', async (ev) => {
+        const picked = [...(ev.target.files || [])];
+        ev.target.value = '';
+        await uploadCommentFiles(picked);
       });
+
+      /* ---------------- 拖入：文字填空、文件上传 ---------------- */
+      const form = root.querySelector('#comment-form');
+      const dropHint = root.querySelector('#comment-drop');
+      if (form) {
+        let depth = 0;
+        form.addEventListener('dragenter', (ev) => {
+          ev.preventDefault();
+          depth += 1;
+          form.classList.add('drop-active');
+          dropHint?.classList.add('show');
+        });
+        form.addEventListener('dragover', (ev) => {
+          ev.preventDefault();
+          if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
+        });
+        form.addEventListener('dragleave', (ev) => {
+          ev.preventDefault();
+          depth = Math.max(0, depth - 1);
+          if (!depth) {
+            form.classList.remove('drop-active');
+            dropHint?.classList.remove('show');
+          }
+        });
+        form.addEventListener('drop', async (ev) => {
+          ev.preventDefault();
+          depth = 0;
+          form.classList.remove('drop-active');
+          dropHint?.classList.remove('show');
+
+          if (!ctx.requireLogin()) return;
+
+          const dt = ev.dataTransfer;
+          if (!dt) return;
+          const droppedFiles = [...(dt.files || [])];
+          if (droppedFiles.length) {
+            await uploadCommentFiles(droppedFiles);
+            return;
+          }
+          // 拖进来的是文字/链接
+          const text = (dt.getData('text/plain') || dt.getData('text/uri-list') || '').trim();
+          if (text) {
+            const ta = root.querySelector('#comment-input');
+            const cur = ta.value;
+            ta.value = cur && !cur.endsWith('\n') ? `${cur}\n${text}` : cur + text;
+            ta.focus();
+            ui.toast('文字已填入留言框', 'ok');
+          }
+        });
+      }
 
       root.querySelector('#comment-submit')?.addEventListener('click', async () => {
         if (!ctx.requireLogin()) return;

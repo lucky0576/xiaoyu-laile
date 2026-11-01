@@ -1089,6 +1089,23 @@ ul { margin: 0; padding-left: 18px; }
   white-space: nowrap;
 }
 .cf-chip a { color: #7f8c9f; text-decoration: none; font-weight: 700; }
+/* ---------------- 留言：拖入 ---------------- */
+.cf-drop {
+  display: none;
+  margin-top: 8px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1.5px dashed #9ec3ff;
+  background: #f5f9ff;
+  color: #0b5fd6;
+  font-size: 12.5px;
+  text-align: center;
+}
+.cf-drop.show { display: block; }
+#comment-form.drop-active .textarea {
+  border-color: #0b74ff;
+  background: #f5f9ff;
+}
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
