@@ -1019,6 +1019,30 @@ export function listComments(listingId, { limit = 200, includeInternal = false }
   };
 }
 
+/**
+ * 把一批文件挂到项目文件里（留言附件自动归集用）。
+ * 已经挂过的不重复加，最多保留 30 个。
+ */
+export function attachFilesToProject(listingId, fileIds = []) {
+  const l = listings().get(listingId);
+  if (!l) return null;
+  const exist = Array.isArray(l.files) ? l.files : [];
+  const merged = [...exist];
+  for (const id of fileIds) {
+    if (id && !merged.includes(id)) merged.push(id);
+  }
+  if (merged.length === exist.length) return l;
+  return listings().update(listingId, { files: merged.slice(0, 30) });
+}
+
+/** 从项目文件里移除一个附件（发布方或管理员） */
+export function detachFileFromProject(listingId, fileId) {
+  const l = listings().get(listingId);
+  if (!l) return null;
+  const files = (Array.isArray(l.files) ? l.files : []).filter((x) => x !== fileId);
+  return listings().update(listingId, { files });
+}
+
 export async function addComment(listingId, user, content, { parentId = '', files = [], aiReply = true } = {}) {
   const l = listings().get(listingId);
   if (!l) throw httpError(404, '信息不存在');
@@ -2220,6 +2244,8 @@ export default {
   recordShare,
   listComments,
   addComment,
+  attachFilesToProject,
+  detachFileFromProject,
   generateAiReply,
   deleteComment,
   addFollowUp,

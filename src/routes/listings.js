@@ -499,6 +499,16 @@ export default function registerListingRoutes(app) {
     return data(res, { listing: listingsSvc.listingPublic(updated, user) });
   });
 
+  /** 从项目文件里移除一个附件（发布方或管理员） */
+  app.del('/api/listings/:id/files/:fileId', (req, res) => {
+    const user = mustAuth(req);
+    const l = listingsSvc.getListing(req.params.id);
+    if (!l) throw httpError(404, '信息不存在');
+    if (l.ownerId !== user.id && !user.isAdmin) throw httpError(403, '只能编辑自己发布的信息');
+    listingsSvc.detachFileFromProject(req.params.id, String(req.params.fileId));
+    return data(res, { ok: true });
+  });
+
   app.del('/api/listings/:id', (req, res) => {
     const user = mustAuth(req);
     listingsSvc.removeListing(req.params.id, user);
@@ -697,7 +707,45 @@ export default function registerListingRoutes(app) {
 
   app.post('/api/listings/:id/comments', async (req, res) => {
     const user = mustAuth(req);
+
+    /*
+     * 附件来源有两种：
+     *   ① multipart 直接带文件（saveUploads 处理）
+     *   ② 前端先调 /api/files 上传，再传 fileIds 过来
+     * 两种都支持，最终合并成一批文件记录。
+     */
     const files = await saveUploads(req, { ownerId: user.id, listingId: req.params.id, role: 'comment' });
+
+    /*
+     * fileIds 三种写法都收：
+     *   ["f_xxx","f_yyy"]   JSON 数组（前端默认）
+     *   f_xxx,f_yyy         逗号分隔（curl/表单更省事）
+     *   f_xxx               单个
+     */
+    let preIds = [];
+    try {
+      const raw = req.body?.fileIds;
+      if (Array.isArray(raw)) {
+        preIds = raw.map((x) => String(x));
+      } else if (typeof raw === 'string' && raw.trim()) {
+        const t = raw.trim();
+        if (t.startsWith('[')) {
+          const arr = JSON.parse(t);
+          preIds = Array.isArray(arr) ? arr.map((x) => String(x)) : [];
+        } else {
+          preIds = t.split(/[,\s]+/).filter(Boolean);
+        }
+      }
+      preIds = preIds.slice(0, 10);
+    } catch {
+      preIds = [];
+    }
+    for (const fid of preIds) {
+      const rec = db.collection('files').get(fid);
+      // 只接受自己上传的文件，防止挂别人的附件
+      if (rec && rec.ownerId === user.id) files.push(rec);
+    }
+
     const wantReply = req.body?.aiReply === undefined ? true : bool(req.body.aiReply);
     const { comment, aiComment } = await listingsSvc.addComment(
       req.params.id,
@@ -705,7 +753,22 @@ export default function registerListingRoutes(app) {
       str(req.body?.content, 2000),
       { parentId: str(req.body?.parentId, 60), files, aiReply: wantReply },
     );
-    return data(res, { comment, aiComment }, 201);
+
+    /*
+     * 留言里带的文件自动归入「项目文件」。
+     * 用户传的资质、图纸、报价单本来就该出现在项目资料里，
+     * 不能只躺在一条留言下面让人翻。
+     */
+    let attached = 0;
+    if (files.length) {
+      const newIds = files.map((f) => f.id);
+      const before = (listingsSvc.getListing(req.params.id)?.files || []).length;
+      listingsSvc.attachFilesToProject(req.params.id, newIds);
+      const after = (listingsSvc.getListing(req.params.id)?.files || []).length;
+      attached = Math.max(0, after - before);
+    }
+
+    return data(res, { comment, aiComment, attached }, 201);
   });
 
   app.del('/api/comments/:id', (req, res) => {

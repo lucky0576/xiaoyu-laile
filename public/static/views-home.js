@@ -2262,9 +2262,15 @@ export async function renderDetail(ctx, params) {
             <div class="mt12" id="comment-form">
               <textarea class="textarea" id="comment-input" placeholder="想问点什么？例如：对承接方有什么资质要求？" style="min-height:76px"></textarea>
               <div class="row between mt8">
-                <label class="checkbox small"><input type="checkbox" id="comment-ai" checked> 让 AI 助理自动回复</label>
+                <div class="row gap8" style="align-items:center">
+                  <button class="btn btn-sm" type="button" id="comment-attach" title="上传文件">📎 附件</button>
+                  <input type="file" id="comment-file" multiple class="hide">
+                  <label class="checkbox small"><input type="checkbox" id="comment-ai" checked> AI 回复</label>
+                </div>
                 <button class="btn btn-primary btn-sm" id="comment-submit">发表留言</button>
               </div>
+              <div class="cf-chips" id="comment-files"></div>
+              <div class="tiny dim mt6">附件会自动归入这个项目的「项目文件」，方便后面的人查</div>
             </div>
           </div>
         </div>
@@ -3310,11 +3316,61 @@ ${rows}
         }
       });
 
+      /* ---------------- 留言附件：先上传，提交时只传 id ---------------- */
+      const commentFileIds = [];
+      const cfChips = () => root.querySelector('#comment-files');
+      const paintCf = () => {
+        const box = cfChips();
+        if (!box) return;
+        box.innerHTML = commentFileIds
+          .map(
+            (f, i) => `<span class="cf-chip">📎 ${ui.esc(f.name || '附件')}
+              <a href="javascript:;" data-cf-del="${i}" title="移除">✕</a></span>`,
+          )
+          .join('');
+      };
+      cfChips()?.addEventListener('click', (ev) => {
+        const del = ev.target.closest('[data-cf-del]');
+        if (!del) return;
+        commentFileIds.splice(Number(del.dataset.cfDel), 1);
+        paintCf();
+      });
+
+      root.querySelector('#comment-attach')?.addEventListener('click', () => {
+        if (!ctx.requireLogin()) return;
+        root.querySelector('#comment-file')?.click();
+      });
+
+      root.querySelector('#comment-file')?.addEventListener('change', async (ev) => {
+        const picked = [...(ev.target.files || [])];
+        ev.target.value = '';
+        if (!picked.length) return;
+        if (commentFileIds.length + picked.length > 6) {
+          ui.toast('一条留言最多 6 个附件', 'err');
+          return;
+        }
+        ui.showLoading('上传附件…');
+        try {
+          for (const f of picked) {
+            const rec = await service.uploadFile(f);
+            // /api/files 返回 { files: [...] }，兼容单文件写法
+            const file = rec?.files?.[0] || rec?.file || rec;
+            if (file && file.id) commentFileIds.push({ id: file.id, name: file.name || f.name });
+          }
+          paintCf();
+          ui.toast('附件已上传，发表留言时会自动归入项目文件', 'ok');
+        } catch (err) {
+          ui.toast(err.message || '上传失败', 'err');
+        } finally {
+          ui.hideLoading();
+        }
+      });
+
       root.querySelector('#comment-submit')?.addEventListener('click', async () => {
         if (!ctx.requireLogin()) return;
         const input = root.querySelector('#comment-input');
         const content = input.value.trim();
-        if (!content) return ui.toast('请先输入留言内容', 'err');
+        if (!content && !commentFileIds.length) return ui.toast('请先输入留言内容或上传附件', 'err');
         const aiReply = root.querySelector('#comment-ai').checked;
         const btn = root.querySelector('#comment-submit');
         btn.disabled = true;
@@ -3324,6 +3380,7 @@ ${rows}
           fd.append('content', content);
           fd.append('parentId', replyTo);
           fd.append('aiReply', aiReply ? '1' : '0');
+          if (commentFileIds.length) fd.append('fileIds', JSON.stringify(commentFileIds.map((f) => f.id)));
           const res = await service.addComment(listing.id, fd);
           input.value = '';
           replyTo = '';
@@ -3337,7 +3394,17 @@ ${rows}
               root.querySelector('#comment-list').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 400);
           }
-          ui.toast(aiReply ? '已发表，AI 助理正在回复…' : '已发表', 'ok');
+          const attachedN = Number(res.attached || 0);
+          commentFileIds.length = 0;
+          paintCf();
+          ui.toast(
+            attachedN
+              ? `已发表，${attachedN} 个附件已归入项目文件`
+              : aiReply
+                ? '已发表，AI 助理正在回复…'
+                : '已发表',
+            'ok',
+          );
         } catch (err) {
           ui.toast(err.message, 'err');
         } finally {
