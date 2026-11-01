@@ -153,6 +153,36 @@ export async function renderHome(ctx, query) {
     <div class="dots">${Array.from({ length: slideCount }, (_, i) => `<i class="${i === 0 ? 'on' : ''}" data-dot="${i}"></i>`).join('')}</div>
   </div>`;
 
+  /*
+   * 活动赛事下面的类型快捷入口。
+   * 活动的类型有十几个，用户想找「本周有什么沙龙」不该先点进列表再翻筛选项。
+   * 直播不是活动类型（是独立板块），单独指到 #/live。
+   */
+  const EVENT_QUICK = [
+    { t: '沙龙', type: 'salon', ico: '☕' },
+    { t: '饭局', type: 'dinner', ico: '🍽️' },
+    { t: '展会', type: 'exhibition', ico: '🏢' },
+    { t: '参展', type: 'exhibition', ico: '🎫' },
+    { t: '招商会', type: 'investment-promotion', ico: '📢' },
+    { t: '论坛', type: 'forum', ico: '💬' },
+    { t: '比赛', type: 'competition', ico: '🏆' },
+    { t: '课程', type: 'course', ico: '📚' },
+    { t: '直播', live: true, ico: '📡' },
+  ];
+  const eventQuickHtml = `<div class="ev-quick">
+    <div class="ev-quick-h">
+      <span class="ev-quick-t">🎪 活动与赛事</span>
+      <a class="ev-quick-all" href="#/list/event">查看全部 ›</a>
+    </div>
+    <div class="ev-quick-row">
+      ${EVENT_QUICK.map(
+        (x) => `<a class="ev-q" href="${x.live ? '#/live' : `#/list/event?type=${x.type}`}">
+          <span class="ev-q-ico">${x.ico}</span><span class="ev-q-t">${x.t}</span>
+        </a>`,
+      ).join('')}
+    </div>
+  </div>`;
+
   /* ---------------- 2×3 主入口 ---------------- */
   const entries = [
     { t: '活动赛事', d: '报名 · 赛事 · 课程', art: '🎪', href: '#/list/event', i: 1 },
@@ -538,6 +568,7 @@ export async function renderHome(ctx, query) {
     ${publishBarHtml}
     ${gridHtml}
     ${topicHtml}
+    ${eventQuickHtml}
     ${projectBarHtml}
     ${ecomBarHtml}
     ${promoHtml}
