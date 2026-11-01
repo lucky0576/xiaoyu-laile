@@ -1095,7 +1095,7 @@ export async function renderList(ctx, params) {
           // 结果里带 trade/project 等快照，itemHtml 需要 brief 结构，这里直接复用
           aiBox.innerHTML = items.map(itemHtml).join('');
           if (aiTip) {
-            aiTip.innerHTML = `<span>${r.mode === 'ai' ? 'AI' : '关键词'}在 ${r.scanned || 0} 条里找到 ${items.length} 条</span>
+            aiTip.innerHTML = `<span>${r.mode === 'ai' ? 'AI' : '关键词'}在全部板块 ${r.scanned || 0} 条里找到 ${items.length} 条</span>
               <a href="javascript:;" id="list-ai-clear" style="margin-left:8px;color:#0b74ff">恢复列表</a>`;
           }
           root.querySelector('#list-ai-clear')?.addEventListener('click', () => {
@@ -1267,7 +1267,7 @@ export async function renderSearch(ctx, query) {
    * 再按条件检索，条件搜不到会自动放宽。比纯关键词匹配准得多。
    * 接口挂了就退回普通关键词搜索。
    */
-  let res = { items: [], total: 0, parsed: null };
+  let res = { items: [], total: 0, parsed: null, news: [], scanned: 0 };
   if (q) {
     res = await service.aiSearch(q).catch(async () => {
       const fallback = await service
@@ -1324,6 +1324,14 @@ export async function renderSearch(ctx, query) {
 
     ${parsedHtml}
     ${fallbackHtml}
+    ${q && (res.news || []).length ? `
+      <div class="section-head mt16"><h2>📰 相关资讯 <span class="tiny dim">${res.news.length} 条</span></h2></div>
+      <div class="news-mini-list">
+        ${res.news.map((x) => `<a class="news-mini" href="#/news/${ui.esc(x.id)}">
+          <span class="nm-t">${ui.esc(x.title)}</span>
+          <span class="nm-d">${ui.esc((x.summary || '').slice(0, 50))}</span>
+        </a>`).join('')}
+      </div>` : ''}
 
     ${!q ? `
       <div class="section-head mt16"><h2>热门搜索</h2></div>

@@ -806,11 +806,29 @@ export default function registerCoreRoutes(app) {
     const rl = rateLimit(`ai-search:${clientIp(req)}`, 20, 60_000);
     if (!rl.ok) return fail(res, `搜索太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
     const parsed = await ai.parseSearchIntent(q);
+    // 检索范围：全部板块，不按 AI 解析出的 category 过滤
     const result = listingsSvc.searchWithIntent(parsed, { limit: 40 });
+
+    /*
+     * 资讯也一起搜。
+     * 用户搜「储能」，项目、贸易、招投标、资讯都该出来 ——
+     * 之前首页搜索只返回信息（listings），新闻完全搜不到。
+     */
+    let news = [];
+    try {
+      const newsMod = await import('../services/news.js');
+      const r = newsMod.listNews({ q, page: 1, size: 8 });
+      news = (r.items || []).map((x) => newsMod.newsPublic(x));
+    } catch {
+      news = [];
+    }
+
     return data(res, {
       parsed,
       items: result.items,
       total: result.total,
+      news,
+      scanned: result.scanned || 0,
       // 关键词没命中、退化到「最新发布」时给前端提示，别让人以为白搜
       fellBack: Boolean(result.fellBack),
     });

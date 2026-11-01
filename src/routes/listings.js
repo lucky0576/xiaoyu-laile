@@ -116,7 +116,12 @@ export default function registerListingRoutes(app) {
     const category = String(req.body?.category || '').trim();
     if (!query) return fail(res, '说说想找什么', 400, 'no_query');
 
-    let pool = listingsSvc.queryListings({ category, status: 'published', page: 1, pageSize: 300 }).items || [];
+    /*
+     * 全部板块检索：category 只做加分，不做过滤。
+     * 之前传了 category 就只在这一板里搜 ——
+     * 在「项目」页搜「储能」，贸易里的储能设备完全搜不到。
+     */
+    let pool = listingsSvc.allPublished({ max: 800 });
     if (!pool.length) return data(res, { ids: [], items: [], mode: 'none', scanned: 0 });
 
     const scanned = pool.length;
@@ -145,6 +150,8 @@ export default function registerListingRoutes(app) {
       if (hay.includes(query)) score += 30;
       for (const t of tokens) if (t && hay.includes(t)) score += 10;
       if (l.title && l.title.includes(query)) score += 25;
+      // 当前所在板块优先（不排除其他板块）
+      if (category && l.category === category) score += 6;
       return { l, score };
     });
 

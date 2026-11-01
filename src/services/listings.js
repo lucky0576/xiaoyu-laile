@@ -1706,6 +1706,7 @@ function sanitizeCities(raw, text = '') {
  * 策略是「逐步放宽」：全条件搜不到 3 条，就依次去掉类别、去掉城市，
  * 最后退回纯关键词，避免「条件一多就零结果」。
  */
+/** 输入框里的一句话 → 全站检索（不限制板块，板块只影响排序权重） */
 export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
   const words = (intent.keywords || []).map((x) => String(x || '').trim()).filter(Boolean);
   const base = String(intent.q || '').trim();
@@ -1714,30 +1715,31 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
   const category = String(intent.category || '').trim();
 
   /*
-   * 检索顺序：先精确（关键词+城市+行业+分类），逐级放宽，
-   * 最后两档是「只按分类」和「什么都不限」——
-   * 这两档不能被过滤掉，否则「今天新发布的项目」这类提问会返回 0 条。
+   * 检索范围：全部板块（项目 / 悬赏 / 活动 / 贸易 / 成果 / 招投标），
+   * 用户搜什么就搜全站 —— 之前按 AI 解析出的 category 直接过滤，
+   * 结果「储能」只出项目、「储能设备」只出贸易，用户以为数据就这么点。
+   * 现在 category 只作为排序加分项。
    */
   const tiers = [
-    { category, q: [...words, city, industry].filter(Boolean).join(' ') },
-    { category, q: [...words, industry].filter(Boolean).join(' ') },
-    { category, q: [...words].filter(Boolean).join(' ') },
-    { q: [...words, industry, city].filter(Boolean).join(' ') },
+    { q: [...words, city, industry].filter(Boolean).join(' ') },
+    { q: [...words, industry].filter(Boolean).join(' ') },
     { q: [...words, city].filter(Boolean).join(' ') },
     { q: words.join(' ') },
     { q: base },
-    { category },
-    {},
-  ];
+    {}, // 什么都不限 = 最新发布
+  ].filter((t) => t.q);
+
+  if (!tiers.length) tiers.push({});
 
   const runTier = (t) => {
     try {
+      // 不带关键词时取全部已发布（分页），避免只看到最新 100 条
+      if (!t.q) return allPublished({ max: 800 });
       return (
         queryListings({
           status: 'published',
-          pageSize: 200,
-          q: t.q || undefined,
-          category: t.category || undefined,
+          pageSize: 100,
+          q: t.q,
         }).items || []
       );
     } catch {
@@ -1745,11 +1747,6 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
     }
   };
 
-  /*
-   * 取「第一个有结果的档」作为主结果。
-   * 如果那一档少于 3 条，再并上下一档的结果（去重）把面拓宽一点，
-   * 但不会用更宽的兜底结果去替换掉精确命中。
-   */
   let primary = [];
   let primaryTier = -1;
   for (let idx = 0; idx < tiers.length; idx++) {
@@ -1761,8 +1758,8 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
     }
   }
 
-  // 走到最后两档说明关键词一个都没命中
-  const fellBack = primaryTier >= tiers.length - 2 || primaryTier < 0;
+  // 走到最后一档说明关键词一个都没命中
+  const fellBack = primaryTier >= tiers.length - 1 || primaryTier < 0;
 
   let pool = primary;
   if (primary.length > 0 && primary.length < 3 && primaryTier < tiers.length - 1) {
@@ -1781,6 +1778,9 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
       ...(l.industries || []).map((i) => i.name),
       ...(l.keywords || []),
       l.typeName,
+      l.contactName,
+      l.bidding && l.bidding.tenderer,
+      l.bidding && l.bidding.tenderNo,
     ]
       .filter(Boolean)
       .join(' ')
@@ -1791,6 +1791,8 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
     if (industry && hay.includes(industry.toLowerCase())) score += 6;
     for (const w of lowerWords) if (w && hay.includes(w)) score += 3;
     if (base && hay.includes(base.toLowerCase())) score += 2;
+    // AI 解析出的板块只加分，不过滤
+    if (category && l.category === category) score += 5;
     score += (l.ai?.reliability?.score || 0) / 50;
 
     const ts = Date.parse(l.publishedAt || l.createdAt || '') || 0;
@@ -1798,7 +1800,6 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
   });
 
   scored.sort((a, b) => {
-    // 兜底时纯按发布时间倒序，保证「最新发布的」一定在最前面
     if (fellBack && b.ts !== a.ts) return b.ts - a.ts;
     return b.score - a.score;
   });
@@ -1807,7 +1808,25 @@ export function searchWithIntent(intent = {}, { limit = 40 } = {}) {
     items: scored.slice(0, limit).map((x) => x.l),
     total: scored.length,
     fellBack,
+    // 实际检索了多少条，前端可展示「已搜全部板块」
+    scanned: pool.length,
   };
+}
+
+/**
+ * 取全部已发布信息（分页绕过单页 100 条上限）。
+ * AI 搜索要「搜全站」，只取第一页 100 条会漏掉后面的。
+ */
+export function allPublished({ max = 800 } = {}) {
+  const out = [];
+  for (let page = 1; page <= 10; page++) {
+    const r = queryListings({ status: 'published', page, pageSize: 100 });
+    const items = r.items || [];
+    out.push(...items);
+    if (items.length < 100) break;
+    if (out.length >= max) break;
+  }
+  return out.slice(0, max);
 }
 
 export function queryListings(params = {}) {
@@ -2210,6 +2229,7 @@ export default {
   listRegistrations,
   myRegistrations,
   queryListings,
+  allPublished,
   getListing,
   listingPublic,
   listingBrief,
