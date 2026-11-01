@@ -2001,6 +2001,10 @@ export async function renderDetail(ctx, params) {
               ? `<div class="warn-note mt8">📌 <b>资格要求：</b>${ui.esc(bd.qualification)}</div>`
               : ''
           }
+          <div class="tiny dim mt8" style="line-height:1.7">
+            ${listing.sourceName ? `来源：${ui.esc(listing.sourceName)}<br>` : ''}
+            本页整理自政府公开公告，仅供检索参考；一切以政府网站原文为准，如与原文不一致以原文为准。
+          </div>
         </div>`
       : '';
 

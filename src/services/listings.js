@@ -302,6 +302,7 @@ export function listingBrief(l) {
      */
     contactName: maskContacts(String(l.contact?.name || '')).text,
     status: l.status,
+    sourceName: l.sourceName || '',
     publishedAt: l.publishedAt,
     expiresAt: l.expiresAt,
     createdAt: l.createdAt,
@@ -607,6 +608,8 @@ export async function createListing({ user, body = {}, files = [] }) {
      *   web   带原文链接的 —— 系统采集的公告、用户从网上导入的
      * 群发默认屏蔽 web：转发别人的公告既没价值，也有版权风险。
      */
+    // 来源名称（采集/导入时记录，用于展示「来源：XX」与免责说明）
+    sourceName: String(body.sourceName || '').slice(0, 60),
     origin: (() => {
       if (body.origin === 'collect' || body.origin === 'web') return 'web';
       const hasLink = /^https?:\/\//i.test(String(body.link || ''));
