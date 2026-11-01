@@ -13,6 +13,7 @@
 import newsSvc from '../services/news.js';
 import ai from '../services/ai.js';
 import { httpError } from '../http/app.js';
+import { NEWS_BRIEF } from '../config.js';
 import { data, fail, str, num, authUser, queryOf, mustAuth, clientIp, rateLimit } from './_util.js';
 
 /** 管理端校验 */
@@ -165,6 +166,25 @@ export default function registerNewsRoutes(app) {
   app.get('/api/news/:id', (req, res) => {
     const item = newsSvc.getNews(req.params.id);
     if (!item) return fail(res, '资讯不存在', 404, 'not_found');
+
+    /*
+     * 合规模式（ICP 备案期间）：
+     *   资讯类内容只对外提供「标题 + 摘要 + 原文链接」，不再全文转载。
+     *   管理员照旧能拿到全文 —— 后台审核、编辑需要看原文。
+     *   抓取入库的正文仍然保留在库里，只是不下发给访客。
+     */
+    const viewer = authUser(req);
+    if (NEWS_BRIEF && !(viewer && viewer.isAdmin)) {
+      const full = String(item.text || '');
+      const brief = {
+        ...newsSvc.newsPublic(item),
+        brief: true,
+        briefText: String(item.summary || '').slice(0, 200) || full.slice(0, 200),
+        fullChars: full.length,
+      };
+      return data(res, brief);
+    }
+
     return data(res, item);
   });
 

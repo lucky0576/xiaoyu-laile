@@ -281,7 +281,20 @@ export async function renderNewsDetail(ctx, { id }) {
     return out.join('');
   };
 
-  const paras = bodyHtml(n.text);
+  /*
+   * 合规模式（ICP 备案期间）：
+   * 后端 NEWS_BRIEF 开启时详情只返回标题 + 摘要 + 原文链接（brief:true，无 text），
+   * 这里就不再展示全文，改成一张说明卡 + 醒目的「阅读原文」。
+   */
+  const isBrief = Boolean(n.brief);
+  const paras = isBrief ? '' : bodyHtml(n.text);
+  const briefHtml = isBrief
+    ? `<div class="news-brief-card">
+        <div class="nb-title">📌 本站仅提供摘要与原文链接</div>
+        <div class="nb-text">${ui.esc(n.briefText || n.summary || '暂无摘要')}</div>
+        <div class="nb-note">全文版权归原作者，点击下方「阅读原文」查看完整内容。</div>
+      </div>`
+    : '';
 
   /* 封面 */
   const cover = n.coverUrl ? ui.safeUrl(n.coverUrl) : '';
@@ -346,7 +359,7 @@ export async function renderNewsDetail(ctx, { id }) {
 
   const linkHtml = n.url
     ? `<div class="card card-pad mt12">
-        <a class="btn btn-block" href="${ui.esc(ui.safeUrl(n.url))}" target="_blank" rel="noopener noreferrer nofollow">
+        <a class="btn btn-block ${isBrief ? 'btn-primary' : ''}" href="${ui.esc(ui.safeUrl(n.url))}" target="_blank" rel="noopener noreferrer nofollow">
           🔗 查看原文（${ui.esc(n.sourceName || '来源')}）
         </a>
         ${n.fromUser ? '' : '<div class="tiny dim center mt8">原文版权归原作者所有，本站仅做摘要与索引</div>'}
@@ -373,9 +386,11 @@ export async function renderNewsDetail(ctx, { id }) {
 
       ${imgsHtml}
 
-      <div class="card card-pad mt12 news-body">${
+      ${briefHtml}
+
+      ${isBrief ? '' : `<div class="card card-pad mt12 news-body">${
         paras || `<p class="muted">${n.fromUser ? '这条资讯没有正文' : '正文抓取失败，请查看原文'}</p>`
-      }</div>
+      }</div>`}
 
       ${vidsHtml}
 

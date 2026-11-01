@@ -233,3 +233,12 @@ export const wechatConfigured = () =>
   Boolean(config.wechat.appId && config.wechat.appSecret);
 
 export default config;
+
+/**
+ * 资讯合规模式（ICP 备案期间用）。
+ *   true   对外只给「标题 + 摘要 + 原文链接」，不下发正文全文；
+ *          管理员仍然能看全文（运营需要）。
+ *   false  恢复全文展示。
+ * 用环境变量 NEWS_BRIEF=0 可以关掉，不必改代码。
+ */
+export const NEWS_BRIEF = String(process.env.NEWS_BRIEF ?? '1') !== '0';
