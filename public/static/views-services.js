@@ -242,7 +242,7 @@ export function renderServices(ctx) {
         ${
           p.id === 'industry'
             ? `<a class="btn btn-outline btn-block mt12" href="/docs/region-industry-info-plan.pptx" download>
-                 ⬇️ 下载方案 PPT（11 页）
+                 ⬇️ 下载方案 PPT（12 页）
                </a>`
             : ''
         }
@@ -282,7 +282,7 @@ export function renderServices(ctx) {
         百万级项目需要正式方案。可以先把材料下载下来，内部讨论后再约沟通。
       </div>
       <a class="btn btn-outline btn-block mt12" href="/docs/region-industry-info-plan.pptx" download>
-        ⬇️ 区域产业信息基础设施建设方案（PPT，11 页）
+        ⬇️ 区域产业信息基础设施建设方案（PPT，12 页）
       </a>
     </div>
 
