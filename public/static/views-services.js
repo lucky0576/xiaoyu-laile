@@ -81,6 +81,69 @@ const PLANS = [
   },
 ];
 
+/**
+ * 大额合作档位（几十万 ~ 几百万）。
+ * 这类不是「买软件」，是「一起做一件事」，所以按项目报，
+ * 但必须给出起价区间 —— 否则对方不知道要不要谈。
+ */
+const BIG_PLANS = [
+  {
+    id: 'region',
+    icon: '🤝',
+    name: '区域独家合作',
+    tag: '一个市 / 一个区县，独占运营',
+    price: '30 万起 / 年',
+    priceNote: '按区域人口与产业规模浮动',
+    desc: '你出本地资源，我们出平台与运营体系，收益分成。',
+    includes: [
+      '指定区域独家使用权，不再授权第二家',
+      '平台本地化部署 + 本地数据源接入',
+      '联合品牌运营（「XX 市产业信息平台」）',
+      '我们负责产品迭代与技术支持，你负责本地渠道',
+      '收益分成比例按投入协商，一般 6:4 到 7:3',
+    ],
+    topic: 'agency',
+    about: '我想聊【区域独家合作】',
+  },
+  {
+    id: 'industry',
+    icon: '🏗️',
+    name: '产业级整体解决方案',
+    tag: '政府平台 / 产业基金 / 园区集团',
+    price: '100 万起 / 年',
+    priceNote: '含定制开发、数据治理与驻场服务',
+    desc: '不是一个网站，是一套区域产业信息基础设施。',
+    includes: [
+      '区域产业数据库建设（项目 / 企业 / 政策 / 基金）',
+      '定制开发：与本地政务系统、招商系统对接',
+      '数据治理：清洗、去重、字段标准化、质量监控',
+      '专属项目组：产品 + 开发 + 数据 + 实施',
+      '驻场服务与年度运营报告',
+      '可按需扩展至多区县、多业务线',
+    ],
+    topic: 'system',
+    about: '我想聊【产业级整体解决方案】（百万级项目）',
+  },
+  {
+    id: 'capital',
+    icon: '💼',
+    name: '产业资本合作',
+    tag: '产业基金 / 国资平台 / 上市公司',
+    price: '300 万起',
+    priceNote: '股权投资或联合设立专项基金',
+    desc: '不只是服务采购 —— 我们也在寻找长期资本合作方。',
+    includes: [
+      '股权投资：本轮种子轮 / 天使轮开放',
+      '联合设立产业信息专项基金',
+      '我们提供平台能力与数据资产，对方提供资金与产业资源',
+      '可签对赌：约定用户规模、区域覆盖、收入里程碑',
+      '尽调材料齐全：软著、财务、代码可审计',
+    ],
+    topic: 'invest',
+    about: '我想聊【产业资本合作】（投资 / 联合基金）',
+  },
+];
+
 export function renderServices(ctx) {
   const html = `<div class="page svc-page">
     <div class="svc-hero">
@@ -114,6 +177,36 @@ export function renderServices(ctx) {
         <a class="btn btn-primary btn-block mt12"
            href="#/contact-us?topic=${encodeURIComponent(p.topic)}&about=${encodeURIComponent(p.about)}">
           咨询这个方案
+        </a>
+      </div>`,
+    ).join('')}
+
+    <div class="svc-section-title">💼 大额合作（几十万 ~ 几百万）</div>
+    <div class="svc-section-sub">
+      下面这几档不是「买一套软件」，是「一起做一件事」。
+      按项目报，但给起价 —— 免得双方浪费时间。
+    </div>
+
+    ${BIG_PLANS.map(
+      (p) => `<div class="svc-card svc-card-big" id="svc-${ui.esc(p.id)}">
+        <div class="svc-head">
+          <div class="svc-ico">${p.icon}</div>
+          <div class="svc-title">
+            <div class="svc-name">${ui.esc(p.name)}</div>
+            <div class="svc-tag">${ui.esc(p.tag)}</div>
+          </div>
+        </div>
+        <div class="svc-price">
+          <b>${ui.esc(p.price)}</b>
+          <span>${ui.esc(p.priceNote)}</span>
+        </div>
+        <div class="svc-desc">${ui.esc(p.desc)}</div>
+        <div class="svc-list">
+          ${p.includes.map((x) => `<div class="svc-li"><span class="svc-dot">✓</span>${ui.esc(x)}</div>`).join('')}
+        </div>
+        <a class="btn btn-primary btn-block mt12"
+           href="#/contact-us?topic=${encodeURIComponent(p.topic)}&about=${encodeURIComponent(p.about)}">
+          咨询这个合作
         </a>
       </div>`,
     ).join('')}

@@ -1227,3 +1227,38 @@ ul { margin: 0; padding-left: 18px; }
 @keyframes aa-flash { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 .aa-text { flex: 1; min-width: 0; line-height: 1.5; }
 .aa-go { flex: none; font-weight: 800; white-space: nowrap; }
+/* ---------------- 大额合作区 / 联系我页入口 ---------------- */
+.svc-section-title {
+  margin: 20px 2px 4px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a2433;
+}
+.svc-section-sub {
+  margin: 0 2px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #98a3b3;
+}
+.svc-card-big {
+  border-color: #f0d9c0;
+  background: linear-gradient(180deg, #fffdf8, #fff);
+}
+.svc-card-big .svc-price b { font-size: 24px; }
+
+.cu-svc-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eef4ff, #f7f9fc);
+  border: 1px solid #dbe6ff;
+  text-decoration: none;
+}
+.cu-svc-ico { flex: none; font-size: 24px; }
+.cu-svc-body { flex: 1; min-width: 0; }
+.cu-svc-t { font-size: 13.5px; font-weight: 800; color: #1a2433; }
+.cu-svc-d { margin-top: 3px; font-size: 11.5px; line-height: 1.5; color: #5b6675; }
+.cu-svc-go { flex: none; font-size: 12px; font-weight: 800; color: #0b74ff; white-space: nowrap; }
