@@ -13,6 +13,7 @@ import * as ui from './ui.js';
 const PLANS = [
   {
     id: 'deploy',
+    priceValue: 38000,
     icon: '🏛️',
     name: '私有化部署',
     tag: '最推荐 · 政府 / 园区 / 国企',
@@ -30,6 +31,7 @@ const PLANS = [
   },
   {
     id: 'data',
+    priceValue: 18000,
     icon: '📊',
     name: '区域产业数据库',
     tag: '招商部门 / 产业基金 / 投行',
@@ -47,6 +49,7 @@ const PLANS = [
   },
   {
     id: 'operate',
+    priceValue: 28000,
     icon: '📝',
     name: '信息代运营',
     tag: '中小企业 / 工程项目方',
@@ -64,6 +67,7 @@ const PLANS = [
   },
   {
     id: 'report',
+    priceValue: 800,
     icon: '🔍',
     name: 'AI 项目尽调报告',
     tag: '投资机构 / 需要评估项目的企业',
@@ -88,7 +92,28 @@ const PLANS = [
  */
 const BIG_PLANS = [
   {
+    id: 'gov',
+    priceValue: 200000,
+    icon: '🏛️',
+    name: '政府招商引资服务',
+    tag: '区县招商部门 / 园区 / 国资平台',
+    price: '20 万起 / 年',
+    priceNote: '基础服务费，落地项目另按协议计',
+    desc: '不是给你一套软件，是帮你把企业招进来。',
+    includes: [
+      '按本地产业定位，建立目标企业清单（含迁址意向、扩产计划）',
+      '每月定向推荐 10–20 家匹配企业，附联系方式与决策人',
+      '协助组织招商推介会 / 企业考察（每年 2 场）',
+      '招商线索跟进台账，全过程留痕可复盘',
+      '落地项目可按投资额另计服务费（比例另议）',
+      '输出年度招商分析报告（产业分布、竞品区域、政策对比）',
+    ],
+    topic: 'consult',
+    about: '我想了解【政府招商引资服务】',
+  },
+  {
     id: 'region',
+    priceValue: 300000,
     icon: '🤝',
     name: '区域独家合作',
     tag: '一个市 / 一个区县，独占运营',
@@ -107,6 +132,7 @@ const BIG_PLANS = [
   },
   {
     id: 'industry',
+    priceValue: 1000000,
     icon: '🏗️',
     name: '产业级整体解决方案',
     tag: '政府平台 / 产业基金 / 园区集团',
@@ -126,6 +152,7 @@ const BIG_PLANS = [
   },
   {
     id: 'capital',
+    priceValue: 3000000,
     icon: '💼',
     name: '产业资本合作',
     tag: '产业基金 / 国资平台 / 上市公司',
@@ -145,6 +172,11 @@ const BIG_PLANS = [
 ];
 
 export function renderServices(ctx) {
+  /* 按年化价格从低到高排：客户从上往下看，是「从小到大」的采购阶梯 */
+  const byPrice = (a, b) => (a.priceValue || 0) - (b.priceValue || 0);
+  const sortedPlans = [...PLANS].sort(byPrice);
+  const sortedBig = [...BIG_PLANS].sort(byPrice);
+
   const html = `<div class="page svc-page">
     <div class="svc-hero">
       <div class="svc-hero-t">🏛️ 企业服务</div>
@@ -157,7 +189,8 @@ export function renderServices(ctx) {
       </div>
     </div>
 
-    ${PLANS.map(
+    <div class="svc-section-sub" style="margin:2px 2px 10px">↓ 按价格从低到高排列</div>
+    ${sortedPlans.map(
       (p) => `<div class="svc-card" id="svc-${ui.esc(p.id)}">
         <div class="svc-head">
           <div class="svc-ico">${p.icon}</div>
@@ -184,10 +217,10 @@ export function renderServices(ctx) {
     <div class="svc-section-title">💼 大额合作（几十万 ~ 几百万）</div>
     <div class="svc-section-sub">
       下面这几档不是「买一套软件」，是「一起做一件事」。
-      按项目报，但给起价 —— 免得双方浪费时间。
+      按项目报，但给起价 —— 免得双方浪费时间。按价格从低到高排列。
     </div>
 
-    ${BIG_PLANS.map(
+    ${sortedBig.map(
       (p) => `<div class="svc-card svc-card-big" id="svc-${ui.esc(p.id)}">
         <div class="svc-head">
           <div class="svc-ico">${p.icon}</div>
