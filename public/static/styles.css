@@ -1163,3 +1163,48 @@ ul { margin: 0; padding-left: 18px; }
 .nb-text { font-size: 13.5px; line-height: 1.8; color: #475569; }
 .nb-note { margin-top: 10px; font-size: 11.5px; color: #98a3b3; line-height: 1.6; }
 .lv-year { margin-top: 4px; font-size: 11px; color: #c2410c; font-weight: 600; }
+
+/* ---------------- 企业服务页 ---------------- */
+.svc-page { padding-bottom: 12px; }
+.svc-hero {
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eef4ff, #f7f9fc);
+  border: 1px solid #dbe6ff;
+  text-align: center;
+}
+.svc-hero-t { font-size: 21px; font-weight: 800; color: #1a2433; }
+.svc-hero-d { margin-top: 8px; font-size: 13px; line-height: 1.8; color: #475569; }
+.svc-hero-tags { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+.svc-hero-tags span {
+  font-size: 11px; padding: 2px 9px; border-radius: 999px;
+  background: #fff; border: 1px solid #dbe6ff; color: #0b5fd6;
+}
+.svc-card {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--line, #e3e9f2);
+}
+.svc-head { display: flex; align-items: center; gap: 10px; }
+.svc-ico { font-size: 26px; line-height: 1; }
+.svc-name { font-size: 17px; font-weight: 800; color: #1a2433; }
+.svc-tag { margin-top: 3px; font-size: 11.5px; color: #0b5fd6; }
+.svc-price { margin-top: 12px; display: flex; align-items: baseline; gap: 8px; }
+.svc-price b { font-size: 22px; color: #c2410c; }
+.svc-price span { font-size: 11.5px; color: #98a3b3; }
+.svc-desc { margin-top: 8px; font-size: 13px; line-height: 1.7; color: #475569; }
+.svc-list { margin-top: 10px; }
+.svc-li { display: flex; gap: 7px; font-size: 12.5px; line-height: 1.9; color: #475569; }
+.svc-dot { color: #0e8f7a; font-weight: 800; flex: none; }
+.svc-contact {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #fff7ed;
+  border: 1px solid #fde3c4;
+  text-align: center;
+}
+.svc-contact-t { font-size: 13px; font-weight: 800; color: #9a3412; }
+.svc-contact-d { margin-top: 8px; font-size: 12.5px; line-height: 1.9; color: #7c4a1d; }

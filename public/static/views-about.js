@@ -83,7 +83,9 @@ export function renderAbout(ctx, query) {
     </div>
 
     <div class="card card-pad mt12">
-      <div class="strong mb8">🧩 合作方式</div>
+      <a class="btn btn-sm btn-primary btn-block mb12" href="#/services">🏛️ 看企业服务与报价</a>
+
+  <div class="strong mb8">🧩 合作方式</div>
       <div class="small muted" style="line-height:1.8">
         <div>· <b>直接使用</b>：注册后即可发布园区、政策、项目与合作需求。</div>
         <div>· <b>区域专区</b>：为地方开设独立专区页，集中展示本地载体与招商方向。</div>

@@ -49,6 +49,7 @@ const viewsTopic = lazyView(() => import('./views-topic.js'));
 const viewsFunds = lazyView(() => import('./views-funds.js'));
 const viewsBcastText = lazyView(() => import('./views-bcast-text.js'));
 const viewsLegal = lazyView(() => import('./views-legal.js'));
+const viewsServices = lazyView(() => import('./views-services.js'));
 const viewsTags = lazyView(() => import('./views-tags.js'));
 const viewsWechatSetup = lazyView(() => import('./views-wechat-setup.js'));
 const viewsNews = lazyView(() => import('./views-news.js'));
@@ -345,6 +346,8 @@ async function resolveView({ segs, query }) {
       return viewsHome.renderList(ctx, { category: p1 || 'project', ...query });
     case 'about':
       return viewsAbout.renderAbout(ctx, query);
+    case 'services':
+      return viewsServices.renderServices(ctx, query);
     case 'privacy':
       return viewsLegal.renderPrivacy(ctx, query);
     case 'terms':

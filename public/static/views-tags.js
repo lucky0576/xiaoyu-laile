@@ -219,7 +219,7 @@ export async function renderMembership(ctx) {
         isFree
           ? ''
           : isCustom
-            ? `<a class="btn btn-outline btn-block mt12" href="#/contact-us">咨询定制方案</a>`
+            ? `<a class="btn btn-outline btn-block mt12" href="#/services">咨询定制方案</a>`
             : isCurrent
               ? `<button class="btn btn-block mt12" id="lv-cancel">取消会员</button>`
               : `<button class="btn btn-primary btn-block mt12" data-buy="${ui.esc(lv.key)}">开通 ${ui.esc(lv.name)}</button>`

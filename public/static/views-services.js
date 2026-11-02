@@ -1,0 +1,171 @@
+/**
+ * 小鱼来了 — 企业服务（#/services）
+ *
+ * 给政府、园区、产业基金、企业看的服务页：
+ * 私有化部署 / 区域产业数据库 / 信息代运营 / AI 尽调报告。
+ *
+ * 联系路径：全部引导到站内「联系我」表单（topic=system/consult），
+ * 提交后由管理员（平台负责人）接收并回复，不暴露其他人的联系方式。
+ */
+
+import * as ui from './ui.js';
+
+const PLANS = [
+  {
+    id: 'deploy',
+    icon: '🏛️',
+    name: '私有化部署',
+    tag: '最推荐 · 政府 / 园区 / 国企',
+    price: '3.8 万 / 年',
+    priceNote: '首年含部署 5 万',
+    desc: '把整套平台装到你自己机房，数据不出内网。',
+    includes: [
+      '全部功能：信息发布、检索、AI 解析、招投标采集、会员管理',
+      '部署到客户服务器（2 核 2G 即可运行，无需另购数据库）',
+      '5 个工作日交付 + 2 小时培训 + 3 个月免费运维',
+      '可按需接入本地数据源与内部系统',
+    ],
+    topic: 'system',
+    about: '我想了解【私有化部署】方案',
+  },
+  {
+    id: 'data',
+    icon: '📊',
+    name: '区域产业数据库',
+    tag: '招商部门 / 产业基金 / 投行',
+    price: '1.8 万 / 年',
+    priceNote: '按城市订阅',
+    desc: '指定区域的产业项目库，结构化字段，每日更新。',
+    includes: [
+      '项目 / 贸易供需 / 招投标 / 政策 / 基金动向',
+      '每日自动更新 + 人工核验',
+      '网页账号 + 每周 Excel 导出',
+      '增值项：指定行业 +3000/年，数据 API +8000/年',
+    ],
+    topic: 'consult',
+    about: '我想了解【区域产业数据库】订阅',
+  },
+  {
+    id: 'operate',
+    icon: '📝',
+    name: '信息代运营',
+    tag: '中小企业 / 工程项目方',
+    price: '3,000 元 / 月',
+    priceNote: '年付 2.8 万',
+    desc: '你只管把资料丢过来，整理发布和转发我们做。',
+    includes: [
+      '每月 20 条信息整理与发布',
+      '每周 1 次定向转发到合作渠道',
+      '对接线索反馈（谁看了、谁问了）',
+      '信息字段规范化，提高被搜到的概率',
+    ],
+    topic: 'consult',
+    about: '我想了解【信息代运营】服务',
+  },
+  {
+    id: 'report',
+    icon: '🔍',
+    name: 'AI 项目尽调报告',
+    tag: '投资机构 / 需要评估项目的企业',
+    price: '800 元 / 份',
+    priceNote: '10 份起 6000 元',
+    desc: '单项目分析报告，2 个工作日交付。',
+    includes: [
+      '项目要素梳理 + 结构化字段',
+      '工商与资质核验、行业对标',
+      '风险提示与可信度评分',
+      'PDF 交付，8~12 页',
+    ],
+    topic: 'consult',
+    about: '我想了解【AI 尽调报告】',
+  },
+];
+
+export function renderServices(ctx) {
+  const html = `<div class="page svc-page">
+    <div class="svc-hero">
+      <div class="svc-hero-t">🏛️ 企业服务</div>
+      <div class="svc-hero-d">
+        给政府、园区、产业基金和企业提供产业信息的
+        <b>部署、数据、运营与分析</b>服务。
+      </div>
+      <div class="svc-hero-tags">
+        <span>零第三方依赖</span><span>可部署内网</span><span>数据不出本地</span>
+      </div>
+    </div>
+
+    ${PLANS.map(
+      (p) => `<div class="svc-card" id="svc-${ui.esc(p.id)}">
+        <div class="svc-head">
+          <div class="svc-ico">${p.icon}</div>
+          <div class="svc-title">
+            <div class="svc-name">${ui.esc(p.name)}</div>
+            <div class="svc-tag">${ui.esc(p.tag)}</div>
+          </div>
+        </div>
+        <div class="svc-price">
+          <b>${ui.esc(p.price)}</b>
+          <span>${ui.esc(p.priceNote)}</span>
+        </div>
+        <div class="svc-desc">${ui.esc(p.desc)}</div>
+        <div class="svc-list">
+          ${p.includes.map((x) => `<div class="svc-li"><span class="svc-dot">✓</span>${ui.esc(x)}</div>`).join('')}
+        </div>
+        <a class="btn btn-primary btn-block mt12"
+           href="#/contact-us?topic=${encodeURIComponent(p.topic)}&about=${encodeURIComponent(p.about)}">
+          咨询这个方案
+        </a>
+      </div>`,
+    ).join('')}
+
+    <div class="card card-pad mt12">
+      <div class="strong mb8">📋 服务流程</div>
+      <div class="small muted" style="line-height:2">
+        1. 你在下方点「咨询这个方案」，留下需求与联系方式<br>
+        2. 我们 1 个工作日内联系你，确认范围与报价<br>
+        3. 签订合同，付 50% 首款<br>
+        4. 交付并验收，付尾款，开增值税发票<br>
+        5. 进入服务期，含 3 个月免费运维
+      </div>
+    </div>
+
+    <div class="card card-pad mt12">
+      <div class="strong mb8">🤝 其他合作方式</div>
+      <div class="small muted" style="line-height:1.9">
+        · <b>联合运营</b>：区域独家合作，你出资源我们出平台<br>
+        · <b>渠道代理</b>：帮你所在地区的客户做部署与代运营<br>
+        · <b>定制开发</b>：按你的业务场景扩展功能
+      </div>
+      <a class="btn btn-outline btn-block mt12" href="#/contact-us?topic=agency&about=我想聊【联合运营 / 渠道代理】合作">
+        聊聊合作
+      </a>
+    </div>
+
+    <div class="svc-contact">
+      <div class="svc-contact-t">联系谁</div>
+      <div class="svc-contact-d">
+        以上服务由平台负责人直接对接，站内提交后由他本人回复。<br>
+        <b>电话 / 微信：13456693544</b><br>
+        工作时间：周一至周六 9:00–21:00
+      </div>
+    </div>
+
+    <div class="tiny dim center mt16" style="padding-bottom:24px">
+      小鱼来了 · 让每一条好项目，都被对的人看见
+    </div>
+  </div>`;
+
+  return {
+    title: '企业服务',
+    content: html,
+    showBack: true,
+    activeTab: '',
+    mount(root) {
+      /* 咨询按钮已经是指向 #/contact-us 的链接，这里不用额外处理；
+         但为了移动端点击更明显，滚动到方案卡时给个轻微高亮 */
+      if (location.hash.includes('#')) return;
+    },
+  };
+}
+
+export default { renderServices };

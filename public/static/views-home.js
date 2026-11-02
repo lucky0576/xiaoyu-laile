@@ -573,6 +573,7 @@ export async function renderHome(ctx, query) {
     <div class="site-foot">
       <div class="site-foot-links">
         <a href="#/about">关于我们</a><i>·</i>
+        <a href="#/services">企业服务</a><i>·</i>
         <a href="#/privacy">隐私政策</a><i>·</i>
         <a href="#/terms">用户协议</a><i>·</i>
         <a href="#/disclaimer">免责声明</a><i>·</i>
