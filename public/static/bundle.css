@@ -1263,6 +1263,17 @@ ul { margin: 0; padding-left: 18px; }
 .cu-svc-t { font-size: 13.5px; font-weight: 800; color: #1a2433; }
 .cu-svc-d { margin-top: 3px; font-size: 11.5px; line-height: 1.5; color: #5b6675; }
 .cu-svc-go { flex: none; font-size: 12px; font-weight: 800; color: #0b74ff; white-space: nowrap; }
+/* ---------------- 方案卡提示（服务边界说明） ---------------- */
+.svc-note {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: #fff8ed;
+  border: 1px solid #fde3c4;
+  color: #9a3412;
+  font-size: 11.5px;
+  line-height: 1.65;
+}
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

@@ -95,21 +95,22 @@ const BIG_PLANS = [
     id: 'gov',
     priceValue: 200000,
     icon: '🏛️',
-    name: '政府招商引资服务',
+    name: '政府招商线索服务',
     tag: '区县招商部门 / 园区 / 国资平台',
     price: '20 万起 / 年',
-    priceNote: '基础服务费，落地项目另按协议计',
-    desc: '不是给你一套软件，是帮你把企业招进来。',
+    priceNote: '按服务范围确定，不含落地奖励',
+    desc: '不承诺帮你招到企业，而是把「该找谁」这件事做扎实。',
     includes: [
-      '按本地产业定位，建立目标企业清单（含迁址意向、扩产计划）',
-      '每月定向推荐 10–20 家匹配企业，附联系方式与决策人',
-      '协助组织招商推介会 / 企业考察（每年 2 场）',
-      '招商线索跟进台账，全过程留痕可复盘',
-      '落地项目可按投资额另计服务费（比例另议）',
+      '按本地产业定位，整理目标企业清单（含迁址意向、扩产计划）',
+      '每月提供 10–20 家匹配企业线索，附企业情况与决策人岗位',
+      '协助对接联络（邮件 / 电话 / 引荐），跟进结果如实反馈',
+      '协助组织招商推介会或企业考察（每年 2 场）',
+      '线索跟进台账，全过程留痕，可随时查看进度',
       '输出年度招商分析报告（产业分布、竞品区域、政策对比）',
     ],
     topic: 'consult',
-    about: '我想了解【政府招商引资服务】',
+    about: '我想了解【政府招商线索服务】',
+    note: '本服务交付的是线索与对接协助，不对企业最终是否落地作承诺；落地奖励与后续服务另行协商。',
   },
   {
     id: 'region',
@@ -237,6 +238,7 @@ export function renderServices(ctx) {
         <div class="svc-list">
           ${p.includes.map((x) => `<div class="svc-li"><span class="svc-dot">✓</span>${ui.esc(x)}</div>`).join('')}
         </div>
+        ${p.note ? `<div class="svc-note">⚠️ ${ui.esc(p.note)}</div>` : ''}
         ${
           p.id === 'industry'
             ? `<a class="btn btn-outline btn-block mt12" href="/docs/region-industry-info-plan.pptx" download>
