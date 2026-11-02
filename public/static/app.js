@@ -231,14 +231,41 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
   // 发布入口已移到导航栏中间，不再需要右下角悬浮按钮
   const fab = '';
 
-  return `<div class="shell ${cls}">${topbar}${content}${fab}${tabbar}</div>`;
+  return `<div class="shell ${cls}">${topbar}<div id="admin-alert-slot"></div>${content}${fab}${tabbar}</div>`;
 }
 
 /* ------------------------------------------------------------------ */
 /* 交互绑定                                                            */
 /* ------------------------------------------------------------------ */
+/**
+ * 管理员强提醒：有未读的商务询价，就在页面顶部插一条红色横幅。
+ *
+ * 为什么要有：企业服务页的询价背后是「可能付钱的人」，
+ * 沉在留言列表里几小时没人看，可能就流失了。
+ * 这里不依赖邮件/短信，进站就能看到；邮件提醒等 SMTP 配好再加。
+ */
+async function checkBusinessAlerts(root) {
+  const me = store.user;
+  if (!me || !me.isAdmin) return;
+  const slot = root.querySelector('#admin-alert-slot');
+  if (!slot) return;
+  try {
+    const r = await service.adminAlerts();
+    if (!r || !r.ok || !r.businessUnread) return;
+    const n = r.businessUnread;
+    slot.innerHTML = `<a class="admin-alert" href="#/admin-feedback">
+      <span class="aa-ico">🔔</span>
+      <span class="aa-text">有 <b>${n}</b> 条商务询价待回复（企业服务 / 合作）</span>
+      <span class="aa-go">去处理 ›</span>
+    </a>`;
+  } catch {
+    /* 提醒失败不影响页面 */
+  }
+}
+
 function bindShell(root) {
   try { bindHScroll(root); syncTabbar(); } catch { /* ignore */ }
+  checkBusinessAlerts(root);
   root.querySelector('#nav-back')?.addEventListener('click', () => back());
   root.querySelector('#topbar-share')?.addEventListener('click', async () => {
     const m = await import('./share.js');

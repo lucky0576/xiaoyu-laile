@@ -532,6 +532,7 @@ export const service = {
   broadcastWecom: (body) => api.post('/api/broadcast/wecom', body),
   broadcastPick: (body) => api.post('/api/broadcast/pick', body),
   broadcastImage: (payload) => api.post('/api/broadcast/image', payload),
+  adminAlerts: () => api.get('/api/admin/alerts'),
   broadcastSaved: () => api.get('/api/broadcast/saved'),
   contestList: () => api.get('/api/contest/list'),
   fundsList: () => api.get('/api/funds/list'),

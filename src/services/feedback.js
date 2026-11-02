@@ -180,6 +180,36 @@ export function adminList({ status = '' } = {}) {
   return items.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
 }
 
+/**
+ * 商务询价类主题：
+ *   企业服务（私有化部署/数据库/代运营/尽调）、咨询、代理合作、广告、宣传、投资。
+ * 这些留言背后是「可能付钱的人」，必须做强提醒，不能和普通问题一起沉底。
+ */
+export const BUSINESS_TOPICS = ['system', 'consult', 'agency', 'ad', 'promo', 'invest'];
+
+/** 待处理的商务询价（未回复 + 未读） */
+export function businessInquiryStats() {
+  const all = col().all();
+  const isBiz = (i) => (i.topics || []).some((t) => BUSINESS_TOPICS.includes(t));
+  const openBiz = all.filter((i) => isBiz(i) && i.status !== 'closed');
+  return {
+    businessOpen: openBiz.length,
+    businessUnread: openBiz.filter((i) => !i.readByAdmin).length,
+    latest: openBiz
+      .slice()
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .slice(0, 3)
+      .map((i) => ({
+        id: i.id,
+        userName: i.userName || '用户',
+        contact: i.contact || '',
+        topics: i.topics || [],
+        text: String(i.text || '').slice(0, 60),
+        createdAt: i.createdAt,
+      })),
+  };
+}
+
 export function adminStats() {
   const all = col().all();
   return {
@@ -256,4 +286,6 @@ export default {
   adminReply,
   adminClose,
   adminRemove,
+  businessInquiryStats,
+  BUSINESS_TOPICS,
 };

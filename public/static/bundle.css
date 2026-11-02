@@ -1209,6 +1209,25 @@ ul { margin: 0; padding-left: 18px; }
 }
 .svc-contact-t { font-size: 13px; font-weight: 800; color: #9a3412; }
 .svc-contact-d { margin-top: 8px; font-size: 12.5px; line-height: 1.9; color: #7c4a1d; }
+/* ---------------- 管理员商务询价提醒 ---------------- */
+.admin-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 8px 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.admin-alert b { font-weight: 800; }
+.aa-ico { flex: none; animation: aa-flash 1.6s infinite; }
+@keyframes aa-flash { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+.aa-text { flex: 1; min-width: 0; line-height: 1.5; }
+.aa-go { flex: none; font-weight: 800; white-space: nowrap; }
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

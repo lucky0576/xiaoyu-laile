@@ -75,6 +75,14 @@ export default function registerFeedbackRoutes(app) {
     return data(res, { items, total: items.length });
   });
 
+  /** 管理员强提醒：待处理的商务询价 */
+  app.get('/api/admin/alerts', (req, res) => {
+    const u = authUser(req);
+    if (!u || !u.isAdmin) return data(res, { ok: false, businessOpen: 0, businessUnread: 0, latest: [] });
+    const s = feedbackSvc.businessInquiryStats();
+    return data(res, { ok: true, ...s });
+  });
+
   app.get('/api/admin/feedback/stats', (req, res) => {
     requireAdmin(req);
     return data(res, feedbackSvc.adminStats());
