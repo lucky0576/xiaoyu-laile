@@ -7,7 +7,7 @@ const OWNER = {
   id: OWNER_ID,
   nickname: '卢云',
   avatar: '',
-  company: '授渔算法（上海）科技有限公司',
+  company: '小鱼来了科技有限公司',
   verified: true,
   industry: '新能源',
   city: '杭州',
