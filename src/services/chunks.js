@@ -28,7 +28,7 @@ import { registerStoredFile, kindOf, extOf, ALLOWED } from './files.js';
  */
 export const CHUNK_SIZE = 1 * 1024 * 1024;
 /** 超过这个大小才走分片；小块没必要多几次往返 */
-export const CHUNK_THRESHOLD = 4 * 1024 * 1024;
+export const CHUNK_THRESHOLD = 2 * 1024 * 1024;
 /** 分片会话有效期：2 小时内没传完就作废 */
 export const SESSION_TTL_MS = 2 * 3600_000;
 /** 单文件上限沿用全局设置 */
