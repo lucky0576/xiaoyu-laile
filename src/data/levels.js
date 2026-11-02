@@ -1,8 +1,18 @@
 /**
- * 小鱼来了 — 会员等级
+ * 小鱼来了 — 会员等级与定价
  *
- * 免费 + 5 档月付（蝌蚪 → 龙虾 → 电鳗 → 鲨鱼 → 鲸鱼）
- * 价格按月计；实际扣费需接入微信支付/支付宝，当前为演示开通。
+ * 定价原则（2026-11 调价）：
+ *   原定价 9 / 99 / 999 / 9999 / 99999 是拍脑袋定的，最贵一档 99999/月
+ *   等于一年 120 万，现实中没人会买，摆在页面上反而显得不专业。
+ *   现在按「用户实际愿意为什么付钱」重排：
+ *     入门  → 想把信息发出去
+ *     专业  → 想稳定拿到客户
+ *     团队  → 想有人帮他对接
+ *     定制  → 要私有化 / 数据服务，走合同
+ *   月付为主，同时给年付价（年付 ≈ 10 个月价）。
+ *
+ * 注意：扣费仍是「扫码/转账 + 管理员确认」，没接自动支付。
+ * 接微信支付需要 ICP 备案 + 商户号，这条还没走完。
  */
 
 export const LEVELS = [
@@ -13,97 +23,86 @@ export const LEVELS = [
     color: '#8a95a5',
     price: 0,
     unit: '/ 永久',
-    tagline: '基础功能，先逛逛看看',
+    tagline: '先看看平台上都有什么',
     perks: [
-      '浏览项目列表（摘要）',
-      '发布基础项目 / 悬赏信息',
-      '加入群聊与部分会议',
-      '参与行业论坛讨论',
+      '浏览项目列表与摘要',
+      '每月发布 3 条信息',
+      '查看公开联系方式（隐藏的看不到）',
+      '加入群聊与论坛',
     ],
     limits: { postPerMonth: 3, fullProjectView: 5 },
   },
   {
     key: 'tadpole',
-    name: '蝌蚪级',
+    name: '入门版',
     icon: '🐸',
     color: '#12a05a',
-    price: 9,
+    price: 29,
+    yearPrice: 299,
     unit: '/ 月',
-    tagline: '刚开始对接，先试试水',
+    tagline: '偶尔发信息，想被更多人看到',
     perks: [
-      '浏览全部项目（含 AI 评分）',
-      '每月发布 10 条信息',
-      '发起项目群聊与会议',
-      'AI 项目摘要',
-      '蝌蚪级专属标识',
+      '每月发布 20 条信息',
+      'AI 生成标题与摘要（每月 30 次）',
+      '可查看 AI 可靠性评分',
+      '支持批量转发文案',
+      '入门版标识',
     ],
-    limits: { postPerMonth: 10, fullProjectView: 30 },
+    limits: { postPerMonth: 20, fullProjectView: 60 },
   },
   {
     key: 'lobster',
-    name: '龙虾级',
+    name: '专业版',
     icon: '🦞',
     color: '#e0672a',
-    price: 99,
+    price: 199,
+    yearPrice: 1999,
     unit: '/ 月',
-    tagline: '认真做业务，需要稳定客源',
+    tagline: '靠平台稳定拿客户',
     perks: [
-      '不限量发布项目与悬赏',
-      '不限量查看完整项目信息',
-      'AI 项目分析与匹配推荐',
-      '优先参与线下活动',
-      '龙虾级专属标识',
+      '不限量发布信息',
+      'AI 解析每月 300 次',
+      '信息进入「优先推荐」，排在列表前面',
+      '上传的资质文件可设为「需申请查看」',
+      '联系方式对已对接方自动可见',
+      '专业版标识',
     ],
     limits: { postPerMonth: -1, fullProjectView: -1 },
   },
   {
     key: 'eel',
-    name: '电鳗级',
+    name: '团队版',
     icon: '⚡',
     color: '#7c5cf0',
-    price: 999,
+    price: 499,
+    yearPrice: 4999,
     unit: '/ 月',
-    tagline: '团队作业，要效率与优先权',
+    tagline: '有团队，需要有人帮着对接',
     perks: [
-      '包含龙虾级全部权益',
-      '项目信息优先推荐给潜在对接方',
-      'AI 深度尽调分析',
-      '可查看匿名项目方联系方式',
-      '电鳗级专属标识',
+      '包含专业版全部权益',
+      '5 个子账号，共享发布与检索',
+      '专属对接顾问（每月 1 次会议）',
+      'AI 项目尽调报告（每月 3 份）',
+      '信息可由平台代为转发到合作渠道',
+      '团队版标识',
     ],
     limits: { postPerMonth: -1, fullProjectView: -1 },
   },
   {
     key: 'shark',
-    name: '鲨鱼级',
+    name: '定制服务',
     icon: '🦈',
     color: '#0b74ff',
-    price: 9999,
-    unit: '/ 月',
-    tagline: '大额交易，需要专人盯着',
+    price: 0,
+    custom: true,
+    unit: '',
+    tagline: '私有化部署 / 数据服务 / 联合运营',
     perks: [
-      '包含电鳗级全部权益',
-      '专属对接顾问 1v1 服务',
-      '首页与推荐位曝光',
-      '重点项目的优先对接资格',
-      '鲨鱼级专属标识',
-    ],
-    limits: { postPerMonth: -1, fullProjectView: -1 },
-  },
-  {
-    key: 'whale',
-    name: '鲸鱼级',
-    icon: '🐋',
-    color: '#0e7490',
-    price: 99999,
-    unit: '/ 月',
-    tagline: '产业级合作，深度绑定',
-    perks: [
-      '包含鲨鱼级全部权益',
-      '定制化产业对接服务',
-      '联合品牌与活动露出',
-      '平台种子轮优先投资份额',
-      '鲸鱼级专属标识',
+      '部署到你自己的服务器（数据不出内网）',
+      '按行业与区域定制信息库',
+      '定制 AI 抽取与检索规则',
+      '专属运维与培训',
+      '年度服务合同，可开专票',
     ],
     limits: { postPerMonth: -1, fullProjectView: -1 },
   },
@@ -111,16 +110,16 @@ export const LEVELS = [
 
 export const LEVEL_BY_KEY = Object.fromEntries(LEVELS.map((l) => [l.key, l]));
 
-export const PAID_LEVELS = LEVELS.filter((l) => l.price > 0);
+export const PAID_LEVELS = LEVELS.filter((l) => l.price > 0 || l.custom);
 
 export function levelOf(user) {
   return LEVEL_BY_KEY[user?.level] || LEVEL_BY_KEY.free;
 }
 
-/** 会员是否仍在有效期内（免费用户恒为 true） */
+/** 会员是否仍在有效期内（免费 / 定制类恒为 true） */
 export function levelActive(user) {
   const lv = levelOf(user);
-  if (lv.price === 0) return true;
+  if (!lv || lv.price === 0) return true;
   if (!user.levelExpiresAt) return false;
   return new Date(user.levelExpiresAt).getTime() > Date.now();
 }
@@ -139,6 +138,8 @@ export function publicLevel(user) {
     icon: active ? lv.icon : '🐟',
     color: active ? lv.color : '#8a95a5',
     price: lv.price,
+    yearPrice: lv.yearPrice || 0,
+    custom: Boolean(lv.custom),
     unit: lv.unit,
     expiresAt: user?.levelExpiresAt || '',
     active,
