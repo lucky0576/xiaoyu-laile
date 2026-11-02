@@ -204,6 +204,13 @@ export function renderServices(ctx) {
         <div class="svc-list">
           ${p.includes.map((x) => `<div class="svc-li"><span class="svc-dot">✓</span>${ui.esc(x)}</div>`).join('')}
         </div>
+        ${
+          p.id === 'industry'
+            ? `<a class="btn btn-outline btn-block mt12" href="/docs/region-industry-info-plan.pptx" download>
+                 ⬇️ 下载方案 PPT（11 页）
+               </a>`
+            : ''
+        }
         <a class="btn btn-primary btn-block mt12"
            href="#/contact-us?topic=${encodeURIComponent(p.topic)}&about=${encodeURIComponent(p.about)}">
           咨询这个合作
@@ -231,6 +238,16 @@ export function renderServices(ctx) {
       </div>
       <a class="btn btn-outline btn-block mt12" href="#/contact-us?topic=agency&about=我想聊【联合运营 / 渠道代理】合作">
         聊聊合作
+      </a>
+    </div>
+
+    <div class="card card-pad mt12">
+      <div class="strong mb8">📥 方案材料</div>
+      <div class="small muted" style="line-height:1.9">
+        百万级项目需要正式方案。可以先把材料下载下来，内部讨论后再约沟通。
+      </div>
+      <a class="btn btn-outline btn-block mt12" href="/docs/region-industry-info-plan.pptx" download>
+        ⬇️ 区域产业信息基础设施建设方案（PPT，11 页）
       </a>
     </div>
 
