@@ -695,25 +695,35 @@ async function renderPublishMedia(ctx, type, taxonomy) {
                 if (!itemTitle) itemTitle = `${title} ${i + 1}`;
               }
 
-              const fd = new FormData();
-              fd.append('type', 'short');
-              fd.append('title', itemTitle);
-              fd.append('subtitle', total > 1 && i > 0 ? '' : baseSubtitle);
-              fd.append('description', baseDesc);
-              fd.append('file', it.file, it.file.name);
-              const coverToSend = coverFile && i === 0 ? coverFile : it.cover;
-              if (coverToSend) fd.append('file', coverToSend, coverToSend.name);
-
-              const r = await service.createFeed(fd, {
+              /*
+               * 视频先分片上传（>2MB 自动切片，每片 1MB），
+               * 再用 fileId 建记录 —— 一次性 multipart 在手机上行下会超时。
+               */
+              const vidRec = await api.uploadFile(it.file, {
                 onProgress: (pct) => {
-                  if (status) {
-                    status.textContent = `正在上传第 ${i + 1} / ${total} 条… ${pct}%`;
-                  }
+                  if (status) status.textContent = `正在上传第 ${i + 1} / ${total} 条… ${pct}%`;
                   btn.textContent = `上传中… (${i + 1}/${total}) ${pct}%`;
                 },
-                onPhase: (p) => {
-                  if (status) status.textContent = `第 ${i + 1}/${total} 条：${p === 'parsing' ? '服务端处理中…' : p}`;
-                },
+              });
+              const vidId = (vidRec?.files?.[0] || vidRec)?.id || '';
+              if (!vidId) throw new Error('视频上传失败，未拿到文件 ID');
+
+              const coverToSend = coverFile && i === 0 ? coverFile : it.cover;
+              let coverId = '';
+              if (coverToSend) {
+                try {
+                  const cv = await api.uploadFile(coverToSend);
+                  coverId = (cv?.files?.[0] || cv)?.id || '';
+                } catch { /* 封面失败不影响发布 */ }
+              }
+
+              const r = await service.createFeedJson({
+                type: 'short',
+                title: itemTitle,
+                subtitle: total > 1 && i > 0 ? '' : baseSubtitle,
+                description: baseDesc,
+                fileId: vidId,
+                coverFileId: coverId,
               });
               ids.push(r.feed.id);
             }
@@ -733,30 +743,57 @@ async function renderPublishMedia(ctx, type, taxonomy) {
 
         btn.textContent = isLive ? '创建中…' : '上传中…';
         try {
-          const fd = new FormData();
-          fd.append('type', type);
-          fd.append('title', title);
-          fd.append('subtitle', ($('#pm-subtitle').value || '').trim());
-          fd.append('description', ($('#pm-desc').value || '').trim());
-          if (isLive) {
-            const withPass = $('#pm-pass-on').checked;
-            fd.append('usePassword', withPass ? '1' : '0');
-            if (withPass) fd.append('password', ($('#pm-pass').value || '').trim());
-          } else {
-            if (videoFile) fd.append('file', videoFile, videoFile.name);
-            const coverToSend = coverFile || autoCover;
-            if (coverToSend) fd.append('file', coverToSend, coverToSend.name);
-          }
+          const subtitleVal = ($('#pm-subtitle').value || '').trim();
+          const descVal = ($('#pm-desc').value || '').trim();
 
-          const r = await service.createFeed(fd, {
-            onProgress: (pct) => {
-              if (status) status.textContent = `正在上传… ${pct}%`;
-              btn.textContent = `${isLive ? '创建中' : '上传中'}… ${pct}%`;
-            },
-            onPhase: (p) => {
-              if (status) status.textContent = p === 'parsing' ? '服务端处理中，请稍候…' : p;
-            },
-          });
+          let r;
+          if (isLive) {
+            // 直播没有视频文件，直接建
+            const withPass = $('#pm-pass-on').checked;
+            r = await service.createFeedJson({
+              type,
+              title,
+              subtitle: subtitleVal,
+              description: descVal,
+              usePassword: withPass ? 1 : 0,
+              password: withPass ? ($('#pm-pass').value || '').trim() : '',
+            });
+          } else {
+            /*
+             * 短视频：先分片上传视频（慢网也不会被 nginx 掐断），
+             * 封面同理，最后用 fileId 建记录。
+             */
+            if (status) status.textContent = '正在上传视频…';
+            const vidRec = await api.uploadFile(videoFile, {
+              onProgress: (pct) => {
+                if (status) status.textContent = `正在上传视频… ${pct}%`;
+                btn.textContent = `上传中… ${pct}%`;
+              },
+            });
+            const vidId = (vidRec?.files?.[0] || vidRec)?.id || '';
+            if (!vidId) throw new Error('视频上传失败，未拿到文件 ID');
+
+            const coverToSend = coverFile || autoCover;
+            let coverId = '';
+            if (coverToSend) {
+              if (status) status.textContent = '正在上传封面…';
+              try {
+                const cv = await api.uploadFile(coverToSend);
+                coverId = (cv?.files?.[0] || cv)?.id || '';
+              } catch { /* 封面失败不影响发布 */ }
+            }
+
+            if (status) status.textContent = '正在发布…';
+            btn.textContent = '发布中…';
+            r = await service.createFeedJson({
+              type,
+              title,
+              subtitle: subtitleVal,
+              description: descVal,
+              fileId: vidId,
+              coverFileId: coverId,
+            });
+          }
           ui.toast(isLive ? '直播间已创建' : '短视频已发布', 'ok');
           ctx.nav(`#/live/${r.feed.id}`);
         } catch (err) {

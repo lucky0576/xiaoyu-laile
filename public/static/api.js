@@ -515,6 +515,12 @@ export const service = {
   myFeeds: () => api.get('/api/my/feeds'),
   feed: (id) => api.get(`/api/feeds/${id}`),
   createFeed: (fd, opts) => api.upload('/api/feeds', fd, { timeoutMs: 600000, ...(opts || {}) }),
+  /**
+   * 建短视频/直播：文件先走分片上传拿到 fileId，再用这个 JSON 接口建记录。
+   * 原来的做法是把视频塞进 multipart 一次性 POST ——
+   * 几十 MB 的视频在手机上行下必然超时（nginx 30 秒无数据就 408）。
+   */
+  createFeedJson: (body) => api.post('/api/feeds', body),
   updateFeed: (id, body) => api.put(`/api/feeds/${id}`, body),
   removeFeed: (id) => api.del(`/api/feeds/${id}`),
   likeFeed: (id) => api.post(`/api/feeds/${id}/like`, {}),
