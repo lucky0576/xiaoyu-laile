@@ -172,6 +172,22 @@ const BIG_PLANS = [
   },
 ];
 
+/**
+ * 企业服务入口卡（复用到联系我 / 我的 / 成为服务商 等页面）
+ * 统一文案，避免各页面价格不一致。
+ */
+export function serviceEntryHtml(opts = {}) {
+  const tip = opts.tip || '私有化部署 3.8 万起 · 政府招商线索 20 万起 · 产业级方案 100 万起';
+  return `<a class="cu-svc-entry" href="#/services">
+    <div class="cu-svc-ico">🏛️</div>
+    <div class="cu-svc-body">
+      <div class="cu-svc-t">企业服务 · 私有化部署 / 数据 / 招商 / 合作</div>
+      <div class="cu-svc-d">${tip}</div>
+    </div>
+    <div class="cu-svc-go">看报价 ›</div>
+  </a>`;
+}
+
 export function renderServices(ctx) {
   /* 按年化价格从低到高排：客户从上往下看，是「从小到大」的采购阶梯 */
   const byPrice = (a, b) => (a.priceValue || 0) - (b.priceValue || 0);

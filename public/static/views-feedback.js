@@ -10,6 +10,7 @@
  */
 
 import { service, isLoggedIn } from './api.js';
+import * as viewsServices from './views-services.js';
 import * as ui from './ui.js';
 
 /* 话题 id → 展示名 */
@@ -133,16 +134,7 @@ export async function renderContactUs(ctx) {
         <div class="cu-hero-d">有任何问题、建议或合作意向，写在这里，管理员会尽快回复你</div>
       </div>
 
-      <a class="cu-svc-entry" href="#/services">
-        <div class="cu-svc-ico">🏛️</div>
-        <div class="cu-svc-body">
-          <div class="cu-svc-t">企业服务 · 私有化部署 / 数据 / 合作</div>
-          <div class="cu-svc-d">
-            私有化部署 3.8 万起 · 区域独家合作 30 万起 · 产业级方案 100 万起
-          </div>
-        </div>
-        <div class="cu-svc-go">看报价 ›</div>
-      </a>
+      ${viewsServices.serviceEntryHtml()}
 
       <div class="card card-pad mt12">
         <div class="field">

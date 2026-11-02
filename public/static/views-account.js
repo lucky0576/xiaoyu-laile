@@ -2,6 +2,7 @@
  * 小鱼来了 — 登录/注册、个人中心、资质、通讯录、通知、关注、管理后台
  */
 import { api, service, store, isLoggedIn } from './api.js';
+import * as viewsServices from './views-services.js';
 import * as ui from './ui.js';
 import { itemHtml, userCardHtml, fileCardHtml, categoryName } from './components.js';
 import { isWechatBrowser } from './share.js';
@@ -1130,6 +1131,8 @@ export async function renderMe(ctx, query) {
       </a>
     </div>
 
+    ${viewsServices.serviceEntryHtml({ tip: '部署 3.8 万起 · 招商线索 20 万起 · 方案 100 万起' })}
+
     <div class="card card-pad mt12">
       <div class="stat-row">
         <a href="#/my-listings"><div class="n">${stats.total || 0}</div><div class="l">我的发布</div></a>
@@ -1163,7 +1166,7 @@ export async function renderMe(ctx, query) {
       <a class="item" href="#/favorites"><div class="avatar">⭐</div><div class="item-body"><div class="item-title">我的收藏</div><div class="item-sub">收藏的短视频</div></div><span class="dim">›</span></a>
       <a class="item" href="#/contact-us"><div class="avatar">📮</div><div class="item-body"><div class="item-title">联系我</div><div class="item-sub">向管理员提问，查看回复</div></div><span class="dim">›</span></a>
       <a class="item" href="#/referral"><div class="avatar">🎁</div><div class="item-body"><div class="item-title">推荐有礼</div><div class="item-sub">我的专属推荐码与二维码，推荐入驻自动进通讯录</div></div><span class="dim">›</span></a>
-      <a class="item" href="#/membership"><div class="avatar">👑</div><div class="item-body"><div class="item-title">会员等级</div><div class="item-sub">蝌蚪 · 龙虾 · 电鳗 · 鲨鱼 · 鲸鱼</div></div><span class="dim">›</span></a>
+      <a class="item" href="#/membership"><div class="avatar">👑</div><div class="item-body"><div class="item-title">会员等级</div><div class="item-sub">免费 · 入门 · 专业 · 团队 · 定制服务</div></div><span class="dim">›</span></a>
       <a class="item" href="#/notifications"><div class="avatar">🔔</div><div class="item-body"><div class="item-title">消息通知</div><div class="item-sub">${data.unread || 0} 条未读</div></div><span class="dim">›</span></a>
       ${u.isAdmin ? '<a class="item" href="#/admin-shorts"><div class="avatar">🎬</div><div class="item-b"><div class="item-t">短视频管理</div><div class="item-d">下架不合适的内容</div></div></a>' : ''}
 ${u.isAdmin ? '<a class="item" href="#/admin-covers"><div class="avatar">🖼</div><div class="item-b"><div class="item-t">封面管理</div><div class="item-d">批量换照片封面、预热图片缓存</div></div></a>' : ''}

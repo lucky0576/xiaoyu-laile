@@ -7,6 +7,7 @@
  */
 
 import { service, isLoggedIn } from './api.js';
+import * as viewsServices from './views-services.js';
 import * as ui from './ui.js';
 
 const STATUS_CLASS = { pending: 'warn', approved: 'accent', rejected: 'gray' };
@@ -168,6 +169,8 @@ export async function renderProvider(ctx, params) {
         <a class="chip ${tab === 'list' ? 'active' : ''}" href="#/provider?tab=list">服务商名录</a>
       </div>
     </div>
+
+    ${viewsServices.serviceEntryHtml({ tip: '想把服务卖进政府 / 园区？看我们的企业服务与报价' })}
 
     ${statusHtml}
     ${tab === 'apply' ? formHtml : ''}
