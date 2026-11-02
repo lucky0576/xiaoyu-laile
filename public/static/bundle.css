@@ -1274,6 +1274,8 @@ ul { margin: 0; padding-left: 18px; }
   font-size: 11.5px;
   line-height: 1.65;
 }
+.site-foot-org { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e8edf5; font-size: 10.5px; color: #b6bfcc; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

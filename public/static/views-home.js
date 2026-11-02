@@ -579,9 +579,9 @@ export async function renderHome(ctx, query) {
         <a href="#/contact-us">举报与投诉</a>
       </div>
       <div class="site-foot-meta">
-        运营主体：授渔算法（上海）科技有限公司<br>
         联系与举报：13456693544 · service@xiaoyulaile.online<br>
         <span class="tiny">本站信息来自用户发布与公开渠道整理，仅供参考，不构成交易或投资建议</span>
+        <div class="site-foot-org">运营主体：小鱼来了科技有限公司</div>
       </div>
     </div>
     ${projectBarHtml}

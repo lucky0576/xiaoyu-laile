@@ -10,7 +10,7 @@
 
 import * as ui from './ui.js';
 
-const OPERATOR = '授渔算法（上海）科技有限公司';
+const OPERATOR = '小鱼来了科技有限公司';
 const CONTACT = '13456693544';
 const EMAIL = 'service@xiaoyulaile.online';
 const UPDATED = '2026-11-01';
