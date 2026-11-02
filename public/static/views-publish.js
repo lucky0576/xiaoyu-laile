@@ -2362,8 +2362,12 @@ export async function renderPublish(ctx, params) {
             }</span>
           </div>
           ${visible.map((t) => {
+            const speedTxt =
+              t.status === 'uploading' && t.speed > 0
+                ? ` · ${t.speed >= 1048576 ? (t.speed / 1048576).toFixed(1) + ' MB/s' : Math.max(1, Math.round(t.speed / 1024)) + ' KB/s'}`
+                : '';
             const meta =
-              t.status === 'uploading' ? `<b>${t.percent}%</b>`
+              t.status === 'uploading' ? `<b>${t.percent}%</b>${speedTxt}`
                 : t.status === 'parsing' ? '<b>解析中…</b>'
                   : t.status === 'pending' ? '等待中'
                     : `<span style="color:var(--danger)">${ui.esc(t.error || '上传失败')}</span>`;
@@ -2385,6 +2389,8 @@ export async function renderPublish(ctx, params) {
         task.status = 'uploading';
         task.percent = 0;
         task.error = '';
+        task.speed = 0;
+        task.startedAt = Date.now();
         renderUploadQueue();
         try {
           // 大文件自动走分片（由 api.uploadFile 内部判断），
@@ -2392,6 +2398,15 @@ export async function renderPublish(ctx, params) {
           const res = await api.uploadFile(task.file, {
             onProgress: (p) => {
               task.percent = p;
+              /*
+               * 慢网下用户最想知道「到底在动没有」：
+               * 只显示 0% 会以为卡死，带上速度就知道是在传。
+               * 用「已传字节 / 已用时间」估算，够用且不需要额外接口。
+               */
+              const elapsed = (Date.now() - task.startedAt) / 1000;
+              if (elapsed > 0.8 && p > 0) {
+                task.speed = ((task.size || 0) * (p / 100)) / elapsed;
+              }
               renderUploadQueue();
             },
             // 字节传完 ≠ 完成：服务端还要合并分片、解析文档，
@@ -2438,6 +2453,8 @@ export async function renderPublish(ctx, params) {
           size: f.size || 0,
           status: 'pending',
           percent: 0,
+          speed: 0,
+          startedAt: 0,
           error: '',
           fileId: '',
         }));

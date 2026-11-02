@@ -20,8 +20,13 @@ import { TMP_DIR, config } from '../config.js';
 import { httpError } from '../http/app.js';
 import { registerStoredFile, kindOf, extOf, ALLOWED } from './files.js';
 
-/** 单块 2MB：即使在 1Mbps 上行下也只要约 16 秒，安全 */
-export const CHUNK_SIZE = 2 * 1024 * 1024;
+/**
+ * 单块 1MB。
+ * 原来是 2MB，但移动网络上行经常只有 100–300KB/s，
+ * 一块要 7–20 秒，进度条长时间不动，用户以为卡死。
+ * 1MB 让进度刷新快一倍，单片失败重传代价也小。
+ */
+export const CHUNK_SIZE = 1 * 1024 * 1024;
 /** 超过这个大小才走分片；小块没必要多几次往返 */
 export const CHUNK_THRESHOLD = 4 * 1024 * 1024;
 /** 分片会话有效期：2 小时内没传完就作废 */

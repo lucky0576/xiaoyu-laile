@@ -12,6 +12,7 @@ import { UPLOAD_DIR } from '../config.js';
 import db, { newId } from '../store/db.js';
 import { httpError } from '../http/app.js';
 import { safeFilename } from '../http/multipart.js';
+import { enqueueExtract, EXTRACT_MAX_BYTES } from '../lib/extract-queue.js';
 
 const filesCol = () => db.collection('files');
 
@@ -164,16 +165,25 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
   let meta = {};
   let notes = [];
   const wantExtract = opts.extract !== false && kind !== 'video' && kind !== 'audio';
+
+  /*
+   * 解析不能在这条请求里同步做。
+   * extract.js 全是 inflateSync / 自研 PDF、DOC 解析的同步 CPU 活，
+   * 一份 21MB 的 Word 能把 Node 主线程卡住好几秒 ——
+   * 期间整个服务不响应，前端所有上传请求都挂住，看着就是「0% 没反应」。
+   *
+   * 现在：小文件（≤ EXTRACT_MAX_BYTES）丢给 worker 线程异步解析，
+   *       大文件直接跳过正文（文件照传照存，只是不抽文字）。
+   */
+  let parsing = false;
   if (wantExtract) {
-    try {
-      const buf = await fsp.readFile(dest);
-      const { extractText } = await getExtractor();
-      const result = await extractText(buf, name);
-      text = String(result.text || '').slice(0, 200000);
-      meta = result.meta || {};
-      notes = result.notes || [];
-    } catch (err) {
-      notes = [`解析失败: ${err.message}`];
+    if (stat.size > EXTRACT_MAX_BYTES) {
+      notes = [
+        `文件 ${(stat.size / 1048576).toFixed(1)}MB，超过 8MB 未解析正文；` +
+          '内容检索不会包含这份文件的文字，但仍可正常下载与展示。',
+      ];
+    } else {
+      parsing = true;
     }
   }
 
@@ -192,8 +202,40 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
     text,
     meta,
     notes,
+    parsing,
     createdAt: new Date().toISOString(),
   });
+
+  // 排队解析（worker 线程，不阻塞主线程，也不阻塞本次响应）
+  if (parsing) {
+    const queued = enqueueExtract({
+      filePath: dest,
+      name,
+      size: stat.size,
+      onDone: (r) => {
+        try {
+          const patch = { parsing: false };
+          if (r.ok) {
+            patch.text = String(r.text || '').slice(0, 200000);
+            patch.meta = r.meta || {};
+            patch.notes = r.notes || [];
+          } else {
+            patch.notes = [`解析失败: ${r.error || '未知错误'}`];
+          }
+          filesCol().update(id, patch);
+          record.parsing = false;
+          if (patch.text !== undefined) record.text = patch.text;
+          if (patch.notes) record.notes = patch.notes;
+        } catch {
+          /* 记录更新失败不影响文件可用性 */
+        }
+      },
+    });
+    if (!queued) {
+      filesCol().update(id, { parsing: false, notes: ['解析队列繁忙，已跳过正文'] });
+      record.parsing = false;
+    }
+  }
 
   // 视频：上传后异步做 faststart / 降码率，不阻塞上传响应
   if (kind === 'video') {

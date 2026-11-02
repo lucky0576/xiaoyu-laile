@@ -197,7 +197,7 @@ export const api = {
    * 「进度 100%，上传失败（524）」。
    * 超过阈值的文件自动切成 2MB 分片，每片远低于上限。
    */
-  CHUNK_THRESHOLD: 4 * 1024 * 1024,
+  CHUNK_THRESHOLD: 2 * 1024 * 1024,
 
   /** 上传一个分片（原始二进制），带进度 */
   _putChunk(uploadId, index, blob, onProgress) {
