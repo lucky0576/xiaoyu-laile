@@ -216,7 +216,24 @@ export default function registerBroadcastRoutes(app) {
     if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
 
     const query = String(req.body?.query || '').trim().slice(0, 120);
-    if (!query) return fail(res, '请说说要找什么', 400, 'no_query');
+
+    /*
+     * 结构化筛选（可以不带关键词，只靠筛选也能选）：
+     *   categories  板块 id 数组：project / event / trade / tech / bidding
+     *   city        城市名（模糊匹配 l.cities 与文本）
+     *   dateFrom    起始日期 YYYY-MM-DD（按发布时间）
+     *   dateTo      结束日期 YYYY-MM-DD（含当天）
+     */
+    const cats = (Array.isArray(req.body?.categories) ? req.body.categories : [])
+      .map((x) => String(x || '').trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    const city = String(req.body?.city || '').trim().slice(0, 20);
+    const dateFrom = String(req.body?.dateFrom || '').trim().slice(0, 10);
+    const dateTo = String(req.body?.dateTo || '').trim().slice(0, 10);
+    const hasFilter = Boolean(cats.length || city || dateFrom || dateTo);
+
+    if (!query && !hasFilter) return fail(res, '请说说要找什么，或用板块/城市/日期筛选', 400, 'no_query');
 
     /*
      * 搜索范围：整个库，不是当前页面加载的那几十条。
@@ -228,6 +245,31 @@ export default function registerBroadcastRoutes(app) {
     // 默认屏蔽系统采集的网上公开信息（招投标、政务公告等）
     const onlyUser = req.body?.onlyUser !== false;
     if (onlyUser) pool = pool.filter((l) => l.origin === 'user');
+
+    /* ---------- 结构化筛选 ---------- */
+    if (cats.length) {
+      const set = new Set(cats);
+      pool = pool.filter((l) => set.has(l.category));
+    }
+    if (city) {
+      const kw = city.toLowerCase();
+      pool = pool.filter((l) => {
+        const cityNames = (l.cities || []).map((c) => (typeof c === 'string' ? c : c && c.name) || '').join(' ');
+        const hay = `${cityNames} ${l.title || ''} ${l.subtitle || ''}`.toLowerCase();
+        return hay.includes(kw);
+      });
+    }
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? Date.parse(`${dateFrom}T00:00:00`) : null;
+      const to = dateTo ? Date.parse(`${dateTo}T23:59:59`) : null;
+      pool = pool.filter((l) => {
+        const t = Date.parse(l.publishedAt || l.createdAt || '');
+        if (!Number.isFinite(t)) return false;
+        if (from && t < from) return false;
+        if (to && t > to) return false;
+        return true;
+      });
+    }
 
     // 兼容老调用：传了 ids 就只在这些里选
     const onlyIds = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : null;

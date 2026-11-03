@@ -805,6 +805,33 @@ export async function renderBroadcast(ctx, params) {
           placeholder="例如：储能相关的 / 华南的算力 / 有金额的转让项目">
         <button class="btn btn-sm btn-primary" id="bc-ai-go" type="button" style="flex:none">AI 搜索</button>
       </div>
+
+      <!-- 筛选：板块 / 城市 / 日期 -->
+      <div class="bc-filters mt8">
+        <div class="bc-filter-row">
+          <span class="bc-filter-label">板块</span>
+          <div class="chips scroll" id="bc-cats">
+            <a class="chip active" data-cat="">全部</a>
+            <a class="chip" data-cat="project">项目</a>
+            <a class="chip" data-cat="event">活动</a>
+            <a class="chip" data-cat="trade">贸易</a>
+            <a class="chip" data-cat="tech">成果</a>
+            <a class="chip" data-cat="bidding">招投标</a>
+          </div>
+        </div>
+        <div class="bc-filter-row">
+          <span class="bc-filter-label">城市</span>
+          <input class="input bc-filter-city" id="bc-city" maxlength="20" placeholder="如：杭州（留空不限）">
+        </div>
+        <div class="bc-filter-row">
+          <span class="bc-filter-label">日期</span>
+          <input class="input bc-filter-date" id="bc-date-from" type="date">
+          <span class="tiny dim">至</span>
+          <input class="input bc-filter-date" id="bc-date-to" type="date">
+          <button class="btn btn-sm" id="bc-filter-clear" type="button" style="flex:none">清除</button>
+        </div>
+      </div>
+
       <div class="tiny dim mt6" id="bc-ai-tip">AI 不可用时会自动退回关键词匹配，不会没结果</div>
       <div class="chips scroll mt8" id="bc-saved"></div>
     </div>
@@ -937,10 +964,47 @@ export async function renderBroadcast(ctx, params) {
         }
       })();
 
+      /* ---------------- 筛选：板块 / 城市 / 日期 ---------------- */
+      const catsBox = root.querySelector('#bc-cats');
+      catsBox?.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-cat]');
+        if (!chip) return;
+        e.preventDefault();
+        const cat = chip.getAttribute('data-cat') || '';
+        if (!cat) {
+          // 「全部」= 清掉其他选择
+          catsBox.querySelectorAll('.chip').forEach((el) => el.classList.toggle('active', el === chip));
+          return;
+        }
+        chip.classList.toggle('active');
+        const all = catsBox.querySelector('[data-cat=""]');
+        const anyOn = catsBox.querySelectorAll('[data-cat]:not([data-cat=""]) .active, [data-cat]:not([data-cat=""]).active').length > 0;
+        if (all) all.classList.toggle('active', !anyOn);
+      });
+
+      root.querySelector('#bc-filter-clear')?.addEventListener('click', () => {
+        catsBox?.querySelectorAll('.chip').forEach((el) => el.classList.toggle('active', !el.getAttribute('data-cat')));
+        const c = root.querySelector('#bc-city');
+        const f = root.querySelector('#bc-date-from');
+        const t = root.querySelector('#bc-date-to');
+        if (c) c.value = '';
+        if (f) f.value = '';
+        if (t) t.value = '';
+        ui.toast('筛选条件已清除', 'ok');
+      });
+
       const pick = async () => {
         const query = String(qEl?.value || '').trim();
-        if (!query) {
-          ui.toast('说说要找什么，比如「储能相关的」', 'err');
+        /* 筛选条件：板块（可多选）/ 城市 / 日期区间 */
+        const cats = [...(root.querySelectorAll('#bc-cats .chip.active') || [])]
+          .map((el) => el.getAttribute('data-cat') || '')
+          .filter(Boolean);
+        const city = String(root.querySelector('#bc-city')?.value || '').trim();
+        const dateFrom = String(root.querySelector('#bc-date-from')?.value || '');
+        const dateTo = String(root.querySelector('#bc-date-to')?.value || '');
+
+        if (!query && !cats.length && !city && !dateFrom && !dateTo) {
+          ui.toast('写一句要找什么，或用下面的板块 / 城市 / 日期筛选', 'err');
           qEl?.focus();
           return;
         }
@@ -952,7 +1016,7 @@ export async function renderBroadcast(ctx, params) {
            * 不传 ids —— 让服务端在整个库里找，而不是只在当前显示的这几十条里找。
            * 用户要的是「从全部项目里挑出我需要的」，翻不到的页面就等于不存在。
            */
-          const r = await service.broadcastPick({ query });
+          const r = await service.broadcastPick({ query, categories: cats, city, dateFrom, dateTo });
           const ids = (r && r.ids) || [];
           const found = (r && r.items) || [];
 

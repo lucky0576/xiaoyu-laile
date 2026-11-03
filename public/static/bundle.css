@@ -1386,6 +1386,12 @@ ul { margin: 0; padding-left: 18px; }
 .cu-svc-row-name { font-size: 13.5px; font-weight: 700; color: #1a2433; }
 .cu-svc-row-tag { font-size: 11px; color: #98a3b3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cu-svc-row-price { flex: none; font-size: 12px; font-weight: 800; color: #c2410c; white-space: nowrap; }
+/* ---------------- 群发：筛选条 ---------------- */
+.bc-filters { display: flex; flex-direction: column; gap: 8px; }
+.bc-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bc-filter-label { flex: none; font-size: 11.5px; color: #6b7686; font-weight: 700; min-width: 30px; }
+.bc-filter-city { flex: 1; min-width: 120px; }
+.bc-filter-date { flex: 1; min-width: 110px; }
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
