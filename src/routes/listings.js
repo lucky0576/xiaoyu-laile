@@ -574,11 +574,17 @@ export default function registerListingRoutes(app) {
 
       /*
        * 2) 没有显式封面、也没有任何「非证件图」，但存在自动生成的 coverUrl：
-       *    这张自动封面大概率是用证件图套模板做的，一并清掉，
-       *    让列表回落到该分类的默认封面。
+       *    这张自动封面往往是用证件图 / 证照扫描页（PDF 首页）套模板做的，
+       *    一并清掉，让列表回落到该分类的默认封面。
+       *
+       *    只有在「确实有证照线索」时才清：
+       *      · 有证件类命名的图片，或
+       *      · 附件里有 PDF / Word / PPT（这类文件首页常是证照或盖章页）
        */
-      if (!bad && !ids.length && l.coverUrl && images.length && !goodImages.length) {
-        bad = true;
+      if (!bad && !ids.length && l.coverUrl && !goodImages.length) {
+        const hasDocFile = recs.some((f) => ['pdf', 'word', 'ppt'].includes(f.kind));
+        const hasDocImage = images.length > 0;
+        if (hasDocFile || hasDocImage) bad = true;
       }
       if (!bad) continue;
       col.update(l.id, { coverId: '', coverFileId: '', coverUrl: '' });
