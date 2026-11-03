@@ -14,7 +14,7 @@
 import crypto from 'node:crypto';
 import { config, wechatConfigured } from '../config.js';
 import { httpError } from '../http/app.js';
-import { listFiles } from './files.js';
+import { listFiles, looksLikeDocImage } from './files.js';
 import { maskContacts } from '../lib/contact-mask.js';
 
 const API = 'https://api.weixin.qq.com';
@@ -241,8 +241,12 @@ export function buildSharePayload({ listing, baseUrl }) {
     ? listing.fileList
     : listFiles(listing.files || []);
   const coverFile = fileRecords.find((f) => f.id === listing.coverId)
-    || fileRecords.find((f) => f.kind === 'image');
-  // 没有上传图片时，用发布时自动生成的封面
+    || fileRecords.find((f) => f.kind === 'image' && !looksLikeDocImage(f));
+  /*
+   * 没有合适的图片时用自动生成的封面；
+   * 注意不要退回到「第一张图片」—— 那往往是营业执照、备案证这类证明材料，
+   * 分享出去等于把证照公开传播。
+   */
   const imgPath = coverFile ? coverFile.url : listing.coverUrl || '';
   const imgUrl = imgPath ? `${baseUrl}${imgPath}` : `${baseUrl}/static/icon-512.png`;
 
