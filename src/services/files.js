@@ -498,6 +498,41 @@ export async function optimizeVideoAsync(record) {
   }
 }
 
+/**
+ * 等待文件正文解析完成。
+ *
+ * 背景：解析改成 worker 线程异步跑之后，上传接口会立刻返回（parsing=true），
+ * 此时记录里的 text 还是空的。如果前端紧接着调 AI 汇总，
+ * 拿到的就是「有文件、没内容」—— AI 只能说「资料不足」。
+ *
+ * 这里在服务端等一小会儿（默认最多 15 秒），
+ * 解析完的立刻返回，超时的就先按空正文处理（AI 会提示资料不足）。
+ *
+ * @param {Array} files 文件记录数组
+ * @returns {Promise<Array>} 补全 text 之后的记录
+ */
+export async function waitForParsing(files = [], { timeoutMs = 15000, pollMs = 300 } = {}) {
+  const list = (files || []).filter(Boolean);
+  const pending = list.filter((f) => f && f.parsing);
+  if (!pending.length) return list;
+
+  const deadline = Date.now() + timeoutMs;
+  const latest = new Map(list.map((f) => [f.id, f]));
+
+  while (Date.now() < deadline) {
+    let stillParsing = 0;
+    for (const f of pending) {
+      const fresh = filesCol().get(f.id) || f;
+      latest.set(f.id, fresh);
+      if (fresh.parsing) stillParsing += 1;
+    }
+    if (!stillParsing) break;
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+
+  return list.map((f) => latest.get(f.id) || f);
+}
+
 export function aggregateText(files = [], limit = 12000) {
   const parts = [];
   for (const f of files) {
@@ -523,4 +558,4 @@ export function pickCover(files = [], preferredId) {
   return files.find((f) => f.kind === 'image') || null;
 }
 
-export default { optimizeVideoAsync, saveUpload, saveUploads, getFile, listFiles, deleteFile, kindOf, extOf, aggregateText, pickCover };
+export default { optimizeVideoAsync, saveUpload, saveUploads, getFile, listFiles, deleteFile, kindOf, extOf, aggregateText, pickCover, waitForParsing };

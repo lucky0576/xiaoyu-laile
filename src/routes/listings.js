@@ -7,7 +7,7 @@ import {
   rateLimit, clientIp,
 } from './_util.js';
 import listingsSvc, { CATEGORY_IDS } from '../services/listings.js';
-import { saveUploads, filePublic, getFile } from '../services/files.js';
+import { saveUploads, filePublic, getFile, waitForParsing } from '../services/files.js';
 import { requireAdmin } from '../services/auth.js';
 import { generateCoverFile } from '../services/cover.js';
 import { generatePhotoCover, PHOTO_QUERIES, warmPhotoCache } from '../services/photo-cover.js';
@@ -269,7 +269,12 @@ export default function registerListingRoutes(app) {
     const uploaded = await saveUploads(req, { ownerId: user.id, listingId: '' });
     // 复用前端预先上传的文件（配合 /api/files）
     const reused = list(body.fileIds).map((fid) => getFile(fid)).filter(Boolean);
-    const files = [...reused, ...uploaded];
+    /*
+     * 解析在 worker 线程异步跑，上传刚返回时正文还是空的。
+     * 发布时 createListing 会立刻用这些正文让 AI 做汇总，
+     * 不等解析完就会「AI 解析失败 / 资料不足」。
+     */
+    const files = await waitForParsing([...reused, ...uploaded]);
 
     // 分类白名单直接用 taxonomy 里的定义，别在这里再抄一份
     // （之前抄了一份忘了同步，悬赏会被回落成 project）

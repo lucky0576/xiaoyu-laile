@@ -6,7 +6,7 @@ import path from 'node:path';
 import db from '../store/db.js';
 import { config, PUBLIC_DIR, DATA_DIR } from '../config.js';
 import { data, fail, str, num, mustAuth, authUser, baseUrl, queryOf, rateLimit, clientIp, list } from './_util.js';
-import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND } from '../services/files.js';
+import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND, waitForParsing } from '../services/files.js';
 import filesecure from '../services/filesecure.js';
 import chunksSvc from '../services/chunks.js';
 import listingsSvc from '../services/listings.js';
@@ -463,7 +463,12 @@ export default function registerCoreRoutes(app) {
     const uploaded = await saveUploads(req, { ownerId: user?.id || 'guest' });
     // 支持复用已上传的文件（前端先上传再请求 AI，避免重复上传）
     const reused = list(body.fileIds).map((fid) => getFile(fid)).filter(Boolean);
-    const files = [...reused, ...uploaded];
+    /*
+     * 解析是 worker 线程异步跑的，上传刚返回时 text 还是空的。
+     * 这里等一下解析结果，否则 AI 拿到的是「有文件没内容」，
+     * 用户看到的就是「AI 汇总失败 / 资料不足」。
+     */
+    const files = await waitForParsing([...reused, ...uploaded]);
     const text = String(body.text || '');
     const category = ['project', 'bounty', 'event', 'trade'].includes(body.category) ? body.category : 'project';
     // 附件正文要尽量完整地交给 AI：长文档由 summarizeProject 分块处理，
