@@ -172,16 +172,22 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
    * 一份 21MB 的 Word 能把 Node 主线程卡住好几秒 ——
    * 期间整个服务不响应，前端所有上传请求都挂住，看着就是「0% 没反应」。
    *
-   * 现在：小文件（≤ EXTRACT_MAX_BYTES）丢给 worker 线程异步解析，
-   *       大文件直接跳过正文（文件照传照存，只是不抽文字）。
+   * 现在：≤ 24MB 丢给 worker 线程异步解析；
+   *       PDF / 图片超过 24MB 不读全文，改走「渲染前两页 + 视觉识别」。
    */
   let parsing = false;
+  let heavyMedia = false; // 超大 PDF / 图片：只做 OCR，不做全文解析
   if (wantExtract) {
     if (stat.size > EXTRACT_MAX_BYTES) {
-      notes = [
-        `文件 ${(stat.size / 1048576).toFixed(1)}MB，超过 8MB 未解析正文；` +
-          '内容检索不会包含这份文件的文字，但仍可正常下载与展示。',
-      ];
+      if (kind === 'pdf' || kind === 'image') {
+        heavyMedia = true;
+        parsing = true;
+      } else {
+        notes = [
+          `文件 ${(stat.size / 1048576).toFixed(1)}MB，超过 24MB 未解析正文；` +
+            '内容检索不会包含这份文件的文字，但仍可正常下载与展示。',
+        ];
+      }
     } else {
       parsing = true;
     }
@@ -190,7 +196,7 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
   /*
    * 视频单独一条路：不把几十 MB 的视频读进内存，
    * 只用 ffprobe 取时长/分辨率、ffmpeg 抽 3 帧交给视觉模型。
-   * 体积不设 8MB 限制（视频本来就大），但超大视频跳过抽帧。
+   * 体积不设小文件限制（视频本来就大），但超大视频跳过抽帧。
    */
   const videoParse = opts.extract !== false && kind === 'video' && stat.size <= 512 * 1024 * 1024;
   if (videoParse) parsing = true;
@@ -215,7 +221,7 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
   });
 
   // 排队解析（worker 线程，不阻塞主线程，也不阻塞本次响应）
-  if (parsing && !videoParse) {
+  if (parsing && !videoParse && !heavyMedia) {
     const queued = enqueueExtract({
       filePath: dest,
       name,
@@ -309,6 +315,52 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
       filesCol().update(id, { parsing: false, notes: ['解析队列繁忙，已跳过正文'] });
       record.parsing = false;
     }
+  }
+
+  /*
+   * 超大 PDF / 图片（>24MB）：不读全文，直接渲染页面前 2 页做视觉识别。
+   * 13.7MB 的扫描件 PDF 就属于这一类 —— 以前会被直接跳过，
+   * 用户看到的就是「AI 汇总失败」。
+   */
+  if (heavyMedia) {
+    setImmediate(async () => {
+      const patch = { parsing: false };
+      try {
+        let visionReady = false;
+        try {
+          const aiMod = await import('./ai.js');
+          const ai = aiMod.default || aiMod;
+          visionReady = Boolean(ai.visionConfigured && ai.visionConfigured());
+        } catch {
+          visionReady = false;
+        }
+
+        if (visionReady) {
+          const { ocrMedia } = await import('../lib/mediaocr.js');
+          const ocr = await ocrMedia({ filePath: dest, kind, name });
+          if (ocr.meta && Object.keys(ocr.meta).length) patch.meta = ocr.meta;
+          if (ocr.text) {
+            patch.text = String(ocr.text).slice(0, 200000);
+            patch.notes = ['超大文件，已用视觉模型识别前 2 页文字'];
+          } else {
+            patch.notes = ['超大文件，视觉识别未取到文字', ...(ocr.notes || [])];
+          }
+        } else {
+          patch.notes = ['超大文件（>24MB）未解析正文；识别需配置视觉模型'];
+        }
+      } catch (err) {
+        patch.notes = ['超大文件解析失败: ' + String(err?.message || err)];
+      }
+      try {
+        filesCol().update(id, patch);
+        record.parsing = false;
+        if (patch.text !== undefined) record.text = patch.text;
+        if (patch.meta) record.meta = patch.meta;
+        if (patch.notes) record.notes = patch.notes;
+      } catch {
+        /* ignore */
+      }
+    });
   }
 
   /*
@@ -633,7 +685,7 @@ export async function optimizeVideoAsync(record) {
  * @param {Array} files 文件记录数组
  * @returns {Promise<Array>} 补全 text 之后的记录
  */
-export async function waitForParsing(files = [], { timeoutMs = 15000, pollMs = 300 } = {}) {
+export async function waitForParsing(files = [], { timeoutMs = 25000, pollMs = 300 } = {}) {
   const list = (files || []).filter(Boolean);
   const pending = list.filter((f) => f && f.parsing);
   if (!pending.length) return list;

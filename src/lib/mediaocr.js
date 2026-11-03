@@ -130,7 +130,7 @@ export async function ocrMedia({ filePath, kind, name = '' }) {
       const url = await toDataUrl(filePath);
       if (url) images.push(url);
     } else if (kind === 'pdf') {
-      const r = await pdfPages(filePath, 2);
+      const r = await pdfPages(filePath, 3);
       cleanup.push(r.dir);
       for (const p of r.files) {
         const u = await toDataUrl(p);

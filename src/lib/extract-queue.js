@@ -14,10 +14,14 @@ import { Worker } from 'node:worker_threads';
 
 const WORKER_FILE = fileURLToPath(new URL('./extract-worker.js', import.meta.url));
 
-/** 超过这个大小就不再抽取正文，只保留文件本身 */
-export const EXTRACT_MAX_BYTES = 8 * 1024 * 1024;
-/** 单任务超时 */
-const EXTRACT_TIMEOUT_MS = 45_000;
+/**
+ * 超过这个大小就不再「读全文解析」。
+ * 24MB：worker 线程里跑（堆上限 512MB），主线程不受影响；
+ * 再大就走「渲染前几页 + 视觉识别」的轻量路线（见 files.js）。
+ */
+export const EXTRACT_MAX_BYTES = 24 * 1024 * 1024;
+/** 单任务超时（大文件解压慢，给足时间） */
+const EXTRACT_TIMEOUT_MS = 90_000;
 
 const queue = [];
 let busy = false;
