@@ -617,9 +617,59 @@ async function showInviteGate() {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* 路由加载反馈                                                        */
+/* ------------------------------------------------------------------ */
+/*
+ * 弱网下点一下要等好几秒，页面毫无变化 —— 用户会以为按钮坏了。
+ * 这里给一条顶部进度条：点击链接立刻出现，页面渲染完消失。
+ */
+let routeProgTimer = null;
+function routeProgEl() {
+  let el = document.getElementById('route-progress');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'route-progress';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function showRouteProgress() {
+  try {
+    const el = routeProgEl();
+    el.classList.add('on');
+    el.style.width = '12%';
+    clearTimeout(routeProgTimer);
+    routeProgTimer = setTimeout(() => {
+      if (el.classList.contains('on')) el.style.width = '70%';
+    }, 400);
+    // 万一渲染卡住，也别让进度条永远挂在 70%
+    setTimeout(() => {
+      if (el.classList.contains('on')) el.style.width = '92%';
+    }, 4000);
+  } catch {
+    /* ignore */
+  }
+}
+function hideRouteProgress() {
+  try {
+    const el = document.getElementById('route-progress');
+    if (!el) return;
+    clearTimeout(routeProgTimer);
+    el.style.width = '100%';
+    setTimeout(() => {
+      el.classList.remove('on');
+      el.style.width = '0%';
+    }, 220);
+  } catch {
+    /* ignore */
+  }
+}
+
 async function render() {
   if (rendering) return;
   rendering = true;
+  showRouteProgress();
   const route = parseHash();
   // 让顶部标题先出来，避免白屏
   if (!appEl.querySelector('.shell') || !document.querySelector('.topbar')) {
@@ -671,6 +721,7 @@ async function render() {
     bindShell(appEl);
   } finally {
     rendering = false;
+    hideRouteProgress();
   }
 }
 
@@ -793,6 +844,32 @@ async function boot() {
   }
 
   await render();
+
+  /*
+   * 首屏渲染完后，空闲时把最常用的几个页面模块预取下来。
+   *
+   * 为什么要这么做：手机在弱网下，点「发布」后要现下 50KB 的 views-publish.js，
+   * 十几秒没反应，用户以为按钮坏了。空闲预取之后，点下去基本是瞬间打开。
+   * 只预取「点了就要等」的三个：发布 / 我的 / 发布短视频所在页。
+   */
+  const prefetch = () => {
+    const list = ['./views-publish.js', './views-account.js'];
+    for (const p of list) {
+      import(p).catch(() => {});
+    }
+  };
+  if ('requestIdleCallback' in window) {
+    // 给首屏渲染和第一屏数据留出时间，别和关键资源抢带宽
+    setTimeout(() => {
+      try {
+        requestIdleCallback(prefetch, { timeout: 8000 });
+      } catch {
+        prefetch();
+      }
+    }, 3000);
+  } else {
+    setTimeout(prefetch, 5000);
+  }
 }
 
 boot();

@@ -1391,3 +1391,17 @@ ul { margin: 0; padding-left: 18px; }
 .bc-filter-label { flex: none; font-size: 11.5px; color: #6b7686; font-weight: 700; min-width: 30px; }
 .bc-filter-city { flex: 1; min-width: 120px; }
 .bc-filter-date { flex: 1; min-width: 110px; }
+/* ---------------- 路由加载进度条 ---------------- */
+#route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2.5px;
+  width: 0%;
+  background: linear-gradient(90deg, #0b74ff, #0e8f7a);
+  z-index: 10050;
+  opacity: 0;
+  transition: width 0.25s ease, opacity 0.2s ease;
+  pointer-events: none;
+}
+#route-progress.on { opacity: 1; }
