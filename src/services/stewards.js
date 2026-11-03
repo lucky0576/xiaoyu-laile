@@ -73,6 +73,20 @@ export function apply(user, body = {}) {
     throw e;
   }
 
+  /* 先校验必填定位信息，别先写库再回滚 —— 失败会留下一条 rejected 记录 */
+  const city = kind === 'city' ? clean(body.city, 40) : '';
+  const industry = kind === 'industry' ? clean(body.industry, 40) : '';
+  if (kind === 'city' && !city) {
+    const e = new Error('城市主理人必须填写城市');
+    e.status = 400;
+    throw e;
+  }
+  if (kind === 'industry' && !industry) {
+    const e = new Error('行业主理人必须填写行业');
+    e.status = 400;
+    throw e;
+  }
+
   const rec = col().insert({
     id: newId('st'),
     userId: user.id,
@@ -82,9 +96,9 @@ export function apply(user, body = {}) {
     phone,
     wechat,
     // 按类型收不同的定位信息
-    city: kind === 'city' ? clean(body.city, 40) : '',
+    city,
     province: kind === 'city' ? clean(body.province, 40) : '',
-    industry: kind === 'industry' ? clean(body.industry, 40) : '',
+    industry,
     channel: kind === 'channel' ? clean(body.channel, 60) : '',
     resources: clean(body.resources, 800),
     intro: clean(body.intro, 800),
@@ -92,19 +106,6 @@ export function apply(user, body = {}) {
     reason: '',
     createdAt: new Date().toISOString(),
   });
-
-  if (kind === 'city' && !rec.city) {
-    col().update(rec.id, { status: 'rejected', reason: '城市主理人必须填写城市' });
-    const e = new Error('城市主理人必须填写城市');
-    e.status = 400;
-    throw e;
-  }
-  if (kind === 'industry' && !rec.industry) {
-    col().update(rec.id, { status: 'rejected', reason: '行业主理人必须填写行业' });
-    const e = new Error('行业主理人必须填写行业');
-    e.status = 400;
-    throw e;
-  }
 
   return rec;
 }
