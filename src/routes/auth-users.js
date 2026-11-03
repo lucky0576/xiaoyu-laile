@@ -1161,6 +1161,35 @@ export default function registerAuthUserRoutes(app) {
     });
   });
 
+  /**
+   * 新建单个联系人（手动录入）
+   * 字段：姓名（必填）/ 网名 / 微信账号 / 联系电话 / 公司 / 城市 / 备注
+   */
+  app.post('/api/contacts', (req, res) => {
+    const user = mustAuth(req);
+    const b = req.body || {};
+    const name = str(b.name, 60);
+    if (!name) return fail(res, '请填写姓名', 400, 'name_required');
+    const one = {
+      name,
+      nickname: str(b.nickname, 60),
+      wechat: str(b.wechat, 60),
+      phone: String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 30),
+      company: str(b.company, 100),
+      city: str(b.city, 40),
+      note: str(b.note, 200),
+    };
+    if (!one.phone && !one.wechat) {
+      // 只留姓名也可以，但提示一下：以后这类联系人只能按名字找
+      // 不做拦截，避免用户被卡住
+    }
+    const result = chatSvc.importContacts(user.id, { source: 'manual', contacts: [one] });
+    if (!result.imported) {
+      return fail(res, '已存在同名或同号码的联系人', 409, 'duplicate');
+    }
+    return data(res, { contact: result.contacts[0], matched: result.matched }, 201);
+  });
+
   /** 导入微信 / 手机通讯录 */
   app.post('/api/contacts/import', (req, res) => {
     const user = mustAuth(req);

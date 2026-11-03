@@ -1033,6 +1033,8 @@ export function importContacts(userId, { source = 'phone', contacts = [] } = {})
     const phone = String(raw?.phone || '').replace(/[^\d+]/g, '');
     const wechat = String(raw?.wechat || '').slice(0, 60);
     const company = String(raw?.company || '').slice(0, 100);
+    const nickname = String(raw?.nickname || '').slice(0, 60);
+    const city = String(raw?.city || '').slice(0, 40);
     if (!name && !phone && !wechat) {
       skipped++;
       continue;
@@ -1052,12 +1054,15 @@ export function importContacts(userId, { source = 'phone', contacts = [] } = {})
         ownerId: userId,
         source,
         name,
+        nickname,
         phone,
         wechat,
         company,
+        city,
         note: String(raw?.note || '').slice(0, 200),
         registeredUserId: registered?.id || '',
         invited: false,
+        createdAt: new Date().toISOString(),
       }),
     );
   }

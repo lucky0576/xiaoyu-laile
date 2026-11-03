@@ -508,6 +508,7 @@ export const service = {
   readNotifications: (ids) => api.post('/api/notifications/read', { ids }),
 
   contacts: (query) => api.get('/api/contacts', query),
+  createContact: (body) => api.post('/api/contacts', body),
   importContacts: (source, contacts) => api.post('/api/contacts/import', { source, contacts }),
   inviteContact: (id, message) => api.post(`/api/contacts/${id}/invite`, { message }),
   inviteBatch: (ids, message) => api.post('/api/contacts/invite-batch', { ids, message }),

@@ -1702,6 +1702,7 @@ export async function renderContacts(ctx) {
         <div class="strong">联系人（${res.total}）</div>
         <span class="tiny dim">已注册 ${res.registered} 人</span>
       </div>
+      <button class="btn btn-sm btn-block mb12" id="ct-new" type="button">➕ 新建联系人</button>
       <input class="input mb12" id="ct-search" placeholder="搜索姓名 / 电话 / 微信 / 公司">
       <div id="ct-list">
         ${(res.items || []).length
@@ -1729,6 +1730,76 @@ export async function renderContacts(ctx) {
     activeTab: 'contacts',
     async mount(root) {
       const $ = (s) => root.querySelector(s);
+
+      /* ---------------- 新建联系人（姓名必填） ---------------- */
+      $('#ct-new')?.addEventListener('click', () => {
+        const mask = document.createElement('div');
+        mask.className = 'cbook-mask';
+        mask.innerHTML = `<div class="cbook-sheet cbook-form">
+          <div class="cbook-head">
+            <div class="strong">➕ 新建联系人</div>
+            <button class="cbook-x" type="button" aria-label="关闭">✕</button>
+          </div>
+          <div class="cbook-fields">
+            <label class="cbook-label">姓名 <span class="cbook-req">*必填</span></label>
+            <input class="input" id="nc-name" maxlength="60" placeholder="如：张工">
+            <label class="cbook-label">网名 <span class="tiny dim">（选填）</span></label>
+            <input class="input" id="nc-nickname" maxlength="60" placeholder="如：老张">
+            <label class="cbook-label">微信账号 <span class="tiny dim">（选填）</span></label>
+            <input class="input" id="nc-wechat" maxlength="60" placeholder="如：zhanggong888">
+            <label class="cbook-label">联系电话 <span class="tiny dim">（选填）</span></label>
+            <input class="input" id="nc-phone" maxlength="30" inputmode="tel" placeholder="如：13800001234">
+            <label class="cbook-label">公司名字 <span class="tiny dim">（选填）</span></label>
+            <input class="input" id="nc-company" maxlength="100" placeholder="如：山东鲁能新能源工程有限公司">
+            <label class="cbook-label">城市 <span class="tiny dim">（选填）</span></label>
+            <input class="input" id="nc-city" maxlength="40" placeholder="如：东营">
+            <label class="cbook-label">备注 <span class="tiny dim">（选填）</span></label>
+            <input class="input" id="nc-note" maxlength="200" placeholder="如：光伏 EPC 方向">
+          </div>
+          <button class="btn btn-primary btn-block mt12" id="nc-save" type="button">保存联系人</button>
+        </div>`;
+        document.body.appendChild(mask);
+
+        const close = () => mask.remove();
+        mask.querySelector('.cbook-x').addEventListener('click', close);
+        mask.addEventListener('click', (e) => {
+          if (e.target === mask) close();
+        });
+        mask.querySelector('#nc-name').focus();
+
+        const save = async () => {
+          const name = (mask.querySelector('#nc-name').value || '').trim();
+          if (!name) return ui.toast('姓名是必填的', 'err');
+          const body = {
+            name,
+            nickname: (mask.querySelector('#nc-nickname').value || '').trim(),
+            wechat: (mask.querySelector('#nc-wechat').value || '').trim(),
+            phone: (mask.querySelector('#nc-phone').value || '').trim(),
+            company: (mask.querySelector('#nc-company').value || '').trim(),
+            city: (mask.querySelector('#nc-city').value || '').trim(),
+            note: (mask.querySelector('#nc-note').value || '').trim(),
+          };
+          const btn = mask.querySelector('#nc-save');
+          btn.disabled = true;
+          btn.textContent = '保存中…';
+          try {
+            await service.createContact(body);
+            ui.toast('联系人已保存', 'ok');
+            close();
+            ctx.nav(`#/contacts?t=${Date.now()}`);
+          } catch (err) {
+            ui.toast(err.message || '保存失败', 'err');
+            btn.disabled = false;
+            btn.textContent = '保存联系人';
+          }
+        };
+        mask.querySelector('#nc-save').addEventListener('click', save);
+        mask.querySelectorAll('input').forEach((el) => {
+          el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') save();
+          });
+        });
+      });
 
       const parsePasted = (text) => {
         const rows = [];
