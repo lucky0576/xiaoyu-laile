@@ -537,6 +537,45 @@ export default function registerListingRoutes(app) {
     return data(res, { changed });
   });
 
+  /**
+   * 一回性清理：把「证件类图片」从封面上摘掉。
+   *
+   * 之前 pickCover 直接取第一张图片，结果营业执照、备案证成了项目封面，
+   * 既难看又把证照信息公开挂在列表里。
+   * 这里把这类封面的 listing 清空 cover 字段，页面会自动回落到
+   * 其他图片或系统生成的默认封面。
+   */
+  app.post('/api/admin/listings/fix-doc-covers', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+    const DOC_KW = [
+      '营业执照', '执照', '身份证', '证件', '证照', '证书', '认证', '资质',
+      '许可证', '批复', '备案', '核准', '证明', '合同', '协议', '授权书',
+      '承诺书', '申请表', '报告', '扫描件', '回执', '发票',
+    ];
+    const looksDoc = (name) => {
+      const n = String(name || '').toLowerCase();
+      return Boolean(n) && DOC_KW.some((kw) => n.includes(kw.toLowerCase()));
+    };
+    const col = db.collection('listings');
+    const fixed = [];
+    for (const l of col.all()) {
+      const ids = [l.coverId, l.coverFileId].filter(Boolean);
+      let bad = false;
+      for (const fid of ids) {
+        const f = getFile(fid);
+        if (f && f.kind === 'image' && looksDoc(f.name)) {
+          bad = true;
+          break;
+        }
+      }
+      if (!bad) continue;
+      col.update(l.id, { coverId: '', coverFileId: '', coverUrl: '' });
+      fixed.push({ id: l.id, title: String(l.title || '').slice(0, 24) });
+    }
+    return data(res, { changed: fixed.length, items: fixed.slice(0, 20) });
+  });
+
   /** 从项目文件里移除一个附件（发布方或管理员） */
   app.del('/api/listings/:id/files/:fileId', (req, res) => {
     const user = mustAuth(req);

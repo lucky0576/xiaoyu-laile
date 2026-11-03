@@ -8,7 +8,7 @@ import { httpError } from '../http/app.js';
 import ai from './ai.js';
 import notifySvc from './notify.js';
 import hub from './hub.js';
-import { aggregateText, pickCover, filePublic, listFiles } from './files.js';
+import { aggregateText, pickCover, filePublic, listFiles, looksLikeDocImage } from './files.js';
 import { normalizeFileSecret, fileSecretPublic } from './filesecure.js';
 import { CATEGORIES, CITIES, PIPELINE_STAGES, PROJECT_TYPES, BOUNTY_TYPES, TRADE_TYPES, EVENT_TYPES, BIDDING_TYPES, BUSINESS_TERM_FIELDS } from '../data/taxonomy.js';
 import { maskContacts } from '../lib/contact-mask.js';
@@ -272,7 +272,14 @@ export function listingBrief(l) {
   if (!l) return null;
   // l.files 存的是文件 ID 数组，必须先解析成文件记录再判断
   const fileRecords = listFiles(l.files || []);
-  const realCover = fileRecords.find((f) => f.id === l.coverId) || fileRecords.find((f) => f.kind === 'image');
+  /*
+   * 证件类图片不能当封面：
+   * 营业执照、身份证、备案证这些是「证明材料」，贴到列表卡片上既不美观，
+   * 也等于把证照信息公开展示。
+   */
+  const realCover =
+    fileRecords.find((f) => f.id === l.coverId) ||
+    fileRecords.find((f) => f.kind === 'image' && !looksLikeDocImage(f));
   // 发布时自动生成的封面不在 l.files 里，单独兜底
   const autoCover =
     !realCover && l.coverUrl

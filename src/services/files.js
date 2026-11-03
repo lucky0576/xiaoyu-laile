@@ -723,13 +723,42 @@ export function sha256(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
-/** 取封面图：优先显式指定，其次第一张图片 */
+/**
+ * 证件 / 材料类图片的关键词。
+ *
+ * 为什么需要：营业执照、身份证、备案证、批复、合同附件这些「证明材料」
+ * 上传后会被当成第一张图片，结果项目封面变成了营业执照 ——
+ * 既难看，也把证照信息暴露在公开列表里。
+ */
+const DOC_IMAGE_KW = [
+  '营业执照', '执照', '身份证', '证件', '证照', '证书', '认证', '资质',
+  '许可证', '批复', '备案', '核准', '证明', '合同', '协议', '授权书',
+  '承诺书', '申请表', '报告', '批复文件', '扫描件', '回执', '发票', '收据',
+];
+
+/** 文件名看起来像「证明材料」吗 */
+export function looksLikeDocImage(file) {
+  const n = String(file?.name || '').toLowerCase();
+  if (!n) return false;
+  return DOC_IMAGE_KW.some((kw) => n.includes(kw.toLowerCase()));
+}
+
+/**
+ * 取封面图：
+ *   1. 显式指定（body.coverId）优先 —— 用户选了就尊重
+ *   2. 否则取第一张「不是证明材料」的图片
+ *   3. 全是证明材料时返回 null，交给前端用默认封面
+ */
 export function pickCover(files = [], preferredId) {
   if (preferredId) {
     const hit = files.find((f) => f.id === preferredId);
     if (hit) return hit;
   }
-  return files.find((f) => f.kind === 'image') || null;
+  const images = files.filter((f) => f && f.kind === 'image');
+  const normal = images.find((f) => !looksLikeDocImage(f));
+  if (normal) return normal;
+  // 没有可用图就返回 null（前端会用生成的默认封面，而不是把执照贴上去）
+  return null;
 }
 
 export default { optimizeVideoAsync, saveUpload, saveUploads, getFile, listFiles, deleteFile, kindOf, extOf, aggregateText, pickCover, waitForParsing };
