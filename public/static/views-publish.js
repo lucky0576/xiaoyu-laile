@@ -812,7 +812,15 @@ async function renderPublishMedia(ctx, type, taxonomy) {
             });
           }
           ui.toast(isLive ? '直播间已创建' : '短视频已发布', 'ok');
-          ctx.nav(`#/live/${r.feed.id}`);
+          /*
+           * 跳转要分类型：
+           *   直播 → 直播间 #/live/:id
+           *   短视频 → 视频列表 #/shorts
+           * 之前一律跳到 #/live/:id，短视视频会落到直播间页面报「不存在」，
+           * 用户就以为「发布失败」—— 其实服务端已经 201 成功了。
+           */
+          if (isLive) ctx.nav(`#/live/${r.feed.id}`);
+          else ctx.nav('#/shorts');
         } catch (err) {
           ui.toast(err.message || '发布失败', 'err');
           btn.disabled = false;
