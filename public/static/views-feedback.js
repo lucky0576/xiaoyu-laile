@@ -134,8 +134,6 @@ export async function renderContactUs(ctx) {
         <div class="cu-hero-d">有任何问题、建议或合作意向，写在这里，管理员会尽快回复你</div>
       </div>
 
-      ${viewsServices.serviceEntryHtml()}
-
       <div class="card card-pad mt12">
         <div class="field">
           <label>想聊哪方面 <span class="tiny dim">（可多选）</span></label>
@@ -161,6 +159,8 @@ export async function renderContactUs(ctx) {
         <span class="tiny dim">${items.length} 条</span>
       </div>
       <div class="fb-list">${listHtml}</div>
+
+      ${viewsServices.serviceEntryHtml({ expanded: true })}
     </div>`,
     mount(root) {
       /* 话题多选（支持 ?topic=xxx 预选） */

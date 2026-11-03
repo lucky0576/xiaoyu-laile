@@ -201,6 +201,33 @@ const BIG_PLANS = [
  * 统一文案，避免各页面价格不一致。
  */
 export function serviceEntryHtml(opts = {}) {
+  /* 展开模式：直接列出全部服务（价格从低到高），点一条进对应卡片 */
+  if (opts.expanded) {
+    const byPrice = (a, b) => (a.priceValue || 0) - (b.priceValue || 0);
+    const all = [...PLANS, ...BIG_PLANS].sort(byPrice);
+    return `<div class="cu-svc-block">
+      <div class="cu-svc-block-head">
+        <div class="strong">🏛️ 企业服务</div>
+        <a class="tiny" href="#/services" style="color:#0b74ff;text-decoration:none">看完整介绍 ›</a>
+      </div>
+      <div class="cu-svc-block-sub">以下服务由平台负责人直接对接，点任意一项看详情</div>
+      <div class="cu-svc-rows">
+        ${all
+          .map(
+            (p) => `<a class="cu-svc-row" href="#/services?p=${encodeURIComponent(p.id)}">
+              <span class="cu-svc-row-ico">${p.icon}</span>
+              <span class="cu-svc-row-body">
+                <span class="cu-svc-row-name">${ui.esc(p.name)}</span>
+                <span class="cu-svc-row-tag">${ui.esc(p.tag)}</span>
+              </span>
+              <span class="cu-svc-row-price">${ui.esc(p.price)}</span>
+            </a>`,
+          )
+          .join('')}
+      </div>
+    </div>`;
+  }
+
   const tip = opts.tip || '私有化部署 3.8 万起 · 政府招商线索 20 万起 · 产业级方案 100 万起';
   return `<a class="cu-svc-entry" href="#/services">
     <div class="cu-svc-ico">🏛️</div>
