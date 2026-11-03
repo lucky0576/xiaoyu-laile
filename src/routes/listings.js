@@ -593,6 +593,17 @@ export default function registerListingRoutes(app) {
     return data(res, { changed: fixed.length, items: fixed.slice(0, 20) });
   });
 
+  /** 管理员：清掉某条信息的封面（证件图误当封面时用） */
+  app.post('/api/admin/listings/:id/clear-cover', (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '需要管理员权限', 403, 'forbidden');
+    const col = db.collection('listings');
+    const l = col.get(req.params.id);
+    if (!l) return fail(res, '信息不存在', 404, 'not_found');
+    col.update(l.id, { coverId: '', coverFileId: '', coverUrl: '' });
+    return data(res, { ok: true, id: l.id });
+  });
+
   /** 从项目文件里移除一个附件（发布方或管理员） */
   app.del('/api/listings/:id/files/:fileId', (req, res) => {
     const user = mustAuth(req);
