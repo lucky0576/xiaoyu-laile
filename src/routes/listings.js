@@ -560,14 +560,25 @@ export default function registerListingRoutes(app) {
     const col = db.collection('listings');
     const fixed = [];
     for (const l of col.all()) {
+      const fileIds = Array.isArray(l.files) ? l.files : [];
+      const recs = fileIds.map((fid) => getFile(fid)).filter(Boolean);
+      const images = recs.filter((f) => f.kind === 'image');
+      const goodImages = images.filter((f) => !looksDoc(f.name));
+
+      // 1) 显式封面指向证件图 → 清空
       const ids = [l.coverId, l.coverFileId].filter(Boolean);
-      let bad = false;
-      for (const fid of ids) {
+      let bad = ids.some((fid) => {
         const f = getFile(fid);
-        if (f && f.kind === 'image' && looksDoc(f.name)) {
-          bad = true;
-          break;
-        }
+        return f && f.kind === 'image' && looksDoc(f.name);
+      });
+
+      /*
+       * 2) 没有显式封面、也没有任何「非证件图」，但存在自动生成的 coverUrl：
+       *    这张自动封面大概率是用证件图套模板做的，一并清掉，
+       *    让列表回落到该分类的默认封面。
+       */
+      if (!bad && !ids.length && l.coverUrl && images.length && !goodImages.length) {
+        bad = true;
       }
       if (!bad) continue;
       col.update(l.id, { coverId: '', coverFileId: '', coverUrl: '' });
