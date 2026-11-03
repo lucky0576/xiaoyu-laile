@@ -212,7 +212,7 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
       filePath: dest,
       name,
       size: stat.size,
-      onDone: (r) => {
+      onDone: async (r) => {
         try {
           const patch = { parsing: false };
           if (r.ok) {
@@ -222,6 +222,48 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
           } else {
             patch.notes = [`解析失败: ${r.error || '未知错误'}`];
           }
+
+          /*
+           * 本地解析拿不到文字时，再试视觉识别：
+           *   · 图片（截图 / 照片 / 扫描件）
+           *   · 扫描版 PDF（没有文本层）
+           *   · 视频（抽 3 帧看画面里有什么）
+           * 只有配置了视觉模型才有意义，否则跳过并写明原因。
+           */
+          const noText = !String(patch.text || '').trim();
+          const mediaKind = ['image', 'pdf', 'video'].includes(kind);
+          if (noText && mediaKind) {
+            let visionReady = false;
+            try {
+              const aiMod = (await import('./ai.js')).default;
+              visionReady = Boolean(aiMod.visionConfigured && aiMod.visionConfigured());
+            } catch {
+              visionReady = false;
+            }
+            if (visionReady) {
+              try {
+                const { ocrMedia } = await import('../lib/mediaocr.js');
+                const ocr = await ocrMedia({ filePath: dest, kind, name });
+                if (ocr.text) {
+                  patch.text = String(ocr.text).slice(0, 200000);
+                  patch.notes = [...(patch.notes || []), '正文由视觉模型识别'];
+                }
+                if (ocr.notes && ocr.notes.length) {
+                  patch.notes = [...(patch.notes || []), ...ocr.notes];
+                }
+              } catch (err) {
+                patch.notes = [...(patch.notes || []), '视觉识别失败: ' + String(err?.message || err)];
+              }
+            } else {
+              patch.notes = [
+                ...(patch.notes || []),
+                kind === 'video'
+                  ? '已取到视频时长与分辨率；画面内容识别需配置视觉模型'
+                  : '已取到尺寸等基础信息；图中文字识别需配置视觉模型',
+              ];
+            }
+          }
+
           filesCol().update(id, patch);
           record.parsing = false;
           if (patch.text !== undefined) record.text = patch.text;
