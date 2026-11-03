@@ -843,7 +843,7 @@ export async function renderBroadcast(ctx, params) {
       <span class="tiny dim">共 ${items.length} 条</span>
     </div>
     <div class="tiny dim mb12">
-      勾选要群发的信息（最多 20 条）→ 自动生成一段可粘贴到微信的文案。<br>
+      勾选要群发的信息（最多 30 条）→ 自动生成一段可粘贴到微信的文案。<br>
       文案会按发布时间排序、只保留主标题，末尾带站内链接。
     </div>
 

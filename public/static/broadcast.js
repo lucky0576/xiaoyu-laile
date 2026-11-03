@@ -330,8 +330,8 @@ export function bindPicking(root, box, btn) {
       picked.delete(id);
       el.classList.remove('sel');
     } else {
-      if (picked.size >= 20) {
-        ui.toast('一次最多选 20 条', 'err');
+      if (picked.size >= 30) {
+        ui.toast('一次最多选 30 条', 'err');
         return;
       }
       picked.add(id);

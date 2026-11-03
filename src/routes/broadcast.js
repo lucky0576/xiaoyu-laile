@@ -93,9 +93,9 @@ export default function registerBroadcastRoutes(app) {
     const rl = rateLimit(`broadcast:${clientIp(req)}`, 20, 60_000);
     if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
 
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 20) : [];
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 30) : [];
     if (!ids.length) return fail(res, '请先选择要群发的信息', 400, 'no_ids');
-    if (ids.length > 20) return fail(res, '一次最多选 20 条', 400, 'too_many');
+    if (ids.length > 30) return fail(res, '一次最多选 30 条', 400, 'too_many');
 
     const col = db.collection('listings');
     const items = [];
@@ -154,7 +154,7 @@ export default function registerBroadcastRoutes(app) {
     const rl = rateLimit(`bimg:${clientIp(req)}`, 10, 60_000);
     if (!rl.ok) return fail(res, `生成太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
 
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 20) : [];
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 30) : [];
     if (!ids.length) return fail(res, '请先选择要群发的信息', 400, 'no_ids');
 
     const onlyUser = req.body?.onlyUser !== false;
@@ -318,7 +318,7 @@ export default function registerBroadcastRoutes(app) {
       .sort((a, b) => b.score - a.score)
       .map((x) => x.l);
 
-    const keywordIds = candidates.slice(0, 20).map((l) => l.id);
+    const keywordIds = candidates.slice(0, 30).map((l) => l.id);
 
     // 关键词一条没命中：给 AI 一批最近的，让它自己判断
     if (!candidates.length) {
@@ -354,7 +354,7 @@ export default function registerBroadcastRoutes(app) {
               role: 'system',
               content:
                 '你是信息检索助手。用户会给一个查找需求，你要从候选列表里挑出真正相关的条目。' +
-                '宁可少挑也不要凑数。只输出 JSON：{"ids":["id1","id2"]}，按相关度从高到低，最多 20 条。' +
+                '宁可少挑也不要凑数。只输出 JSON：{"ids":["id1","id2"]}，按相关度从高到低，最多 30 条。' +
                 '没有相关的就输出 {"ids":[]}。不要解释。',
             },
             { role: 'user', content: `查找需求：${query}\n\n候选列表：\n${lines.join('\n')}` },
@@ -365,7 +365,7 @@ export default function registerBroadcastRoutes(app) {
         const j = ai.extractJson ? ai.extractJson(out) : null;
         const arr = (j && j.ids) || [];
         const valid = new Set(aiPool.map((l) => l.id));
-        aiIds = arr.map(String).filter((x) => valid.has(x)).slice(0, 20);
+        aiIds = arr.map(String).filter((x) => valid.has(x)).slice(0, 30);
         if (aiIds.length) mode = 'ai';
         else aiNote = 'AI 没找到相关的，下面是关键词结果';
       }
