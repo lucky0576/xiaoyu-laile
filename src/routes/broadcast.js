@@ -76,8 +76,8 @@ function buildText(req, items, opts = {}) {
   });
 
   lines.push('');
-  lines.push('小鱼来了，让每一条好项目，都被对的人看见');
-  lines.push('上小鱼来了，免费发布需求');
+  lines.push('招商、投资、工资、工程、项目，小鱼来了，免费发布需求');
+  lines.push('招募主理人（城市、行业、渠道）');
   if (includeLink) lines.push(baseUrl(req));
 
   return lines.join('\n');
@@ -182,7 +182,7 @@ export default function registerBroadcastRoutes(app) {
       const { buffer, width, height } = await imgMod.renderPng({
         title: titleText,
         body: bodyLines.join('\n'),
-        footer: '小鱼来了 · 让每一条好项目，都被对的人看见',
+        footer: '招商、投资、工资、工程、项目 · 小鱼来了，免费发布需求',
       });
 
       const fsMod = await import('node:fs');
