@@ -189,27 +189,48 @@ export async function renderHome(ctx, query) {
     </div>
     ${
       (latestEvents || []).length
-        ? `<div class="ev-latest">
-            ${latestEvents
-              .slice(0, 5)
-              .map((e) => {
-                const when = e.event?.startAt
-                  ? String(e.event.startAt).replace('T', ' ').slice(5, 16)
-                  : '';
-                const city = (e.cities || []).map((c) => (typeof c === 'string' ? c : c?.name)).filter(Boolean)[0] || '';
-                const meta = [when, city, e.event?.fee ? `费用 ${e.event.fee}` : ''].filter(Boolean).join(' · ');
-                return `<a class="ev-item" href="#/detail/${ui.esc(e.id)}">
-                  <span class="ev-item-body">
-                    <span class="ev-item-title">${ui.esc(
-                      String(e.title || '').length > 30 ? String(e.title).slice(0, 30) + '…' : String(e.title || ''),
-                    )}</span>
-                    ${meta ? `<span class="ev-item-meta">${ui.esc(meta)}</span>` : ''}
-                  </span>
-                  <span class="ev-item-go">›</span>
-                </a>`;
-              })
-              .join('')}
-          </div>`
+        ? (() => {
+            /*
+             * 排序：有活动时间的排前面（按时间正序，最近要办的先看到），
+             * 没填时间的排后面 —— 老数据不少没有时间，直接丢会显得列表空。
+             */
+            const now = Date.now();
+            const withTime = latestEvents
+              .filter((e) => e.event?.startAt)
+              .sort((a, b) => String(a.event.startAt).localeCompare(String(b.event.startAt)));
+            const noTime = latestEvents.filter((e) => !e.event?.startAt);
+            const list = [...withTime, ...noTime].slice(0, 5);
+            return `<div class="ev-latest">
+              ${list
+                .map((e) => {
+                  const ev = e.event || {};
+                  const raw = ev.startAt ? String(ev.startAt).replace('T', ' ').slice(5, 16) : '';
+                  let when = '';
+                  if (raw) {
+                    const t = Date.parse(ev.startAt);
+                    const prefix = Number.isFinite(t) && t < now ? '已举办 ' : '';
+                    when = prefix + raw;
+                  } else if (ev.registerDeadline) {
+                    when = '报名截止 ' + String(ev.registerDeadline).replace('T', ' ').slice(5, 16);
+                  } else {
+                    when = '时间待定';
+                  }
+                  const city =
+                    (e.cities || []).map((c) => (typeof c === 'string' ? c : c?.name)).filter(Boolean)[0] || '';
+                  const meta = [when, city].filter(Boolean).join(' · ');
+                  return `<a class="ev-item" href="#/detail/${ui.esc(e.id)}">
+                    <span class="ev-item-body">
+                      <span class="ev-item-title">${ui.esc(
+                        String(e.title || '').length > 30 ? String(e.title).slice(0, 30) + '…' : String(e.title || ''),
+                      )}</span>
+                      <span class="ev-item-meta">${ui.esc(meta)}</span>
+                    </span>
+                    <span class="ev-item-go">›</span>
+                  </a>`;
+                })
+                .join('')}
+            </div>`;
+          })()
         : ''
     }
   </div>`;
