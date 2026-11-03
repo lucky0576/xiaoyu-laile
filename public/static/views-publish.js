@@ -2043,7 +2043,7 @@ export async function renderPublish(ctx, params) {
         const box = $('#pub-cat-fields');
         if (category === 'event') {
           box.innerHTML = `
-            <div class="field"><label>活动开始时间</label><input class="input" type="datetime-local" id="f-startAt" value="${ui.esc((editing?.event?.startAt || '').slice(0, 16))}"></div>
+            <div class="field"><label>活动开始时间 <span style="color:#c2410c">*必填</span></label><input class="input" type="datetime-local" id="f-startAt" required value="${ui.esc((editing?.event?.startAt || '').slice(0, 16))}"></div>
             <div class="field"><label>活动结束时间</label><input class="input" type="datetime-local" id="f-endAt" value="${ui.esc((editing?.event?.endAt || '').slice(0, 16))}"></div>
             <div class="field"><label>活动地点</label><input class="input" id="f-address" placeholder="线上活动可留空并勾选线上" value="${ui.esc(editing?.event?.address || '')}"></div>
             <div class="row between mb12"><span class="small">线上活动</span><label class="switch"><input type="checkbox" id="f-online" ${editing?.event?.online ? 'checked' : ''}><span class="slider"></span></label></div>
@@ -3688,6 +3688,15 @@ export async function renderPublish(ctx, params) {
         if (busy) return;
         const text = $('#pub-text').value.trim();
         if (!text && !uploaded.length) return ui.toast('请先输入文字内容或导入文件', 'err');
+
+        /* 活动：开始时间必填（服务端也会校验，这里先拦住，少一次往返） */
+        if (category === 'event') {
+          const startEl = $('#f-startAt');
+          if (!startEl || !String(startEl.value || '').trim()) {
+            startEl?.focus();
+            return ui.toast('请填写活动开始时间', 'err');
+          }
+        }
 
         const title = $('#pub-title')?.value?.trim() || aiResult?.titles?.title || text.split('\n')[0].slice(0, 60);
         const subtitle = $('#pub-subtitle')?.value?.trim() || aiResult?.titles?.subtitle || '';

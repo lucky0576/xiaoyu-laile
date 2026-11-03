@@ -580,6 +580,15 @@ export async function createListing({ user, body = {}, files = [] }) {
     throw httpError(400, '请先输入文字内容或导入文件');
   }
 
+  /*
+   * 活动时间必填。
+   * 没有开始时间的活动，用户在列表里无法判断「来不来得及参加」，
+   * 首页「最新活动」也只能显示城市，价值大打折扣。
+   */
+  if (category === 'event' && !String(body.startAt || '').trim()) {
+    throw httpError(400, '请填写活动开始时间', 'start_at_required');
+  }
+
   const input = {
     text,
     fileText,
@@ -829,6 +838,15 @@ export async function updateListing(id, user, patch = {}) {
   const l = listings().get(id);
   if (!l) throw httpError(404, '信息不存在');
   if (l.ownerId !== user.id && !user.isAdmin) throw httpError(403, '只能编辑自己发布的信息');
+
+  // 活动时间必填：编辑时也不能把它清空
+  if (
+    l.category === 'event' &&
+    (patch.startAt !== undefined || patch.event?.startAt !== undefined) &&
+    !String(patch.startAt ?? patch.event?.startAt ?? '').trim()
+  ) {
+    throw httpError(400, '请填写活动开始时间', 'start_at_required');
+  }
 
   const allowed = [
     'title',
