@@ -242,8 +242,12 @@ export default function registerBroadcastRoutes(app) {
     const col = db.collection('listings');
     let pool = col.all().filter((l) => l && l.status === 'published');
 
-    // 默认屏蔽系统采集的网上公开信息（招投标、政务公告等）
-    const onlyUser = req.body?.onlyUser !== false;
+    /*
+     * 默认屏蔽系统采集的网上公开信息（招投标、政务公告等）。
+     * 但如果用户主动勾了「招投标」板块，就必须放开采集内容 ——
+     * 否则明明选了招投标却永远是 0 条。
+     */
+    const onlyUser = req.body?.onlyUser !== false && !cats.includes('bidding');
     if (onlyUser) pool = pool.filter((l) => l.origin === 'user');
 
     /* ---------- 结构化筛选 ---------- */
