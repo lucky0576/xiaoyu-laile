@@ -1430,7 +1430,12 @@ export async function renderPublish(ctx, params) {
       </div>
       <div id="pub-upload-queue"></div>
       <div id="pub-files" class="row wrap gap8 mt8"></div>
-      <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 文本），据此生成标题并解析项目。</div>
+      <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 图片 / 视频画面），据此生成标题并解析项目。</div>
+      <div class="upload-cert-hint">
+        💡 <b>营业执照、身份证、备案证等证照材料，请上传到「企业资质认证」</b>，不要放在项目附件里 ——
+        附件里的图片会被用作项目封面和分享图，证照信息可能因此公开显示。
+        <a href="#/qualification" class="upload-cert-link">去认证 ›</a>
+      </div>
 
       <div class="card card-pad mt12">
         <div class="row between mb8">
