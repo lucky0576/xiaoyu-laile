@@ -172,6 +172,17 @@ export async function renderProvider(ctx, params) {
 
     ${viewsServices.serviceEntryHtml({ tip: '想把服务卖进政府 / 园区？看我们的企业服务与报价' })}
 
+    <a class="st-entry" href="#/steward">
+      <div class="st-entry-ico">🤝</div>
+      <div class="st-entry-body">
+        <div class="st-entry-t">成为主理人 · 城市 / 行业 / 渠道</div>
+        <div class="st-entry-d">
+          不一定要有自己的公司 —— 有本地资源、行业判断或客户渠道，就能做主理人
+        </div>
+      </div>
+      <div class="st-entry-go">去申请 ›</div>
+    </a>
+
     ${statusHtml}
     ${tab === 'apply' ? formHtml : ''}
     ${listHtml}

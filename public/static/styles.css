@@ -1427,3 +1427,60 @@ ul { margin: 0; padding-left: 18px; }
 }
 .ev-item-meta { font-size: 11px; color: #98a3b3; }
 .ev-item-go { flex: none; color: #c2cbd8; font-size: 16px; }
+/* ---------------- 主理人页面 ---------------- */
+.st-page { padding-bottom: 12px; }
+.st-hero {
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eef4ff, #f7f9fc);
+  border: 1px solid #dbe6ff;
+  text-align: center;
+}
+.st-hero-t { font-size: 21px; font-weight: 800; color: #1a2433; }
+.st-hero-d { margin-top: 8px; font-size: 13px; line-height: 1.8; color: #475569; }
+.st-hero-tags { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+.st-hero-tags span {
+  font-size: 11px; padding: 2px 10px; border-radius: 999px;
+  background: #fff; border: 1px solid #dbe6ff; color: #0b5fd6;
+}
+.st-card {
+  margin-top: 12px; padding: 16px; border-radius: 16px;
+  background: #fff; border: 1px solid var(--line, #e3e9f2);
+}
+.st-card-head { display: flex; align-items: center; gap: 10px; }
+.st-card-ico { font-size: 26px; line-height: 1; }
+.st-card-title { flex: 1; min-width: 0; }
+.st-card-name { font-size: 17px; font-weight: 800; color: #1a2433; }
+.st-card-sub { margin-top: 3px; font-size: 11.5px; color: #0b5fd6; }
+.st-card-desc { margin-top: 10px; font-size: 13px; line-height: 1.7; color: #475569; }
+.st-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.st-col-t { font-size: 12px; font-weight: 800; color: #0e8f7a; margin-bottom: 4px; }
+.st-li { font-size: 11.5px; line-height: 1.8; color: #5b6675; }
+.st-mine { padding: 10px 0; border-bottom: 1px solid #f1f5fb; }
+.st-mine:last-child { border-bottom: none; }
+.st-mine-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.st-mine-name { font-size: 13.5px; font-weight: 700; color: #1a2433; }
+.st-mine-meta { margin-top: 3px; font-size: 11.5px; color: #98a3b3; }
+.st-mine-reason { margin-top: 4px; font-size: 11.5px; color: #b91c1c; }
+.st-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid #f7fafd; font-size: 12.5px;
+}
+.st-row:last-child { border-bottom: none; }
+.st-row-kind { flex: none; font-size: 11px; color: #0b5fd6; background: #eef4ff; border-radius: 999px; padding: 1px 8px; }
+.st-row-name { font-weight: 700; color: #1a2433; }
+.st-row-meta { color: #98a3b3; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 服务商页里的主理人入口 */
+.st-entry {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px; padding: 14px 12px; border-radius: 14px;
+  background: linear-gradient(135deg, #f0fdf9, #f7f9fc);
+  border: 1px solid #cdeee4;
+  text-decoration: none;
+}
+.st-entry-ico { flex: none; font-size: 24px; }
+.st-entry-body { flex: 1; min-width: 0; }
+.st-entry-t { font-size: 13.5px; font-weight: 800; color: #1a2433; }
+.st-entry-d { margin-top: 3px; font-size: 11.5px; line-height: 1.5; color: #5b6675; }
+.st-entry-go { flex: none; font-size: 12px; font-weight: 800; color: #0e8f7a; white-space: nowrap; }

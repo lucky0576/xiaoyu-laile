@@ -637,6 +637,11 @@ export const service = {
   aiTradeItems: (fd, opts) => api.upload('/api/ai/trade-items', fd, opts),
   feedTranscribe: (fd, opts) => api.upload('/api/feeds/transcribe', fd, opts),
 
+  /* 主理人 */
+  stewardMeta: () => api.get('/api/stewards/meta'),
+  stewards: (query) => api.get('/api/stewards', query),
+  stewardMine: () => api.get('/api/stewards/mine'),
+  stewardApply: (body) => api.post('/api/stewards/apply', body),
   providers: (query) => api.get('/api/providers', query),
   providerMeta: () => api.get('/api/providers/meta'),
   myProvider: () => api.get('/api/providers/me'),

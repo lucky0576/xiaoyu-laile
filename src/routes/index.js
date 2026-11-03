@@ -16,6 +16,7 @@ import registerReferralRoutes from './referral.js';
 import registerFeedbackRoutes from './feedback.js';
 import registerBroadcastRoutes from './broadcast.js';
 import registerContestRoutes from './contest.js';
+import registerStewardRoutes from './stewards.js';
 
 export default function registerRoutes(app) {
   registerCoreRoutes(app);
@@ -33,5 +34,6 @@ export default function registerRoutes(app) {
   registerFeedbackRoutes(app);
   registerBroadcastRoutes(app);
   registerContestRoutes(app);
+  registerStewardRoutes(app);
   return app;
 }
