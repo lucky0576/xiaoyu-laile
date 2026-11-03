@@ -9,6 +9,7 @@
  */
 
 import * as ui from './ui.js';
+import { shareText, copyWithFeedback } from './clipboard.js';
 
 const PLANS = [
   {
@@ -82,6 +83,29 @@ const PLANS = [
     ],
     topic: 'consult',
     about: '我想了解【AI 尽调报告】',
+  },
+  {
+    id: 'finance',
+    priceValue: 100000,
+    icon: '💰',
+    name: '企业融资服务',
+    tag: '中小企业 / 项目方 / 需要融资的产业项目',
+    price: '10 万起 / 年',
+    priceNote: '或按融资额 3%–5% 计',
+    desc: '帮你把项目讲清楚、把投资人找对，按进度推进。',
+    includes: [
+      '融资材料整理：商业计划书、财务预测、一页纸项目摘要',
+      '投资人筛选与对接：按行业、阶段、区域定向推荐 20–30 家',
+      '路演与跟进：安排路演、收集反馈、维护投资人关系',
+      '尽调支持：协助整理尽调清单、配合资料准备',
+      '条款沟通：协助理解估值、对赌、回购等常见条款',
+      '按阶段交付，每阶段有明确产出物与时间节点',
+    ],
+    topic: 'invest',
+    about: '我想了解【企业融资服务】',
+    note:
+      '本服务为融资顾问服务，不承诺融资结果、不代持资金、不承诺任何收益；' +
+      '基础服务费与成功费按合同约定，涉及资金往来一律走对公账户。',
   },
 ];
 
@@ -215,6 +239,7 @@ export function renderServices(ctx) {
             <div class="svc-name">${ui.esc(p.name)}</div>
             <div class="svc-tag">${ui.esc(p.tag)}</div>
           </div>
+          <button class="svc-share" type="button" data-share="${ui.esc(p.id)}" aria-label="分享这个服务">↗ 分享</button>
         </div>
         <div class="svc-price">
           <b>${ui.esc(p.price)}</b>
@@ -224,6 +249,7 @@ export function renderServices(ctx) {
         <div class="svc-list">
           ${p.includes.map((x) => `<div class="svc-li"><span class="svc-dot">✓</span>${ui.esc(x)}</div>`).join('')}
         </div>
+        ${p.note ? `<div class="svc-note">⚠️ ${ui.esc(p.note)}</div>` : ''}
         <a class="btn btn-primary btn-block mt12"
            href="#/contact-us?topic=${encodeURIComponent(p.topic)}&about=${encodeURIComponent(p.about)}">
           咨询这个方案
@@ -245,6 +271,7 @@ export function renderServices(ctx) {
             <div class="svc-name">${ui.esc(p.name)}</div>
             <div class="svc-tag">${ui.esc(p.tag)}</div>
           </div>
+          <button class="svc-share" type="button" data-share="${ui.esc(p.id)}" aria-label="分享这个服务">↗ 分享</button>
         </div>
         <div class="svc-price">
           <b>${ui.esc(p.price)}</b>
@@ -322,9 +349,44 @@ export function renderServices(ctx) {
     showBack: true,
     activeTab: '',
     mount(root) {
-      /* 咨询按钮已经是指向 #/contact-us 的链接，这里不用额外处理；
-         但为了移动端点击更明显，滚动到方案卡时给个轻微高亮 */
-      if (location.hash.includes('#')) return;
+      /* ---------------- 每个服务单独分享 ---------------- */
+      const allPlans = [...PLANS, ...BIG_PLANS];
+      const planById = new Map(allPlans.map((p) => [p.id, p]));
+
+      const urlOf = (id) => `${location.origin}/#/services?p=${encodeURIComponent(id)}`;
+      const textOf = (p) =>
+        `小鱼来了 · 企业服务｜${p.name}\n${p.price}（${p.priceNote}）\n${p.desc}\n${urlOf(p.id)}`;
+
+      root.querySelectorAll('[data-share]').forEach((btn) => {
+        btn.addEventListener('click', async (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const p = planById.get(btn.dataset.share);
+          if (!p) return;
+          const url = urlOf(p.id);
+          const text = textOf(p);
+          /*
+           * 手机优先走系统分享（能直接发微信）；
+           * 电脑或微信内置浏览器调不起来时，退回复制链接。
+           */
+          const shared = await shareText({ title: `小鱼来了 · ${p.name}`, text: `【${p.name}】${p.price}｜${p.desc}`, url });
+          if (shared) return;
+          await copyWithFeedback(text, { okText: '已复制，可直接发给对方' }, ui);
+        });
+      });
+
+      /* ---------------- 分享链接直达某个服务 ---------------- */
+      const hashQuery = location.hash.split('?')[1] || '';
+      const targetId = new URLSearchParams(hashQuery).get('p') || '';
+      if (targetId) {
+        const card = root.querySelector('#svc-' + CSS.escape(targetId));
+        if (card) {
+          card.classList.add('svc-hit');
+          setTimeout(() => {
+            window.scrollTo({ top: card.getBoundingClientRect().top + window.scrollY - 70, behavior: 'smooth' });
+          }, 120);
+        }
+      }
     },
   };
 }

@@ -1274,3 +1274,24 @@ ul { margin: 0; padding-left: 18px; }
   line-height: 1.65;
 }
 .site-foot-org { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e8edf5; font-size: 10.5px; color: #b6bfcc; }
+
+/* ---------------- 企业服务：分享按钮 / 定位高亮 ---------------- */
+.svc-share {
+  flex: none;
+  align-self: flex-start;
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #dbe6ff;
+  background: #f5f9ff;
+  color: #0b5fd6;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.svc-share:active { transform: scale(0.96); }
+.svc-hit {
+  box-shadow: 0 0 0 2px #0b74ff, 0 8px 24px rgba(11, 116, 255, 0.12);
+  transition: box-shadow 0.25s;
+}
