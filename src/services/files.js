@@ -187,6 +187,14 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
     }
   }
 
+  /*
+   * 视频单独一条路：不把几十 MB 的视频读进内存，
+   * 只用 ffprobe 取时长/分辨率、ffmpeg 抽 3 帧交给视觉模型。
+   * 体积不设 8MB 限制（视频本来就大），但超大视频跳过抽帧。
+   */
+  const videoParse = opts.extract !== false && kind === 'video' && stat.size <= 512 * 1024 * 1024;
+  if (videoParse) parsing = true;
+
   const record = filesCol().insert({
     id,
     ownerId: opts.ownerId || '',
@@ -207,7 +215,7 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
   });
 
   // 排队解析（worker 线程，不阻塞主线程，也不阻塞本次响应）
-  if (parsing) {
+  if (parsing && !videoParse) {
     const queued = enqueueExtract({
       filePath: dest,
       name,
@@ -226,17 +234,29 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
           /*
            * 本地解析拿不到文字时，再试视觉识别：
            *   · 图片（截图 / 照片 / 扫描件）
-           *   · 扫描版 PDF（没有文本层）
-           *   · 视频（抽 3 帧看画面里有什么）
-           * 只有配置了视觉模型才有意义，否则跳过并写明原因。
+           *   · 扫描版 PDF（没有文本层，或文本层是乱码）
+           *   · 视频（抽 3 帧看画面里有什么，同时补时长/分辨率）
            */
-          const noText = !String(patch.text || '').trim();
+          const textNow = String(patch.text || '');
+          /*
+           * PDF 文本层可能「有字但全是乱码」（字体没有 ToUnicode 映射时常见）。
+           * 判断标准：CJK + 字母数字占比太低，就当没解析出来，走 OCR。
+           */
+          const readable = (() => {
+            const s = textNow.trim();
+            if (!s) return false;
+            if (s.length < 12) return false;
+            const good = (s.match(/[\u4e00-\u9fa5A-Za-z0-9]/g) || []).length;
+            return good / s.length >= 0.35;
+          })();
+          const noText = !readable;
           const mediaKind = ['image', 'pdf', 'video'].includes(kind);
           if (noText && mediaKind) {
             let visionReady = false;
             try {
-              const aiMod = (await import('./ai.js')).default;
-              visionReady = Boolean(aiMod.visionConfigured && aiMod.visionConfigured());
+              const aiMod = await import('./ai.js');
+              const ai = aiMod.default || aiMod;
+              visionReady = Boolean(ai.visionConfigured && ai.visionConfigured());
             } catch {
               visionReady = false;
             }
@@ -244,6 +264,9 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
               try {
                 const { ocrMedia } = await import('../lib/mediaocr.js');
                 const ocr = await ocrMedia({ filePath: dest, kind, name });
+                if (ocr.meta && Object.keys(ocr.meta).length) {
+                  patch.meta = { ...(patch.meta || {}), ...ocr.meta };
+                }
                 if (ocr.text) {
                   patch.text = String(ocr.text).slice(0, 200000);
                   patch.notes = [...(patch.notes || []), '正文由视觉模型识别'];
@@ -262,6 +285,15 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
                   : '已取到尺寸等基础信息；图中文字识别需配置视觉模型',
               ];
             }
+          } else if (kind === 'video') {
+            // 视频本来就不读字节，元数据单独用 ffprobe 补
+            try {
+              const { videoMeta } = await import('../lib/mediaocr.js');
+              const m = await videoMeta(dest);
+              if (m && Object.keys(m).length) patch.meta = { ...(patch.meta || {}), ...m };
+            } catch {
+              /* ignore */
+            }
           }
 
           filesCol().update(id, patch);
@@ -277,6 +309,54 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
       filesCol().update(id, { parsing: false, notes: ['解析队列繁忙，已跳过正文'] });
       record.parsing = false;
     }
+  }
+
+  /*
+   * 视频：单独走一条异步链路（不进 worker，避免把几十 MB 读进内存）：
+   *   ffprobe 取时长/分辨率 → ffmpeg 抽 3 帧 → 视觉模型识别画面文字。
+   * 全程异步，不影响上传响应，也不卡主线程。
+   */
+  if (videoParse) {
+    setImmediate(async () => {
+      const patch = { parsing: false };
+      try {
+        let visionReady = false;
+        try {
+          const aiMod = await import('./ai.js');
+          const ai = aiMod.default || aiMod;
+          visionReady = Boolean(ai.visionConfigured && ai.visionConfigured());
+        } catch {
+          visionReady = false;
+        }
+
+        const { ocrMedia, videoMeta } = await import('../lib/mediaocr.js');
+        const m = await videoMeta(dest);
+        if (m && Object.keys(m).length) patch.meta = m;
+
+        if (visionReady) {
+          const ocr = await ocrMedia({ filePath: dest, kind: 'video', name });
+          if (ocr.meta && Object.keys(ocr.meta).length) patch.meta = { ...(patch.meta || {}), ...ocr.meta };
+          if (ocr.text) {
+            patch.text = String(ocr.text).slice(0, 200000);
+            patch.notes = ['正文由视觉模型识别（视频画面）'];
+          }
+          if (ocr.notes && ocr.notes.length) patch.notes = [...(patch.notes || []), ...ocr.notes];
+        } else {
+          patch.notes = ['已取到视频时长与分辨率；画面内容识别需配置视觉模型'];
+        }
+      } catch (err) {
+        patch.notes = ['视频解析失败: ' + String(err?.message || err)];
+      }
+      try {
+        filesCol().update(id, patch);
+        record.parsing = false;
+        if (patch.text !== undefined) record.text = patch.text;
+        if (patch.meta) record.meta = patch.meta;
+        if (patch.notes) record.notes = patch.notes;
+      } catch {
+        /* ignore */
+      }
+    });
   }
 
   // 视频：上传后异步做 faststart / 降码率，不阻塞上传响应
