@@ -266,32 +266,72 @@ export const api = {
 
     const { uploadId, chunkSize } = init;
     const total = Math.max(1, Math.ceil(file.size / chunkSize));
-    let sent = 0;
+
+    /*
+     * 并行上传分片。
+     *
+     * 为什么要并行：服务器到大陆的链路丢包严重（实测单连接只有 1–4 KB/s），
+     * 单条 TCP 连接在丢包下会被拥塞控制压到极低吞吐。
+     * 开 3 条连接一起传，吞吐通常能到单条的 2–3 倍。
+     * 并发数不宜再高：手机上行带宽有限，太多连接反而互相抢。
+     */
+    const CONCURRENCY = Math.min(3, total);
+    const chunkPercent = new Array(total).fill(0);
+    let finished = 0;
+
+    const report = () => {
+      if (!onProgress) return;
+      let sum = 0;
+      for (let i = 0; i < total; i++) {
+        const size = Math.min(chunkSize, file.size - i * chunkSize);
+        sum += (size * chunkPercent[i]) / 100;
+      }
+      onProgress(Math.min(99, Math.round((sum / file.size) * 100)));
+    };
+
+    const uploadChunk = async (i) => {
+      const start = i * chunkSize;
+      const blob = file.slice(start, Math.min(start + chunkSize, file.size));
+      let lastErr = null;
+      // 单片失败自动重试 3 次（丢包链路上很常见）
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await this._putChunk(uploadId, i, blob, (pct) => {
+            chunkPercent[i] = pct;
+            report();
+          });
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          await new Promise((r) => setTimeout(r, 600 * (attempt + 1) * 2));
+        }
+      }
+      if (lastErr) throw lastErr;
+      chunkPercent[i] = 100;
+      finished += 1;
+      report();
+    };
 
     try {
-      for (let i = 0; i < total; i++) {
-        const start = i * chunkSize;
-        const blob = file.slice(start, Math.min(start + chunkSize, file.size));
-        // 单片失败自动重试 3 次（网络抖动很常见，不能让用户重传整个文件）
-        let lastErr = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
+      let next = 0;
+      let failed = null;
+      const worker = async () => {
+        for (;;) {
+          if (failed) return;
+          const i = next++;
+          if (i >= total) return;
           try {
-            await this._putChunk(uploadId, i, blob, (pct) => {
-              if (!onProgress) return;
-              const overall = Math.round(((sent + (blob.size * pct) / 100) / file.size) * 100);
-              onProgress(Math.min(99, overall));
-            });
-            lastErr = null;
-            break;
+            await uploadChunk(i);
           } catch (err) {
-            lastErr = err;
-            await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+            failed = err;
+            return;
           }
         }
-        if (lastErr) throw lastErr;
-        sent += blob.size;
-        if (onProgress) onProgress(Math.min(99, Math.round((sent / file.size) * 100)));
-      }
+      };
+      await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+      if (failed) throw failed;
+      void finished;
 
       // 字节都到了，接下来是服务端合并 + 解析
       if (onPhase) onPhase('parsing');
