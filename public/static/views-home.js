@@ -2319,6 +2319,9 @@ export async function renderDetail(ctx, params) {
               <button class="btn" id="btn-edit">编辑</button>
               <button class="btn" id="btn-renew">续期</button>
               <button class="btn" id="btn-close">下架</button>
+            </div>` : isAdmin ? `<div class="btn-group mt8">
+              <button class="btn" id="btn-edit">编辑（管理员）</button>
+              <button class="btn" id="btn-close">下架</button>
             </div>` : ''}
           </div>
           ${isOwner && listing.pipeline ? `<div class="card card-pad mt12">
