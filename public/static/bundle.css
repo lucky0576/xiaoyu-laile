@@ -1314,6 +1314,47 @@ ul { margin: 0; padding-left: 18px; }
   text-decoration: none;
   white-space: nowrap;
 }
+/* ---------------- 发布页：通讯录选择弹层 ---------------- */
+.cbook-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.cbook-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 78vh;
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  padding: 14px 14px 18px;
+  display: flex;
+  flex-direction: column;
+}
+.cbook-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cbook-x {
+  border: none; background: transparent; font-size: 16px; color: #98a3b3; cursor: pointer; padding: 4px 6px;
+}
+.cbook-q { margin-bottom: 8px; }
+.cbook-list { overflow-y: auto; flex: 1; }
+.cbook-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 8px;
+  border: none;
+  border-bottom: 1px solid #f1f5fb;
+  background: transparent;
+  cursor: pointer;
+}
+.cbook-item:active { background: #f5f9ff; }
+.cbook-name { font-size: 13.5px; font-weight: 700; color: #1a2433; }
+.cbook-sub { font-size: 11.5px; color: #6b7686; }
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

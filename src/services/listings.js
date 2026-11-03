@@ -789,7 +789,40 @@ export async function createListing({ user, body = {}, files = [] }) {
   users().update(user.id, {
     stats: { ...user.stats, listings: (user.stats?.listings || 0) + 1 },
   });
+  // 发布时填的联系方式，顺手存进发布方的平台通讯录
+  syncContactToBook(user, doc);
   return created;
+}
+
+/**
+ * 把「信息里填的联系方式」自动收进当前用户的平台通讯录。
+ *
+ * 用户诉求：加了联系方式，通讯录里就该有这个人 ——
+ * 下次发信息、发群聊可以直接从通讯录选，不用重新敲一遍。
+ *
+ * 失败不影响发布（通讯录只是便利功能），所以全部吞掉异常。
+ */
+function syncContactToBook(user, listing) {
+  try {
+    const c = listing?.contact || {};
+    const phone = String(c.phone || '').replace(/[^\d+]/g, '');
+    const wechat = String(c.wechat || '').trim();
+    const name = String(c.name || '').trim();
+    if (!phone && !wechat) return;
+    const company = String(listing.company || '').trim();
+    import('./chat.js')
+      .then((chatMod) => {
+        const svc = chatMod.default || chatMod;
+        if (!svc.importContacts) return;
+        svc.importContacts(user.id, {
+          source: 'listing',
+          contacts: [{ name: name || user.nickname || '', phone, wechat, company, note: '发布信息时自动收录' }],
+        });
+      })
+      .catch(() => {});
+  } catch {
+    /* ignore */
+  }
 }
 
 export async function updateListing(id, user, patch = {}) {
@@ -872,6 +905,8 @@ export async function updateListing(id, user, patch = {}) {
     }
   }
 
+  // 编辑时改的联系方式，同样收进通讯录（新号码才新增，重复的自动去重）
+  if (next.contact) syncContactToBook(user, updated);
   return updated;
 }
 

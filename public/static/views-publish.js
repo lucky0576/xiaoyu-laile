@@ -1590,10 +1590,11 @@ export async function renderPublish(ctx, params) {
         <div class="row gap8 mt8" style="align-items:center;flex-wrap:wrap">
           <button class="btn btn-sm btn-primary" id="pub-contact-ai" type="button">🤖 识别并填入</button>
           <button class="btn btn-sm" id="pub-contact-photo" type="button">📷 名片 / 截图</button>
+          <button class="btn btn-sm" id="pub-contact-book" type="button">📇 从通讯录选择</button>
           <input type="file" id="pub-contact-photo-input" accept="image/*" hidden>
           <span class="tiny dim" id="pub-contact-ai-tip"></span>
         </div>
-        <div class="tiny dim mt4">名片图可以直接拖到这块区域，或截图后 Ctrl+V 粘贴</div>
+        <div class="tiny dim mt4">名片图可以直接拖到这块区域，或截图后 Ctrl+V 粘贴；填好的联系方式会同步进你的通讯录</div>
       </div>
 
       <div class="row gap8">
@@ -3193,6 +3194,101 @@ export async function renderPublish(ctx, params) {
             contactAiBtn.disabled = false;
             contactAiBtn.textContent = '🤖 识别并填入';
           }
+        });
+
+        /* 从通讯录选择：手机通讯录（支持的浏览器）+ 平台通讯录（兜底） */
+        $('#pub-contact-book')?.addEventListener('click', async () => {
+          const fill = (name, phone, company) => {
+            if (name) $('#pub-contact-name').value = name;
+            if (phone) $('#pub-phone').value = phone;
+            if (company) $('#pub-company').value = company;
+          };
+
+          // 1) 手机通讯录（Chrome Android 的 Contact Picker API）
+          if (navigator.contacts && navigator.contacts.select) {
+            try {
+              const picked = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+              const c = picked && picked[0];
+              if (c) {
+                const name = (c.name || [])[0] || '';
+                const phone = (c.tel || [])[0] || '';
+                fill(name, phone);
+                ui.toast('已从手机通讯录填入', 'ok');
+                // 顺手存进平台通讯录
+                try {
+                  await api.post('/api/contacts/import', { source: 'phone', contacts: [{ name, phone }] });
+                } catch {
+                  /* ignore */
+                }
+                return;
+              }
+            } catch {
+              /* 用户取消或权限拒绝 → 走平台通讯录 */
+            }
+          }
+
+          // 2) 平台通讯录（服务端 /api/contacts）
+          let items = [];
+          try {
+            const r = await api.get('/api/contacts?size=200');
+            items = (r && r.items) || [];
+          } catch {
+            items = [];
+          }
+          if (!items.length) {
+            ui.toast('通讯录还是空的：可以先粘贴文字识别，或在「通讯录」页导入', 'err');
+            return;
+          }
+
+          // 简易选择弹层（带搜索）
+          const mask = document.createElement('div');
+          mask.className = 'cbook-mask';
+          mask.innerHTML = `<div class="cbook-sheet">
+            <div class="cbook-head">
+              <div class="strong">📇 从通讯录选择</div>
+              <button class="cbook-x" type="button" aria-label="关闭">✕</button>
+            </div>
+            <input class="input cbook-q" placeholder="搜索姓名 / 电话 / 公司">
+            <div class="cbook-list"></div>
+          </div>`;
+          document.body.appendChild(mask);
+
+          const listEl = mask.querySelector('.cbook-list');
+          const paint = (kw) => {
+            const q = String(kw || '').trim().toLowerCase();
+            const rows = items.filter(
+              (c) =>
+                !q ||
+                String(c.name || '').toLowerCase().includes(q) ||
+                String(c.phone || '').includes(q) ||
+                String(c.company || '').toLowerCase().includes(q),
+            );
+            listEl.innerHTML = rows.length
+              ? rows
+                  .slice(0, 100)
+                  .map(
+                    (c, i) => `<button class="cbook-item" type="button" data-i="${i}">
+                      <span class="cbook-name">${ui.esc(c.name || c.phone || '未命名')}</span>
+                      <span class="cbook-sub">${ui.esc([c.phone, c.wechat ? '微信 ' + c.wechat : '', c.company].filter(Boolean).join(' · '))}</span>
+                    </button>`,
+                  )
+                  .join('')
+              : '<div class="tiny dim" style="padding:14px;text-align:center">没有匹配的联系人</div>';
+            listEl.querySelectorAll('[data-i]').forEach((btn) => {
+              btn.addEventListener('click', () => {
+                const c = rows[Number(btn.dataset.i)];
+                fill(c.name, c.phone, c.company);
+                mask.remove();
+                ui.toast('已填入联系方式', 'ok');
+              });
+            });
+          };
+          paint('');
+          mask.querySelector('.cbook-q').addEventListener('input', (e) => paint(e.target.value));
+          mask.querySelector('.cbook-x').addEventListener('click', () => mask.remove());
+          mask.addEventListener('click', (e) => {
+            if (e.target === mask) mask.remove();
+          });
         });
 
         /* 名片 / 截图识别：选图 → 视觉模型抽字段 → 覆盖填入 */
