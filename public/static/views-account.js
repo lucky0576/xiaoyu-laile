@@ -1173,6 +1173,7 @@ ${u.isAdmin ? '<a class="item" href="#/admin-covers"><div class="avatar">🖼</d
       ${u.isAdmin ? '<a class="item" href="#/admin-ai"><div class="avatar">🤖</div><div class="item-body"><div class="item-title">AI 设置</div><div class="item-sub">绑定 DeepSeek 等大模型，提升汇总与解析质量</div></div><span class="dim">›</span></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin-level-orders"><div class="avatar">💰</div><div class="item-body"><div class="item-title">会员订单</div><div class="item-sub">确认付款、开通会员</div></div><span class="dim">›</span></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin-feedback"><div class="avatar">📮</div><div class="item-body"><div class="item-title">留言管理</div><div class="item-sub">回复用户提问</div></div><span class="dim">›</span></a>' : ''}
+      ${u.isAdmin ? '<a class="item" href="#/admin-stewards"><div class="avatar">🤝</div><div class="item-body"><div class="item-title">主理人审核</div><div class="item-sub">审核申请、确认年费到账</div></div><span class="dim">›</span></a>' : ''}
       ${u.isAdmin ? '<a class="item" href="#/admin"><div class="avatar">🛠️</div><div class="item-body"><div class="item-title">管理后台</div><div class="item-sub">资质审核、内容治理、平台数据</div></div><span class="dim">›</span></a>' : ''}
     </div>
 

@@ -51,6 +51,7 @@ const viewsBcastText = lazyView(() => import('./views-bcast-text.js'));
 const viewsLegal = lazyView(() => import('./views-legal.js'));
 const viewsServices = lazyView(() => import('./views-services.js'));
 const viewsSteward = lazyView(() => import('./views-steward.js'));
+const viewsAdminStewards = lazyView(() => import('./views-admin-stewards.js'));
 const viewsTags = lazyView(() => import('./views-tags.js'));
 const viewsWechatSetup = lazyView(() => import('./views-wechat-setup.js'));
 const viewsNews = lazyView(() => import('./views-news.js'));
@@ -478,6 +479,8 @@ async function resolveView({ segs, query }) {
       return viewsAdminCovers.renderAdminCovers(ctx);
     case 'admin-providers':
       return viewsProvider.renderAdminProviders(ctx, { status: query.status === undefined ? 'pending' : query.status });
+    case 'admin-stewards':
+      return viewsAdminStewards.renderAdminStewards(ctx, { tab: query.tab || '' });
     case 'shorts':
       return viewsShorts.renderShorts(ctx, { id: p1 || query.id || '' });
     case 'feeds':
