@@ -662,6 +662,23 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         if (!title) return ui.toast('请填写标题，或点「AI 生成」', 'err');
         if (!isLive && !videoFile) return ui.toast('请选择短视频文件', 'err');
 
+        /*
+         * 视频体积提醒：服务器到大陆的链路经常只有几 KB/s，
+         * 几十 MB 的视频会传很久。先让用户知道，别等到一半才放弃。
+         */
+        if (!isLive && videoFile && videoFile.size > 15 * 1024 * 1024) {
+          const mb = (videoFile.size / 1048576).toFixed(1);
+          const ok = await ui.confirmDialog({
+            title: '视频较大，可能传很久',
+            message:
+              `这个视频 ${mb}MB。当前网络较慢时，上传可能要十几分钟甚至更久。\n\n` +
+              '建议先在微信里把视频发给自己（会自动压缩），再保存上传；' +
+              '或用剪映导出 720p。\n\n仍要直接上传吗？',
+            okText: '仍然上传',
+          });
+          if (!ok) return;
+        }
+
         btn.disabled = true;
         const oldText = btn.textContent;
 
