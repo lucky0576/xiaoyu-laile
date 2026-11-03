@@ -65,6 +65,12 @@ export async function renderHome(ctx, query) {
     .catch(() => ({ items: [] }));
   const ecomItems = ecomRes.items || [];
 
+  // 「活动与赛事」下方的最新 5 条活动
+  const latestEventsRes = await service
+    .listings({ category: 'event', status: 'published', pageSize: 5, sort: 'latest' })
+    .catch(() => ({ items: [] }));
+  const latestEvents = latestEventsRes.items || [];
+
   // 短视频单独拉一组（首页「短视频」横滑区）
   const shortsRes = await service.feeds({ type: 'short', limit: 10 }).catch(() => ({ items: [] }));
   const shorts = shortsRes.items || [];
@@ -181,6 +187,31 @@ export async function renderHome(ctx, query) {
         </a>`,
       ).join('')}
     </div>
+    ${
+      (latestEvents || []).length
+        ? `<div class="ev-latest">
+            ${latestEvents
+              .slice(0, 5)
+              .map((e) => {
+                const when = e.event?.startAt
+                  ? String(e.event.startAt).replace('T', ' ').slice(5, 16)
+                  : '';
+                const city = (e.cities || []).map((c) => (typeof c === 'string' ? c : c?.name)).filter(Boolean)[0] || '';
+                const meta = [when, city, e.event?.fee ? `费用 ${e.event.fee}` : ''].filter(Boolean).join(' · ');
+                return `<a class="ev-item" href="#/detail/${ui.esc(e.id)}">
+                  <span class="ev-item-body">
+                    <span class="ev-item-title">${ui.esc(
+                      String(e.title || '').length > 30 ? String(e.title).slice(0, 30) + '…' : String(e.title || ''),
+                    )}</span>
+                    ${meta ? `<span class="ev-item-meta">${ui.esc(meta)}</span>` : ''}
+                  </span>
+                  <span class="ev-item-go">›</span>
+                </a>`;
+              })
+              .join('')}
+          </div>`
+        : ''
+    }
   </div>`;
 
   /* ---------------- 2×3 主入口 ---------------- */

@@ -1406,6 +1406,28 @@ ul { margin: 0; padding-left: 18px; }
   pointer-events: none;
 }
 #route-progress.on { opacity: 1; }
+/* ---------------- 活动与赛事：最新 5 条 ---------------- */
+.ev-latest { margin-top: 10px; border-top: 1px solid #f1f5fb; padding-top: 4px; }
+.ev-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 2px;
+  border-bottom: 1px solid #f7fafd;
+  text-decoration: none;
+}
+.ev-item:last-child { border-bottom: none; }
+.ev-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ev-item-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1a2433;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ev-item-meta { font-size: 11px; color: #98a3b3; }
+.ev-item-go { flex: none; color: #c2cbd8; font-size: 16px; }
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
