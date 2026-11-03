@@ -258,6 +258,7 @@ export const STEWARD_KINDS = Object.values(KINDS);
 
 export default {
   listStewards,
+  adminList,
   myApplication,
   apply,
   review,
