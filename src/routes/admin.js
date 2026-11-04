@@ -180,6 +180,9 @@ export default function registerAdminRoutes(app) {
       baseUrl: b.baseUrl,
       model: b.model,
       apiKey: b.apiKey,
+      backupBaseUrl: b.backupBaseUrl,
+      backupModel: b.backupModel,
+      backupApiKey: b.backupApiKey,
     }));
   });
 

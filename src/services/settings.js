@@ -31,7 +31,26 @@ function readStored() {
     baseUrl: String(rec.baseUrl || '').trim(),
     model: String(rec.model || '').trim(),
     apiKey: String(rec.apiKey || '').trim(),
+    /* 备用接口（主接口欠费/限流时自动切换） */
+    backupBaseUrl: String(rec.backupBaseUrl || '').trim(),
+    backupModel: String(rec.backupModel || '').trim(),
+    backupApiKey: String(rec.backupApiKey || '').trim(),
     updatedAt: String(rec.updatedAt || ''),
+  };
+}
+
+/**
+ * 生效的备用 AI 配置。
+ * 备用接口可以只填 baseUrl + model + apiKey 任一项，
+ * 由 ai.js 决定是否可用（没 key 也能是免 key 的兼容接口）。
+ */
+export function effectiveAiBackup() {
+  const stored = readStored();
+  if (!stored.backupBaseUrl && !stored.backupApiKey) return null;
+  return {
+    baseUrl: String(stored.backupBaseUrl || DEFAULTS.baseUrl).replace(/\/+$/, ''),
+    model: stored.backupModel || DEFAULTS.model,
+    apiKey: stored.backupApiKey || '',
   };
 }
 
@@ -60,6 +79,7 @@ export function effectiveAiConfig() {
 export function aiSettingsPublic() {
   const stored = readStored();
   const eff = effectiveAiConfig();
+  const backup = effectiveAiBackup();
   return {
     baseUrl: eff.baseUrl,
     model: eff.model,
@@ -69,11 +89,52 @@ export function aiSettingsPublic() {
     source: eff.source,
     updatedAt: stored.updatedAt || '',
     provider: eff.enabled ? 'DeepSeek / OpenAI 兼容接口' : '内置规则引擎',
+    /* 备用接口 */
+    backupBaseUrl: backup?.baseUrl || '',
+    backupModel: backup?.model || '',
+    hasBackupKey: Boolean(backup?.apiKey),
+    backupApiKeyHint: backup?.apiKey ? `${backup.apiKey.slice(0, 6)}…${backup.apiKey.slice(-4)}` : '',
+    backupEnabled: Boolean(backup),
+    // 内置免费兜底（不需要 key）是否存在
+    keylessFallback: String(process.env.AI_KEYLESS_FALLBACK || '1') !== '0',
     presets: [
       { id: 'deepseek', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', models: ['deepseek-chat', 'deepseek-reasoner'] },
       { id: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', models: ['gpt-4o-mini', 'gpt-4o'] },
       { id: 'moonshot', name: '月之暗面 Kimi', baseUrl: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-8k', 'moonshot-v1-32k'] },
       { id: 'dashscope', name: '阿里通义千问', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', models: ['qwen-plus', 'qwen-turbo'] },
+      /* —— 有免费额度的（适合当备用接口）—— */
+      {
+        id: 'zhipu',
+        name: '智谱 GLM（glm-4-flash 免费）',
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+        models: ['glm-4-flash', 'glm-4-air', 'glm-4-plus'],
+        free: true,
+      },
+      {
+        id: 'siliconflow',
+        name: '硅基流动 SiliconFlow',
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        models: ['Qwen/Qwen2.5-7B-Instruct', 'deepseek-ai/DeepSeek-V3'],
+      },
+      {
+        id: 'volcengine',
+        name: '火山方舟（豆包）',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+        models: ['doubao-pro-32k'],
+      },
+      {
+        id: 'openrouter',
+        name: 'OpenRouter（有免费模型）',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        models: ['meta-llama/llama-3.1-8b-instruct:free', 'qwen/qwen-2.5-7b-instruct:free'],
+        free: true,
+      },
+      {
+        id: 'ollama',
+        name: '本地 Ollama（自己电脑跑，不要钱）',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        models: ['qwen2.5:7b', 'llama3.1:8b'],
+      },
       { id: 'custom', name: '自定义', baseUrl: '', models: [] },
     ],
   };
@@ -89,6 +150,10 @@ export function saveAiSettings(input = {}) {
     baseUrl: input.baseUrl === undefined ? cur.baseUrl || '' : String(input.baseUrl || '').trim(),
     model: input.model === undefined ? cur.model || '' : String(input.model || '').trim(),
     apiKey: cur.apiKey || '',
+    backupBaseUrl:
+      input.backupBaseUrl === undefined ? cur.backupBaseUrl || '' : String(input.backupBaseUrl || '').trim(),
+    backupModel: input.backupModel === undefined ? cur.backupModel || '' : String(input.backupModel || '').trim(),
+    backupApiKey: cur.backupApiKey || '',
     updatedAt: cur.updatedAt || '',
   };
 
@@ -97,6 +162,12 @@ export function saveAiSettings(input = {}) {
     if (raw === '-') next.apiKey = '';
     else if (raw) next.apiKey = raw;
     // 空字符串：保持原样（前端不回传已保存的 key，避免泄漏）
+  }
+
+  if (input.backupApiKey !== undefined) {
+    const raw = String(input.backupApiKey || '').trim();
+    if (raw === '-') next.backupApiKey = '';
+    else if (raw) next.backupApiKey = raw;
   }
 
   next.updatedAt = new Date().toISOString();

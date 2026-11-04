@@ -21,7 +21,17 @@ import { kindOf, listFiles } from './files.js';
  * 这里统一以 effectiveAiConfig()（在线设置 > 环境变量）为准。
  */
 function aiConfigured() {
-  return Boolean(effectiveAiConfig().apiKey);
+  /*
+   * 三条路只要有一条通，就认为「能用大模型」：
+   *   1) 主接口有 key
+   *   2) 配了备用接口
+   *   3) 内置免 key 通道没被关掉（AI_KEYLESS_FALLBACK != 0）
+   * 这样主接口欠费时，会自动落到备用或免费通道，而不是直接退化成本地规则。
+   */
+  if (effectiveAiConfig().apiKey) return true;
+  if (effectiveAiBackup()) return true;
+  if (String(process.env.AI_KEYLESS_FALLBACK || '1') !== '0') return true;
+  return false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -571,49 +581,172 @@ async function localReply({ listing, comment, history }) {
 /* ------------------------------------------------------------------ */
 /* 大模型调用                                                          */
 /* ------------------------------------------------------------------ */
-export async function chat(messages, opts = {}) {
-  if (!aiConfigured()) return null;
-  // 通过 settings 读配置：管理端在线填的 Key 优先于环境变量
+
+/**
+ * 内置的「无需 Key」兜底通道。
+ *
+ * Pollinations 提供 OpenAI 兼容的文本接口，不收费也不需要注册 key。
+ * 质量不如商业模型，但胜在永远有一条路能出结果 ——
+ * 商业 key 欠费时用户至少不会看到「AI 调用失败」。
+ * 可随时通过环境变量 AI_KEYLESS_FALLBACK=0 关掉。
+ */
+const KEYLESS_PROVIDERS = [
+  {
+    id: 'pollinations',
+    name: '内置免费通道',
+    baseUrl: 'https://text.pollinations.ai/openai',
+    model: 'openai',
+    apiKey: '',
+    // 不支持的参数（response_format）自动去掉重试
+    noJsonFormat: true,
+    needChinese: true,
+  },
+];
+
+/** 把一处 API 错误翻译成人话 */
+function humanizeAiError(status, body) {
+  if (status === 402 || /insufficient_balance|Insufficient Balance/i.test(body)) {
+    const e = new Error('AI 服务余额不足');
+    e.code = 'ai_no_balance';
+    return e;
+  }
+  if (status === 401 || status === 403) {
+    const e = new Error('AI 接口鉴权失败（Key 无效或没权限）');
+    e.code = 'ai_auth';
+    return e;
+  }
+  if (status === 429) {
+    const e = new Error('AI 接口限流（请求太频繁或免费额度用尽）');
+    e.code = 'ai_rate_limited';
+    return e;
+  }
+  const e = new Error(`AI 接口返回 ${status}: ${String(body || '').slice(0, 200)}`);
+  e.code = 'ai_http_error';
+  return e;
+}
+
+/** 拼出调用链：主接口 → 备用接口 → 内置免费通道 */
+function providerChain() {
+  const list = [];
   const conf = effectiveAiConfig();
-  const { temperature = 0.4, maxTokens = 2200, json = false, timeoutMs = conf.timeoutMs } = opts;
+  if (conf.apiKey) {
+    list.push({
+      id: 'primary',
+      name: '主接口',
+      baseUrl: conf.baseUrl,
+      model: conf.model,
+      apiKey: conf.apiKey,
+    });
+  }
+  const backup = effectiveAiBackup();
+  if (backup && (backup.apiKey || backup.baseUrl)) {
+    list.push({
+      id: 'backup',
+      name: '备用接口',
+      baseUrl: backup.baseUrl,
+      model: backup.model,
+      apiKey: backup.apiKey || '',
+    });
+  }
+  if (String(process.env.AI_KEYLESS_FALLBACK || '1') !== '0') {
+    for (const p of KEYLESS_PROVIDERS) list.push(p);
+  }
+  return list;
+}
+
+/** 单个供应商的一次调用（失败抛 humanize 过的错误） */
+async function callProvider(provider, messages, opts) {
+  const conf = effectiveAiConfig();
+  const { temperature = 0.4, maxTokens = 2200, json = false } = opts;
+  const timeoutMs = opts.timeoutMs || conf.timeoutMs || 60000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const payload = {
-      model: opts.model || conf.model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
+    /*
+     * 免 key 的公共通道经常默认用英文回答，
+     * 这里补一句强制中文，省得输出「You got my message…」。
+     */
+    const finalMessages = provider.needChinese
+      ? [...messages, { role: 'system', content: '请始终用简体中文回答，不要输出英文解释。' }]
+      : messages;
+    const buildPayload = (withJson) => {
+      const payload = {
+        model: provider.model || conf.model,
+        messages: finalMessages,
+        temperature,
+        max_tokens: maxTokens,
+      };
+      if (withJson) payload.response_format = { type: 'json_object' };
+      return payload;
     };
-    if (json) payload.response_format = { type: 'json_object' };
-    const res = await fetch(`${conf.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${conf.apiKey}`,
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+    const headers = { 'Content-Type': 'application/json' };
+    if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
+
+    const send = (withJson) =>
+      fetch(`${provider.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(buildPayload(withJson)),
+        signal: controller.signal,
+      });
+
+    let res = await send(Boolean(json));
+    // 有些免费通道不认 response_format，去掉再试一次
+    if (!res.ok && json && (provider.noJsonFormat || res.status === 400)) {
+      res = await send(false);
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      /*
-       * 402 / Insufficient Balance 是最常见的失败：
-       * 把原始 JSON 甩给用户既看不懂、也不知道该找谁。
-       * 翻译成一句人话，前端原样展示即可。
-       */
-      if (res.status === 402 || /insufficient_balance|Insufficient Balance/i.test(body)) {
-        const err = new Error('AI 服务余额不足，自动写作已暂停；内容仍可正常发布，请联系管理员充值后重试');
-        err.code = 'ai_no_balance';
-        throw err;
-      }
-      throw new Error(`AI 接口返回 ${res.status}: ${body.slice(0, 300)}`);
+      throw humanizeAiError(res.status, body);
     }
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content ?? '';
+    const data = await res.json().catch(() => null);
+    const text = data?.choices?.[0]?.message?.content ?? '';
+    /*
+     * 公共免费通道被限流时会回一段英文提示（HTTP 200 但内容是报错），
+     * 必须当成失败，交给下一个供应商。
+     */
+    if (!text || /free limit reached|Please wait|rate.?limit/i.test(String(text).slice(0, 200))) {
+      const e = new Error('免费通道限流或返回空内容');
+      e.code = 'ai_rate_limited';
+      throw e;
+    }
+    return text;
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function chat(messages, opts = {}) {
+  const chain = providerChain();
+  if (!chain.length) return null;
+
+  const errors = [];
+  for (const provider of chain) {
+    try {
+      const text = await callProvider(provider, messages, opts);
+      if (text) {
+        if (provider.id !== 'primary') {
+          console.warn(`[ai] 主接口不可用，已用「${provider.name}」完成本次生成`);
+        }
+        return text;
+      }
+    } catch (err) {
+      errors.push({ id: provider.id, name: provider.name, code: err.code, message: err.message });
+      // 余额不足/限流/鉴权失败：继续试下一个，不要直接放弃
+      continue;
+    }
+  }
+
+  const last = errors[errors.length - 1];
+  const allBalance = errors.length > 0 && errors.every((e) => e.code === 'ai_no_balance');
+  const err = new Error(
+    allBalance
+      ? 'AI 服务余额不足，自动写作已暂停；内容仍可正常发布，请联系管理员充值或配置备用模型'
+      : `AI 调用失败（${errors.map((e) => e.name).join(' → ')}）：${last?.message || '未知错误'}`,
+  );
+  err.code = allBalance ? 'ai_no_balance' : 'ai_all_failed';
+  err.attempts = errors;
+  throw err;
 }
 
 export function extractJson(text) {

@@ -2247,6 +2247,22 @@ export async function renderAdminAi(ctx) {
         </div>
       </div>
 
+      <!-- 备用接口：主接口欠费/限流时自动切 -->
+      <div class="field">
+        <label>备用接口 <span class="tiny dim">（选填，主接口失败时自动切过去）</span></label>
+        <input class="input" id="ai-backup-baseurl" value="${ui.esc(info.backupBaseUrl || '')}"
+          placeholder="留空不启用；例：https://open.bigmodel.cn/api/paas/v4">
+        <input class="input mt6" id="ai-backup-model" value="${ui.esc(info.backupModel || '')}"
+          placeholder="备用模型，例：glm-4-flash（智谱免费）">
+        <input class="input mt6" id="ai-backup-key" type="password" autocomplete="off"
+          placeholder="${info.hasBackupKey ? ui.esc(info.backupApiKeyHint || '已保存备用 Key') : '备用 Key（留空表示不用 key）'}">
+        <div class="tiny dim mt4">
+          免费推荐：<b>智谱 glm-4-flash</b>（注册即有免费额度）接口填
+          <code>https://open.bigmodel.cn/api/paas/v4</code>；也可用 OpenRouter 的免费模型。
+          不填这个也不至于停摆 —— 系统内置了一条免 key 通道兜底。
+        </div>
+      </div>
+
       <div class="row gap8 mt12" style="flex-wrap:wrap">
         <button class="btn btn-outline" id="ai-test" type="button">🔌 测试连接</button>
         <button class="btn btn-primary grow" id="ai-save" type="button">保存</button>
@@ -2303,11 +2319,22 @@ export async function renderAdminAi(ctx) {
         if (models.length) $('#ai-model').value = models[0];
       });
 
-      const collect = () => ({
-        baseUrl: $('#ai-baseurl').value.trim(),
-        model: $('#ai-model').value.trim(),
-        apiKey: $('#ai-key').value.trim(),
-      });
+      const collect = () => {
+        const body = {
+          baseUrl: $('#ai-baseurl').value.trim(),
+          model: $('#ai-model').value.trim(),
+          apiKey: $('#ai-key').value.trim(),
+        };
+        const bUrl = $('#ai-backup-baseurl');
+        if (bUrl) {
+          body.backupBaseUrl = bUrl.value.trim();
+          body.backupModel = $('#ai-backup-model')?.value.trim() || '';
+          const bKey = $('#ai-backup-key')?.value.trim() || '';
+          // 空字符串 = 不修改（和主 key 一样的约定）
+          if (bKey) body.backupApiKey = bKey;
+        }
+        return body;
+      };
       const showResult = (html) => { $('#ai-result').innerHTML = html; };
 
       $('#ai-test')?.addEventListener('click', async (e) => {
