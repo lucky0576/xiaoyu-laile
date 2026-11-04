@@ -17,6 +17,7 @@ import newsSvc from './src/services/news.js';
 import notifySvc from './src/services/notify.js';
 import { sweepOtps } from './src/services/auth.js';
 import chunksSvc from './src/services/chunks.js';
+import fileCleanupSvc from './src/services/file-cleanup.js';
 import { seedIfEmpty } from './scripts/seed.js';
 
 /*
@@ -110,6 +111,34 @@ function startJobs() {
   } catch {
     /* ignore */
   }
+
+  /*
+   * 清理没人引用的上传文件。
+   *
+   * 发布页可以先传文件再放弃，名片识别、封面挑选也会产生临时文件；
+   * 这些文件没有任何信息引用、也不会被任何人看到，但会一直占磁盘
+   * （线上曾积到 1.9GB / 1500+ 个文件）。
+   *
+   * 启动 3 分钟后跑第一轮，之后每 6 小时一次；只删 24 小时前的，
+   * 避免误删用户还开着的发布页里刚上传的文件。
+   */
+  setTimeout(() => {
+    try {
+      const r = fileCleanupSvc.cleanupOrphanFiles({ minAgeHours: 24 });
+      if (r.removedFiles || r.removedRecords) {
+        console.log(
+          `[job:file-cleanup] 删除记录 ${r.removedRecords} 条、文件 ${r.removedFiles} 个，释放 ${r.mb} MB`,
+        );
+      }
+    } catch (err) {
+      console.warn('[job:file-cleanup] 首轮失败:', err.message);
+    }
+  }, 180_000).unref?.();
+
+  run('file-cleanup', () => {
+    const r = fileCleanupSvc.cleanupOrphanFiles({ minAgeHours: 24 });
+    return r.removedFiles ? { removed: r.removedFiles, mb: r.mb } : {};
+  }, 6 * 60 * 60_000);
 }
 
 /* ------------------------------------------------------------------ */

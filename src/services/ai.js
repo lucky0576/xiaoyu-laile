@@ -597,6 +597,16 @@ export async function chat(messages, opts = {}) {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
+      /*
+       * 402 / Insufficient Balance 是最常见的失败：
+       * 把原始 JSON 甩给用户既看不懂、也不知道该找谁。
+       * 翻译成一句人话，前端原样展示即可。
+       */
+      if (res.status === 402 || /insufficient_balance|Insufficient Balance/i.test(body)) {
+        const err = new Error('AI 服务余额不足，自动写作已暂停；内容仍可正常发布，请联系管理员充值后重试');
+        err.code = 'ai_no_balance';
+        throw err;
+      }
       throw new Error(`AI 接口返回 ${res.status}: ${body.slice(0, 300)}`);
     }
     const data = await res.json();
