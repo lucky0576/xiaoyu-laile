@@ -800,6 +800,22 @@ export async function createListing({ user, body = {}, files = [] }) {
   });
   // 发布时填的联系方式，顺手存进发布方的平台通讯录
   syncContactToBook(user, doc);
+
+  /*
+   * 带了视频的信息 → 自动生成一条短视频（标题用信息标题）。
+   * 异步执行、失败不影响发布；标题烧进画面是再往后的后台任务。
+   */
+  try {
+    const fileRecords = listFiles(doc.files || []);
+    if (fileRecords.some((f) => f && f.kind === 'video')) {
+      import('./auto-short.js')
+        .then((m) => m.createShortFromListing({ user, listing: created, fileRecords }))
+        .catch((err) => console.warn('[publish] 自动短视频失败:', err.message));
+    }
+  } catch (err) {
+    console.warn('[publish] 自动短视频调度失败:', err.message);
+  }
+
   return created;
 }
 

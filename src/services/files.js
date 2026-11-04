@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import { UPLOAD_DIR } from '../config.js';
 import db, { newId } from '../store/db.js';
 import { httpError } from '../http/app.js';
@@ -669,6 +670,111 @@ export async function optimizeVideoAsync(record) {
   } catch (err) {
     try { fs.unlinkSync(tmp); } catch { /* ignore */ }
     console.warn('[video] 优化失败:', record.name, err.message);
+  }
+}
+
+/**
+ * 等第一次调用时才去找中文字体（服务器上可能是文泉驿，也可能没装）。
+ * 返回 null 表示没有可用中文字体，调用方就不要硬烧字了。
+ */
+let cjkFontCache = '';
+
+function cjkFont() {
+  if (cjkFontCache !== '') return cjkFontCache || null;
+  const candidates = [
+    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+    '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/truetype/arphic/uming.ttc',
+    'C:\\Windows\\Fonts\\msyh.ttc',
+    'C:\\Windows\\Fonts\\simhei.ttf',
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        cjkFontCache = p;
+        return p;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  cjkFontCache = null;
+  return null;
+}
+
+/**
+ * 把标题烧进视频（左上角/顶部，前 8 秒显示）。
+ *
+ * 为什么用 textfile 而不是直接写 text=：
+ *   drawtext 的 text 参数需要转义 : ' \ % 等字符，
+ *   标题里几乎一定会有中文引号、冒号、百分号，手写转义迟早出错。
+ *   写成临时文件让 ffmpeg 自己读，稳。
+ *
+ * @returns {Promise<object|null>} 新的文件记录；失败返回 null（不影响原视频）
+ */
+export async function burnVideoTitle(record, title) {
+  if (!record || record.kind !== 'video') return null;
+  const text = String(title || '').trim().slice(0, 60);
+  if (!text) return null;
+  if (!record.path) return null;
+  try {
+    if (!fs.statSync(record.path).size) return null;
+  } catch {
+    return null;
+  }
+  if (!(await hasFfmpeg())) return null;
+  const font = cjkFont();
+  if (!font) return null;
+
+  const tmpText = path.join(os.tmpdir(), `vtitle-${Date.now()}.txt`);
+  const tmpOut = path.join(os.tmpdir(), `vtitle-${Date.now()}.mp4`);
+  try {
+    fs.writeFileSync(tmpText, text, 'utf8');
+    /*
+     * 字号按高度算（h/18），保证不同分辨率下观感一致；
+     * 位置放在安全区内（y = h*0.10），不会被手机顶部菜单条挡住。
+     */
+    const draw =
+      `drawtext=fontfile=${font.replace(/\\/g, '/').replace(/:/g, '\\:')}` +
+      `:textfile=${tmpText.replace(/\\/g, '/').replace(/:/g, '\\:')}` +
+      `:fontcolor=white:fontsize=h/18:line_spacing=8` +
+      `:box=1:boxcolor=black@0.5:boxborderw=h/90` +
+      `:x=(w-text_w)/2:y=h*0.10:enable='lt(t,8)'`;
+
+    const ok = await runFfmpeg([
+      '-y', '-i', record.path,
+      '-vf', draw,
+      '-c:v', 'libx264', '-crf', '25', '-preset', 'veryfast',
+      '-profile:v', 'high', '-level', '4.0',
+      '-c:a', 'copy',
+      '-movflags', '+faststart', '-f', 'mp4', tmpOut,
+      '-loglevel', 'error', '-nostdin',
+    ]);
+    if (!ok) return null;
+    const st = fs.statSync(tmpOut);
+    if (!st.size) return null;
+
+    const outName = `${String(record.name || 'video').replace(/\.[^.]+$/, '')}-标题版.mp4`;
+    const created = await registerStoredFile({
+      srcPath: tmpOut,
+      name: outName,
+      mime: 'video/mp4',
+      opts: {
+        // 标题版不需要再解析一遍（抽帧 OCR 很费 CPU），只是换了个画面上传
+        extract: false,
+        titleBurned: true,
+        sourceFileId: record.id,
+      },
+    });
+    return created || null;
+  } catch (err) {
+    console.warn('[video] 烧标题失败:', record.name, err.message);
+    return null;
+  } finally {
+    try { fs.unlinkSync(tmpText); } catch { /* ignore */ }
+    try { fs.unlinkSync(tmpOut); } catch { /* ignore */ }
   }
 }
 
