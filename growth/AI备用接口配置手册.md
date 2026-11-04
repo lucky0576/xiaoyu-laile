@@ -326,3 +326,70 @@ https://siliconflow.cn → 费用中心 → 充值 50 元
 ---
 
 *附：这份手册也放在仓库 `growth/AI备用接口配置手册.md`，需要时可以发给别人照着做。*
+
+---
+
+## 十一、免费平台速查表（2026-11 核对）
+
+> 结论先说：**先注册智谱，填进「备用接口」就够了。** 其余平台按需再补。
+
+### 11.1 真正「永久免费」的（定价就是 0，不等额度）
+
+| 平台 | 模型名 | 接口地址（填到「备用接口地址」） | 备注 |
+|---|---|---|---|
+| **智谱 AI** ⭐ | `glm-4-flash`<br>`glm-4.7-flash` | `https://open.bigmodel.cn/api/paas/v4` | 128K/200K 上下文，30 并发，中文最好，**首选** |
+| 百度千帆 | `ernie-speed`<br>`ernie-lite`<br>`ernie-tiny` | `https://qianfan.baidubce.com/v2` | 需实名，QPS=50 |
+| 腾讯混元 | `hunyuan-lite` | `https://api.hunyuan.cloud.tencent.com/v1` | 256K 长文摘要几乎零成本 |
+| 讯飞星火 | `lite` | `https://spark-api-open.xf-yun.com/v1` | 永久免费但 QPS=2，慢 |
+| 硅基流动 | `Qwen/Qwen2.5-7B-Instruct` | `https://api.siliconflow.cn/v1` | 9B 以下模型永久免费，**你已有账号** |
+
+### 11.2 送额度的（有到期时间，适合短期猛跑）
+
+| 平台 | 赠送 | 有效期 | 说明 |
+|---|---|---|---|
+| 阿里云百炼 | 每模型 100 万，合计 7000 万+ | 90 天 | `https://dashscope.aliyuncs.com/compatible-mode/v1`，模型 `qwen-flash` |
+| 火山方舟（豆包） | 每日最高 200 万自动刷新 | 每天重置 | `https://ark.cn-beijing.volces.com/api/v3`，**必须先去控制台开通模型** |
+| DeepSeek 官方 | 新用户 300 万 | 30 天 | `https://api.deepseek.com/v1`，模型 `deepseek-chat` |
+| 硅基流动 | 新用户 2000 万 | 永久 | 你已经注册过（余额用完了，但小模型仍免费） |
+
+### 11.3 海外（服务器在香港，能直连）
+
+| 平台 | 模型 | 接口地址 | 说明 |
+|---|---|---|---|
+| Google Gemini | `gemini-2.5-flash` 等 | `https://generativelanguage.googleapis.com/v1beta/openai` | AI Studio 免费层，按日限流，质量高 |
+| Groq | `llama-3.3-70b-versatile` | `https://api.groq.com/openai/v1` | 速度极快，每天约 1000 次 |
+
+### 11.4 推荐组合（零成本，够用）
+
+```
+主接口    硅基流动（有余额就用，没有就自动跳过）
+          ↓ 失败
+备用接口  智谱 glm-4-flash（永久免费，中文最稳）★ 现在就去配这个
+          ↓ 失败
+内置免费通道（已内置，不用配）
+          ↓ 失败
+规则引擎（永远可用）
+```
+
+**四个平台都注册也才 10 分钟，加起来的免费池上亿 token，月成本 ≈ 0。**
+
+### 11.5 注册优先级（按投入产出排）
+
+| 顺序 | 平台 | 值不值得 | 理由 |
+|---|---|---|---|
+| 1 | **智谱** bigmodel.cn | 必注册 | 永久免费 + 中文最好 + 30 并发 |
+| 2 | 硅基流动 siliconflow.cn | 已有 | 小模型永久免费，一个 key 调多家 |
+| 3 | 阿里百炼 bailian.console.aliyun.com | 值得 | 7000 万额度，90 天内随便用 |
+| 4 | 火山方舟 console.volcengine.com/ark | 值得 | 每天 200 万刷新，适合批量 |
+| 5 | 百度千帆 / 腾讯混元 / 讯飞 | 备用 | 都是永久免费，但需实名 |
+
+### 11.6 避坑
+
+```
+· 各平台的「免费」要看清是「零费率」还是「送额度」——后者会过期
+· 智谱别填 glm-5 系列（那是付费的），填 glm-4-flash
+· 火山方舟注册后必须手动「开通模型」，否则调不通
+· 免费层都有速率限制，报 429 就等一会儿，系统会自动降级
+· Key 只显示一次，复制后先存记事本
+· 别把 Key 提交到代码仓库
+```
