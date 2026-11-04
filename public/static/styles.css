@@ -1603,3 +1603,43 @@ ul { margin: 0; padding-left: 18px; }
   0% { background: #fff7cc; }
   100% { background: #fff; }
 }
+/* ---------------- 开放接口文档 ---------------- */
+.apidoc-hero {
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eef4ff, #f3fbf8);
+  border: 1px solid #dbe6ff;
+}
+.apidoc-hero-t { font-size: 20px; font-weight: 800; color: #1a2433; }
+.apidoc-hero-d { margin-top: 8px; font-size: 13px; line-height: 1.8; color: #475569; }
+.apidoc-hero-meta { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.apidoc-hero-meta span {
+  font-size: 11px; padding: 2px 10px; border-radius: 999px;
+  background: #fff; border: 1px solid #dbe6ff; color: #0b5fd6;
+}
+.apidoc-notes { display: flex; flex-direction: column; gap: 5px; }
+.apidoc-note { font-size: 11.5px; line-height: 1.75; color: #5b6675; }
+.apidoc-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.apidoc-row { background: #fff; border: 1px solid #e3e9f2; border-radius: 12px; padding: 12px; }
+.apidoc-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.apidoc-method {
+  flex: none; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 5px;
+  letter-spacing: .3px;
+}
+.apidoc-method.is-get { background: #e8f4ff; color: #0b5fd6; }
+.apidoc-method.is-post { background: #e9fbf1; color: #0e8f5f; }
+.apidoc-path { font-size: 12.5px; font-weight: 700; color: #1a2433; word-break: break-all; }
+.apidoc-copy {
+  margin-left: auto; flex: none; font-size: 10.5px; padding: 2px 8px;
+  border-radius: 7px; border: 1px solid #dbe6f5; background: #f8fbff; color: #0b5fd6;
+  cursor: pointer;
+}
+.apidoc-desc { margin-top: 6px; font-size: 12.5px; color: #334155; }
+.apidoc-params { margin-top: 4px; font-size: 11px; color: #6b7686; line-height: 1.6; }
+.apidoc-params b { color: #475569; }
+.apidoc-code {
+  margin-top: 8px; padding: 10px; border-radius: 9px;
+  background: #0f172a; color: #cfe3ff; font-size: 11px; line-height: 1.7;
+  overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}

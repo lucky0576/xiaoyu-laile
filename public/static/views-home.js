@@ -648,6 +648,7 @@ export async function renderHome(ctx, query) {
         <a href="#/privacy">隐私政策</a><i>·</i>
         <a href="#/terms">用户协议</a><i>·</i>
         <a href="#/disclaimer">免责声明</a><i>·</i>
+        <a href="#/api">开放接口</a><i>·</i>
         <a href="#/contact-us">举报与投诉</a>
       </div>
       <div class="site-foot-meta">
