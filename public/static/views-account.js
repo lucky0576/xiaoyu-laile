@@ -1708,11 +1708,15 @@ export async function renderContacts(ctx) {
       <div id="ct-list">
         ${(res.items || []).length
           ? res.items.map((c) => `<div class="item" data-contact="${ui.esc(c.id)}">
-              <div class="avatar">${ui.esc(ui.initials(c.name))}</div>
+              <div class="avatar">${ui.esc(ui.initials(c.name || c.nickname))}</div>
               <div class="item-body">
-                <div class="item-title">${ui.esc(c.name || '未命名')} ${c.isRegistered ? '<span class="badge ok">已注册</span>' : ''} ${c.invited ? '<span class="badge gray">已邀请</span>' : ''}</div>
-                <div class="item-sub">${ui.esc([c.phone, c.wechat, c.company].filter(Boolean).join(' · '))}</div>
-                <div class="item-meta">来源：${c.source === 'wechat' ? '微信' : '手机'} · ${ui.esc(ui.fmtRelative(c.createdAt))}</div>
+                <div class="item-title">${ui.esc(c.name || c.nickname || '未命名')}${
+                  c.nickname && c.nickname !== c.name ? ` <span class="tiny dim">（${ui.esc(c.nickname)}）</span>` : ''
+                } ${c.isRegistered ? '<span class="badge ok">已注册</span>' : ''} ${c.invited ? '<span class="badge gray">已邀请</span>' : ''}</div>
+                <div class="item-sub">${ui.esc([c.phone, c.wechat, c.company, c.city].filter(Boolean).join(' · '))}</div>
+                <div class="item-meta">来源：${
+                  { wechat: '微信', phone: '手机', manual: '手动新建', listing: '发布收录', contacts: '通讯录' }[c.source] || '其他'
+                } · ${ui.esc(ui.fmtRelative(c.createdAt))}</div>
               </div>
               <div class="row gap6">
                 <button class="btn btn-sm ${c.isRegistered ? '' : 'btn-primary'}" data-invite="${ui.esc(c.id)}">${c.isRegistered ? '发消息' : '邀请'}</button>
@@ -1742,10 +1746,11 @@ export async function renderContacts(ctx) {
             <button class="cbook-x" type="button" aria-label="关闭">✕</button>
           </div>
           <div class="cbook-fields">
-            <label class="cbook-label">姓名 <span class="cbook-req">*必填</span></label>
-            <input class="input" id="nc-name" maxlength="60" placeholder="如：张工">
-            <label class="cbook-label">网名 <span class="tiny dim">（选填）</span></label>
-            <input class="input" id="nc-nickname" maxlength="60" placeholder="如：老张">
+            <label class="cbook-label">姓名 / 网名 <span class="cbook-req">*必填</span></label>
+            <input class="input" id="nc-name" maxlength="60" placeholder="如：张工 / Lucas / John Smith / 老张">
+            <div class="tiny dim" style="margin:-2px 0 4px">中文、英文、网名、缩写都行，不要求真名</div>
+            <label class="cbook-label">别名 <span class="tiny dim">（选填，公司内怎么称呼）</span></label>
+            <input class="input" id="nc-nickname" maxlength="60" placeholder="如：老张 / Lucas">
             <label class="cbook-label">微信账号 <span class="tiny dim">（选填）</span></label>
             <input class="input" id="nc-wechat" maxlength="60" placeholder="如：zhanggong888">
             <label class="cbook-label">联系电话 <span class="tiny dim">（选填）</span></label>
@@ -1770,7 +1775,7 @@ export async function renderContacts(ctx) {
 
         const save = async () => {
           const name = (mask.querySelector('#nc-name').value || '').trim();
-          if (!name) return ui.toast('姓名是必填的', 'err');
+          if (!name) return ui.toast('请填写姓名或网名（中英文都可以）', 'err');
           const body = {
             name,
             nickname: (mask.querySelector('#nc-nickname').value || '').trim(),
@@ -1839,7 +1844,7 @@ export async function renderContacts(ctx) {
       $('#ct-paste')?.addEventListener('click', async () => {
         const text = await ui.promptDialog({
           title: '粘贴导入通讯录',
-          label: '每行一位联系人，格式：姓名,电话,微信号,公司（后三项可省略）',
+          label: '每行一位联系人，格式：姓名/网名,电话,微信号,公司（后三项可省略）\\n中英文名都支持，如 Lucas,13800001111 或 张三,13900002222',
           placeholder: '张三,13800001111,zhangsan,某某公司\n李四,13900002222',
           multiline: true,
           okText: '导入',

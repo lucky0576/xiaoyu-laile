@@ -1168,11 +1168,16 @@ export default function registerAuthUserRoutes(app) {
   app.post('/api/contacts', (req, res) => {
     const user = mustAuth(req);
     const b = req.body || {};
-    const name = str(b.name, 60);
-    if (!name) return fail(res, '请填写姓名', 400, 'name_required');
+    /*
+     * 联系人名字不限定中文：网名、英文名、缩写、带空格的「John Smith」都允许。
+     * 只填网名、不填姓名也可以 —— 直接用网名当显示名，不让用户被卡住。
+     */
+    const nickname = str(b.nickname, 60);
+    const name = str(b.name, 60) || nickname;
+    if (!name) return fail(res, '请填写姓名或网名（中英文都可以）', 400, 'name_required');
     const one = {
       name,
-      nickname: str(b.nickname, 60),
+      nickname,
       wechat: str(b.wechat, 60),
       phone: String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 30),
       company: str(b.company, 100),
