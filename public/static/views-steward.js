@@ -77,7 +77,8 @@ function mineHtml(items) {
     ${items
       .map((s) => {
         const pay = payLabel(s);
-        const needPay = s.status === 'approved' && s.paymentStatus !== 'paid';
+        // 申请提交后就能付：只要没被驳回、钱还没到账，就给付款入口
+        const needPay = s.status !== 'rejected' && s.paymentStatus !== 'paid';
         return `<div class="st-mine">
           <div class="st-mine-head">
             <span class="st-mine-name">${ui.esc(s.kindName || '')}</span>
@@ -138,8 +139,9 @@ export async function renderSteward(ctx) {
       <div class="small muted" style="line-height:1.9">
         · 主理人是<b>独家身份</b>（一个城市 / 一个行业 / 一条渠道只授权一位），所以要收年费，
           避免占坑不用。<br>
-        · 流程：提交申请 → 审核 1~3 个工作日 → 审核通过后付年费 → 管理员确认到账 → 开通一年。<br>
-        · 未通过审核不收费；开通后 30 天内不满意可申请全额退款。<br>
+        · 流程：提交申请（<b>同时即可付款</b>）→ 审核 1~3 个工作日 + 确认到账 → 开通一年。<br>
+        · 审核与付款并行：钱先到、审核后通过，两者都齐了才开通主理人身份。<br>
+        · <b>若审核未通过，已付年费原路全额退回</b>；开通后 30 天内不满意也可申请全额退款。<br>
         · 年费到期前 30 天会提醒续费，不续则自动下架主理人身份。
       </div>
     </div>
@@ -231,7 +233,7 @@ export async function renderSteward(ctx) {
             </label>
           </div>
           <button class="btn btn-primary btn-block mt12" id="st-submit" type="button">提交申请</button>
-          <div class="tiny dim center mt8">1~3 个工作日审核，未通过不收费</div>
+          <div class="tiny dim center mt8">提交后可直接付款，审核 1~3 个工作日；未通过全额退款</div>
         </div>`;
         document.body.appendChild(mask);
         const close = () => mask.remove();
@@ -268,10 +270,16 @@ export async function renderSteward(ctx) {
           btn.disabled = true;
           btn.textContent = '提交中…';
           try {
-            await service.stewardApply(body);
-            ui.toast('已提交，审核通过后会有付款入口', 'ok');
+            const r = await service.stewardApply(body);
+            const app = r?.application || r || {};
             close();
-            ctx.nav(`#/steward?t=${Date.now()}`);
+            ui.toast('申请已提交，可直接付款', 'ok');
+            /*
+             * 提交后直接进付款：审核与付款并行，
+             * 钱到账 + 审核通过 → 开通一年；审核没过则全额退款。
+             */
+            if (app.id) openPay(app.id, app.fee || fee, k.name);
+            else ctx.nav(`#/steward?t=${Date.now()}`);
           } catch (err) {
             ui.toast(err.message || '提交失败', 'err');
             btn.disabled = false;

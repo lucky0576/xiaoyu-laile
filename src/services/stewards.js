@@ -199,7 +199,12 @@ export function review(admin, id, { status = 'approved', reason = '' } = {}) {
   });
 }
 
-/** 用户点「我已付款」——只是声明，等管理员核对到账 */
+/** 用户点「我已付款」——只是声明，等管理员核对到账
+ *
+ * 2026-11 调整：申请提交后就能付款（不再等审核通过），
+ * 所以这里只拦「已驳回」的申请；审核与付款并行，
+ * 两个条件都齐了才算开通（见 isActive）。
+ */
 export function claimPaid(user, id) {
   const rec = col().get(id);
   if (!rec) {
@@ -212,8 +217,8 @@ export function claimPaid(user, id) {
     e.status = 403;
     throw e;
   }
-  if (rec.status !== 'approved') {
-    const e = new Error('审核通过后才能付年费');
+  if (rec.status === 'rejected') {
+    const e = new Error('申请已被驳回，如需继续请重新提交');
     e.status = 400;
     throw e;
   }
