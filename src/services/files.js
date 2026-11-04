@@ -740,7 +740,12 @@ export async function burnVideoTitle(record, title) {
       `drawtext=fontfile=${font.replace(/\\/g, '/').replace(/:/g, '\\:')}` +
       `:textfile=${tmpText.replace(/\\/g, '/').replace(/:/g, '\\:')}` +
       `:fontcolor=white:fontsize=h/18:line_spacing=8` +
-      `:box=1:boxcolor=black@0.5:boxborderw=h/90` +
+      /*
+       * boxborderw 只接受数字，不接受 h/90 这种表达式
+       * （踩过一次：报 "Unable to parse option value h/90"，
+       *   整条 drawtext 初始化失败，标题一张都没烧上去）。
+       */
+      `:box=1:boxcolor=black@0.5:boxborderw=14` +
       `:x=(w-text_w)/2:y=h*0.10:enable='lt(t,8)'`;
 
     const ok = await runFfmpeg([
