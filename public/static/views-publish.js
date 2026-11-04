@@ -1700,6 +1700,13 @@ export async function renderPublish(ctx, params) {
     async mount(root) {
       /* ---------------- 状态 ---------------- */
       let uploaded = (editing?.fileList || []).map((f) => ({ ...f }));
+/*
+ * 用户删掉的文件 id。
+ * 慢网下上传要几十秒，用户等不及先点 ✕ 删掉，
+ * 等上传完成时如果无条件 push 回去，图就又冒出来了 ——
+ * 之前「取消了三次还在」就是这个原因。这里记下来，完成后丢弃。
+ */
+const removedFileIds = new Set();
       /*
        * 主图（封面）选择。
        * 后端 pickCover(files, body.coverId) 早就在读 coverId，但前端一直没传，
@@ -2453,6 +2460,48 @@ export async function renderPublish(ctx, params) {
         </div>`;
       };
 
+      /*
+       * 上传了一张图片（通常是名片/截图）后，自动试着识别联系方式。
+       *
+       * 用户的实际预期：我把名片传上来，联系人/电话/微信/公司就该自动填好，
+       * 而不是还要再点一次「名片 / 截图」按钮。所以这里只做一次、只填空字段。
+       */
+      let autoCardTried = false;
+      const autoRecognizeCard = async (rec, file) => {
+        if (autoCardTried) return;
+        if (!rec || rec.kind !== 'image' || !file) return;
+        const $c = (s) => root.querySelector(s);
+        const nameEl = $c('#pub-contact-name');
+        const phoneEl = $c('#pub-phone');
+        const wechatEl = $c('#pub-wechat');
+        const companyEl = $c('#pub-company');
+        // 用户已经填过就不动，避免覆盖手输内容
+        if ([nameEl, phoneEl, wechatEl, companyEl].some((el) => el && el.value.trim())) return;
+        if (file.size > 8 * 1024 * 1024) return;
+        autoCardTried = true;
+        try {
+          const dataUrl = await ui.readImageAsDataUrl(file);
+          if (!dataUrl || dataUrl.length > 5.5 * 1024 * 1024) return;
+          const r = await service.aiContactImage([dataUrl]);
+          if (!r || !r.ok) return;
+          let n = 0;
+          for (const [el, val] of [
+            [nameEl, r.name],
+            [phoneEl, r.phone],
+            [wechatEl, r.wechat],
+            [companyEl, r.company],
+          ]) {
+            if (!el || !val) continue;
+            if (el.value.trim()) continue;
+            el.value = val;
+            n += 1;
+          }
+          if (n) ui.toast(`已从图片识别并填入 ${n} 项联系信息`, 'ok');
+        } catch {
+          /* 识别失败不影响上传，用户还能手动点「名片 / 截图」 */
+        }
+      };
+
       const uploadOne = async (task) => {
         task.status = 'uploading';
         task.percent = 0;
@@ -2489,10 +2538,21 @@ export async function renderPublish(ctx, params) {
           });
           const rec = res.files?.[0];
           if (!rec) throw new Error('服务端未返回文件信息');
-          uploaded = [...uploaded, rec];
-          task.status = 'done';
-          task.percent = 100;
-          task.fileId = rec.id;
+          if (removedFileIds.has(rec.id)) {
+            /*
+             * 用户在上传期间已经把它删掉了 —— 慢网下一个文件要几十秒，
+             * 等在这里 push 回去，用户就会看到「删了又回来」。
+             */
+            task.discarded = true;
+            task.status = 'done';
+            task.percent = 100;
+          } else {
+            uploaded = [...uploaded, rec];
+            task.status = 'done';
+            task.percent = 100;
+            task.fileId = rec.id;
+            autoRecognizeCard(rec, task.file);
+          }
         } catch (err) {
           task.status = 'error';
           task.error = err.message || '上传失败';
@@ -2747,8 +2807,16 @@ export async function renderPublish(ctx, params) {
       root.querySelector('#pub-files').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-remove]');
         if (!btn) return;
-        uploaded = uploaded.filter((f) => f.id !== btn.dataset.remove);
+        // 拦住事件，别让它顺带触发「点缩略图设为主图」
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.dataset.remove;
+        if (!id) return;
+        removedFileIds.add(id);
+        uploaded = uploaded.filter((f) => f.id !== id);
+        if (coverId === id) coverId = '';
         renderFiles();
+        ui.toast('已移除', 'ok');
       });
 
       // 上传失败的文件可以单独重试，不必重选整批
