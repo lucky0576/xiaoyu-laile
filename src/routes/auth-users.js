@@ -1189,10 +1189,23 @@ export default function registerAuthUserRoutes(app) {
       // 不做拦截，避免用户被卡住
     }
     const result = chatSvc.importContacts(user.id, { source: 'manual', contacts: [one] });
-    if (!result.imported) {
-      return fail(res, '已存在同名或同号码的联系人', 409, 'duplicate');
+    /*
+     * 同名联系人不再报错：按名字匹配到已有记录时会「更新」而不是「新增」，
+     * 用户再存一次同一个人（补个电话/改个公司）应该直接生效，
+     * 而不是弹「已存在同名或同号码的联系人」把人挡回去。
+     */
+    if (!result.imported && !result.updated) {
+      return fail(res, '联系人没存进去，请检查姓名后重试', 409, 'duplicate');
     }
-    return data(res, { contact: result.contacts[0], matched: result.matched }, 201);
+    return data(
+      res,
+      {
+        contact: result.contacts[0] || null,
+        matched: result.matched,
+        updated: result.updated > 0,
+      },
+      result.imported ? 201 : 200,
+    );
   });
 
   /** 导入微信 / 手机通讯录 */
