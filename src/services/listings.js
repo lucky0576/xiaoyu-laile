@@ -837,14 +837,21 @@ function syncContactToBook(user, listing) {
     const company = String(listing.company || '').trim();
     import('./chat.js')
       .then((chatMod) => {
-        const svc = chatMod.default || chatMod;
-        if (!svc.importContacts) return;
-        svc.importContacts(user.id, {
+        // 优先用命名导出：default 里以后要是漏了某个函数，这里也不会静默失效
+        const fn = chatMod.importContacts || (chatMod.default && chatMod.default.importContacts);
+        if (typeof fn !== 'function') {
+          console.warn('[contacts] importContacts 不可用，联系人未收录');
+          return;
+        }
+        const r = fn(user.id, {
           source: 'listing',
           contacts: [{ name: name || user.nickname || '', phone, wechat, company, note: '发布信息时自动收录' }],
         });
+        if (r && (r.imported || r.updated)) {
+          console.log(`[contacts] 已同步联系人 ${name || phone}（新增 ${r.imported} / 更新 ${r.updated}）`);
+        }
       })
-      .catch(() => {});
+      .catch((err) => console.warn('[contacts] 同步通讯录失败:', err.message));
   } catch {
     /* ignore */
   }

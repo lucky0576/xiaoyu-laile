@@ -1026,6 +1026,7 @@ export function meetingPublic(m, viewerId) {
 export function importContacts(userId, { source = 'phone', contacts = [] } = {}) {
   const col = db.collection('contacts');
   const created = [];
+  const updated = [];
   const matched = [];
   let skipped = 0;
   for (const raw of contacts.slice(0, 2000)) {
@@ -1039,15 +1040,40 @@ export function importContacts(userId, { source = 'phone', contacts = [] } = {})
       skipped++;
       continue;
     }
+    /*
+     * 去重口径（2026-11 调整）：
+     *   以前：同手机号 或 同名同来源 → 跳过
+     *   问题：一个人手机号没变、又录了另一位联系人（同号不同名）时，
+     *         第二位永远进不了通讯录 —— 用户反馈「联系人没导入通讯录」。
+     *   现在：以「名字」为主键匹配（用户原话：主要看名字，电话一样没关系）；
+     *         没名字时才退回按手机号匹配。命中就更新，不重复插入。
+     */
     const exists = col.findOne(
-      (c) => c.ownerId === userId && ((phone && c.phone === phone) || (name && c.name === name && c.source === source)),
+      (c) =>
+        c.ownerId === userId &&
+        (name ? c.name === name : Boolean(phone) && c.phone === phone),
     );
-    if (exists) {
-      skipped++;
-      continue;
-    }
     const registered = phone ? users().findOne((u) => u.phone === phone) : null;
     if (registered) matched.push({ userId: registered.id, nickname: registered.nickname, name, phone });
+
+    if (exists) {
+      // 只覆盖有值的字段，避免把已填的信息清空
+      const patch = {
+        updatedAt: new Date().toISOString(),
+        registeredUserId: registered?.id || exists.registeredUserId || '',
+      };
+      if (name) patch.name = name;
+      if (phone) patch.phone = phone;
+      if (wechat) patch.wechat = wechat;
+      if (company) patch.company = company;
+      if (nickname) patch.nickname = nickname;
+      if (city) patch.city = city;
+      if (raw?.note) patch.note = String(raw.note).slice(0, 200);
+      if (raw?.source && !exists.source) patch.source = source;
+      updated.push(col.update(exists.id, patch));
+      continue;
+    }
+
     created.push(
       col.insert({
         id: newId('ct'),
@@ -1066,7 +1092,13 @@ export function importContacts(userId, { source = 'phone', contacts = [] } = {})
       }),
     );
   }
-  return { imported: created.length, skipped, matched, contacts: created.slice(0, 200) };
+  return {
+    imported: created.length,
+    updated: updated.length,
+    skipped,
+    matched,
+    contacts: created.slice(0, 200),
+  };
 }
 
 export function listContacts(userId, { q = '' } = {}) {

@@ -179,10 +179,20 @@ export default function registerBroadcastRoutes(app) {
       const titleText = `【小鱼来了】精选 ${items.length} 条项目`;
       const bodyLines = String(text).split('\n');
       if (bodyLines[0] && bodyLines[0].trim().startsWith('【小鱼来了】')) bodyLines.shift();
+
+      /*
+       * 图上画二维码：
+       *   只选 1 条 → 扫了直达这条信息的分享页
+       *   选了多条 → 扫了进平台首页
+       * 微信里图片会被压缩、链接点不到，二维码是唯一可靠的「下一步」。
+       */
+      const qrTarget = items.length === 1 ? `${baseUrl(req)}/s/${items[0].id}` : baseUrl(req);
       const { buffer, width, height } = await imgMod.renderPng({
         title: titleText,
         body: bodyLines.join('\n'),
         footer: '招商、投资、工资、工程、项目 · 小鱼来了，免费发布需求',
+        qrText: qrTarget,
+        qrCaption: items.length === 1 ? '扫码查看这条' : '扫码看全部',
       });
 
       const fsMod = await import('node:fs');

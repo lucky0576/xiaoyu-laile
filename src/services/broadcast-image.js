@@ -17,10 +17,15 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
+import { qrMatrix } from '../lib/qrcode.js';
 import os from 'node:os';
 import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
+
+function requireQrMatrix(text) {
+  return qrMatrix(String(text), { ecc: 'M', margin: 0 });
+}
 
 const FONT = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc';
 const FONT_FAMILY = 'WenQuanYi Zen Hei, Source Han Sans SC, Noto Sans CJK SC, sans-serif';
@@ -111,9 +116,10 @@ function wrap(text, size, maxWidth) {
 
 /**
  * 生成 SVG。
- * @param {object} p { title, body, footer }
+ * @param {object} p { title, body, footer, qrText, qrCaption }
+ *   qrText 传了就在页面底部画一个二维码（视频/群发图里扫码直达）
  */
-export function buildSvg({ title = '转发文案', body = '', footer = '' } = {}) {
+export function buildSvg({ title = '转发文案', body = '', footer = '', qrText = '', qrCaption = '' } = {}) {
   const maxW = W - PAD * 2;
 
   const titleLines = wrap(title, TITLE_SIZE, maxW);
@@ -170,6 +176,50 @@ export function buildSvg({ title = '转发文案', body = '', footer = '' } = {}
     }
   }
 
+  /* ---------------- 二维码（含在图片里，扫一下就能看原文） ---------------- */
+  if (qrText) {
+    const quiet = 2; // 静区模块数
+    const target = 320; // 二维码像素边长
+    let info = null;
+    try {
+      const mod = requireQrMatrix(qrText);
+      info = mod;
+    } catch {
+      info = null;
+    }
+    if (info && info.size) {
+      const unit = target / (info.size + quiet * 2);
+      const dim = unit * (info.size + quiet * 2);
+      const qx = Math.round((W - dim) / 2);
+      const qy = Math.round(y + 48);
+      // 白底 + 浅边框，避免二维码贴在彩色背景上看不清
+      parts.push(
+        `<rect x="${qx - 12}" y="${qy - 12}" width="${Math.round(dim + 24)}" height="${Math.round(dim + 24)}" rx="12" fill="#ffffff" stroke="#e3e9f2" stroke-width="2"/>`,
+      );
+      let d = '';
+      for (let row = 0; row < info.size; row += 1) {
+        for (let col = 0; col < info.size; col += 1) {
+          if (!info.modules[row][col]) continue;
+          const px = qx + (col + quiet) * unit;
+          const py = qy + (row + quiet) * unit;
+          d += `M${px.toFixed(2)} ${py.toFixed(2)}h${unit.toFixed(2)}v${unit.toFixed(2)}h-${unit.toFixed(2)}z`;
+        }
+      }
+      if (d) parts.push(`<path d="${d}" fill="#111827" shape-rendering="crispEdges"/>`);
+
+      y = qy + dim + 24;
+      const caption = qrCaption || '扫码查看详情';
+      y += 44;
+      parts.push(
+        `<text x="${W / 2}" y="${y}" text-anchor="middle" font-family="${esc(FONT_FAMILY)}" font-size="34" font-weight="700" fill="#111827">${esc(caption)}</text>`,
+      );
+      y += 40;
+      parts.push(
+        `<text x="${W / 2}" y="${y}" text-anchor="middle" font-family="${esc(FONT_FAMILY)}" font-size="26" fill="#8a94a6">${esc(qrText)}</text>`,
+      );
+    }
+  }
+
   const H = Math.max(360, Math.round(y + PAD));
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
@@ -180,10 +230,11 @@ ${parts.join('\n')}
 
 /**
  * 渲染成 PNG。
+ * @param {object} p { title, body, footer, qrText, qrCaption }
  * @returns {Promise<{buffer:Buffer, width:number, height:number}>}
  */
-export async function renderPng({ title, body, footer }) {
-  const svg = buildSvg({ title, body, footer });
+export async function renderPng({ title, body, footer, qrText = '', qrCaption = '' }) {
+  const svg = buildSvg({ title, body, footer, qrText, qrCaption });
   const m = /height="(\d+)"/.exec(svg);
   const height = m ? Number(m[1]) : 0;
 
