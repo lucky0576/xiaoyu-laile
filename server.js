@@ -18,6 +18,7 @@ import notifySvc from './src/services/notify.js';
 import { sweepOtps } from './src/services/auth.js';
 import chunksSvc from './src/services/chunks.js';
 import fileCleanupSvc from './src/services/file-cleanup.js';
+import backupSvc from './src/services/backup.js';
 import { seedIfEmpty } from './scripts/seed.js';
 
 /*
@@ -134,6 +135,21 @@ function startJobs() {
       console.warn('[job:file-cleanup] 首轮失败:', err.message);
     }
   }, 180_000).unref?.();
+
+  /*
+   * 数据快照：每 6 小时一次，保留最近 8 份。
+   * 起因是一次脚本写坏 files.json 导致 1000+ 记录丢失 ——
+   * JSON 数据目录必须有独立快照，不能只靠内存里那一份。
+   */
+  const snapOnce = () => {
+    const r = backupSvc.snapshot();
+    if (r.ok && r.copied) {
+      console.log(`[job:backup] 快照 ${r.copied} 个集合，${r.mb} MB`);
+    }
+    return r;
+  };
+  setTimeout(snapOnce, 120_000).unref?.();
+  run('backup', () => snapOnce(), 6 * 60 * 60_000);
 
   run('file-cleanup', () => {
     const r = fileCleanupSvc.cleanupOrphanFiles({ minAgeHours: 24 });
