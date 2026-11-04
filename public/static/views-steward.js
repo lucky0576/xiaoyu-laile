@@ -319,7 +319,8 @@ export async function renderSteward(ctx) {
               ${
                 pay.wechatQr
                   ? `<img class="pay-qr" src="${ui.esc(ui.safeUrl(pay.wechatQr))}" alt="微信收款码">
-                     <div class="pay-qr-tip">微信「扫一扫」付款</div>`
+                     <div class="pay-qr-tip">微信「扫一扫」付款</div>
+                     ${pay.wechatName ? `<div class="pay-qr-name">收款人：${ui.esc(pay.wechatName)}</div>` : ''}`
                   : '<div class="empty">暂未配置微信收款码，请用银行卡转账</div>'
               }
             </div>
@@ -327,7 +328,8 @@ export async function renderSteward(ctx) {
               ${
                 pay.alipayQr
                   ? `<img class="pay-qr" src="${ui.esc(ui.safeUrl(pay.alipayQr))}" alt="支付宝收款码">
-                     <div class="pay-qr-tip">支付宝「扫一扫」付款</div>`
+                     <div class="pay-qr-tip">支付宝「扫一扫」付款</div>
+                     ${pay.alipayName ? `<div class="pay-qr-name">收款人：${ui.esc(pay.alipayName)}</div>` : ''}`
                   : '<div class="empty">暂未配置支付宝收款码</div>'
               }
             </div>
@@ -341,6 +343,7 @@ export async function renderSteward(ctx) {
                          pay.bankAccount,
                        )}">${ui.esc(pay.bankAccount)}</b></div>
                      </div>
+                     <button class="btn btn-outline btn-block mt8" id="st-copy-card" type="button">复制卡号</button>
                      <div class="pay-qr-tip">转账后请点下方「我已付款」</div>`
                   : '<div class="empty">暂未配置银行卡信息，请联系管理员</div>'
               }
@@ -363,6 +366,11 @@ export async function renderSteward(ctx) {
             p.classList.toggle('hide', p.getAttribute('data-pane') !== b.dataset.mode);
           });
         });
+        mask.querySelector('#st-copy-card')?.addEventListener('click', async () => {
+          const { copyWithFeedback } = await import('./clipboard.js');
+          await copyWithFeedback(String(pay.bankAccount || ''), { okText: '卡号已复制' }, ui);
+        });
+
         mask.querySelector('#st-paid').addEventListener('click', async () => {
           const btn = mask.querySelector('#st-paid');
           btn.disabled = true;
