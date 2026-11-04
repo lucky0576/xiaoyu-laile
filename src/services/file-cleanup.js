@@ -19,9 +19,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import db from '../store/db.js';
-import { UPLOAD_DIR } from '../config.js';
+import { UPLOAD_DIR, DATA_DIR } from '../config.js';
 
 const FILE_ID_RE = /f_[a-z0-9]{6,}/gi;
+
+/**
+ * 枚举所有集合名。
+ *
+ * 不能只靠 db.stats()/db.collections() —— 它们返回的是「已经加载进内存」的集合，
+ * 新进程里刚启动时是空的，会导致「引用 0 个」然后误删全部文件。
+ * 所以直接看 data/collections 目录。
+ */
+function allCollectionNames() {
+  const dir = path.join(DATA_DIR, 'collections');
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((n) => n.endsWith('.json'))
+      .map((n) => n.slice(0, -5));
+  } catch {
+    return Object.keys(db.stats() || {});
+  }
+}
 
 /** 从任意值里递归收集文件 id */
 function collectIds(value, out) {
@@ -43,7 +62,7 @@ function collectIds(value, out) {
 /** 扫描所有集合，返回被引用的 file id 集合 */
 export function referencedFileIds() {
   const out = new Set();
-  const names = Object.keys(db.stats() || {}); // stats(): { 集合名: 条数 }
+  const names = allCollectionNames();
   for (const name of names) {
     if (name === 'files') continue; // files 自己不算引用
     let rows = [];
