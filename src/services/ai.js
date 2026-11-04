@@ -9,7 +9,7 @@
  *
  * 所有对外函数都会在返回值里带上 `source` 字段：'ai' 或 'local'。
  */
-import settingsSvc, { effectiveAiConfig } from './settings.js';
+import settingsSvc, { effectiveAiConfig, effectiveAiBackup } from './settings.js';
 import { config } from '../config.js';
 import { kindOf, listFiles } from './files.js';
 
