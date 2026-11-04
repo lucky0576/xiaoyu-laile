@@ -603,6 +603,26 @@ export async function renderHome(ctx, query) {
         )
         .join('')}
     </div>
+
+    <!-- 想赚点钱 / 想一起做事的人，入口放在发布下面 -->
+    <div class="pb-join">
+      <a class="pb-join-item" href="#/steward">
+        <span class="pb-join-ico">🤝</span>
+        <span class="pb-join-txt">
+          <span class="pb-join-t">成为主理人</span>
+          <span class="pb-join-d">城市 / 行业 / 渠道，独家身份</span>
+        </span>
+        <span class="pb-join-go">›</span>
+      </a>
+      <a class="pb-join-item" href="#/provider">
+        <span class="pb-join-ico">🏢</span>
+        <span class="pb-join-txt">
+          <span class="pb-join-t">成为服务商</span>
+          <span class="pb-join-d">EPC / 设计 / 施工 / 设备</span>
+        </span>
+        <span class="pb-join-go">›</span>
+      </a>
+    </div>
   </div>`;
 
   /*

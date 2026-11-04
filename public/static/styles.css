@@ -1548,3 +1548,27 @@ ul { margin: 0; padding-left: 18px; }
 }
 .as-reason { background: #fef2f2; color: #b91c1c; }
 .as-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+/* ---------------- 首页发布栏：主理人 / 服务商入口 ---------------- */
+.pb-join {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.pb-join-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  text-decoration: none;
+  min-width: 0;
+}
+.pb-join-item:active { background: rgba(255, 255, 255, 0.22); }
+.pb-join-ico { flex: none; font-size: 18px; line-height: 1; }
+.pb-join-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pb-join-t { font-size: 12.5px; font-weight: 800; color: #fff; }
+.pb-join-d { font-size: 10px; color: rgba(255, 255, 255, 0.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-join-go { flex: none; color: rgba(255, 255, 255, 0.9); font-size: 15px; }
