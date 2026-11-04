@@ -2224,6 +2224,34 @@ export async function renderAdminAi(ctx) {
         <br>配置保存在服务器本机，不会随发布包分发出去。
       </div>
 
+      <!-- 一键免费模型：自动填地址+模型，用户只粘 Key -->
+      <div class="ai-free-pick">
+        <div class="ai-free-head">
+          <span class="strong">🆓 一键配置免费模型</span>
+          <span class="tiny dim">点一下自动填好地址和模型，你只粘 Key</span>
+        </div>
+        <div class="ai-free-chips" id="ai-free-chips">
+          <button class="ai-free-chip" type="button" data-free="zhipu">
+            <b>智谱 GLM-4-Flash</b><span>永久免费 · 中文最好</span>
+          </button>
+          <button class="ai-free-chip" type="button" data-free="gemini">
+            <b>Gemini 2.5 Flash</b><span>Google 免费层</span>
+          </button>
+          <button class="ai-free-chip" type="button" data-free="groq">
+            <b>Groq Llama-3.3</b><span>免费 · 速度极快</span>
+          </button>
+          <button class="ai-free-chip" type="button" data-free="bailian">
+            <b>阿里百炼 Qwen-Flash</b><span>新用户 7000 万额度</span>
+          </button>
+          <button class="ai-free-chip" type="button" data-free="silicon">
+            <b>硅基流动 小模型</b><span>9B 以下永久免费</span>
+          </button>
+        </div>
+        <div class="tiny dim mt6" id="ai-free-hint">
+          填的是下方「备用接口」，不会动你现有的主接口
+        </div>
+      </div>
+
       <div class="field">
         <label>服务商</label>
         <select class="select" id="ai-preset">
@@ -2322,6 +2350,74 @@ export async function renderAdminAi(ctx) {
         const models = (opt.dataset.models || '').split(',').filter(Boolean);
         if (url) $('#ai-baseurl').value = url;
         if (models.length) $('#ai-model').value = models[0];
+      });
+
+      /* ---------------- 一键配置免费模型（只填备用接口） ---------------- */
+      const FREE_PRESETS = {
+        zhipu: {
+          base: 'https://open.bigmodel.cn/api/paas/v4',
+          model: 'glm-4-flash',
+          name: '智谱 GLM-4-Flash',
+          register: 'https://bigmodel.cn',
+          tip: '手机号注册 → 实名 → API Keys 新建 → 复制（注意中间的「.」）',
+        },
+        gemini: {
+          base: 'https://generativelanguage.googleapis.com/v1beta/openai',
+          model: 'gemini-2.5-flash',
+          name: 'Gemini 2.5 Flash',
+          register: 'https://aistudio.google.com/apikey',
+          tip: 'Google 账号登录 → Create API key → 复制',
+        },
+        groq: {
+          base: 'https://api.groq.com/openai/v1',
+          model: 'llama-3.3-70b-versatile',
+          name: 'Groq Llama-3.3',
+          register: 'https://console.groq.com/keys',
+          tip: '邮箱注册 → API Keys → Create → 复制',
+        },
+        bailian: {
+          base: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+          model: 'qwen-flash',
+          name: '阿里百炼 Qwen-Flash',
+          register: 'https://bailian.console.aliyun.com',
+          tip: '阿里云账号 → 开通百炼 → API-KEY 管理 → 创建',
+        },
+        silicon: {
+          base: 'https://api.siliconflow.cn/v1',
+          model: 'Qwen/Qwen2.5-7B-Instruct',
+          name: '硅基流动 小模型',
+          register: 'https://cloud.siliconflow.cn/account/ak',
+          tip: '你已有账号 → 密钥管理 → 复制（小模型不扣余额）',
+        },
+      };
+
+      $('#ai-free-chips')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-free]');
+        if (!btn) return;
+        const key = btn.getAttribute('data-free');
+        const p = FREE_PRESETS[key];
+        if (!p) return;
+        const bUrl = $('#ai-backup-baseurl');
+        const bModel = $('#ai-backup-model');
+        const bKey = $('#ai-backup-key');
+        if (!bUrl || !bModel) return;
+        bUrl.value = p.base;
+        bModel.value = p.model;
+        // 高亮一下，让用户看到确实填进去了
+        [bUrl, bModel].forEach((el) => {
+          el.classList.add('ai-field-flash');
+          setTimeout(() => el.classList.remove('ai-field-flash'), 1200);
+        });
+        const hint = $('#ai-free-hint');
+        if (hint) {
+          hint.innerHTML = `已填入 <b>${ui.esc(p.name)}</b> 的地址和模型 →
+            现在去 <a href="${ui.esc(p.register)}" target="_blank" rel="noopener" style="color:#0b74ff">${ui.esc(
+              p.register,
+            )}</a> 注册拿 Key，粘到下面的「备用 Key」框里，点保存。<br><span class="dim">${ui.esc(p.tip)}</span>`;
+        }
+        bKey?.focus();
+        bKey?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        ui.toast(`已填入 ${p.name}，请粘贴 Key`, 'ok');
       });
 
       const collect = () => {

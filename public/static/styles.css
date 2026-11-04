@@ -1572,3 +1572,34 @@ ul { margin: 0; padding-left: 18px; }
 .pb-join-t { font-size: 12.5px; font-weight: 800; color: #fff; }
 .pb-join-d { font-size: 10px; color: rgba(255, 255, 255, 0.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-join-go { flex: none; color: rgba(255, 255, 255, 0.9); font-size: 15px; }
+/* ---------------- 一键配置免费模型 ---------------- */
+.ai-free-pick {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eef7ff, #f2fdf8);
+  border: 1px solid #d5e8fb;
+}
+.ai-free-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ai-free-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ai-free-chip {
+  flex: 1 1 148px;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #dbe6f5;
+  text-align: left;
+  cursor: pointer;
+}
+.ai-free-chip b { font-size: 12.5px; color: #1a2433; }
+.ai-free-chip span { font-size: 10.5px; color: #6b7686; }
+.ai-free-chip:active { background: #f2f9ff; border-color: #0b74ff; }
+.ai-field-flash { animation: aiFlash 1.1s ease; }
+@keyframes aiFlash {
+  0% { background: #fff7cc; }
+  100% { background: #fff; }
+}
