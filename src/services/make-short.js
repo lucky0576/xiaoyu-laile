@@ -140,11 +140,11 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
       // 城市 / 行业 小字
       `[withtitle]drawtext=fontfile=${escPath(font)}:text='${metaLine.replace(/'/g, '')}':fontcolor=white@0.85:fontsize=30:` +
         `x=(w-text_w)/2:y=h*0.30+h*0.20[t2]`,
-      // 底部品牌条
-      `[t2]drawtext=fontfile=${escPath(font)}:text='小鱼来了 · 免费发布产业需求':fontcolor=white@0.9:fontsize=30:` +
-        `box=1:boxcolor=black@0.45:boxborderw=18:x=(w-text_w)/2:y=h-210[t3]`,
+      // 底部品牌条（放在二维码上方，避免被二维码盖住）
+      `[t2]drawtext=fontfile=${escPath(font)}:text='小鱼来了 · 免费发布产业需求':fontcolor=white@0.92:fontsize=28:` +
+        `box=1:boxcolor=black@0.5:boxborderw=16:x=(w-text_w)/2:y=h-350[t3]`,
       // 二维码缩放后叠加在底部中间
-      `[1:v]scale=200:200[qr]`,
+      `[1:v]scale=210:210[qr]`,
       `[t3][qr]overlay=(W-w)/2:H-h-70:format=auto[out]`,
     ].join(';');
 
