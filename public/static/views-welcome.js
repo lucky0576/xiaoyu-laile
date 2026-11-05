@@ -20,10 +20,7 @@
 import * as ui from './ui.js';
 import { service } from './api.js';
 
-const SLOGAN_MAIN = '招商引资、产业落地';
-const SLOGAN_SUB = '投融资（创业——IPO）';
-const SLOGAN_TAIL = '项目和工程';
-const SLOGAN_END = '小鱼来了';
+// 大字标题固定为品牌名，宣传语放在下面小字（2026-11 调整）
 const WAIT_SECONDS = 30;
 
 export async function renderWelcome(ctx) {
@@ -49,11 +46,11 @@ export async function renderWelcome(ctx) {
       <div class="aw-head-note">产业信息 · 短视频 · AI</div>
     </header>
 
-    <h1 class="aw-title aw-rise" style="--d:60ms">
-      ${ui.esc(SLOGAN_MAIN)}<span class="aw-br"></span>${ui.esc(SLOGAN_SUB)}<span class="aw-br"></span>${ui.esc(SLOGAN_TAIL)}<span class="aw-br"></span><span class="aw-accent">${ui.esc(SLOGAN_END)}</span>
-    </h1>
-
-    <p class="aw-lead aw-rise" style="--d:120ms">
+    <h1 class="aw-hero-title aw-rise" style="--d:60ms">小鱼来了</h1>
+    <p class="aw-hero-sub aw-rise" style="--d:100ms">
+      招商引资 · 产业落地 · 投融资（创业→IPO）· 项目和工程
+    </p>
+    <p class="aw-lead aw-rise" style="--d:140ms">
       让每一条好项目，都被对的人看见。
     </p>
 
@@ -72,7 +69,6 @@ export async function renderWelcome(ctx) {
               ? `<img class="aw-video-el" src="${ui.esc(ui.safeUrl(leadCover))}" alt="">`
               : '<div class="aw-video-ph">🎬</div>'
         }
-        <a class="aw-video-link" href="#/shorts" aria-label="进入短视频"></a>
 
         <div class="aw-video-top">
           <span class="aw-chip">
@@ -85,7 +81,11 @@ export async function renderWelcome(ctx) {
           }
         </div>
 
-        <button class="aw-play hide" id="wl-hero-play" type="button" aria-label="播放预览">▶</button>
+        <!-- 中间提示：点击全屏播放（不再用小箭头按钮） -->
+        <button class="aw-fs-hint" id="wl-hero-play" type="button">
+          <span class="aw-fs-ico">▶</span>
+          <span class="aw-fs-text">点击全屏播放</span>
+        </button>
 
         <div class="aw-video-bottom">
           <div class="aw-video-title">${ui.esc((lead && lead.title) || '项目现场 · 路演 · 工厂实拍')}</div>
@@ -158,14 +158,45 @@ export async function renderWelcome(ctx) {
       }, 1000);
       root.querySelector('#wl-enter')?.addEventListener('click', enter);
 
-      /* 短视频 5 秒预览（全浏览器兜底，逻辑同上一版） */
+      /* 短视频 5 秒预览 → 中间提示「点击全屏播放」 */
       const video = root.querySelector('#wl-hero-video');
       const playBtn = root.querySelector('#wl-hero-play');
       const PREVIEW_SECONDS = 5;
+
+      const goFullscreen = async () => {
+        if (!video) {
+          ctx.nav('#/shorts');
+          return;
+        }
+        try {
+          video.muted = false;
+          const soundBtn = root.querySelector('#wl-sound');
+          if (soundBtn) soundBtn.textContent = '🔊';
+          // iOS Safari 只认 webkitEnterFullscreen
+          if (typeof video.webkitEnterFullscreen === 'function') {
+            video.webkitEnterFullscreen();
+            video.play().catch(() => {});
+            return;
+          }
+          if (video.requestFullscreen) {
+            await video.requestFullscreen();
+            video.controls = true;
+            await video.play().catch(() => {});
+            return;
+          }
+          ctx.nav('#/shorts');
+        } catch {
+          ctx.nav('#/shorts');
+        }
+      };
+
       if (video) {
         video.muted = true;
         video.loop = false;
         let previewTimer = null;
+        const showHint = () => playBtn?.classList.add('show');
+        const hideHint = () => playBtn?.classList.remove('show');
+
         const stopAtPreview = () => {
           clearTimeout(previewTimer);
           previewTimer = setTimeout(() => {
@@ -174,7 +205,7 @@ export async function renderWelcome(ctx) {
             } catch {
               /* ignore */
             }
-            playBtn?.classList.remove('hide');
+            showHint();
           }, PREVIEW_SECONDS * 1000);
         };
         const startPreview = () => {
@@ -183,18 +214,17 @@ export async function renderWelcome(ctx) {
           } catch {
             /* ignore */
           }
-          playBtn?.classList.add('hide');
+          hideHint();
           const p = video.play();
-          if (p && p.catch) {
-            p.catch(() => playBtn?.classList.remove('hide'));
-          }
+          if (p && p.catch) p.catch(() => showHint());
           stopAtPreview();
         };
+
         video.addEventListener('playing', () => {
-          playBtn?.classList.add('hide');
+          hideHint();
           stopAtPreview();
         });
-        video.addEventListener('ended', () => playBtn?.classList.remove('hide'));
+        video.addEventListener('ended', showHint);
         video.addEventListener(
           'canplay',
           () => {
@@ -204,13 +234,13 @@ export async function renderWelcome(ctx) {
         );
         startPreview();
         setTimeout(() => {
-          if (video.paused && !video.ended) playBtn?.classList.remove('hide');
+          if (video.paused && !video.ended) showHint();
         }, 800);
 
         playBtn?.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          startPreview();
+          goFullscreen();
         });
 
         const soundBtn = root.querySelector('#wl-sound');
