@@ -3751,6 +3751,79 @@ const removedFileIds = new Set();
         );
       });
 
+      /*
+       * 发布成功后问一句「要不要生成短视频」。
+       * 用户诉求：项目发布后可选 5 / 10 / 30 秒，并且配语音。
+       * 生成在后台做（十几到几十秒），所以这里给出明确进度提示。
+       */
+      const askShortVideo = (listing) =>
+        new Promise((resolve) => {
+          if (!listing || !listing.id) return resolve(false);
+          let seconds = 10;
+          let voice = true;
+          const mask = document.createElement('div');
+          mask.className = 'cbook-mask';
+          mask.innerHTML = `<div class="cbook-sheet">
+            <div class="cbook-head">
+              <div>
+                <div class="strong">🎬 要不要生成短视频？</div>
+                <div class="tiny dim">自动带项目标题、二维码，可配旁白朗读</div>
+              </div>
+              <button class="cbook-x" type="button" aria-label="关闭">✕</button>
+            </div>
+            <div style="display:flex;gap:8px;margin:12px 0 6px">
+              ${[5, 10, 30]
+                .map(
+                  (s) =>
+                    `<button class="btn btn-sm ${s === seconds ? 'btn-primary' : ''}" type="button" data-sec="${s}" style="flex:1">${s} 秒</button>`,
+                )
+                .join('')}
+            </div>
+            <label class="cbook-label" style="display:flex;align-items:center;gap:8px;margin-top:10px">
+              <input type="checkbox" id="sv-voice" ${voice ? 'checked' : ''}>
+              <span>配旁白（自动朗读标题与城市行业）</span>
+            </label>
+            <div class="tiny dim mt6">生成期间大约需要 10~40 秒，可以先去忙别的，完成后会在短视频列表里</div>
+            <div class="row gap8 mt12">
+              <button class="btn btn-primary grow" id="sv-go" type="button">生成短视频</button>
+              <button class="btn grow" id="sv-skip" type="button">不用了</button>
+            </div>
+          </div>`;
+          document.body.appendChild(mask);
+          const close = (v) => {
+            mask.remove();
+            resolve(v);
+          };
+          mask.querySelector('.cbook-x').addEventListener('click', () => close(false));
+          mask.querySelector('#sv-skip').addEventListener('click', () => close(false));
+          mask.addEventListener('click', (e) => {
+            if (e.target === mask) close(false);
+          });
+          mask.querySelectorAll('[data-sec]').forEach((b) => {
+            b.addEventListener('click', () => {
+              seconds = Number(b.getAttribute('data-sec')) || 10;
+              mask.querySelectorAll('[data-sec]').forEach((x) => x.classList.toggle('btn-primary', x === b));
+            });
+          });
+          mask.querySelector('#sv-go').addEventListener('click', async () => {
+            voice = Boolean(mask.querySelector('#sv-voice')?.checked);
+            close(true);
+            ui.showLoading(`正在生成 ${seconds} 秒短视频…`);
+            try {
+              const r = await service.makeShort(listing.id, { seconds, voice });
+              ui.hideLoading();
+              ui.toast(
+                r && r.voiceApplied ? '短视频已生成（含旁白）' : '短视频已生成（无旁白）',
+                'ok',
+              );
+              ctx.nav('#/shorts');
+            } catch (err) {
+              ui.hideLoading();
+              ui.toast(err.message || '生成失败', 'err');
+            }
+          });
+        });
+
       /* ---------------- 提交 ---------------- */
       const submit = async (publishNow) => {
         if (busy) return;
@@ -3845,6 +3918,7 @@ const removedFileIds = new Set();
               }
             }
             ui.toast(publishNow ? '发布成功！' : '已存为草稿', 'ok');
+            if (publishNow) await askShortVideo(res.listing);
             ctx.nav(`#/detail/${res.listing.id}`);
           }
         } catch (err) {

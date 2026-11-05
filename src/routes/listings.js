@@ -119,8 +119,21 @@ export default function registerListingRoutes(app) {
     if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
     try {
       const svc = await import('../services/make-short.js');
-      const r = await svc.makeShortForListing({ listing, user, baseUrl: baseUrl(req) });
-      return data(res, { feed: r.feed, existed: r.existed }, r.existed ? 200 : 201);
+      const rawSeconds = Number(req.body?.seconds) || 12;
+      const seconds = [5, 10, 20, 30, 60].includes(rawSeconds) ? rawSeconds : 12;
+      const voice = req.body?.voice !== false;
+      const r = await svc.makeShortForListing({
+        listing,
+        user,
+        baseUrl: baseUrl(req),
+        seconds,
+        voice,
+      });
+      return data(
+        res,
+        { feed: r.feed, existed: r.existed, voiceApplied: r.voiceApplied, duration: r.duration },
+        r.existed ? 200 : 201,
+      );
     } catch (err) {
       if (err.status) return fail(res, err.message, err.status, err.code || 'make_short_failed');
       throw err;

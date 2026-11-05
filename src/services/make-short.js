@@ -96,9 +96,15 @@ function coverImageOf(listing) {
 
 /**
  * 生成视频文件并登记为附件
- * @returns {Promise<{record:object, width:number, height:number, duration:number}|null>}
+ * @param {object} p
+ * @param {object} p.listing 信息
+ * @param {object} p.user 发布者
+ * @param {string} p.baseUrl 站点地址（二维码用）
+ * @param {number} p.seconds 目标时长：5 / 10 / 30（默认 12）
+ * @param {boolean} p.voice 是否配旁白（默认 true）
+ * @returns {Promise<{record:object, width:number, height:number, duration:number, voiceApplied:boolean}|null>}
  */
-export async function renderListingVideo({ listing, user, baseUrl = '' }) {
+export async function renderListingVideo({ listing, user, baseUrl = '', seconds = DURATION, voice = true }) {
   if (!listing) return null;
   if (!(await ffmpegOk())) throw httpError(500, '服务器缺少 ffmpeg，暂时无法生成视频');
   const font = cjkFont();
@@ -114,6 +120,7 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
   const tmpTitle = path.join(os.tmpdir(), `mkts-${stamp}.txt`);
   const tmpQr = path.join(os.tmpdir(), `mkts-${stamp}-qr.png`);
   const tmpOut = path.join(os.tmpdir(), `mkts-${stamp}.mp4`);
+  let ttsFile = null;
 
   try {
     /* 标题分两段：主标题按 46px 折行，最多 4 行 */
@@ -130,6 +137,34 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
     const industry = (listing.industries || [])[0];
     const ind = typeof industry === 'string' ? industry : industry?.name || '';
     const metaLine = [city, ind].filter(Boolean).join(' · ') || '小鱼来了 · 产业信息';
+
+    /* ---------- 旁白 ---------- */
+    let audioDuration = 0;
+    let voiceApplied = false;
+    if (voice) {
+      try {
+        const ttsMod = await import('./tts.js');
+        const narration = [title, metaLine, '扫码查看项目详情，或上小鱼来了发布需求。']
+          .filter(Boolean)
+          .join('。')
+          .replace(/。+/g, '。');
+        const t = await ttsMod.synthesize(narration);
+        if (t && t.path) {
+          ttsFile = t.path;
+          audioDuration = t.duration || 0;
+          voiceApplied = true;
+        }
+      } catch {
+        /* TTS 不可用就退化成无声视频 */
+      }
+    }
+
+    /*
+     * 时长：至少是用户选的秒数；如果旁白更长，就顺延到旁白结束 +1 秒，
+     * 否则语音会被硬切掉半句。
+     */
+    const target = Math.max(Number(seconds) || DURATION, voiceApplied ? Math.ceil(audioDuration) + 1 : 0);
+    const total = Math.min(Math.max(target, 5), 90);
 
     const filter = [
       // 底图：铺满 + 轻微压暗
@@ -148,22 +183,25 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
       `[t3][qr]overlay=(W-w)/2:H-h-70:format=auto[out]`,
     ].join(';');
 
-    await execFileAsync(
-      'ffmpeg',
-      [
-        '-y', '-loglevel', 'error',
-        '-loop', '1', '-i', cover.path,
-        '-i', tmpQr,
-        '-f', 'lavfi', '-t', String(DURATION), '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
-        '-filter_complex', filter,
-        '-map', '[out]', '-map', '2:a',
-        '-t', String(DURATION), '-r', String(FPS),
-        '-c:v', 'libx264', '-crf', '27', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-threads', '2',
-        '-c:a', 'aac', '-b:a', '96k', '-shortest',
-        '-movflags', '+faststart', '-f', 'mp4', tmpOut,
-      ],
-      { timeout: 180000, maxBuffer: 4 * 1024 * 1024 },
+    const args = [
+      '-y', '-loglevel', 'error',
+      '-loop', '1', '-i', cover.path,
+      '-i', tmpQr,
+    ];
+    if (voiceApplied && ttsFile) {
+      args.push('-i', ttsFile);
+    } else {
+      args.push('-f', 'lavfi', '-t', String(total), '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+    }
+    args.push(
+      '-filter_complex', filter,
+      '-map', '[out]', '-map', '2:a',
+      '-t', String(total), '-r', String(FPS),
+      '-c:v', 'libx264', '-crf', '27', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-threads', '2',
+      '-c:a', 'aac', '-b:a', '96k', '-shortest',
+      '-movflags', '+faststart', '-f', 'mp4', tmpOut,
     );
+    await execFileAsync('ffmpeg', args, { timeout: 180000, maxBuffer: 4 * 1024 * 1024 });
 
     if (!fs.existsSync(tmpOut)) throw httpError(500, '视频生成失败');
     const st = fs.statSync(tmpOut);
@@ -176,9 +214,10 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
       opts: { extract: false, ownerId: user?.id || '', listingId: listing.id },
     });
 
-    return { record, width: W, height: H, duration: DURATION };
+    return { record, width: W, height: H, duration: total, voiceApplied };
   } finally {
-    for (const p of [tmpTitle, tmpQr, tmpOut]) {
+    for (const p of [tmpTitle, tmpQr, tmpOut, ttsFile]) {
+      if (!p) continue;
       try {
         fs.unlinkSync(p);
       } catch {
@@ -190,17 +229,23 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
 
 /**
  * 给信息生成短视频并创建 feed（同一信息只保留一条自动短视频）
+ * @param {object} p
+ * @param {object} p.listing
+ * @param {object} p.user
+ * @param {string} p.baseUrl
+ * @param {number} p.seconds 5 / 10 / 30
+ * @param {boolean} p.voice 是否配旁白
  */
-export async function makeShortForListing({ listing, user, baseUrl = '' }) {
+export async function makeShortForListing({ listing, user, baseUrl = '', seconds = DURATION, voice = true }) {
   const feedsCol = db.collection('feeds');
   const existing = feedsCol.findOne(
     (f) => f.listingId === listing.id && f.type === 'short' && f.autoMade,
   );
   if (existing) {
-    return { feed: existing, existed: true };
+    return { feed: existing, existed: true, voiceApplied: Boolean(existing.voiceApplied) };
   }
 
-  const made = await renderListingVideo({ listing, user, baseUrl });
+  const made = await renderListingVideo({ listing, user, baseUrl, seconds, voice });
   if (!made) throw httpError(500, '视频生成失败');
 
   const feedsSvc = await import('./feeds.js');
@@ -218,8 +263,13 @@ export async function makeShortForListing({ listing, user, baseUrl = '' }) {
     },
     files: [made.record],
   });
-  feedsCol.update(feed.id, { autoMade: true, autoMadeAt: new Date().toISOString() });
-  return { feed, existed: false };
+  feedsCol.update(feed.id, {
+    autoMade: true,
+    autoMadeAt: new Date().toISOString(),
+    voiceApplied: Boolean(made.voiceApplied),
+    durationSec: made.duration,
+  });
+  return { feed, existed: false, voiceApplied: Boolean(made.voiceApplied), duration: made.duration };
 }
 
 export default { renderListingVideo, makeShortForListing };
