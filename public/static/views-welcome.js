@@ -41,23 +41,33 @@ export async function renderWelcome(ctx) {
 
     <div class="wl-slogan">${ui.esc(SLOGAN)}</div>
 
-    <!-- ① 短视频 -->
-    <a class="wl-block wl-shorts" href="#/shorts">
-      <div class="wl-shorts-media">
+    <!-- ① 短视频：直接播放（静音自动播，点一下进短视频页） -->
+    <div class="wl-hero">
+      ${
+        leadVideo
+          ? `<video class="wl-hero-video" id="wl-hero-video"
+               src="${ui.esc(ui.safeUrl(leadVideo))}"
+               ${leadCover ? `poster="${ui.esc(ui.safeUrl(leadCover))}"` : ''}
+               muted autoplay playsinline loop preload="auto"></video>`
+          : leadCover
+            ? `<img class="wl-hero-video" src="${ui.esc(ui.safeUrl(leadCover))}" alt="">`
+            : '<div class="wl-hero-ph">🎬</div>'
+      }
+      <div class="wl-hero-mask"></div>
+      <a class="wl-hero-link" href="#/shorts" aria-label="进入短视频"></a>
+      <div class="wl-hero-top">
+        <span class="wl-hero-tag">🎬 短视频</span>
         ${
           leadVideo
-            ? `<video src="${ui.esc(ui.safeUrl(leadVideo))}" ${leadCover ? `poster="${ui.esc(ui.safeUrl(leadCover))}"` : ''} muted autoplay playsinline loop preload="metadata"></video>`
-            : leadCover
-              ? `<img src="${ui.esc(ui.safeUrl(leadCover))}" alt="">`
-              : '<div class="wl-shorts-ph">🎬</div>'
+            ? '<button class="wl-sound" id="wl-sound" type="button" aria-label="声音">🔇</button>'
+            : ''
         }
       </div>
-      <div class="wl-shorts-body">
-        <div class="wl-block-t">🎬 短视频</div>
-        <div class="wl-block-d">${ui.esc((lead && lead.title) || '项目现场、路演、工厂实拍')}</div>
-        <div class="wl-block-go">刷一刷 ›</div>
+      <div class="wl-hero-info">
+        <div class="wl-hero-title">${ui.esc((lead && lead.title) || '项目现场、路演、工厂实拍')}</div>
+        <div class="wl-hero-go">刷一刷全部短视频 ›</div>
       </div>
-    </a>
+    </div>
 
     <!-- ② AI 搜索 -->
     <form class="wl-block wl-search" id="wl-search-form">
@@ -117,6 +127,33 @@ export async function renderWelcome(ctx) {
       }, 1000);
 
       root.querySelector('#wl-enter')?.addEventListener('click', enter);
+
+      /* 短视频直接播：muted + autoplay 是浏览器允许自动播放的唯一方式 */
+      const video = root.querySelector('#wl-hero-video');
+      if (video) {
+        video.muted = true;
+        const tryPlay = () => {
+          const p = video.play();
+          if (p && p.catch) p.catch(() => {});
+        };
+        tryPlay();
+        // 有些浏览器要等 canplay 才肯播
+        video.addEventListener('canplay', tryPlay, { once: true });
+
+        /* 声音开关：点一下取消静音并从头播 */
+        const soundBtn = root.querySelector('#wl-sound');
+        soundBtn?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          video.muted = !video.muted;
+          if (!video.muted) {
+            tryPlay();
+            soundBtn.textContent = '🔊';
+          } else {
+            soundBtn.textContent = '🔇';
+          }
+        });
+      }
 
       /* AI 搜索：没有登录也能搜（走列表关键词），登录后可用 AI 精排 */
       root.querySelector('#wl-search-form')?.addEventListener('submit', (e) => {
