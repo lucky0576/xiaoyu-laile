@@ -1,27 +1,31 @@
 /**
- * 小鱼来了 — 引导页（#/welcome）
+ * 小鱼来了 — 引导页（Apple 风格重设计版）
  *
- * 用户需求：主页前面加一个引导页，从上到下依次是
- *   ① 短视频
- *   ② AI 搜索 横栏
- *   ③ 发布信息 横栏
- *   30 秒后自动进主页，也可以点「立即进入」
- *   广告语：招商引资、产业落地、投融资（创业——IPO）、项目和工程，小鱼来了
+ * 设计语言：
+ *   · 浅色底（#f5f5f7）+ 顶部极淡的彩色光晕，接近 iOS 的克制感
+ *   · 大字号标题、紧字距、深墨色（#1d1d1f），关键短语用品牌渐变
+ *   · 卡片：白底 + 22~28px 圆角 + 极轻阴影，不使用重色块
+ *   · 毛玻璃胶囊（backdrop-filter），只在需要的地方出现
+ *   · 黑色胶囊主按钮（Apple 的默认 CTA）
+ *   · 入场动画：自下而上 + 淡入，逐块错开 60ms
+ *   · 支持深色模式（prefers-color-scheme）
  *
- * 为什么单独一页而不是弹层：
- *   引导页要有「品牌第一屏」的仪式感，弹层会被当成广告直接关掉。
- *   这一页只在一次会话里出现一次（sessionStorage 记着），
- *   之后直接进主页，不会烦人。
+ * 功能不变：
+ *   ① 短视频 5 秒预览（全浏览器兜底）
+ *   ② AI 搜索横栏
+ *   ③ 发布信息横栏
+ *   30 秒倒计时自动进首页，也可立即进入
  */
 
 import * as ui from './ui.js';
 import { service } from './api.js';
 
-const SLOGAN = '招商引资、产业落地、投融资（创业——IPO）、项目和工程，小鱼来了';
+const SLOGAN_MAIN = '招商引资、产业落地、投融资';
+const SLOGAN_SUB = '（创业——IPO）、项目和工程';
+const SLOGAN_END = '小鱼来了';
 const WAIT_SECONDS = 30;
 
 export async function renderWelcome(ctx) {
-  /* 短视频：取 3 条，第一条做背景预览 */
   let shorts = [];
   try {
     const r = await service.feeds({ type: 'short', limit: 3 });
@@ -33,122 +37,133 @@ export async function renderWelcome(ctx) {
   const leadVideo = lead && (lead.videoUrl || (lead.video && lead.video.url));
   const leadCover = lead && (lead.coverUrl || (lead.cover && lead.cover.url));
 
-  const html = `<div class="welcome-page">
-    <div class="wl-brand">
-      <img src="/static/logo.png" alt="小鱼来了" width="150" height="22">
-      <span class="wl-brand-sub">产业信息 · 短视频 · AI</span>
-    </div>
+  const html = `<div class="aw-page">
+    <div class="aw-glow"></div>
 
-    <div class="wl-slogan">${ui.esc(SLOGAN)}</div>
+    <header class="aw-head aw-rise" style="--d:0ms">
+      <div class="aw-wordmark">
+        <span class="aw-dot"></span>
+        <span class="aw-name">小鱼来了</span>
+      </div>
+      <div class="aw-head-note">产业信息 · 短视频 · AI</div>
+    </header>
 
-    <!-- ① 短视频：5 秒预览，自动播放；不支持自动播的浏览器显示「点击播放」 -->
-    <div class="wl-hero">
-      ${
-        leadVideo
-          ? `<video class="wl-hero-video" id="wl-hero-video"
-               src="${ui.esc(ui.safeUrl(leadVideo))}"
-               ${leadCover ? `poster="${ui.esc(ui.safeUrl(leadCover))}"` : ''}
-               muted autoplay playsinline webkit-playsinline x5-playsinline
-               x5-video-player-type="h5-page" disablePictureInPicture
-               preload="auto"></video>`
-          : leadCover
-            ? `<img class="wl-hero-video" src="${ui.esc(ui.safeUrl(leadCover))}" alt="">`
-            : '<div class="wl-hero-ph">🎬</div>'
-      }
-      <div class="wl-hero-mask"></div>
-      <a class="wl-hero-link" href="#/shorts" aria-label="进入短视频"></a>
-      <div class="wl-hero-top">
-        <span class="wl-hero-tag">🎬 短视频 · 5 秒预览</span>
+    <h1 class="aw-title aw-rise" style="--d:60ms">
+      ${ui.esc(SLOGAN_MAIN)}<span class="aw-br"></span>${ui.esc(SLOGAN_SUB)}<span class="aw-br"></span><span class="aw-accent">${ui.esc(SLOGAN_END)}</span>
+    </h1>
+
+    <p class="aw-lead aw-rise" style="--d:120ms">
+      让每一条好项目，都被对的人看见。
+    </p>
+
+    <!-- ① 短视频：5 秒预览 -->
+    <section class="aw-video aw-rise" style="--d:180ms">
+      <div class="aw-video-frame">
         ${
           leadVideo
-            ? '<button class="wl-sound" id="wl-sound" type="button" aria-label="声音">🔇</button>'
-            : ''
+            ? `<video class="aw-video-el" id="wl-hero-video"
+                 src="${ui.esc(ui.safeUrl(leadVideo))}"
+                 ${leadCover ? `poster="${ui.esc(ui.safeUrl(leadCover))}"` : ''}
+                 muted autoplay playsinline webkit-playsinline x5-playsinline
+                 x5-video-player-type="h5-page" disablePictureInPicture
+                 preload="auto"></video>`
+            : leadCover
+              ? `<img class="aw-video-el" src="${ui.esc(ui.safeUrl(leadCover))}" alt="">`
+              : '<div class="aw-video-ph">🎬</div>'
         }
+        <a class="aw-video-link" href="#/shorts" aria-label="进入短视频"></a>
+
+        <div class="aw-video-top">
+          <span class="aw-chip">
+            <span class="aw-chip-dot"></span> 5 秒预览
+          </span>
+          ${
+            leadVideo
+              ? '<button class="aw-icon-btn" id="wl-sound" type="button" aria-label="声音">🔇</button>'
+              : ''
+          }
+        </div>
+
+        <button class="aw-play hide" id="wl-hero-play" type="button" aria-label="播放预览">▶</button>
+
+        <div class="aw-video-bottom">
+          <div class="aw-video-title">${ui.esc((lead && lead.title) || '项目现场 · 路演 · 工厂实拍')}</div>
+          <div class="aw-video-sub">进入短视频 <span class="aw-chev">›</span></div>
+        </div>
       </div>
-      <!-- 自动播放被拦时的兜底按钮（iOS 低电量、部分微信/夸克内核） -->
-      <button class="wl-hero-play hide" id="wl-hero-play" type="button" aria-label="播放预览">▶</button>
-      <div class="wl-hero-info">
-        <div class="wl-hero-title">${ui.esc((lead && lead.title) || '项目现场、路演、工厂实拍')}</div>
-        <div class="wl-hero-go">刷一刷全部短视频 ›</div>
-      </div>
-    </div>
+    </section>
 
     <!-- ② AI 搜索 -->
-    <form class="wl-block wl-search" id="wl-search-form">
-      <div class="wl-block-t">🤖 AI 搜索</div>
-      <div class="wl-search-row">
-        <input class="input" id="wl-q" maxlength="60" placeholder="说一句：浙江储能项目 / 有预算的工程">
-        <button class="btn btn-primary" type="submit">搜</button>
+    <section class="aw-card aw-rise" style="--d:240ms">
+      <div class="aw-card-head">
+        <span class="aw-card-title">AI 搜索</span>
+        <span class="aw-card-hint">说一句就能找</span>
       </div>
-      <div class="wl-chips">
+      <form class="aw-search" id="wl-search-form">
+        <input class="aw-input" id="wl-q" maxlength="60" placeholder="例如：浙江储能项目、有预算的光伏 EPC" autocomplete="off">
+        <button class="aw-send" type="submit" aria-label="搜索">
+          <span class="aw-send-arrow">↗</span>
+        </button>
+      </form>
+      <div class="aw-tags">
         ${['储能项目', '光伏 EPC', '政府招商', '融资项目']
-          .map((k) => `<a class="wl-chip" href="#/list/project?q=${encodeURIComponent(k)}">${ui.esc(k)}</a>`)
+          .map((k) => `<a class="aw-tag" href="#/list/project?q=${encodeURIComponent(k)}">${ui.esc(k)}</a>`)
           .join('')}
       </div>
-    </form>
+    </section>
 
     <!-- ③ 发布信息 -->
-    <a class="wl-block wl-publish" href="#/publish">
-      <div class="wl-publish-ico">✍️</div>
-      <div class="wl-block-body">
-        <div class="wl-block-t">发布信息</div>
-        <div class="wl-block-d">项目 · 活动 · 贸易 · 成果转化，免费发布</div>
-      </div>
-      <div class="wl-block-go">去发布 ›</div>
+    <a class="aw-row aw-rise" style="--d:300ms" href="#/publish">
+      <span class="aw-row-icon">✍️</span>
+      <span class="aw-row-body">
+        <span class="aw-row-title">发布信息</span>
+        <span class="aw-row-sub">项目 · 活动 · 贸易 · 成果转化</span>
+      </span>
+      <span class="aw-row-go">免费发布 <span class="aw-chev">›</span></span>
     </a>
 
-    <div class="wl-foot">
-      <button class="btn btn-primary btn-block" id="wl-enter" type="button">
-        立即进入 <span class="wl-count" id="wl-count">${WAIT_SECONDS}</span> 秒后自动进入
+    <footer class="aw-foot aw-rise" style="--d:360ms">
+      <button class="aw-cta" id="wl-enter" type="button">
+        进入小鱼来了
       </button>
-      <div class="wl-foot-note">小鱼来了 · 让每一条好项目，都被对的人看见</div>
-    </div>
+      <div class="aw-count" id="wl-count-line">${WAIT_SECONDS} 秒后自动进入</div>
+      <div class="aw-legal">小鱼来了科技有限公司 · xiaoyulaile.online</div>
+    </footer>
   </div>`;
 
   return {
     title: '小鱼来了',
     content: html,
     noTab: true,
-    fullscreen: true, // 引导页不显示顶栏/底栏，纯落地页
+    fullscreen: true,
     mount(root) {
-      /* 记录出现时间：12 小时内不再打断用户 */
       try {
         localStorage.setItem('xyl_welcome_at', String(Date.now()));
       } catch {
         /* ignore */
       }
 
+      /* 倒计时 */
       let left = WAIT_SECONDS;
-      const countEl = root.querySelector('#wl-count');
+      const line = root.querySelector('#wl-count-line');
       const enter = () => {
         clearInterval(timer);
         ctx.nav('#/home');
       };
       const timer = setInterval(() => {
         left -= 1;
-        if (countEl) countEl.textContent = String(Math.max(0, left));
+        if (line) line.textContent = left > 0 ? `${left} 秒后自动进入` : '即将进入…';
         if (left <= 0) enter();
       }, 1000);
-
       root.querySelector('#wl-enter')?.addEventListener('click', enter);
 
-      /*
-       * 短视频 5 秒预览（全浏览器兼容版）
-       *
-       * 策略：
-       *   1. 静音 + autoplay + playsInline（含 webkit/x5 前缀）先试自动播放
-       *   2. 播到第 5 秒暂停，露出「▶ 再看 5 秒」按钮
-       *   3. 自动播放被拦（iOS 低电量、微信/夸克内核）→ 直接显示「▶」按钮，
-       *      用户点一下就开始播（有点击手势，任何浏览器都能播）
-       *   4. 用户点「▶」再来一次：从 0 秒播到 5 秒，循环往复
-       */
+      /* 短视频 5 秒预览（全浏览器兜底，逻辑同上一版） */
       const video = root.querySelector('#wl-hero-video');
       const playBtn = root.querySelector('#wl-hero-play');
       const PREVIEW_SECONDS = 5;
       if (video) {
         video.muted = true;
-        video.loop = false; // 不要整片循环，只播 5 秒
-
+        video.loop = false;
         let previewTimer = null;
         const stopAtPreview = () => {
           clearTimeout(previewTimer);
@@ -161,7 +176,6 @@ export async function renderWelcome(ctx) {
             playBtn?.classList.remove('hide');
           }, PREVIEW_SECONDS * 1000);
         };
-
         const startPreview = () => {
           try {
             video.currentTime = 0;
@@ -171,28 +185,23 @@ export async function renderWelcome(ctx) {
           playBtn?.classList.add('hide');
           const p = video.play();
           if (p && p.catch) {
-            p.catch(() => {
-              // 自动播放被拒：露出播放按钮，等用户点
-              playBtn?.classList.remove('hide');
-            });
+            p.catch(() => playBtn?.classList.remove('hide'));
           }
           stopAtPreview();
         };
-
         video.addEventListener('playing', () => {
           playBtn?.classList.add('hide');
           stopAtPreview();
         });
-        video.addEventListener('ended', () => {
-          playBtn?.classList.remove('hide');
-        });
-        // 一些浏览器要等 canplay 才肯播
-        video.addEventListener('canplay', () => {
-          if (video.paused) startPreview();
-        }, { once: true });
+        video.addEventListener('ended', () => playBtn?.classList.remove('hide'));
+        video.addEventListener(
+          'canplay',
+          () => {
+            if (video.paused) startPreview();
+          },
+          { once: true },
+        );
         startPreview();
-
-        // 300ms 后还没开始播，说明被拦截了 → 显示按钮兜底
         setTimeout(() => {
           if (video.paused && !video.ended) playBtn?.classList.remove('hide');
         }, 800);
@@ -203,7 +212,6 @@ export async function renderWelcome(ctx) {
           startPreview();
         });
 
-        /* 声音开关：点一下取消静音继续播 */
         const soundBtn = root.querySelector('#wl-sound');
         soundBtn?.addEventListener('click', (e) => {
           e.preventDefault();
@@ -214,7 +222,7 @@ export async function renderWelcome(ctx) {
         });
       }
 
-      /* AI 搜索：没有登录也能搜（走列表关键词），登录后可用 AI 精排 */
+      /* AI 搜索 */
       root.querySelector('#wl-search-form')?.addEventListener('submit', (e) => {
         e.preventDefault();
         const q = String(root.querySelector('#wl-q')?.value || '').trim();
@@ -226,7 +234,6 @@ export async function renderWelcome(ctx) {
         ctx.nav(`#/list/project?q=${encodeURIComponent(q)}`);
       });
 
-      /* 页面被隐藏或点其它链接时停掉倒计时，避免跳走又跳回 */
       window.addEventListener(
         'hashchange',
         () => {

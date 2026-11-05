@@ -27,6 +27,7 @@ const ORDER = [
   'bindings.css',
   'invest.css',
   'tags.css',
+  'welcome-apple.css',
 ];
 
 const parts = [];
