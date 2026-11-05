@@ -816,6 +816,20 @@ export async function createListing({ user, body = {}, files = [] }) {
     console.warn('[publish] 自动短视频调度失败:', err.message);
   }
 
+  /*
+   * 保证有配图：没有图片附件、也没有封面的信息，本地合成一张。
+   * 这是最后一道保险（发布页的上传图、AI 配图都可能没有），
+   * 本地 SVG→PNG，不依赖外部服务，不会失败。
+   */
+  if (created.status === 'published') {
+    import('./cover-auto.js')
+      .then((m) => m.ensureCover(created))
+      .then((r) => {
+        if (r && r.ok && r.coverUrl) console.log(`[cover] 已自动配图 ${created.id}`);
+      })
+      .catch((err) => console.warn('[cover] 自动配图失败:', err.message));
+  }
+
   return created;
 }
 

@@ -740,6 +740,22 @@ export default function registerListingRoutes(app) {
     return data(res, { ok: true, coverUrl: cover.url });
   });
 
+/**
+   * 批量补图：给所有没有封面的已发布信息生成一张（本地合成，不依赖外部服务）
+   * POST /api/admin/covers/ensure-all { limit }
+   */
+  app.post('/api/admin/covers/ensure-all', async (req, res) => {
+    const user = mustAuth(req);
+    if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
+    const limit = Math.min(200, num(req.body?.limit, 50));
+    try {
+      const svc = await import('../services/cover-auto.js');
+      const r = await svc.ensureAllCovers({ limit });
+      return data(res, r);
+    } catch (err) {
+      return fail(res, err.message || '批量补图失败', 500, 'ensure_failed');
+    }
+  });
   app.post('/api/admin/covers/backfill', async (req, res) => {
     const user = mustAuth(req);
     if (!user.isAdmin) return fail(res, '只有管理员可以操作', 403, 'forbidden');
