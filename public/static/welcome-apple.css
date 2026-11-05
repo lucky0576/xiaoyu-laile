@@ -13,6 +13,9 @@
   --aw-green: #0e8f7a;
 
   position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
   min-height: 100dvh;
   padding: calc(18px + env(safe-area-inset-top)) 22px calc(20px + env(safe-area-inset-bottom));
   background: var(--aw-bg);

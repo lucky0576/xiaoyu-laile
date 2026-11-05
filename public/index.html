@@ -64,6 +64,8 @@
     var bar = document.getElementById('install-bar');
     var KEY = 'xyll_install_dismissed';
     if (!bar || isWeChat) return;                       // 微信内不支持安装，不打扰
+  // 引导页是落地页，底部有「进入」CTA，安装条会挡住，直接不显示
+  if ((location.hash || '').indexOf('#/welcome') === 0) return;
     if (localStorage.getItem(KEY)) return;              // 用户已经关过
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return; // 已装
 
