@@ -192,18 +192,32 @@ export default function registerBroadcastRoutes(app) {
       if (bodyLines[0] && bodyLines[0].trim().startsWith('【小鱼来了】')) bodyLines.shift();
 
       /*
-       * 图上画二维码：
-       *   只选 1 条 → 扫了直达这条信息的分享页
-       *   选了多条 → 扫了进平台首页
-       * 微信里图片会被压缩、链接点不到，二维码是唯一可靠的「下一步」。
+       * 二维码指向「信息列表」，不是首页。
+       *
+       * 理由（用户反馈）：扫码的人是来看项目的，
+       * 落到首页还要自己再找一遍入口；直接进列表，看到的全是可翻的信息。
+       *
+       * 板块选择：按本次选中的信息里出现最多的板块跳
+       *   全是项目 → /#/list/project
+       *   项目贸易混着选（项目多）→ /#/list/project
+       * 这样扫进来就是最相关的那一类，而不是一个综合页。
        */
-      const qrTarget = items.length === 1 ? `${baseUrl(req)}/s/${items[0].id}` : baseUrl(req);
+      const catCount = {};
+      for (const it of items) {
+        const c = String(it.category || 'project');
+        catCount[c] = (catCount[c] || 0) + 1;
+      }
+      const topCat =
+        Object.entries(catCount)
+          .sort((a, b) => b[1] - a[1])[0]?.[0] || 'project';
+      const qrTarget = `${baseUrl(req)}/#/list/${topCat}`;
+
       const { buffer, width, height } = await imgMod.renderPng({
         title: titleText,
         body: bodyLines.join('\n'),
         footer: '招商、投资、工资、工程、项目 · 小鱼来了，免费发布需求',
         qrText: qrTarget,
-        qrCaption: items.length === 1 ? '扫码查看这条' : '扫码看全部',
+        qrCaption: '扫码查看项目列表',
       });
 
       const fsMod = await import('node:fs');
