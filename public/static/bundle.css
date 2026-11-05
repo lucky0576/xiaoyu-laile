@@ -1816,6 +1816,25 @@ ul { margin: 0; padding-left: 18px; }
   overflow: hidden;
 }
 .wl-hero-go { margin-top: 6px; font-size: 12px; font-weight: 700; color: #ffe066; }
+/* 自动播放被拦时的「播放预览」按钮 */
+.wl-hero-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 22px;
+  padding-left: 4px;
+  cursor: pointer;
+  z-index: 4;
+  backdrop-filter: blur(2px);
+}
+.wl-hero-play.hide { display: none; }
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

@@ -41,14 +41,16 @@ export async function renderWelcome(ctx) {
 
     <div class="wl-slogan">${ui.esc(SLOGAN)}</div>
 
-    <!-- ① 短视频：直接播放（静音自动播，点一下进短视频页） -->
+    <!-- ① 短视频：5 秒预览，自动播放；不支持自动播的浏览器显示「点击播放」 -->
     <div class="wl-hero">
       ${
         leadVideo
           ? `<video class="wl-hero-video" id="wl-hero-video"
                src="${ui.esc(ui.safeUrl(leadVideo))}"
                ${leadCover ? `poster="${ui.esc(ui.safeUrl(leadCover))}"` : ''}
-               muted autoplay playsinline loop preload="auto"></video>`
+               muted autoplay playsinline webkit-playsinline x5-playsinline
+               x5-video-player-type="h5-page" disablePictureInPicture
+               preload="auto"></video>`
           : leadCover
             ? `<img class="wl-hero-video" src="${ui.esc(ui.safeUrl(leadCover))}" alt="">`
             : '<div class="wl-hero-ph">🎬</div>'
@@ -56,13 +58,15 @@ export async function renderWelcome(ctx) {
       <div class="wl-hero-mask"></div>
       <a class="wl-hero-link" href="#/shorts" aria-label="进入短视频"></a>
       <div class="wl-hero-top">
-        <span class="wl-hero-tag">🎬 短视频</span>
+        <span class="wl-hero-tag">🎬 短视频 · 5 秒预览</span>
         ${
           leadVideo
             ? '<button class="wl-sound" id="wl-sound" type="button" aria-label="声音">🔇</button>'
             : ''
         }
       </div>
+      <!-- 自动播放被拦时的兜底按钮（iOS 低电量、部分微信/夸克内核） -->
+      <button class="wl-hero-play hide" id="wl-hero-play" type="button" aria-label="播放预览">▶</button>
       <div class="wl-hero-info">
         <div class="wl-hero-title">${ui.esc((lead && lead.title) || '项目现场、路演、工厂实拍')}</div>
         <div class="wl-hero-go">刷一刷全部短视频 ›</div>
@@ -128,30 +132,85 @@ export async function renderWelcome(ctx) {
 
       root.querySelector('#wl-enter')?.addEventListener('click', enter);
 
-      /* 短视频直接播：muted + autoplay 是浏览器允许自动播放的唯一方式 */
+      /*
+       * 短视频 5 秒预览（全浏览器兼容版）
+       *
+       * 策略：
+       *   1. 静音 + autoplay + playsInline（含 webkit/x5 前缀）先试自动播放
+       *   2. 播到第 5 秒暂停，露出「▶ 再看 5 秒」按钮
+       *   3. 自动播放被拦（iOS 低电量、微信/夸克内核）→ 直接显示「▶」按钮，
+       *      用户点一下就开始播（有点击手势，任何浏览器都能播）
+       *   4. 用户点「▶」再来一次：从 0 秒播到 5 秒，循环往复
+       */
       const video = root.querySelector('#wl-hero-video');
+      const playBtn = root.querySelector('#wl-hero-play');
+      const PREVIEW_SECONDS = 5;
       if (video) {
         video.muted = true;
-        const tryPlay = () => {
-          const p = video.play();
-          if (p && p.catch) p.catch(() => {});
-        };
-        tryPlay();
-        // 有些浏览器要等 canplay 才肯播
-        video.addEventListener('canplay', tryPlay, { once: true });
+        video.loop = false; // 不要整片循环，只播 5 秒
 
-        /* 声音开关：点一下取消静音并从头播 */
+        let previewTimer = null;
+        const stopAtPreview = () => {
+          clearTimeout(previewTimer);
+          previewTimer = setTimeout(() => {
+            try {
+              video.pause();
+            } catch {
+              /* ignore */
+            }
+            playBtn?.classList.remove('hide');
+          }, PREVIEW_SECONDS * 1000);
+        };
+
+        const startPreview = () => {
+          try {
+            video.currentTime = 0;
+          } catch {
+            /* ignore */
+          }
+          playBtn?.classList.add('hide');
+          const p = video.play();
+          if (p && p.catch) {
+            p.catch(() => {
+              // 自动播放被拒：露出播放按钮，等用户点
+              playBtn?.classList.remove('hide');
+            });
+          }
+          stopAtPreview();
+        };
+
+        video.addEventListener('playing', () => {
+          playBtn?.classList.add('hide');
+          stopAtPreview();
+        });
+        video.addEventListener('ended', () => {
+          playBtn?.classList.remove('hide');
+        });
+        // 一些浏览器要等 canplay 才肯播
+        video.addEventListener('canplay', () => {
+          if (video.paused) startPreview();
+        }, { once: true });
+        startPreview();
+
+        // 300ms 后还没开始播，说明被拦截了 → 显示按钮兜底
+        setTimeout(() => {
+          if (video.paused && !video.ended) playBtn?.classList.remove('hide');
+        }, 800);
+
+        playBtn?.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startPreview();
+        });
+
+        /* 声音开关：点一下取消静音继续播 */
         const soundBtn = root.querySelector('#wl-sound');
         soundBtn?.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
           video.muted = !video.muted;
-          if (!video.muted) {
-            tryPlay();
-            soundBtn.textContent = '🔊';
-          } else {
-            soundBtn.textContent = '🔇';
-          }
+          soundBtn.textContent = video.muted ? '🔇' : '🔊';
+          if (!video.muted) startPreview();
         });
       }
 
