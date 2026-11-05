@@ -20,7 +20,7 @@ import path from 'node:path';
 import db from '../store/db.js';
 import { config } from '../config.js';
 import { httpError } from '../http/app.js';
-import filesSvc from './files.js';
+import { listFiles, looksLikeDocImage, registerStoredFile } from './files.js';
 import { qrToPng } from '../lib/qrcode.js';
 
 const execFileAsync = promisify(execFile);
@@ -88,8 +88,8 @@ async function ffmpegOk() {
  * 找到这条信息能用作底图的图片（跳过证件/名片/营业执照）
  */
 function coverImageOf(listing) {
-  const records = filesSvc.listFiles(listing.files || []);
-  const images = records.filter((f) => f && f.kind === 'image' && !filesSvc.looksLikeDocImage(f));
+  const records = listFiles(listing.files || []);
+  const images = records.filter((f) => f && f.kind === 'image' && !looksLikeDocImage(f));
   const chosen = images[0] || records.find((f) => f && f.kind === 'image');
   return chosen || null;
 }
@@ -169,7 +169,7 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
     const st = fs.statSync(tmpOut);
     if (!st.size) throw httpError(500, '视频生成失败（空文件）');
 
-    const record = await filesSvc.registerStoredFile({
+    const record = await registerStoredFile({
       srcPath: tmpOut,
       name: `项目短视频-${listing.id.slice(-6)}.mp4`,
       mime: 'video/mp4',

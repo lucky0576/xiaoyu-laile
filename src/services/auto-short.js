@@ -17,7 +17,7 @@
  */
 
 import db from '../store/db.js';
-import filesSvc from './files.js';
+import { looksLikeDocImage, burnVideoTitle } from './files.js';
 
 const feeds = () => db.collection('feeds');
 
@@ -39,7 +39,7 @@ export async function createShortFromListing({ user, listing, fileRecords = [] }
     if (hasShortForListing(listing.id)) return null;
 
     const video = videos[0];
-    const cover = (fileRecords || []).find((f) => f && f.kind === 'image' && !filesSvc.looksLikeDocImage(f));
+    const cover = (fileRecords || []).find((f) => f && f.kind === 'image' && !looksLikeDocImage(f));
 
     // 动态 import 避免和 feeds.js 形成循环依赖
     const feedsSvc = await import('./feeds.js');
@@ -78,7 +78,7 @@ export async function createShortFromListing({ user, listing, fileRecords = [] }
 
 async function burnAndSwap(feed, videoRecord, title) {
   try {
-    const titled = await filesSvc.burnVideoTitle(videoRecord, title);
+    const titled = await burnVideoTitle(videoRecord, title);
     if (!titled) return;
     feeds().update(feed.id, {
       fileId: titled.id,
