@@ -105,7 +105,7 @@
   max-height: min(46vh, 420px);
   border-radius: 26px;
   overflow: hidden;
-  background: #0b0b0d;
+  background: linear-gradient(155deg, #10233b 0%, #0b3b2e 55%, #07201a 100%);
   box-shadow:
     0 1px 1px rgba(0, 0, 0, 0.04),
     0 18px 44px -12px rgba(15, 23, 42, 0.35);
@@ -177,19 +177,19 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 62px;
-  height: 62px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  background: rgba(28, 28, 30, 0.42);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  color: #fff;
-  font-size: 20px;
-  padding-left: 4px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b0b0d;
+  font-size: 21px;
+  padding-left: 5px;
   cursor: pointer;
   z-index: 5;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  display: grid;
+  place-items: center;
 }
 .aw-play.hide { display: none; }
 .aw-play:active { transform: translate(-50%, -50%) scale(0.94); }
