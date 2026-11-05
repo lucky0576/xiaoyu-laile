@@ -4,6 +4,7 @@
 import { service, store, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import { installErrorReport } from './error-report.js';
+import * as i18n from './i18n.js';
 /*
  * 视图模块全部改成「按需加载」。
  *
@@ -213,6 +214,9 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
       ${isHome && isLoggedIn() ? '<a class="contact-pill" href="#/broadcast" title="勾选几条信息，一键生成群发文案">📣 群发</a>' : ''}
     </div>
     <span class="topbar-spacer"></span>
+    <button class="icon-btn lang-toggle" id="lang-toggle" type="button" title="切换中英文 / Switch language">
+      ${i18n.isEn() ? '中文' : 'EN'}
+    </button>
     ${actions}${actions ? '' : topbarAuth()}
   </div>`;
 
@@ -234,7 +238,7 @@ export function shell({ title = '', content = '', activeTab = '', showBack = fal
   // 发布入口已移到导航栏中间，不再需要右下角悬浮按钮
   const fab = '';
 
-  return `<div class="shell ${cls}">${topbar}<div id="admin-alert-slot"></div>${content}${fab}${tabbar}</div>`;
+  return `<div class="shell ${cls}">${topbar}<div id="admin-alert-slot"></div>${i18n.noticeHtml()}${content}${fab}${tabbar}</div>`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -270,6 +274,20 @@ function bindShell(root) {
   try { bindHScroll(root); syncTabbar(); } catch { /* ignore */ }
   checkBusinessAlerts(root);
   root.querySelector('#nav-back')?.addEventListener('click', () => back());
+
+  /* 中英文切换：切完重新渲染当前页（英文在渲染后统一翻译界面文案） */
+  root.querySelector('#lang-toggle')?.addEventListener('click', () => {
+    const next = i18n.isEn() ? i18n.LANG_ZH : i18n.LANG_EN;
+    i18n.setLang(next, { sync: (lang) => service.updateProfile({ settings: { lang } }) });
+    render();
+  });
+  /* 英文模式横幅里那句「用中文浏览」 */
+  root.querySelector('#lang-switch-zh')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    i18n.setLang(i18n.LANG_ZH, { sync: (lang) => service.updateProfile({ settings: { lang } }) });
+    render();
+  });
+
   root.querySelector('#topbar-share')?.addEventListener('click', async () => {
     const m = await import('./share.js');
     /*
@@ -700,6 +718,12 @@ async function render() {
     appEl.innerHTML = html;
     bindShell(appEl);
     if (view.mount) await view.mount(appEl, route);
+    // 英文模式：渲染完成后统一翻译界面文案（内容数据仍是中文，见 i18n.js 说明）
+    try {
+      i18n.translateDom(appEl);
+    } catch {
+      /* 翻译失败不影响页面 */
+    }
     scheduleInviteGate(route);
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
   } catch (err) {
@@ -816,6 +840,15 @@ async function boot() {
 
   if (isLoggedIn()) {
     await refreshMe();
+    // 账号里存过语言偏好就用账号的（换设备也能带走）
+    try {
+      const prefLang = state.user?.settings?.lang;
+      if ((prefLang === 'en' || prefLang === 'zh') && i18n.getLang() !== prefLang) {
+        i18n.setLang(prefLang);
+      }
+    } catch {
+      /* ignore */
+    }
     connectSSE();
   } else {
     store.clear();
