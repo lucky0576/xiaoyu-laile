@@ -27,8 +27,8 @@ const execFileAsync = promisify(execFile);
 
 const W = 720;
 const H = 1280;
-const DURATION = 15; // 秒
-const FPS = 25;
+const DURATION = 12; // 秒（12 秒够看完标题+扫码，编码时间也短）
+const FPS = 20;
 
 const FONT_CANDIDATES = [
   '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
@@ -158,7 +158,7 @@ export async function renderListingVideo({ listing, user, baseUrl = '' }) {
         '-filter_complex', filter,
         '-map', '[out]', '-map', '2:a',
         '-t', String(DURATION), '-r', String(FPS),
-        '-c:v', 'libx264', '-crf', '24', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+        '-c:v', 'libx264', '-crf', '27', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-threads', '2',
         '-c:a', 'aac', '-b:a', '96k', '-shortest',
         '-movflags', '+faststart', '-f', 'mp4', tmpOut,
       ],
