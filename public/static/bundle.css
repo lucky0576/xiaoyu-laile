@@ -1644,6 +1644,14 @@ ul { margin: 0; padding-left: 18px; }
   overflow-x: auto; white-space: pre-wrap; word-break: break-all;
   font-family: ui-monospace, Menlo, Consolas, monospace;
 }
+/* ---------------- 群发图片：转发 / 下载 ---------------- */
+.bcast-img-acts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.bcast-img-acts .btn { flex: 1 1 auto; min-width: 96px; }
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

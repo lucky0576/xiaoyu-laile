@@ -95,7 +95,12 @@ export async function openBroadcast(ids, opts = {}) {
       <textarea class="bcast-text" id="bcast-text" spellcheck="false" readonly></textarea>
       <div class="bcast-img-wrap hide" id="bcast-img-wrap">
         <img class="bcast-img" id="bcast-img" alt="群发文案长图">
-        <div class="tiny dim center mt6">长按图片 → 保存图片 或 直接发送</div>
+        <div class="bcast-img-acts">
+          <button class="btn btn-sm btn-primary" id="bcast-img-share" type="button">📤 转发图片</button>
+          <button class="btn btn-sm" id="bcast-img-download" type="button">⬇ 下载图片</button>
+          <button class="btn btn-sm" id="bcast-img-open" type="button">🔍 看大图</button>
+        </div>
+        <div class="tiny dim center mt6">微信里也可以长按图片 → 保存 / 转发</div>
       </div>
       ${(r.missing || []).length ? `<div class="tiny dim mt6">有 ${r.missing.length} 条已下架，已自动跳过</div>` : ''}
     </div>
@@ -206,15 +211,87 @@ export async function openBroadcast(ids, opts = {}) {
       const wrap = mask.querySelector('#bcast-img-wrap');
       const img = mask.querySelector('#bcast-img');
       img.src = r.url;
+      img.dataset.url = r.url;
       wrap.classList.remove('hide');
       mask.querySelector('.bcast-text').classList.add('hide');
-      ui.toast('图片已生成，长按图片保存或直接发送', 'ok');
+      ui.toast('图片已生成，可转发或下载', 'ok');
     } catch (err) {
       ui.toast(err.message || '生成图片失败', 'err');
     } finally {
       btn.disabled = false;
       btn.textContent = old;
     }
+  });
+
+  /* ---------------- 图片：转发 / 下载 / 看大图 ---------------- */
+  const imgUrl = () => mask.querySelector('#bcast-img')?.dataset.url || '';
+
+  /** 取图 → blob（后面转发、下载都要用） */
+  const fetchImageBlob = async (url) => {
+    const res = await fetch(url, { credentials: 'omit' });
+    if (!res.ok) throw new Error('取图失败');
+    return res.blob();
+  };
+
+  /** 下载：不支持 a[download] 的浏览器退化成「新窗口打开，长按保存」 */
+  const downloadImage = async () => {
+    const url = imgUrl();
+    if (!url) return ui.toast('先点「🖼 生成图片发群」', 'err');
+    try {
+      const blob = await fetchImageBlob(url);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `小鱼来了-群发图-${new Date().toISOString().slice(0, 10)}.png`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 5000);
+      ui.toast('已开始下载，去「相册 / 下载」里查看', 'ok');
+    } catch {
+      window.open(url, '_blank');
+      ui.toast('已在新窗口打开图片，长按可保存', 'ok');
+    }
+  };
+
+  /** 转发：系统分享面板（可直接发微信）→ 复制图片 → 退化为下载 */
+  const shareImage = async () => {
+    const url = imgUrl();
+    if (!url) return ui.toast('先点「🖼 生成图片发群」', 'err');
+    try {
+      const blob = await fetchImageBlob(url);
+      const type = blob.type || 'image/png';
+      const file = new File([blob], `xiaoyu-${Date.now()}.png`, { type });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: '小鱼来了 · 精选项目',
+          text: '扫码查看项目列表',
+        });
+        return;
+      }
+      // 不能系统分享：尝试把图片放进剪贴板，去微信里粘贴
+      if (navigator.clipboard?.write && window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+        ui.toast('图片已复制，打开微信长按粘贴发送', 'ok');
+        return;
+      }
+      await downloadImage();
+      ui.toast('当前浏览器不支持直接转发，已改为下载', 'ok');
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // 用户取消了分享
+      await downloadImage();
+    }
+  };
+
+  mask.querySelector('#bcast-img-share')?.addEventListener('click', shareImage);
+  mask.querySelector('#bcast-img-download')?.addEventListener('click', downloadImage);
+  mask.querySelector('#bcast-img-open')?.addEventListener('click', () => {
+    const url = imgUrl();
+    if (!url) return ui.toast('先点「🖼 生成图片发群」', 'err');
+    window.open(url, '_blank');
   });
 
   mask.querySelector('#bcast-copy').addEventListener('click', async () => {
