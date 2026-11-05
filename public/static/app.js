@@ -893,13 +893,13 @@ async function boot() {
    *
    * 旧逻辑用 sessionStorage「一个会话一次」，用户之前点过就再也看不到，
    * 看起来像「引导页没做」。现在：
-   *   · 12 小时内只出现一次（localStorage 记时间戳）
+   *   · 每小时最多出现一次（localStorage 记时间戳）
    *   · 入口是根路径 / #/ / #/home 都算（书签常带 #/home）
    *   · 分享短链 /s/:id、邀请链 /r/:code 不拦
    *   · URL 带 ?welcome=1 强制出现（验收用）
    */
   try {
-    const WELCOME_GAP = 12 * 60 * 60 * 1000;
+    const WELCOME_GAP = 60 * 60 * 1000; // 每小时最多出现一次
     const seenAt = Number(localStorage.getItem('xyl_welcome_at') || 0);
     const fresh = Date.now() - seenAt > WELCOME_GAP;
     const h = location.hash || '';
