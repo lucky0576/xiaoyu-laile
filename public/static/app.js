@@ -889,19 +889,28 @@ async function boot() {
   }
 
   /*
-   * 首次进入（本次会话还没看过引导页）→ 先看引导页，30 秒后自动进主页。
-   * 分享短链 / 邀请链 / 带 hash 的直接进入不受影响 ——
-   * 别人发来的链接不应该被引导页拦一道。
+   * 引导页展示规则（2026-11 调整）
+   *
+   * 旧逻辑用 sessionStorage「一个会话一次」，用户之前点过就再也看不到，
+   * 看起来像「引导页没做」。现在：
+   *   · 12 小时内只出现一次（localStorage 记时间戳）
+   *   · 入口是根路径 / #/ / #/home 都算（书签常带 #/home）
+   *   · 分享短链 /s/:id、邀请链 /r/:code 不拦
+   *   · URL 带 ?welcome=1 强制出现（验收用）
    */
   try {
-    const seen = sessionStorage.getItem('xyl_welcome_seen');
-    const noHash = !location.hash;
+    const WELCOME_GAP = 12 * 60 * 60 * 1000;
+    const seenAt = Number(localStorage.getItem('xyl_welcome_at') || 0);
+    const fresh = Date.now() - seenAt > WELCOME_GAP;
+    const h = location.hash || '';
+    const isEntry = !h || h === '#/' || h === '#/home';
     const notShare = !shareMatch && !refMatch;
-    if (!seen && noHash && notShare) {
+    const forced = /(?:^|[?&])welcome=1\b/.test(location.search || '');
+    if ((forced || (fresh && isEntry)) && notShare && !h.startsWith('#/welcome')) {
       location.hash = '#/welcome';
     }
   } catch {
-    /* 隐私模式下 sessionStorage 可能不可用，忽略 */
+    /* 隐私模式下 localStorage 可能不可用，忽略 */
   }
 
   await render();

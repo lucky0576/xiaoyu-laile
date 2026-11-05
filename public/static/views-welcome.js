@@ -111,9 +111,9 @@ export async function renderWelcome(ctx) {
     noTab: true,
     fullscreen: true, // 引导页不显示顶栏/底栏，纯落地页
     mount(root) {
-      /* 会话内只出现一次 */
+      /* 记录出现时间：12 小时内不再打断用户 */
       try {
-        sessionStorage.setItem('xyl_welcome_seen', '1');
+        localStorage.setItem('xyl_welcome_at', String(Date.now()));
       } catch {
         /* ignore */
       }
