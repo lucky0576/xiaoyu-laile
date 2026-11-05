@@ -127,7 +127,11 @@ export default function registerBroadcastRoutes(app) {
       return fail(res, '选中的信息都不存在或已下架', 404, 'not_found');
     }
 
-    const text = buildText(req, items, { includeLink: req.body?.includeLink !== false });
+    /*
+     * 图片版一律不带链接：微信会把长链接折行、点不动，看着乱；
+     * 图上已经有二维码，扫一下就直达，链接纯属噪音。
+     */
+    const text = buildText(req, items, { includeLink: false });
 
     return data(res, {
       text,
@@ -168,7 +172,11 @@ export default function registerBroadcastRoutes(app) {
     }
     if (!items.length) return fail(res, '没有可生成的信息（网上内容已屏蔽）', 400, 'no_items');
 
-    const text = buildText(req, items, { includeLink: req.body?.includeLink !== false });
+    /*
+     * 图片版一律不带链接：微信会把长链接折行、点不动，看着乱；
+     * 图上已经有二维码，扫一下就直达，链接纯属噪音。
+     */
+    const text = buildText(req, items, { includeLink: false });
 
     try {
       const imgMod = await import('../services/broadcast-image.js');
@@ -177,7 +185,10 @@ export default function registerBroadcastRoutes(app) {
        * 这里把首行剥掉，标题只保留顶部那一处。
        */
       const titleText = `【小鱼来了】精选 ${items.length} 条项目`;
-      const bodyLines = String(text).split('\n');
+      // 兜底：任何残留的网址行都丢掉（图片里不放链接，靠二维码）
+      const bodyLines = String(text)
+        .split('\n')
+        .filter((line) => !/^\s*https?:\/\//i.test(line));
       if (bodyLines[0] && bodyLines[0].trim().startsWith('【小鱼来了】')) bodyLines.shift();
 
       /*

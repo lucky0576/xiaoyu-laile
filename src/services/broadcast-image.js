@@ -213,10 +213,10 @@ export function buildSvg({ title = '转发文案', body = '', footer = '', qrTex
       parts.push(
         `<text x="${W / 2}" y="${y}" text-anchor="middle" font-family="${esc(FONT_FAMILY)}" font-size="34" font-weight="700" fill="#111827">${esc(caption)}</text>`,
       );
-      y += 40;
-      parts.push(
-        `<text x="${W / 2}" y="${y}" text-anchor="middle" font-family="${esc(FONT_FAMILY)}" font-size="26" fill="#8a94a6">${esc(qrText)}</text>`,
-      );
+      /*
+       * 不再把二维码对应的网址印在图上 —— 用户明确要求「图片里不需要链接」，
+       * 图上有二维码就够了，印一串 URL 既占地方又没人手敲。
+       */
     }
   }
 
