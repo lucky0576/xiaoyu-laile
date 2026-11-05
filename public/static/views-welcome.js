@@ -20,8 +20,9 @@
 import * as ui from './ui.js';
 import { service } from './api.js';
 
-const SLOGAN_MAIN = '招商引资、产业落地、投融资';
-const SLOGAN_SUB = '（创业——IPO）、项目和工程';
+const SLOGAN_MAIN = '招商引资、产业落地';
+const SLOGAN_SUB = '投融资（创业——IPO）';
+const SLOGAN_TAIL = '项目和工程';
 const SLOGAN_END = '小鱼来了';
 const WAIT_SECONDS = 30;
 
@@ -49,7 +50,7 @@ export async function renderWelcome(ctx) {
     </header>
 
     <h1 class="aw-title aw-rise" style="--d:60ms">
-      ${ui.esc(SLOGAN_MAIN)}<span class="aw-br"></span>${ui.esc(SLOGAN_SUB)}<span class="aw-br"></span><span class="aw-accent">${ui.esc(SLOGAN_END)}</span>
+      ${ui.esc(SLOGAN_MAIN)}<span class="aw-br"></span>${ui.esc(SLOGAN_SUB)}<span class="aw-br"></span>${ui.esc(SLOGAN_TAIL)}<span class="aw-br"></span><span class="aw-accent">${ui.esc(SLOGAN_END)}</span>
     </h1>
 
     <p class="aw-lead aw-rise" style="--d:120ms">
