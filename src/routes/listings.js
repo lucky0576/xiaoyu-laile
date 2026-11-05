@@ -105,6 +105,29 @@ export default function registerListingRoutes(app) {
   });
 
   /**
+   * 一键把信息做成短视频（图文也能做）
+   * POST /api/listings/:id/make-short
+   */
+  app.post('/api/listings/:id/make-short', async (req, res) => {
+    const user = mustAuth(req);
+    const listing = listingsSvc.getListing(req.params.id);
+    if (!listing) return fail(res, '信息不存在', 404, 'not_found');
+    if (listing.ownerId !== user.id && !user.isAdmin) {
+      return fail(res, '只能给自己的信息生成短视频', 403, 'forbidden');
+    }
+    const rl = rateLimit(`makeshort:${clientIp(req)}`, 6, 60_000);
+    if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    try {
+      const svc = await import('../services/make-short.js');
+      const r = await svc.makeShortForListing({ listing, user, baseUrl: baseUrl(req) });
+      return data(res, { feed: r.feed, existed: r.existed }, r.existed ? 200 : 201);
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code || 'make_short_failed');
+      throw err;
+    }
+  });
+
+  /**
    * 列表 AI 搜索：在某个分类（或不限）里用一句话找信息。
    * 招投标、项目、贸易都能用，关键词兜底 + AI 精排。
    */

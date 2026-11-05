@@ -2460,6 +2460,8 @@ export async function renderDetail(ctx, params) {
               <button class="btn" id="btn-edit">编辑（管理员）</button>
               <button class="btn" id="btn-close">下架</button>
             </div>` : ''}
+            ${isOwner || isAdmin ? `<button class="btn btn-block mt8" id="btn-make-short">🎬 生成短视频</button>
+            <div class="tiny dim center mt4">把这条信息做成 15 秒竖版短视频（图文也能生成）</div>` : ''}
           </div>
           ${isOwner && listing.pipeline ? `<div class="card card-pad mt12">
             <div class="strong mb8">🔧 发布方操作</div>
@@ -3066,6 +3068,25 @@ export async function renderDetail(ctx, params) {
 
       /* 发布方操作 */
       root.querySelector('#btn-edit')?.addEventListener('click', () => ctx.nav(`#/publish?edit=${listing.id}&category=${listing.category}`));
+
+      /* 一键生成短视频：有视频直接烧标题，没视频用封面图+标题+二维码合成 15 秒竖版 */
+      root.querySelector('#btn-make-short')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const old = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '生成中…（约 10~30 秒）';
+        try {
+          const r = await service.makeShort(listing.id);
+          const fd = r?.feed || {};
+          ui.toast('短视频已生成', 'ok');
+          ctx.nav(`#/shorts?highlight=${fd.id || ''}`);
+        } catch (err) {
+          ui.toast(err.message || '生成失败', 'err');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = old;
+        }
+      });
       root.querySelector('#btn-renew')?.addEventListener('click', async () => {
         const days = await ui.promptDialog({ title: '续期', label: '延长天数（7 / 15 / 30 / 90 / 180 / 365）', value: '30', okText: '续期' });
         if (!days) return;
