@@ -54,6 +54,7 @@ const viewsServices = lazyView(() => import('./views-services.js'));
 const viewsSteward = lazyView(() => import('./views-steward.js'));
 const viewsAdminStewards = lazyView(() => import('./views-admin-stewards.js'));
 const viewsApi = lazyView(() => import('./views-api.js'));
+const viewsWelcome = lazyView(() => import('./views-welcome.js'));
 const viewsTags = lazyView(() => import('./views-tags.js'));
 const viewsWechatSetup = lazyView(() => import('./views-wechat-setup.js'));
 const viewsNews = lazyView(() => import('./views-news.js'));
@@ -396,6 +397,8 @@ async function resolveView({ segs, query }) {
       return viewsAbout.renderAbout(ctx, query);
     case 'services':
       return viewsServices.renderServices(ctx, query);
+    case 'welcome':
+      return viewsWelcome.renderWelcome(ctx, query);
     case 'api':
       return viewsApi.renderApiDoc(ctx, query);
     case 'steward':
@@ -883,6 +886,22 @@ async function boot() {
       }
     } catch { /* 隐私模式忽略 */ }
     location.hash = '#/home';
+  }
+
+  /*
+   * 首次进入（本次会话还没看过引导页）→ 先看引导页，30 秒后自动进主页。
+   * 分享短链 / 邀请链 / 带 hash 的直接进入不受影响 ——
+   * 别人发来的链接不应该被引导页拦一道。
+   */
+  try {
+    const seen = sessionStorage.getItem('xyl_welcome_seen');
+    const noHash = !location.hash;
+    const notShare = !shareMatch && !refMatch;
+    if (!seen && noHash && notShare) {
+      location.hash = '#/welcome';
+    }
+  } catch {
+    /* 隐私模式下 sessionStorage 可能不可用，忽略 */
   }
 
   await render();
