@@ -1834,3 +1834,49 @@ ul { margin: 0; padding-left: 18px; }
   backdrop-filter: blur(2px);
 }
 .wl-hero-play.hide { display: none; }
+/* ---------------- 创业辅导（OPC 陪跑） ---------------- */
+.svc-coach-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 2px 12px;
+}
+.svc-coach-chips span {
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eef6ff;
+  border: 1px solid #d5e8fb;
+  color: #27527f;
+  white-space: nowrap;
+}
+.svc-coach-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 720px) {
+  .svc-coach-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.svc-coach-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.svc-coach-card.svc-hit { box-shadow: 0 0 0 2px #0b74ff inset; }
+.svc-coach-head { display: flex; align-items: center; gap: 8px; }
+.svc-coach-ico { font-size: 18px; }
+.svc-coach-name { flex: 1; font-weight: 800; font-size: 15px; color: #1d1d1f; }
+.svc-coach-tag { margin-top: 4px; font-size: 11px; color: #8a94a6; }
+.svc-coach-price { margin-top: 8px; display: flex; align-items: baseline; gap: 6px; }
+.svc-coach-price b { font-size: 20px; color: #0b74ff; letter-spacing: -0.02em; }
+.svc-coach-price span { font-size: 11px; color: #8a94a6; }
+.svc-coach-desc { margin-top: 4px; font-size: 12.5px; color: #4b5563; line-height: 1.5; }
+.svc-coach-list { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.svc-coach-li { display: flex; gap: 6px; font-size: 12px; line-height: 1.55; color: #374151; }
+.svc-coach-flow { margin-top: 8px; font-size: 11.5px; color: #6b7280; line-height: 1.7; }

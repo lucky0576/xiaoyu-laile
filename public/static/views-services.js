@@ -110,6 +110,72 @@ const PLANS = [
 ];
 
 /**
+ * 创业辅导（OPC 陪跑）—— 2026-11 新增
+ *
+ * 来源：上城区 OPC 创业辅导服务报价单（编号 OPC-2026-11）
+ * 三档递进：后一档包含前一档全部内容；一次性服务费，不成功不收费。
+ */
+const COACH_PLANS = [
+  {
+    id: 'coach-basic',
+    priceValue: 3000,
+    icon: '🧭',
+    name: '基础陪跑',
+    tag: '刚注册或准备注册',
+    price: '3,000 元',
+    priceNote: '一次性 · 2 周交付',
+    desc: '先摸清政策和入口，知道能拿哪些钱。',
+    includes: [
+      '杭州 OPC 政策与资金通道梳理（专项 1 亿元/年 · 基金 10 亿元 · 担保贷 50 万 · 场景补助 300 万）',
+      '资格条件适用性判断：能不能申、差什么',
+      '申报材料清单 + 时间倒排表 1 份',
+      '创业沙龙 / 赛事推荐与报名协助 ≥ 5 场',
+      '微信答疑 30 天',
+    ],
+  },
+  {
+    id: 'coach-biz',
+    priceValue: 5000,
+    icon: '📐',
+    name: '业务梳理',
+    tag: '有产品或雏形，说不清客户是谁',
+    price: '5,000 元',
+    priceNote: '一次性 · 3 周交付',
+    desc: '讲清楚你靠什么赚钱。',
+    includes: [
+      '含「基础陪跑」全部内容',
+      '申报材料预审 1 轮',
+      '业务梳理 2 小时：定位 / 客户 / 收入模型',
+      '一页纸业务梳理稿 1 份',
+      '商业计划书 / 一页纸打磨 1 轮',
+      '业务推广（渠道、内容、节奏）1 个月',
+      '投资沙龙 / 路演专场推荐 1 次',
+      '微信答疑 45 天',
+    ],
+  },
+  {
+    id: 'coach-grow',
+    priceValue: 10000,
+    icon: '🚀',
+    name: '推广与对接',
+    tag: '业务已跑起来，缺曝光与资本',
+    price: '10,000 元',
+    priceNote: '一次性 · 6 周交付',
+    desc: '见到人，或拿到钱。',
+    includes: [
+      '含「业务梳理」全部内容',
+      '申报材料预审 2 轮',
+      '业务梳理 3 次',
+      '商业计划书 / 一页纸打磨 2 轮',
+      '业务推广 3 个月',
+      '投资沙龙 / 路演专场推荐 3 次 + 1 场定向路演',
+      '投资人一对一 或 政府相关部门对接 1 次',
+      '微信答疑 60 天',
+    ],
+  },
+];
+
+/**
  * 大额合作档位（几十万 ~ 几百万）。
  * 这类不是「买软件」，是「一起做一件事」，所以按项目报，
  * 但必须给出起价区间 —— 否则对方不知道要不要谈。
@@ -224,6 +290,14 @@ export function serviceEntryHtml(opts = {}) {
             </a>`,
           )
           .join('')}
+        <a class="cu-svc-row" href="#/services?p=coach-basic">
+          <span class="cu-svc-row-ico">🧭</span>
+          <span class="cu-svc-row-body">
+            <span class="cu-svc-row-name">创业辅导（OPC 陪跑）</span>
+            <span class="cu-svc-row-tag">上城区政策 / 赛事 / 投融资对接</span>
+          </span>
+          <span class="cu-svc-row-price">3,000 元起</span>
+        </a>
       </div>
     </div>`;
   }
@@ -283,6 +357,55 @@ export function renderServices(ctx) {
         </a>
       </div>`,
     ).join('')}
+
+    <div class="svc-section-title">🧭 创业辅导 · 上城区 OPC 陪跑</div>
+    <div class="svc-section-sub">
+      面向 AI 时代一人公司（OPC）创业者。核心不是讲课，而是把你和上城区已经落地的
+      政策资金通道、创业赛事、投融资平台接起来——这些通道本身都是公开的，
+      收费买的是判断、材料和对接效率。三档递进，后一档包含前一档全部内容。
+    </div>
+
+    <div class="svc-coach-chips">
+      <span>OPC 专项资金 1 亿元/年</span>
+      <span>专项基金 10 亿元（首期 1 亿）</span>
+      <span>创业担保贷款最高 50 万元</span>
+      <span>场景建设补助最高 300 万元</span>
+      <span>山南投融汇撮合融资 20 亿元+</span>
+    </div>
+
+    <div class="svc-coach-grid">
+      ${COACH_PLANS.map(
+        (p) => `<div class="svc-coach-card" id="svc-${ui.esc(p.id)}">
+          <div class="svc-coach-head">
+            <span class="svc-coach-ico">${p.icon}</span>
+            <span class="svc-coach-name">${ui.esc(p.name)}</span>
+            <button class="svc-share" type="button" data-share="${ui.esc(p.id)}" aria-label="分享这个档位">↗</button>
+          </div>
+          <div class="svc-coach-tag">${ui.esc(p.tag)}</div>
+          <div class="svc-coach-price"><b>${ui.esc(p.price)}</b><span>${ui.esc(p.priceNote)}</span></div>
+          <div class="svc-coach-desc">${ui.esc(p.desc)}</div>
+          <div class="svc-coach-list">
+            ${p.includes.map((x) => `<div class="svc-coach-li"><span class="svc-dot">✓</span>${ui.esc(x)}</div>`).join('')}
+          </div>
+          <a class="btn btn-primary btn-block mt12"
+             href="#/contact-us?topic=consult&about=${encodeURIComponent(`我想了解【创业辅导·${p.name} ${p.price}】`)}">
+            咨询这个档位
+          </a>
+        </div>`,
+      ).join('')}
+    </div>
+
+    <div class="svc-note" style="margin-top:10px">
+      ⚠️ 边界：政策资金由主管部门评审，<b>不承诺获批</b>；「投资人见面」只承诺安排真实会面机会，
+      <b>不承诺融资金额</b>；见面以实际可约到的档期为准，约不到按未完成部分退费；
+      材料需真实，虚假材料导致的申报失败不在服务责任范围内；政策口径以主管部门最新公告为准。
+    </div>
+    <div class="svc-coach-flow">
+      <b>服务流程：</b>确认档位 → 付款 → 3 个工作日内首次沟通 → 按清单交付 → 答疑期内随时提问
+    </div>
+    <a class="btn btn-outline btn-block mt12" href="/docs/创业辅导服务报价单-上城区OPC.xlsx" download>
+      ⬇️ 下载报价单（Excel，含三档对比与政策清单）
+    </a>
 
     <div class="svc-section-title">💼 大额合作（几十万 ~ 几百万）</div>
     <div class="svc-section-sub">
@@ -377,7 +500,7 @@ export function renderServices(ctx) {
     activeTab: '',
     mount(root) {
       /* ---------------- 每个服务单独分享 ---------------- */
-      const allPlans = [...PLANS, ...BIG_PLANS];
+      const allPlans = [...PLANS, ...BIG_PLANS, ...COACH_PLANS];
       const planById = new Map(allPlans.map((p) => [p.id, p]));
 
       const urlOf = (id) => `${location.origin}/#/services?p=${encodeURIComponent(id)}`;
