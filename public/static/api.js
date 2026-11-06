@@ -641,6 +641,7 @@ export const service = {
   dramaDetail: (id) => api.get('/api/dramas/' + id),
   adminDramas: (query) => api.get('/api/admin/dramas', query),
   adminCreateDrama: (body) => api.post('/api/admin/dramas', body),
+  adminDramaFromVideos: (body) => api.post('/api/admin/dramas/from-videos', body),
   adminUpdateDrama: (id, body) => api.put('/api/admin/dramas/' + id, body),
   adminAddEpisode: (id, body) => api.post('/api/admin/dramas/' + id + '/episodes', body),
   adminReviewDrama: (id, body) => api.post('/api/admin/dramas/' + id + '/review', body),

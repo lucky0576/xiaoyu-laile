@@ -124,6 +124,7 @@ export async function filesFromDataTransfer(dt) {
 /* ================================================================== */
 async function renderPublishMedia(ctx, type, taxonomy) {
   const isLive = type === 'live';
+  const isAdmin = Boolean(ctx.state?.user?.isAdmin);
   const catGrid = `
     <div class="cat-grid">
       ${(taxonomy.categories || []).map((c) => `<a class="cat-card" href="#/publish?category=${c.id}">
@@ -214,6 +215,49 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           <label>封面图 <span class="tiny dim">（选填，不传自动截取）</span></label>
           <input type="file" id="pm-cover-input" accept="image/*" class="input">
         </div>
+
+        ${
+          isAdmin
+            ? `<div class="card card-pad mt12" style="background:#f8fbff;border:1px dashed #cdd8e6">
+          <label style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="pm-drama-on">
+            <span class="strong" style="font-size:13.5px">🎬 同时发布为短剧（可选）</span>
+          </label>
+          <div class="tiny dim mt4">勾选后，这批视频会同时上架到短剧频道，并自动切 15 秒高光片段投放到短视频流。同一批视频，短视频 + 短剧一次发布。</div>
+          <div class="hide" id="pm-drama-fields">
+            <div class="field mt8">
+              <label>剧名 <span class="tiny dim">（默认用上面的标题）</span></label>
+              <input class="input" id="pm-drama-title" maxlength="60" placeholder="例如：算力争夺战">
+            </div>
+            <div class="row gap8">
+              <div class="field grow">
+                <label>分类</label>
+                <select class="input" id="pm-drama-cat">
+                  <option value="business">商战</option>
+                  <option value="startup">创业</option>
+                  <option value="urban">都市</option>
+                  <option value="counter">逆袭</option>
+                  <option value="suspense">悬疑</option>
+                  <option value="industry">产业</option>
+                </select>
+              </div>
+              <div class="field grow">
+                <label>免费集数</label>
+                <input class="input" id="pm-drama-free" type="number" min="1" value="1">
+              </div>
+            </div>
+            <div class="field">
+              <label>剧情简介</label>
+              <textarea class="textarea" id="pm-drama-intro" style="min-height:70px" placeholder="一句话讲清楚这部剧讲什么（默认用视频简介）"></textarea>
+            </div>
+            <div class="field">
+              <label>内容方 / 授权说明</label>
+              <input class="input" id="pm-drama-license" maxlength="200" placeholder="例如：已获授权（信息网络传播权）">
+            </div>
+          </div>
+        </div>`
+            : ''
+        }
       `}
 
       <button class="btn btn-primary btn-block mt16" id="pm-submit" style="height:48px;font-size:15px">
@@ -241,6 +285,43 @@ async function renderPublishMedia(ctx, type, taxonomy) {
       // 之前写在 if (!isLive) 块里，提交处理器在块外，
       // 一发布短视频就报 autoCover is not defined。
       let autoCover = null;
+
+      /* 同时发布为短剧：勾选后展开剧集信息 */
+      $('#pm-drama-on')?.addEventListener('change', (e) => {
+        $('#pm-drama-fields')?.classList.toggle('hide', !e.target.checked);
+      });
+
+      /**
+       * 同一批视频「同时发布为短剧」：
+       * 视频已经作为短视频发布过，这里把它们作为一部短剧上架（管理员）
+       */
+      const publishDramaIfNeeded = async (vidIds, fallbackTitle) => {
+        if (!$('#pm-drama-on')?.checked) return null;
+        const ids = (vidIds || []).filter(Boolean);
+        if (!ids.length) return null;
+        if (status) status.textContent = '正在创建短剧…';
+        try {
+          const r = await service.adminDramaFromVideos({
+            title: ($('#pm-drama-title')?.value || '').trim() || fallbackTitle,
+            category: $('#pm-drama-cat')?.value || 'business',
+            intro: ($('#pm-drama-intro')?.value || '').trim() || ($('#pm-desc')?.value || ''),
+            licenseNote: ($('#pm-drama-license')?.value || '').trim(),
+            provider: ($('#pm-drama-license')?.value || '').trim(),
+            freeEpisodes: Number($('#pm-drama-free')?.value) || 1,
+            fileIds: ids,
+            slices: true,
+          });
+          const drama = (r && r.drama) || (r && r.data && r.data.drama) || {};
+          if (drama.id) {
+            ui.toast(`已同时上架短剧《${drama.title || ''}》`, 'ok');
+            return drama;
+          }
+          return null;
+        } catch (err) {
+          ui.toast('短视频已发布，短剧创建失败：' + (err.message || '未知错误'), 'err');
+          return null;
+        }
+      };
 
       if (!isLive) {
         const drop = $('#pm-drop');
@@ -688,6 +769,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           const baseSubtitle = ($('#pm-subtitle').value || '').trim();
           const baseDesc = ($('#pm-desc')?.value || '').trim();
           const ids = [];
+          const vidIds = [];
           try {
             for (let i = 0; i < total; i++) {
               const it = videoFiles[i];
@@ -724,6 +806,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
               });
               const vidId = (vidRec?.files?.[0] || vidRec)?.id || '';
               if (!vidId) throw new Error('视频上传失败，未拿到文件 ID');
+              vidIds.push(vidId);
 
               const coverToSend = coverFile && i === 0 ? coverFile : it.cover;
               let coverId = '';
@@ -745,8 +828,9 @@ async function renderPublishMedia(ctx, type, taxonomy) {
               ids.push(r.feed.id);
             }
             if (status) status.textContent = '';
+            const dramaMulti = await publishDramaIfNeeded(vidIds, title);
             ui.toast(`已发布 ${ids.length} 条短视频`, 'ok');
-            ctx.nav('#/shorts');
+            ctx.nav(dramaMulti && dramaMulti.id ? `#/drama/${dramaMulti.id}` : '#/shorts');
           } catch (err) {
             ui.toast(
               ids.length ? `已发布 ${ids.length} 条，第 ${ids.length + 1} 条失败：${err.message}` : err.message || '发布失败',
@@ -789,6 +873,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
             });
             const vidId = (vidRec?.files?.[0] || vidRec)?.id || '';
             if (!vidId) throw new Error('视频上传失败，未拿到文件 ID');
+            lastVidId = vidId;
 
             const coverToSend = coverFile || autoCover;
             let coverId = '';
@@ -811,6 +896,10 @@ async function renderPublishMedia(ctx, type, taxonomy) {
               coverFileId: coverId,
             });
           }
+          let dramaSingle = null;
+          if (!isLive && lastVidId) {
+            dramaSingle = await publishDramaIfNeeded([lastVidId], title);
+          }
           ui.toast(isLive ? '直播间已创建' : '短视频已发布', 'ok');
           /*
            * 跳转要分类型：
@@ -820,6 +909,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
            * 用户就以为「发布失败」—— 其实服务端已经 201 成功了。
            */
           if (isLive) ctx.nav(`#/live/${r.feed.id}`);
+          else if (dramaSingle && dramaSingle.id) ctx.nav(`#/drama/${dramaSingle.id}`);
           else ctx.nav('#/shorts');
         } catch (err) {
           ui.toast(err.message || '发布失败', 'err');

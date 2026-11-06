@@ -60,6 +60,28 @@ export default function registerDramaRoutes(app) {
     return data(res, dramasSvc.adminListDramas({ status: String(q.status || ''), page: num(q.page, 1), size: Math.min(50, num(q.size, 20)) }));
   });
 
+  /** 一次上传：同时发布短视频 + 短剧（管理员） */
+  app.post('/api/admin/dramas/from-videos', async (req, res) => {
+    const admin = mustAdmin(req);
+    try {
+      const r = await dramasSvc.createFromVideos({
+        admin,
+        title: String(req.body?.title || ''),
+        category: String(req.body?.category || 'business'),
+        intro: String(req.body?.intro || ''),
+        provider: String(req.body?.provider || ''),
+        licenseNote: String(req.body?.licenseNote || ''),
+        freeEpisodes: Number(req.body?.freeEpisodes) || 1,
+        fileIds: Array.isArray(req.body?.fileIds) ? req.body.fileIds : [],
+        slices: req.body?.slices !== false,
+      });
+      return data(res, r, 201);
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code);
+      throw err;
+    }
+  });
+
   app.post('/api/admin/dramas', (req, res) => {
     const admin = mustAdmin(req);
     const row = dramasSvc.createDrama({ user: admin, body: req.body || {} });

@@ -401,6 +401,81 @@ export async function generateSlices({ dramaId, admin }) {
   return { made, results };
 }
 
+/**
+ * 一次上传，同时发布「短视频 + 短剧」
+ *
+ * 场景：用户在发布页上传 1~3 条视频，勾选「同时发布为短剧」，
+ * 除了生成短视频 feed 之外，还把这批视频作为一部短剧的剧集上架。
+ *
+ * @param {object} p
+ * @param {object} p.admin 管理员
+ * @param {string} p.title 剧名
+ * @param {string} [p.category]
+ * @param {string} [p.intro]
+ * @param {string} [p.provider]
+ * @param {string} [p.licenseNote]
+ * @param {number} [p.freeEpisodes]
+ * @param {string[]} p.fileIds 视频文件 id（按集数顺序）
+ * @param {boolean} [p.slices] 是否同时生成切片投放短视频流（默认 true）
+ */
+export async function createFromVideos({
+  admin,
+  title,
+  category = 'business',
+  intro = '',
+  provider = '',
+  licenseNote = '',
+  freeEpisodes = 1,
+  fileIds = [],
+  slices = true,
+} = {}) {
+  const ids = (Array.isArray(fileIds) ? fileIds : []).filter((x) => typeof x === 'string' && x);
+  if (!ids.length) throw httpError(400, '请先上传视频文件');
+  const files = db.collection('files');
+  for (const id of ids) {
+    const rec = files.get(id);
+    if (!rec || rec.kind !== 'video') throw httpError(400, '上传的文件必须是视频');
+  }
+  const drama = createDrama({
+    user: admin,
+    body: {
+      title: String(title || '').trim() || '未命名短剧',
+      category,
+      intro,
+      provider,
+      licenseNote,
+      freeEpisodes,
+      totalEpisodes: ids.length,
+    },
+  });
+  let made = 0;
+  for (let i = 0; i < ids.length; i += 1) {
+    try {
+      await addEpisode({
+        dramaId: drama.id,
+        fileId: ids[i],
+        episodeNo: i + 1,
+        title: `${String(title || '短剧').slice(0, 40)} · 第 ${i + 1} 集`,
+        free: i + 1 <= Number(freeEpisodes || 1),
+      });
+      made += 1;
+    } catch {
+      /* 单集失败继续 */
+    }
+  }
+  if (!made) throw httpError(500, '剧集全部添加失败');
+  const published = reviewDrama(drama.id, { action: 'approve', admin });
+  let sliceInfo = { made: 0 };
+  if (slices) {
+    try {
+      sliceInfo = await generateSlices({ dramaId: drama.id, admin });
+    } catch {
+      sliceInfo = { made: 0 };
+    }
+  }
+  return { drama: dramaPublic(dramas().get(drama.id) || published), episodes: made, slices: sliceInfo.made };
+}
+
 export default {
   DRAMA_CATEGORIES,
   dramaPublic,
