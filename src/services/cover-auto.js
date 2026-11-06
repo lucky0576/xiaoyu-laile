@@ -169,18 +169,16 @@ export function resolveCoverPath(coverUrl, coverFileId) {
  * 给「没有封面」的内容自动配一张图，用于生成短视频。
  *
  * 顺序：
- *   1. 网络图片（photo-cover：Wikimedia 检索 + 排版）—— 好看，但依赖外网
+ *   1. 网络图片（photo-cover 的 plain 模式：只有干净照片，不烧文字）
  *   2. 本地渐变卡片（cover.js + ffmpeg）—— 一定成功
  *
- * @param {object} p
- * @param {string} p.title
- * @param {string} [p.category] 用于卡片配色
- * @param {string} [p.city]
- * @param {string} [p.industry]
- * @param {string} [p.kindLabel]
- * @param {string} [p.ownerId]
- * @param {string} [p.refId]   关联 id（listingId / newsId）
- * @returns {Promise<{record:object, path:string}|null>}
+ * 为什么短视频要 plain 版：
+ *   普通封面会把标题烧进图里，视频自己又画一遍标题 → 满屏重复的字。
+ *   所以配图分两份：
+ *     · record  —— 存成内容的封面（带标题，列表/详情好看）
+ *     · videoPath —— 视频底图（无字的照片，或纯色底板），已被转成 720×1280 竖版
+ *
+ * @returns {Promise<{record:object, path:string, videoPath:string, cleanup:string[]}|null>}
  */
 export async function ensureCoverForShort({
   title,
@@ -194,43 +192,86 @@ export async function ensureCoverForShort({
   const t = String(title || '').trim();
   if (!t) return null;
 
-  /* 1) 先试网络配图 */
+  const cleanup = [];
+  const W = 720;
+  const H = 1280;
+
+  /* 把任意图转成竖版底图：模糊铺底 + 完整照片居中（不裁掉主体） */
+  const toPortrait = async (srcPath) => {
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const out = path.join(os.tmpdir(), `shortbg-${stamp}.png`);
+    try {
+      await execFileAsync(
+        'ffmpeg',
+        [
+          '-y',
+          '-loglevel',
+          'error',
+          '-i',
+          srcPath,
+          '-filter_complex',
+          `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=26[bg];` +
+            `[0:v]scale=${W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2`,
+          '-frames:v',
+          '1',
+          out,
+        ],
+        { timeout: 45000 },
+      );
+      if (fs.existsSync(out) && fs.statSync(out).size > 3000) {
+        cleanup.push(out);
+        return out;
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      fs.unlinkSync(out);
+    } catch {
+      /* ignore */
+    }
+    return '';
+  };
+
+  /* 1) 网络配图（plain，不带字） */
   try {
     const photoMod = await import('./photo-cover.js');
     const rec = await photoMod.generatePhotoCover(
       { title: t, category, city, industry, kindLabel, categoryName: '' },
-      { ownerId, listingId: refId },
+      { ownerId, listingId: refId, plain: true },
     );
-    if (rec && rec.path && fs.existsSync(rec.path)) return { record: rec, path: rec.path };
+    if (rec && rec.path && fs.existsSync(rec.path)) {
+      const videoPath = (await toPortrait(rec.path)) || rec.path;
+      return { record: rec, path: rec.path, videoPath, cleanup };
+    }
   } catch {
     /* 网络不通就走本地卡片 */
   }
 
-  /* 2) 本地渐变卡片 */
+  /* 2) 本地渐变卡片（带标题，作为封面） */
+  let record = null;
+  let coverPath = '';
   try {
     const svg = makeCoverSvg({ title: t, category, city, industry, kindLabel });
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const svgPath = path.join(os.tmpdir(), `shortcov-${stamp}.svg`);
     const pngPath = path.join(os.tmpdir(), `shortcov-${stamp}.png`);
     fs.writeFileSync(svgPath, svg, 'utf8');
-    let srcPath = svgPath;
-    let name = `${t.slice(0, 20)}-配图.png`;
-    let mime = 'image/png';
     try {
       await execFileAsync('ffmpeg', ['-y', '-loglevel', 'error', '-i', svgPath, '-frames:v', '1', pngPath], {
         timeout: 30000,
       });
-      if (fs.existsSync(pngPath) && fs.statSync(pngPath).size > 0) srcPath = pngPath;
     } catch {
-      name = `${t.slice(0, 20)}-配图.svg`;
-      mime = 'image/svg+xml';
+      /* ignore */
     }
-    const rec = await registerStoredFile({
+    const srcPath = fs.existsSync(pngPath) && fs.statSync(pngPath).size > 0 ? pngPath : svgPath;
+    record = await registerStoredFile({
       srcPath,
-      name,
-      mime,
+      name: `${t.slice(0, 20)}-配图${srcPath.endsWith('.svg') ? '.svg' : '.png'}`,
+      mime: srcPath.endsWith('.svg') ? 'image/svg+xml' : 'image/png',
       opts: { ownerId, listingId: refId, role: 'auto-cover', extract: false },
     });
+    coverPath = record?.path || '';
     for (const p of [svgPath, pngPath]) {
       try {
         fs.unlinkSync(p);
@@ -238,9 +279,41 @@ export async function ensureCoverForShort({
         /* ignore */
       }
     }
-    if (rec && rec.path && fs.existsSync(rec.path)) return { record: rec, path: rec.path };
   } catch (err) {
     console.warn('[cover] 短视频配图失败:', err.message);
+  }
+
+  /* 3) 视频底图：卡片带标题会重复，改用纯品牌色底板 */
+  let videoPath = '';
+  try {
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const bg = path.join(os.tmpdir(), `shortplain-${stamp}.png`);
+    await execFileAsync(
+      'ffmpeg',
+      [
+        '-y',
+        '-loglevel',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        `color=c=0x0B2A4A:s=${W}x${H}`,
+        '-frames:v',
+        '1',
+        bg,
+      ],
+      { timeout: 30000 },
+    );
+    if (fs.existsSync(bg) && fs.statSync(bg).size > 1000) {
+      cleanup.push(bg);
+      videoPath = bg;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (record && record.path) {
+    return { record, path: record.path, videoPath: videoPath || record.path, cleanup };
   }
   return null;
 }

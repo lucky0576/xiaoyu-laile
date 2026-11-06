@@ -562,29 +562,40 @@ export async function generatePhotoCover(input = {}, opts = {}) {
        */
       'gblur=sigma=1.1',
       'eq=saturation=0.86:contrast=1.05:brightness=-0.02',
-      `drawbox=x=0:y=0:w=${W}:h=${H}:color=0x0B2A4A@0.32:t=fill`,
-      // 底部再压一层，保证标题可读
-      `drawbox=x=0:y=${bandTop}:w=${W}:h=${H - bandTop}:color=0x061A2E@0.40:t=fill`,
-      // 左上：品牌 logo 的底衬（半透明黑，保证在任何照片上都看得清）
-      `drawbox=x=${PADDING - 12}:y=${46 - 11}:w=${LOGO_W + 24}:h=${LOGO_H + 22}:color=black@0.32:t=fill`,
-      // 「城市 · 行业」标签
-      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(badgePath)}:x=${PADDING + LOGO_W + 40}:y=66:fontsize=26:fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2`,
-      // 主标题
-      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(titlePath)}:x=${PADDING}:y=${titleY}:fontsize=${fontSize}:fontcolor=white:line_spacing=${Math.round(fontSize * 0.32)}:shadowcolor=black@0.55:shadowx=3:shadowy=3`,
-      // 左下：品牌
-      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(markPath)}:x=${PADDING}:y=${H - 56}:fontsize=24:fontcolor=white@0.9`,
-      // 右下：CC 署名（小字）
-      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(creditPath)}:x=w-tw-24:y=${H - 34}:fontsize=15:fontcolor=white@0.62`,
-      // 右上角：示意图标
-      `drawbox=x=${W - 118}:y=46:w=72:h=34:color=black@0.30:t=fill`,
-      `drawtext=fontfile=${FONT}:textfile=${escFilterPath(hintPath)}:x=${W - 110}:y=53:fontsize=18:fontcolor=white@0.9`,
     ];
+
+    /*
+     * plain 模式：只出「干净的照片底图」，不烧任何文字/logo。
+     * 用途：给短视频当背景 —— 视频自己会画标题，如果底图也带字就会重复两遍。
+     */
+    if (opts.plain) {
+      filters.push(`drawbox=x=0:y=0:w=${W}:h=${H}:color=0x0B2A4A@0.18:t=fill`);
+    } else {
+      filters.push(
+        `drawbox=x=0:y=0:w=${W}:h=${H}:color=0x0B2A4A@0.32:t=fill`,
+        // 底部再压一层，保证标题可读
+        `drawbox=x=0:y=${bandTop}:w=${W}:h=${H - bandTop}:color=0x061A2E@0.40:t=fill`,
+        // 左上：品牌 logo 的底衬（半透明黑，保证在任何照片上都看得清）
+        `drawbox=x=${PADDING - 12}:y=${46 - 11}:w=${LOGO_W + 24}:h=${LOGO_H + 22}:color=black@0.32:t=fill`,
+        // 「城市 · 行业」标签
+        `drawtext=fontfile=${FONT}:textfile=${escFilterPath(badgePath)}:x=${PADDING + LOGO_W + 40}:y=66:fontsize=26:fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2`,
+        // 主标题
+        `drawtext=fontfile=${FONT}:textfile=${escFilterPath(titlePath)}:x=${PADDING}:y=${titleY}:fontsize=${fontSize}:fontcolor=white:line_spacing=${Math.round(fontSize * 0.32)}:shadowcolor=black@0.55:shadowx=3:shadowy=3`,
+        // 左下：品牌
+        `drawtext=fontfile=${FONT}:textfile=${escFilterPath(markPath)}:x=${PADDING}:y=${H - 56}:fontsize=24:fontcolor=white@0.9`,
+        // 右下：CC 署名（小字）
+        `drawtext=fontfile=${FONT}:textfile=${escFilterPath(creditPath)}:x=w-tw-24:y=${H - 34}:fontsize=15:fontcolor=white@0.62`,
+        // 右上角：示意图标
+        `drawbox=x=${W - 118}:y=46:w=72:h=34:color=black@0.30:t=fill`,
+        `drawtext=fontfile=${FONT}:textfile=${escFilterPath(hintPath)}:x=${W - 110}:y=53:fontsize=18:fontcolor=white@0.9`,
+      );
+    }
 
     /*
      * logo 作为第二路输入叠上去。
      * 文件不存在就跳过，封面照常生成（不至于因为缺个图就发不出去）。
      */
-    const hasLogo = fs.existsSync(LOGO_PATH);
+    const hasLogo = fs.existsSync(LOGO_PATH) && !opts.plain;
     const inputs = ['-y', '-hide_banner', '-loglevel', 'error', '-i', photo.path];
     let filterComplex = `[0:v]${filters.join(',')}`;
 
@@ -594,6 +605,9 @@ export async function generatePhotoCover(input = {}, opts = {}) {
         `[0:v]${filters.join(',')}[bg];` +
         `[1:v]scale=-1:${LOGO_H}[lg];` +
         `[bg][lg]overlay=x=${PADDING}:y=${46 + Math.round((LOGO_H + 22 - LOGO_H) / 2)}:format=auto`;
+    } else if (opts.plain) {
+      // plain 模式不再叠 logo
+      filterComplex = `[0:v]${filters.join(',')}`;
     }
 
     await run(
@@ -607,12 +621,12 @@ export async function generatePhotoCover(input = {}, opts = {}) {
     const safeTitle = title.replace(/[\\/:*?"<>|]/g, '').slice(0, 24) || '封面';
     const rec = await registerStoredFile({
       srcPath: outPath,
-      name: `${safeTitle}-封面.jpg`,
+      name: `${safeTitle}-${opts.plain ? '底图' : '封面'}.jpg`,
       mime: 'image/jpeg',
       opts: {
         ownerId: opts.ownerId || '',
         listingId: opts.listingId || '',
-        role: 'auto-cover',
+        role: opts.plain ? 'auto-cover-plain' : 'auto-cover',
         extract: false,
       },
     });

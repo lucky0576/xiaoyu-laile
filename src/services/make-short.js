@@ -264,6 +264,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
    * 配好后回写 listing.coverUrl / coverFileId，列表页也能看到。
    */
   let coverPath = '';
+  const coverCleanup = [];
   const imgRecs = [];
   try {
     for (const id of listing.files || []) {
@@ -285,7 +286,9 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
       refId: listing.id,
     });
     if (gen) {
-      coverPath = gen.path;
+      // 视频用「无字底图」，封面存「带标题的图」
+      coverPath = gen.videoPath || gen.path;
+      coverCleanup.push(...(gen.cleanup || []));
       try {
         db.collection('listings').update(listing.id, {
           coverUrl: gen.record.url,
@@ -299,14 +302,25 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
     }
   }
 
-  const made = await renderListingVideo({
-    listing,
-    user,
-    baseUrl,
-    seconds,
-    voice,
-    coverPathOverride: coverPath,
-  });
+  let made = null;
+  try {
+    made = await renderListingVideo({
+      listing,
+      user,
+      baseUrl,
+      seconds,
+      voice,
+      coverPathOverride: coverPath,
+    });
+  } finally {
+    for (const p of coverCleanup) {
+      try {
+        fs.unlinkSync(p);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
   if (!made) throw httpError(500, '视频生成失败');
 
   const feedsSvc = await import('./feeds.js');
@@ -385,7 +399,8 @@ export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10
         refId: news.id,
       });
       if (gen) {
-        coverPath = gen.path;
+        coverPath = gen.videoPath || gen.path;
+        tmpCover.push(...(gen.cleanup || []));
         try {
           db.collection('news').update(news.id, {
             coverUrl: gen.record.url,
