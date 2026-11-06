@@ -133,7 +133,7 @@ export function getDrama(id) {
 export function adminListDramas({ status = '', page = 1, size = 20 } = {}) {
   const all = dramas()
     .all()
-    .filter((d) => (status ? d.status === status : true))
+    .filter((d) => (status ? d.status === status : d.status !== 'deleted'))
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   const start = (Math.max(1, page) - 1) * size;
   return { total: all.length, items: all.slice(start, start + size) };
