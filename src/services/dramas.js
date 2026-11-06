@@ -478,6 +478,7 @@ export async function createFromVideos({
 
 export default {
   DRAMA_CATEGORIES,
+  createFromVideos,
   dramaPublic,
   episodePublic,
   listDramas,
