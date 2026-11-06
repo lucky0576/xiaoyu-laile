@@ -126,7 +126,67 @@ Zoho 后台 → Users → Add User
 
 ---
 
-## 六、常见问题
+## 六、用手机 App 收信（免费版推荐做法）
+
+免费版没有「转发到 QQ」功能（Zoho 官方明确说明：新注册免费用户不提供 Email Forwarding），
+所以用官方 App + 推送通知来「随时收到」。
+
+### 1. 下载
+
+| 系统 | 下载方式 |
+|---|---|
+| iPhone | App Store 搜索「Zoho Mail」 |
+| 安卓 | 应用市场（华为/小米/应用宝）搜「Zoho Mail」，或官网 https://www.zoho.com/mail/download.html |
+
+### 2. 登录
+
+```
+打开 App → Sign in / 登录
+账号：service@xiaoyulaile.online
+密码：创建用户时设置的那个
+（如果提示验证，选「Zoho Accounts」登录）
+```
+
+### 3. 打开推送通知
+
+```
+iPhone：设置 → 通知 → Zoho Mail → 允许通知
+安卓：App 内 → 左上角菜单 → Settings → Notifications → 全部打开
+     并在系统设置里允许 Zoho Mail 通知
+```
+
+### 4. 测试
+
+```
+1. 用 QQ / 163 发一封到 service@xiaoyulaile.online
+2. 手机应弹出通知，App 收件箱能看到
+3. 在 App 里回复一封到 QQ，确认能发出去
+```
+
+### 5. 常见问题
+
+```
+· 免费版不能把邮箱加到手机自带「邮件」App（没有 IMAP）
+· 忘记密码：https://accounts.zoho.com → 用 service@ 找回
+· 收不到推送：检查系统通知权限 + App 内通知开关
+· 第一次发到 QQ/163 可能进垃圾箱 → 配好 DKIM 后正常
+```
+
+---
+
+## 七、关于「转发到 QQ」
+
+Zoho 免费版不支持转发。如果确实需要「所有邮件都进 QQ 邮箱」，有两条路：
+
+1. **换 ImprovMX 转发**（免费）：MX 记录改到 ImprovMX，所有来信自动转 QQ；
+   Zoho 保留用于发信；代价是 Zoho 收件箱不再进信。
+2. **升级 Zoho Mail Lite**（$1/用户/月，约 ¥7/月）：转发 + IMAP 都有，最正规。
+
+---
+
+
+
+## 八、常见问题
 
 **Q：Zoho 免费版真的免费吗？会不会到期收费？**
 A：官方写「Forever free」，5 用户以内免费，不绑信用卡。注意要从 `plan=free` 入口注册，付费页会引导到 Lite（$1/用户/月）。
