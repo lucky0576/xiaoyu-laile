@@ -1,97 +1,116 @@
-# 小鱼来了 · 企业邮箱开通指南（Zoho Mail 免费版）
+# 小鱼来了 · 企业邮箱开通指南（免费方案）
 
-> 目标：让 `service@xiaoyulaile.online` 能正常收发邮件。
-> 现状（2026-11-06 实测）：
-> - 域名 `xiaoyulaile.online` 没有 MX 记录 → 现在收不到任何邮件
+> 目标：让 `service@xiaoyulaile.online` 能收发邮件。
+> 实测现状（2026-11-06）：
+> - 域名 `xiaoyulaile.online` **没有 MX 记录** → 现在收不到任何邮件
 > - DNS 托管在 **DNSPod**（NS：louis.dnspod.net / butterfly.dnspod.net）
-> - 服务器 25 端口被云服务商封堵（ufw 放行后外部仍连不通）→ **自建邮件服务器不可行**
-> - 结论：走 Zoho Mail（域名邮箱，免费版 5 个账号），MX 指向 Zoho 的服务器
+> - 服务器 25 端口被云服务商封堵 → **自建邮件服务器不可行**
+> - 结论：只能用第三方域名邮箱 / 转发服务
 
 ---
 
-## 一、你需要做的（10 分钟）
+## 一、免费方案对比（2026-11 实测）
 
-### 1. 注册 Zoho 账号
+| 方案 | 免费额度 | 能收 | 能发 | 需要备案 | 推荐度 |
+|---|---|---|---|---|---|
+| **Zoho Mail 免费版（Forever Free）** | 1 个域名 / 5 用户 / 每人 5GB | ✅ | ✅（网页版/手机 App） | ❌ 不需要 | ⭐⭐⭐⭐⭐ |
+| **ImprovMX**（转发） | 免费转发 | ✅ | ❌ 只能转发到 QQ 邮箱 | ❌ 不需要 | ⭐⭐⭐（应急） |
+| Cloudflare Email Routing | 免费转发 | ✅ | ❌ | ❌ 不需要 | ⭐⭐（要迁 DNS） |
+| 腾讯企业邮箱免费版 | 5 用户 | ✅ | ✅ | ✅ **需要 ICP 备案** | ⭐⭐（备案后首选） |
+| 阿里云/网易邮箱免费版 | 5 用户 | ✅ | ✅ | ✅ 需要备案 | ⭐⭐ |
 
-1. 打开 https://www.zoho.com/mail/
-2. 点 `Sign Up` → 选 `Mail` → 用你的常用邮箱注册（建议用 QQ 邮箱或 163，能收验证码）
-3. 注册完成后进入 `Zoho Mail Admin Console`
+**结论：现在用 Zoho 免费版；等 ICP 备案下来再迁腾讯企业邮箱。**
+
+> 注意：Zoho 免费版**不含 IMAP / POP / ActiveSync** —— 只能用网页版和手机 App 收发，
+> 不能配置到 Foxmail / 手机自带邮件客户端。如果必须用客户端，选 ImprovMX 转发到 QQ 邮箱，或在备案后换腾讯企业邮箱。
+
+---
+
+## 二、Zoho 免费版注册（10 分钟）
+
+### 1. 用「免费版」入口注册（不要点 Lite/Premium）
+
+```
+免费版注册链接（官方）：
+https://mail.zoho.com/signup?type=org&plan=free
+
+或者：https://www.zoho.com/mail/zohomail-pricing.html
+      页面上找「Mail Free Forever free」→ Sign up
+```
+
+- 用你的常用邮箱注册（QQ / 163 都行，要能收验证码）
+- 注册完进入后台 `mailadmin.zoho.com`
 
 ### 2. 添加域名
 
-1. Admin Console → `Domains` → `Add Domain`
-2. 输入 `xiaoyulaile.online`
-3. 选择 **验证方式：CNAME**（比 TXT 简单，只加一条）
-4. Zoho 会给一个类似这样的记录：
-
 ```
-类型：CNAME
-主机记录：zb12345678
-记录值：zmverify.zoho.com
+Zoho 后台 → Domains → Add Domain → 输入 xiaoyulaile.online
+→ 验证方式选 CNAME（只加一条记录）
+→ Zoho 会给：主机记录（形如 zb12345678）+ 记录值（zmverify.zoho.com）
 ```
 
-**把这条记录（主机记录 + 记录值）发给我**，我在 DNSPod 帮你加（需要你给 DNSPod API Token），或者你自己在 DNSPod 控制台加。
+**把这两项发我，我配 DNS；或者你自己在 DNSPod 加。**
 
-### 3. 添加 MX 记录（Zoho 会一并给出）
+### 3. Zoho 免费版的 MX 记录（验证通过后添加）
 
-Zoho 免费版一般要求三条 MX（按优先级）：
-
-```
-优先级 10  mx.zoho.com
-优先级 20  mx2.zoho.com
-优先级 50  mx3.zoho.com
-```
+| 类型 | 主机记录 | 记录值 | 优先级 |
+|---|---|---|---|
+| MX | @ | mx.zoho.com | 10 |
+| MX | @ | mx2.zoho.com | 20 |
+| MX | @ | mx3.zoho.com | 50 |
+| TXT | @ | v=spf1 include:zoho.com ~all | — |
+| TXT | _dmarc | v=DMARC1; p=none; rua=mailto:service@xiaoyulaile.online | — |
 
 ### 4. 创建邮箱账号
 
-验证通过后，在 Zoho 后台创建：
+```
+Zoho 后台 → Users → Add User
+邮箱：service@xiaoyulaile.online
+密码：你自己设（建议强密码 + 开启二次验证）
+```
+
+---
+
+## 三、DNS 怎么加（两种方式）
+
+### 方式 A：你自己在 DNSPod 控制台加（推荐，不用交出密钥）
 
 ```
-service@xiaoyulaile.online     对外服务邮箱（融资/创投/客户）
+1. 打开 https://www.dnspod.cn/ 登录（腾讯云账号）
+2. 进入「我的域名」→ xiaoyulaile.online → 解析记录
+3. 点「添加记录」，按上表逐条填（类型 / 主机记录 / 记录值 / 优先级）
+4. 保存，等 1~10 分钟生效
 ```
 
-账号密码由你设置（建议用强密码 + 开启二次验证）。
+### 方式 B：给我 DNSPod API Token，我一次配完
+
+**Token 是你生成的，不是我给的**，操作步骤：
+
+```
+1. 登录 dnspod.cn
+2. 右上角头像 → 用户中心（或直接访问 https://console.dnspod.cn/account/token）
+3. 找到「密钥管理 / API Token」→ 创建密钥
+4. 备注写「小鱼来了 DNS 配置」，权限选「DNS 记录 读取 + 修改」
+5. 生成后把 ID 和 Token（或 SecretId / SecretKey）复制发我
+6. 我配置完，你可以立刻「删除/重置」这个密钥，不影响已完成配置
+```
+
+**安全说明：**
+- 这个 Token 只能改 DNS 解析，不能动你的账号密码/支付
+- 用一次就够，配完建议删除或重置
+- 如果你不想给，走方式 A，我把每条记录写清楚
 
 ---
 
-## 二、我可以代做的部分
+## 四、验证是否生效
 
-| 事项 | 谁做 | 说明 |
-|---|---|---|
-| 注册 Zoho 账号 | **你** | 需要图形验证码与邮箱验证码，第三方无法代注册 |
-| 添加域名、创建邮箱 | **你**（Zoho 后台点几下） | 我提供每一步截图指引 |
-| 配置 DNSPod 的 CNAME / MX / SPF / DMARC | **我**（需要 DNSPod API Token） | 一次配置，10 秒完成 |
-| 网站上的邮箱、签名、联系页统一更新 | **我** | 全站搜一遍替换 |
-| 收发测试（发一封 / 收一封） | 我 + 你 | 我发，你确认收到 |
-
-**DNSPod API Token 获取方式**：DNSPod 控制台 → 用户中心 → 密钥管理 → 创建密钥（只勾选 DNS 记录读写权限）。
-
----
-
-## 三、DNS 记录清单（Zoho 验证通过后我再补精确值）
-
-| 类型 | 主机记录 | 记录值 | 用途 |
-|---|---|---|---|
-| CNAME | （Zoho 给） | （Zoho 给） | 域名归属验证 |
-| MX | @ | mx.zoho.com（优先级 10） | 收邮件 |
-| MX | @ | mx2.zoho.com（优先级 20） | 收邮件 |
-| MX | @ | mx3.zoho.com（优先级 50） | 收邮件 |
-| TXT | @ | v=spf1 include:zoho.com ~all | 反垃圾（SPF） |
-| TXT | _dmarc | v=DMARC1; p=none; rua=mailto:service@xiaoyulaile.online | 反垃圾（DMARC） |
-
----
-
-## 四、备案之后可以换的服务
-
-Zoho 免费版够用，但如果你更想用国内服务（送达率更高）：
-
-| 服务 | 费用 | 前提 |
-|---|---|---|
-| 腾讯企业邮箱免费版 | 免费 | 域名需 **ICP 备案** |
-| 阿里云邮箱免费版 | 免费 | 域名需 **ICP 备案** |
-| 网易企业邮箱 | 免费版 5 账号 | 需备案 |
-
-**所以：先 Zoho 用起来，等 ICP 备案下来再迁腾讯/阿里。**
+```
+配完后：
+1. 我用命令查 MX 记录，确认指向 zoho
+2. 我发一封测试邮件到 service@xiaoyulaile.online
+3. 你登录 mail.zoho.com 看是否收到
+4. 再从该邮箱发一封到你的 QQ 邮箱，确认能发
+```
 
 ---
 
@@ -100,9 +119,24 @@ Zoho 免费版够用，但如果你更想用国内服务（送达率更高）：
 ```
 ⚠️ 融资项目介绍表里填的联系邮箱是 service@xiaoyulaile.online
    在邮箱开通前提交，创投大会的通知邮件会全部丢失。
-   两个选择：
+   选择：
    A. 等邮箱开通再提交（推荐）
-   B. 先把表里的邮箱改成你已有的 QQ / 163 邮箱
+   B. 先把表里的邮箱改成你已有的 QQ / 163 邮箱（告诉我用哪个）
 ```
 
-**2026-11-06 备注：本文档由小鱼来了平台维护，邮箱开通后更新状态。**
+---
+
+## 六、常见问题
+
+**Q：Zoho 免费版真的免费吗？会不会到期收费？**
+A：官方写「Forever free」，5 用户以内免费，不绑信用卡。注意要从 `plan=free` 入口注册，付费页会引导到 Lite（$1/用户/月）。
+
+**Q：免费版收不到验证邮件？**
+A：Zoho 会往注册邮箱发验证码，检查垃圾邮件；不行就换 Gmail/Outlook 注册。
+
+**Q：以后想用手机自带邮件 App 收？**
+A：免费版不支持 IMAP。备案完成后换腾讯企业邮箱（免费版支持 IMAP），或在过渡期用 ImprovMX 转发到 QQ 邮箱。
+
+---
+
+*本文档由小鱼来了平台维护 · 2026-11-06*
