@@ -155,7 +155,7 @@ export async function renderListingVideo({
     const city = typeof cityName === 'string' ? cityName : cityName?.name || '';
     const industry = (listing.industries || [])[0];
     const ind = typeof industry === 'string' ? industry : industry?.name || '';
-    const metaLine = sanitize([city, ind].filter(Boolean).join(' · ')) || '小鱼来了 · 产业信息';
+    // 「其他」这种占位值不要写进视频，显得敷衍\n    const metaParts = [city, ind].map((v) => String(v || '').trim()).filter((v) => v && !/^其他/.test(v));\n    const metaLine = sanitize(metaParts.join(' · ')) || '小鱼来了 · 产业信息';
 
     /* ---------- 旁白（不提扫码，不带电话） ---------- */
     let audioDuration = 0;
