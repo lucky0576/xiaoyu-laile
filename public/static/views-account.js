@@ -62,8 +62,8 @@ export async function renderLogin(ctx, query) {
 
     <div class="card card-pad">
       <div class="chips mb12" id="login-tabs">
-        <a class="chip active" data-tab="phone">手机密码</a>
-        <a class="chip" data-tab="email">邮箱密码</a>
+        <a class="chip active" data-tab="phone">手机登录</a>
+        <a class="chip" data-tab="email">邮箱登录</a>
         <a class="chip" data-tab="wechat">微信开发中</a>
       </div>
 

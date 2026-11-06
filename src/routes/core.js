@@ -1,3 +1,4 @@
+import os from 'node:os';
 /**
  * 核心路由：健康检查、字典、文件、分享、二维码、实时事件流、AI 预览
  */
@@ -6,7 +7,7 @@ import path from 'node:path';
 import db from '../store/db.js';
 import { config, PUBLIC_DIR, DATA_DIR } from '../config.js';
 import { data, fail, str, num, mustAuth, authUser, baseUrl, queryOf, rateLimit, clientIp, list } from './_util.js';
-import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND, waitForParsing } from '../services/files.js';
+import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND, waitForParsing, registerStoredFile } from '../services/files.js';
 import filesecure from '../services/filesecure.js';
 import chunksSvc from '../services/chunks.js';
 import listingsSvc from '../services/listings.js';
@@ -993,6 +994,65 @@ export default function registerCoreRoutes(app) {
   /* ---------------------------------------------------------------- */
   /* 公开站点信息                                                      */
   /* ---------------------------------------------------------------- */
+  /* ---------------------------------------------------------------- */
+  /* 发布页：按品牌 / 型号自动找图                                      */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * GET /api/media/photo-search?q=华为 SUN2000 逆变器
+   * 从 Wikimedia Commons 搜图，返回候选列表（带缩略图）
+   */
+  app.get('/api/media/photo-search', async (req, res) => {
+    mustAuth(req);
+    const q = String(queryOf(req).q || '').trim().slice(0, 60);
+    if (q.length < 2) return fail(res, '搜索词太短', 400, 'short_query');
+    const rl = rateLimit(`photoseek:${clientIp(req)}`, 30, 60_000);
+    if (!rl.ok) return fail(res, `搜索太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    try {
+      const mod = await import('../services/photo-cover.js');
+      const items = await mod.searchPhotos(q, { limit: 8 });
+      return data(res, { items });
+    } catch (err) {
+      return fail(res, err.message || '搜图失败', 500, 'photo_search_failed');
+    }
+  });
+
+  /**
+   * POST /api/media/remote-image { url }
+   * 把选中的网图下载下来、登记成平台文件，返回 { id, url }
+   * 前端拿到 id 就能直接当封面/附件用
+   */
+  app.post('/api/media/remote-image', async (req, res) => {
+    const user = mustAuth(req);
+    const url = String(req.body?.url || '').trim();
+    if (!/^https?:\/\//i.test(url)) return fail(res, '图片地址不合法', 400, 'bad_url');
+    if (url.length > 800) return fail(res, '图片地址太长', 400, 'long_url');
+    const rl = rateLimit(`remotimg:${clientIp(req)}`, 20, 60_000);
+    if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(25000), redirect: 'follow' });
+      if (!r.ok) return fail(res, '图片下载失败', 502, 'download_failed');
+      const mime = String(r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!/^image\/(jpeg|png|webp|gif)$/.test(mime)) return fail(res, '对方不是图片', 415, 'not_image');
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (!buf.length) return fail(res, '图片为空', 502, 'empty');
+      if (buf.length > 12 * 1024 * 1024) return fail(res, '图片太大（上限 12MB）', 413, 'too_large');
+      const ext = mime.includes('png') ? '.png' : mime.includes('webp') ? '.webp' : mime.includes('gif') ? '.gif' : '.jpg';
+      const tmp = path.join(os.tmpdir(), `remote-${Date.now()}-${Math.random().toString(36).slice(2, 6)}${ext}`);
+      fs.writeFileSync(tmp, buf);
+      const rec = await registerStoredFile({
+        srcPath: tmp,
+        name: `网图${ext}`,
+        mime,
+        opts: { extract: false, ownerId: user.id, role: 'web-photo' },
+      });
+      return data(res, { id: rec.id, url: rec.url, name: rec.name });
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code || 'remote_image_failed');
+      return fail(res, err.message || '保存图片失败', 500, 'remote_image_failed');
+    }
+  });
+
   app.get('/api/site', (req, res) =>
     data(res, {
       name: config.appName,

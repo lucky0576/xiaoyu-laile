@@ -233,15 +233,71 @@ export async function openBroadcast(ids, opts = {}) {
     return res.blob();
   };
 
-  /** 下载：不支持 a[download] 的浏览器退化成「新窗口打开，长按保存」 */
+  /** 是否电脑端：电脑上「转发/下载」都走「另存为」 */
+  const isDesktop = () =>
+    !/Android|iPhone|iPad|iPod|Mobile|MicroMessenger|Windows Phone|HarmonyOS/i.test(navigator.userAgent || '');
+
+  const fileNameOf = () => `小鱼来了-群发图-${new Date().toISOString().slice(0, 10)}.png`;
+
+  /**
+   * 电脑端「另存为」：
+   *   优先用 File System Access API 弹系统保存框（Chrome / Edge）
+   *   不支持就退回浏览器下载（默认进「下载」文件夹，用户也可在下载项上右键「另存为」）
+   */
+  const saveImageAs = async () => {
+    const url = imgUrl();
+    if (!url) {
+      ui.toast('先点「🖼 生成图片发群」', 'err');
+      return false;
+    }
+    let blob;
+    try {
+      blob = await fetchImageBlob(url);
+    } catch {
+      window.open(url, '_blank');
+      ui.toast('已在新窗口打开图片，右键「图片另存为」即可', 'ok');
+      return false;
+    }
+    const name = fileNameOf();
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: name,
+          types: [{ description: 'PNG 图片', accept: { 'image/png': ['.png'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        ui.toast('已保存到你选择的位置', 'ok');
+        return true;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return false; // 用户取消
+        /* 其他错误继续走浏览器下载 */
+      }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 5000);
+    ui.toast('已保存到「下载」文件夹（也可以在下载项上右键另存为）', 'ok');
+    return true;
+  };
+
+  /** 下载：电脑端=另存为；手机端=直接存相册/下载 */
   const downloadImage = async () => {
     const url = imgUrl();
     if (!url) return ui.toast('先点「🖼 生成图片发群」', 'err');
+    if (isDesktop()) return saveImageAs();
     try {
       const blob = await fetchImageBlob(url);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `小鱼来了-群发图-${new Date().toISOString().slice(0, 10)}.png`;
+      a.download = fileNameOf();
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
@@ -255,10 +311,14 @@ export async function openBroadcast(ids, opts = {}) {
     }
   };
 
-  /** 转发：系统分享面板（可直接发微信）→ 复制图片 → 退化为下载 */
+  /** 转发：电脑端直接「另存为」；手机端=系统分享 → 复制图片 → 下载 */
   const shareImage = async () => {
     const url = imgUrl();
     if (!url) return ui.toast('先点「🖼 生成图片发群」', 'err');
+    if (isDesktop()) {
+      ui.toast('电脑上转发图片 = 先另存为，再拖进微信发送', 'ok');
+      return saveImageAs();
+    }
     try {
       const blob = await fetchImageBlob(url);
       const type = blob.type || 'image/png';

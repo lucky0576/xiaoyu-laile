@@ -647,3 +647,70 @@ export async function generatePhotoCover(input = {}, opts = {}) {
 
 export default {
   warmPhotoCache, generatePhotoCover, findPhoto, pickPhotoQuery };
+
+/**
+ * 多结果搜图（发布页「按品牌 / 型号自动找图」用）
+ *
+ * 和 findPhoto 的区别：
+ *   · 返回多条结果，让用户自己挑
+ *   · 不强制横版（产品图常常是竖图）
+ *   · 过滤掉图表/logo/地图这类明显不合适的
+ *
+ * @param {string} query 品牌 / 型号 / 产品名
+ * @param {{limit?:number}} [opts]
+ * @returns {Promise<Array<{url:string,thumbUrl:string,title:string,artist:string,license:string,width:number,height:number}>>}
+ */
+export async function searchPhotos(query, { limit = 8 } = {}) {
+  const q = String(query || '').trim();
+  if (!q) return [];
+  const qs = new URLSearchParams({
+    action: 'query',
+    format: 'json',
+    generator: 'search',
+    gsrsearch: q,
+    gsrnamespace: '6',
+    gsrlimit: String(Math.min(30, Math.max(limit * 3, 12))),
+    prop: 'imageinfo',
+    iiprop: 'url|size|mime|extmetadata',
+    iiurlwidth: '900',
+  });
+  let rows = [];
+  try {
+    const res = await httpsGet(`https://commons.wikimedia.org/w/api.php?${qs}`, { timeout: 20000 });
+    if (res.status !== 200) return [];
+    const j = JSON.parse(res.body.toString('utf8'));
+    const pages = (j && j.query && j.query.pages) || {};
+    const BAD = /(diagram|chart|map|logo|screenshot|poster|graph|plot|icon|sign|table|seal|coat[ _]of[ _]arms|flag|plan|drawing|schematic|infographic)/i;
+    rows = Object.values(pages)
+      .map((p) => {
+        const ii = Array.isArray(p.imageinfo) ? p.imageinfo[0] : null;
+        return ii ? { title: String(p.title || ''), ii } : null;
+      })
+      .filter(Boolean)
+      .filter(({ title, ii }) => !BAD.test(title))
+      .filter(({ ii }) => /^image\/(jpeg|png|webp)$/i.test(ii.mime || ''))
+      .filter(({ ii }) => (ii.width || 0) >= 400 && (ii.height || 0) >= 300)
+      .map(({ title, ii }) => {
+        const meta = ii.extmetadata || {};
+        const artist = stripHtml(meta.Artist && meta.Artist.value).slice(0, 40);
+        const license = stripHtml(
+          (meta.LicenseShortName && meta.LicenseShortName.value) ||
+            (meta.License && meta.License.value) ||
+            'Wikimedia Commons',
+        ).slice(0, 24);
+        return {
+          url: ii.url,
+          thumbUrl: ii.thumburl || ii.url,
+          title: title.replace(/^File:/, '').slice(0, 80),
+          artist: artist || 'Wikimedia',
+          license: license || 'CC',
+          width: ii.width || 0,
+          height: ii.height || 0,
+        };
+      })
+      .filter((x) => x.thumbUrl);
+  } catch {
+    return [];
+  }
+  return rows.slice(0, limit);
+}

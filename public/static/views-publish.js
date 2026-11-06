@@ -1541,6 +1541,21 @@ export async function renderPublish(ctx, params) {
       </div>
       <div id="pub-upload-queue"></div>
       <div id="pub-files" class="row wrap gap8 mt8"></div>
+
+      <!-- 按品牌 / 型号自动找图（没上传图片时用） -->
+      <div class="wphoto-box mt12" id="wphoto-box">
+        <div class="row between" style="align-items:baseline">
+          <div class="strong" style="font-size:13px">🔍 按品牌 / 型号自动找图</div>
+          <span class="tiny dim">从公开图库检索，点一张设为封面</span>
+        </div>
+        <div class="row gap8 mt8">
+          <input class="input grow" id="wphoto-q" maxlength="60" placeholder="例如：华为 SUN2000-100KTL 逆变器 / 杭州西奥电梯">
+          <button class="btn btn-sm btn-primary" id="wphoto-go" type="button" style="flex:none">搜图</button>
+        </div>
+        <div class="tiny dim mt6" id="wphoto-tip">标题里带品牌或型号时，发布时会自动搜一批候选图；没选封面就默认用第一张</div>
+        <div class="wphoto-grid" id="wphoto-grid"></div>
+      </div>
+
       <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 图片 / 视频画面），据此生成标题并解析项目。</div>
       <div class="upload-cert-hint">
         💡 <b>营业执照、身份证、备案证等证照材料，请上传到「企业资质认证」</b>，不要放在项目附件里 ——
@@ -1919,6 +1934,118 @@ const removedFileIds = new Set();
         renderFiles();
         ui.toast('已设为主图', 'ok');
       });
+
+      /* ---------------- 按品牌 / 型号自动找图 ---------------- */
+      const wphotoGrid = $('#wphoto-grid');
+      const wphotoTip = $('#wphoto-tip');
+      let wphotoQuery = '';
+      let wphotoBusy = false;
+
+      const addAsCover = async (record) => {
+        if (!record || !record.id) return;
+        if (!uploaded.some((f) => f.id === record.id)) {
+          uploaded = [
+            ...uploaded,
+            {
+              id: record.id,
+              url: record.url,
+              name: record.name || '网图封面',
+              kind: 'image',
+              mime: 'image/jpeg',
+            },
+          ];
+        }
+        coverId = record.id;
+        renderFiles();
+        ui.toast('已用这张网图作封面', 'ok');
+      };
+
+      const paintWphoto = (items) => {
+        if (!wphotoGrid) return;
+        if (!items.length) {
+          wphotoGrid.innerHTML = '';
+          if (wphotoTip) wphotoTip.textContent = '没搜到合适的图，换个品牌 / 型号再试，或直接上传图片';
+          return;
+        }
+        wphotoGrid.innerHTML = items
+          .map(
+            (it, idx) => `<button class="wphoto-cell" type="button" data-wphoto="${idx}" title="${ui.esc(it.title || '')}">
+              <img src="${ui.esc(it.thumbUrl || it.url)}" alt="" loading="lazy">
+              <span class="wphoto-meta">${ui.esc((it.artist || '') + ' · ' + (it.license || ''))}</span>
+            </button>`,
+          )
+          .join('');
+        wphotoGrid.dataset.items = JSON.stringify(items);
+      };
+
+      const runPhotoSearch = async (q) => {
+        const query = String(q || '').trim();
+        if (query.length < 2 || wphotoBusy) return;
+        wphotoBusy = true;
+        if (wphotoTip) wphotoTip.textContent = `正在检索「${query}」…`;
+        try {
+          const r = await service.searchPhotos(query);
+          const items = (r && r.items) || [];
+          wphotoQuery = query;
+          paintWphoto(items);
+          if (wphotoTip) {
+            wphotoTip.textContent = items.length
+              ? `找到 ${items.length} 张候选图，点一张设为封面（来源：Wikimedia Commons）`
+              : '没搜到合适的图';
+          }
+        } catch (err) {
+          if (wphotoTip) wphotoTip.textContent = err.message || '搜图失败';
+        } finally {
+          wphotoBusy = false;
+        }
+      };
+
+      $('#wphoto-go')?.addEventListener('click', () => {
+        runPhotoSearch($('#wphoto-q')?.value || $('#pub-title')?.value || '');
+      });
+      $('#wphoto-q')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runPhotoSearch($('#wphoto-q')?.value || '');
+        }
+      });
+      $('#wphoto-grid')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-wphoto]');
+        if (!btn) return;
+        const items = JSON.parse(wphotoGrid.dataset.items || '[]');
+        const it = items[Number(btn.dataset.wphoto)];
+        if (!it) return;
+        btn.disabled = true;
+        if (wphotoTip) wphotoTip.textContent = '正在保存这张图…';
+        try {
+          const rec = await service.mirrorImage(it.url);
+          await addAsCover(rec);
+          if (wphotoTip) wphotoTip.textContent = `已用「${it.title || '网图'}」作封面（${it.license || ''}）`;
+        } catch (err) {
+          ui.toast(err.message || '保存图片失败', 'err');
+          if (wphotoTip) wphotoTip.textContent = '保存失败，换一张试试';
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      /*
+       * 自动搜图：标题或正文里带品牌/型号时，用户点完标题框就自动搜一批
+       * （没上传任何图片时才触发，避免打扰手动传图的用户）
+       */
+      let autoPhotoTried = false;
+      const autoPhotoSearch = () => {
+        if (autoPhotoTried || wphotoQuery) return;
+        if (uploaded.some(isImageFile)) return;
+        const title = String($('#pub-title')?.value || '').trim();
+        if (title.length < 5) return;
+        autoPhotoTried = true;
+        const qEl = $('#wphoto-q');
+        if (qEl && !qEl.value.trim()) qEl.value = title.slice(0, 40);
+        runPhotoSearch(title.slice(0, 40));
+      };
+      $('#pub-title')?.addEventListener('blur', autoPhotoSearch);
+      setTimeout(autoPhotoSearch, 1500);
 
       /* ---------------- 资质要求 / 商务条件 渲染辅助 ---------------- */
       const taxData = () => ctx.state.taxonomy || {};
