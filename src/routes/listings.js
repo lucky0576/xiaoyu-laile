@@ -122,18 +122,25 @@ export default function registerListingRoutes(app) {
       const rawSeconds = Number(req.body?.seconds) || 12;
       const seconds = [5, 10, 20, 30, 60].includes(rawSeconds) ? rawSeconds : 12;
       const voice = req.body?.voice !== false;
-    const rawGender = String(req.body?.voiceGender || 'auto').toLowerCase();
-    const voiceGender = ['auto', 'female', 'male'].includes(rawGender) ? rawGender : 'auto';
+      const rawGender = String(req.body?.voiceGender || 'auto').toLowerCase();
+      const voiceGender = ['auto', 'female', 'male'].includes(rawGender) ? rawGender : 'auto';
       const r = await svc.makeShortForListing({
         listing,
         user,
         baseUrl: baseUrl(req),
         seconds,
         voice,
+        voiceGender,
       });
       return data(
         res,
-        { feed: r.feed, existed: r.existed, voiceApplied: r.voiceApplied, duration: r.duration },
+        {
+          feed: r.feed,
+          existed: r.existed,
+          voiceApplied: r.voiceApplied,
+          voiceGender: r.voiceGender || 'none',
+          duration: r.duration,
+        },
         r.existed ? 200 : 201,
       );
     } catch (err) {
