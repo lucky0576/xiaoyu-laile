@@ -1928,3 +1928,86 @@ ul { margin: 0; padding-left: 18px; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* ---------------- 短剧频道 ---------------- */
+.drama-page { padding-bottom: 8px; }
+.drama-hero {
+  border-radius: 18px;
+  padding: 22px 18px;
+  background: linear-gradient(135deg, #0b1f3a 0%, #123a6b 55%, #0e8f7a 100%);
+  color: #fff;
+}
+.drama-hero-t { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.drama-hero-d { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.82); }
+.drama-section-t { margin: 18px 2px 8px; font-size: 14px; font-weight: 800; color: #1d1d1f; }
+.drama-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.drama-scroll .drama-card { flex: 0 0 46%; }
+.drama-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 720px) { .drama-grid { grid-template-columns: repeat(4, 1fr); } }
+.drama-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.drama-card:active { transform: scale(0.99); }
+.drama-cover { position: relative; aspect-ratio: 3 / 4; background: #0b1f3a; }
+.drama-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.drama-cover-ph { display: grid; place-items: center; height: 100%; font-size: 32px; }
+.drama-badge {
+  position: absolute; left: 8px; bottom: 8px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+}
+.drama-hot {
+  position: absolute; right: 8px; top: 8px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 800; color: #fff;
+  background: #ff6a00;
+}
+.drama-meta { padding: 8px 10px 10px; }
+.drama-title {
+  font-size: 13px; font-weight: 800; color: #1d1d1f;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.drama-sub { margin-top: 3px; font-size: 11px; color: #8a94a6; }
+.drama-free { margin-top: 2px; font-size: 10.5px; color: #0b74ff; }
+.drama-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+
+/* 剧集播放页 */
+.drama-detail { padding-bottom: 12px; }
+.drama-player-wrap { position: relative; background: #000; border-radius: 16px; overflow: hidden; }
+.drama-player { width: 100%; max-height: 66vh; object-fit: contain; background: #000; display: block; }
+.drama-player-lock {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  background: rgba(0, 0, 0, 0.72); color: #fff; padding: 20px;
+}
+.drama-lock-t { font-size: 16px; font-weight: 800; }
+.drama-lock-d { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.8); }
+.drama-head { margin-top: 12px; }
+.drama-head-t { font-size: 18px; font-weight: 800; color: #1d1d1f; }
+.drama-head-sub { margin-top: 4px; font-size: 12px; color: #8a94a6; }
+.drama-eps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 720px) { .drama-eps { grid-template-columns: repeat(4, 1fr); } }
+.drama-ep {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 10px; border-radius: 12px;
+  border: 1px solid #e5e9f0; background: #fff;
+  text-align: left; cursor: pointer; font-family: inherit;
+}
+.drama-ep.active { border-color: #0b74ff; box-shadow: 0 0 0 2px rgba(11, 116, 255, 0.12); }
+.drama-ep.locked { opacity: 0.65; }
+.drama-ep-no {
+  flex: none; width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center; font-size: 11px; font-weight: 800;
+  color: #fff; background: #0b74ff;
+}
+.drama-ep-t { flex: 1; min-width: 0; font-size: 12px; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drama-ep-lock { flex: none; font-size: 12px; }
+
+/* 短剧管理后台 */
+.drama-admin-page .field { margin-top: 10px; }

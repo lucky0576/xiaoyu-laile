@@ -61,6 +61,8 @@ const viewsNews = lazyView(() => import('./views-news.js'));
 const viewsReferral = lazyView(() => import('./views-referral.js'));
 const viewsFeedback = lazyView(() => import('./views-feedback.js'));
 const viewsLevelAdmin = lazyView(() => import('./views-level-admin.js'));
+const viewsDrama = lazyView(() => import('./views-drama.js'));
+const viewsAdminDrama = lazyView(() => import('./views-admin-drama.js'));
 
 const appEl = document.getElementById('app');
 
@@ -397,6 +399,10 @@ async function resolveView({ segs, query }) {
       return viewsAbout.renderAbout(ctx, query);
     case 'services':
       return viewsServices.renderServices(ctx, query);
+    case 'drama':
+      return p1 ? viewsDrama.renderDrama(ctx, { id: p1 }) : viewsDrama.renderDramas(ctx, query);
+    case 'admin-drama':
+      return viewsAdminDrama.renderAdminDramas(ctx, query);
     case 'welcome':
       return viewsWelcome.renderWelcome(ctx, query);
     case 'api':
