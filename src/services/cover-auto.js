@@ -196,7 +196,7 @@ export async function ensureCoverForShort({
   const W = 720;
   const H = 1280;
 
-  /* 把任意图转成竖版底图：模糊铺底 + 完整照片居中（不裁掉主体） */
+  /* 把任意图转成竖版底图：铺满裁切（不留大块模糊带），并统一色调 */
   const toPortrait = async (srcPath) => {
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const out = path.join(os.tmpdir(), `shortbg-${stamp}.png`);
@@ -209,9 +209,8 @@ export async function ensureCoverForShort({
           'error',
           '-i',
           srcPath,
-          '-filter_complex',
-          `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=26[bg];` +
-            `[0:v]scale=${W}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2`,
+          '-vf',
+          `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},eq=saturation=0.92:contrast=1.04`,
           '-frames:v',
           '1',
           out,
