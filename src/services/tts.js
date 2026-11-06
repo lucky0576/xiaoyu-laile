@@ -106,34 +106,48 @@ async function fetchChunk(text, lang = 'zh-CN') {
 async function toWav(srcMp3, gender, stamp, index) {
   const out = path.join(os.tmpdir(), `tts-${stamp}-${index}-${gender}.wav`);
   /*
-   * 男声：
-   *   asetrate=44100*0.86  —— 降音高，声音变厚
-   *   atempo=1/0.86≈1.163  —— 把因为降音高而变慢的语速拨回去
-   *   两个 equalizer —— 低频 +2dB、高频 -1.5dB，去掉变声后的塑料感
+   * 男声（服务器 ffmpeg 带 rubberband 滤镜）：
+   *   rubberband=pitch=0.70:formant=shifted
+   *     —— 同时降低音高和共振峰，这才是「像男声」的关键；
+   *        只降音高不降共振峰会听成「女声压低了嗓子」
+   *   equalizer 低频 +2.5dB、3kHz -2dB —— 增加胸腔感，去掉齿音
+   * 服务器没有 rubberband 时，退回 asetrate + atempo 的老办法。
    */
-  const filters =
-    gender === 'male'
-      ? [
-          `aresample=${SAMPLE_RATE}`,
-          `asetrate=${Math.round(SAMPLE_RATE * 0.86)}`,
-          `aresample=${SAMPLE_RATE}`,
-          `atempo=${(1 / 0.86).toFixed(4)}`,
-          'equalizer=f=180:t=q:w=1:g=2',
-          'equalizer=f=3200:t=q:w=1:g=-1.5',
-          'dynaudnorm=f=200:g=5',
-        ]
-      : [
-          `aresample=${SAMPLE_RATE}`,
-          // 女声也稍微放慢 2%，播报感更自然
-          'atempo=0.98',
-          'dynaudnorm=f=200:g=5',
-        ];
-  await execFileAsync(
-    'ffmpeg',
-    ['-y', '-loglevel', 'error', '-i', srcMp3, '-ac', '1', '-ar', String(SAMPLE_RATE), '-af', filters.join(','), out],
-    { timeout: 60000 },
-  );
-  return out;
+  const maleFilters = [
+    `aresample=${SAMPLE_RATE}`,
+    'rubberband=pitch=0.70:pitchq=quality:formant=shifted',
+    'equalizer=f=160:t=q:w=1:g=2.5',
+    'equalizer=f=3000:t=q:w=1:g=-2',
+    'dynaudnorm=f=200:g=5',
+  ];
+  const maleFallback = [
+    `aresample=${SAMPLE_RATE}`,
+    `asetrate=${Math.round(SAMPLE_RATE * 0.86)}`,
+    `aresample=${SAMPLE_RATE}`,
+    `atempo=${(1 / 0.86).toFixed(4)}`,
+    'equalizer=f=180:t=q:w=1:g=2',
+    'equalizer=f=3200:t=q:w=1:g=-1.5',
+    'dynaudnorm=f=200:g=5',
+  ];
+  const femaleFilters = [
+    `aresample=${SAMPLE_RATE}`,
+    // 女声也稍微放慢 2%，播报感更自然
+    'atempo=0.98',
+    'dynaudnorm=f=200:g=5',
+  ];
+
+  const baseArgs = ['-y', '-loglevel', 'error', '-i', srcMp3, '-ac', '1', '-ar', String(SAMPLE_RATE)];
+  if (gender !== 'male') {
+    await execFileAsync('ffmpeg', [...baseArgs, '-af', femaleFilters.join(','), out], { timeout: 60000 });
+    return out;
+  }
+  try {
+    await execFileAsync('ffmpeg', [...baseArgs, '-af', maleFilters.join(','), out], { timeout: 60000 });
+    return out;
+  } catch {
+    await execFileAsync('ffmpeg', [...baseArgs, '-af', maleFallback.join(','), out], { timeout: 60000 });
+    return out;
+  }
 }
 
 /** 生成一段静音 wav（句间停顿） */
