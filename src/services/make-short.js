@@ -2,12 +2,12 @@
  * 把任意一条信息做成短视频（没有视频也能做）
  *
  * 用户需求：所有项目都可以制作成短视频 —— 但绝大多数信息只有图片和文字。
- * 所以这里用「封面图 + 标题 + 关键信息 + 二维码」合成 15 秒竖版视频：
+ * 所以这里用「封面图 + 标题 + 关键信息」合成竖版视频（不含二维码/联系电话）：
  *
  *   背景：封面图铺满 720x1280（等比放大 + 裁切），压暗一点让文字看得清
  *   上部：分类 / 城市 / 行业小标签
  *   中部：标题（自动折行，最多 4 行）
- *   下部：二维码 + 「扫码查看项目详情」
+ *   下部：品牌条「小鱼来了 · 免费发布产业需求」
  *
  * 有视频的信息不走这里（那条路已经在 publish 时自动生成并烧好标题）。
  */
@@ -22,7 +22,6 @@ import { config } from '../config.js';
 import { httpError } from '../http/app.js';
 import { listFiles, looksLikeDocImage, registerStoredFile } from './files.js';
 import { ensureCoverForShort, resolveCoverPath } from './cover-auto.js';
-import { qrToPng } from '../lib/qrcode.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -100,11 +99,10 @@ function coverImageOf(listing) {
  * @param {object} p
  * @param {object} p.listing 信息（新闻也能传：只要有 id/title/subtitle/text）
  * @param {object} p.user 发布者
- * @param {string} p.baseUrl 站点地址（二维码用）
+ * @param {string} p.baseUrl 站点地址（保留参数，视频已不含二维码）
  * @param {number} p.seconds 目标时长：5 / 10 / 30（默认 12）
  * @param {boolean} p.voice 是否配旁白（默认 true）
  * @param {string} [p.coverPathOverride] 指定底图本地路径（新闻用封面图时传）
- * @param {string} [p.qrTextOverride] 指定二维码内容（新闻用详情页地址）
  * @returns {Promise<{record:object, width:number, height:number, duration:number, voiceApplied:boolean}|null>}
  */
 export async function renderListingVideo({
@@ -114,7 +112,6 @@ export async function renderListingVideo({
   seconds = DURATION,
   voice = true,
   coverPathOverride = '',
-  qrTextOverride = '',
 }) {
   if (!listing) return null;
   if (!(await ffmpegOk())) throw httpError(500, '服务器缺少 ffmpeg，暂时无法生成视频');
@@ -129,38 +126,46 @@ export async function renderListingVideo({
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const tmpTitle = path.join(os.tmpdir(), `mkts-${stamp}.txt`);
-  const tmpQr = path.join(os.tmpdir(), `mkts-${stamp}-qr.png`);
   const tmpOut = path.join(os.tmpdir(), `mkts-${stamp}.mp4`);
   let ttsFile = null;
 
+  /*
+   * 视频里不出现联系方式 / 二维码（用户 2026-11 要求）
+   *   · 标题、城市行业行、旁白里如果带手机号，统一抹掉
+   *   · 不再生成和叠加二维码
+   *   · 旁白不再提「扫码」
+   */
+  const sanitize = (s) =>
+    String(s || '')
+      .replace(/1[3-9]\d{9}/g, '')
+      .replace(/(?:\+?86[-\s]?)?1[3-9]\d{9}/g, '')
+      .replace(/\b\d{3,4}[-—]\d{7,8}\b/g, '')
+      .replace(/扫码[^，。；、]*[，。；、]?/g, '')
+      .replace(/二维码[^，。；、]*[，。；、]?/g, '')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
+
   try {
     /* 标题分两段：主标题按 46px 折行，最多 4 行 */
-    const titleLines = wrapTitle(title, 46, W - 120);
+    const videoTitle = sanitize(title) || '小鱼来了';
+    const titleLines = wrapTitle(videoTitle, 46, W - 120);
     fs.writeFileSync(tmpTitle, titleLines.join('\n'), 'utf8');
-
-    /* 二维码：默认指向信息分享页；新闻传自己的详情页 */
-    const qrText =
-      qrTextOverride ||
-      (baseUrl ? `${String(baseUrl).replace(/\/+$/, '')}/s/${listing.id}` : `xiaoyulaile.online/s/${listing.id}`);
-    const qrBuf = qrToPng(qrText, { ecc: 'M', margin: 2, scale: 10 });
-    fs.writeFileSync(tmpQr, qrBuf);
 
     const cityName = (listing.cities || [])[0];
     const city = typeof cityName === 'string' ? cityName : cityName?.name || '';
     const industry = (listing.industries || [])[0];
     const ind = typeof industry === 'string' ? industry : industry?.name || '';
-    const metaLine = [city, ind].filter(Boolean).join(' · ') || '小鱼来了 · 产业信息';
+    const metaLine = sanitize([city, ind].filter(Boolean).join(' · ')) || '小鱼来了 · 产业信息';
 
-    /* ---------- 旁白 ---------- */
+    /* ---------- 旁白（不提扫码，不带电话） ---------- */
     let audioDuration = 0;
     let voiceApplied = false;
     if (voice) {
       try {
         const ttsMod = await import('./tts.js');
-        const narration = [title, metaLine, '扫码查看项目详情，或上小鱼来了发布需求。']
-          .filter(Boolean)
-          .join('。')
-          .replace(/。+/g, '。');
+        const narration = sanitize(
+          [videoTitle, metaLine, '上小鱼来了，免费发布产业需求。'].filter(Boolean).join('。'),
+        ).replace(/。+/g, '。');
         const t = await ttsMod.synthesize(narration);
         if (t && t.path) {
           ttsFile = t.path;
@@ -188,18 +193,14 @@ export async function renderListingVideo({
       // 城市 / 行业 小字
       `[withtitle]drawtext=fontfile=${escPath(font)}:text='${metaLine.replace(/'/g, '')}':fontcolor=white@0.85:fontsize=30:` +
         `x=(w-text_w)/2:y=h*0.30+h*0.20[t2]`,
-      // 底部品牌条（放在二维码上方，避免被二维码盖住）
+      // 底部品牌条（无二维码、无联系方式）
       `[t2]drawtext=fontfile=${escPath(font)}:text='小鱼来了 · 免费发布产业需求':fontcolor=white@0.92:fontsize=28:` +
-        `box=1:boxcolor=black@0.5:boxborderw=16:x=(w-text_w)/2:y=h-350[t3]`,
-      // 二维码缩放后叠加在底部中间
-      `[1:v]scale=210:210[qr]`,
-      `[t3][qr]overlay=(W-w)/2:H-h-70:format=auto[out]`,
+        `box=1:boxcolor=black@0.5:boxborderw=16:x=(w-text_w)/2:y=h-220[out]`,
     ].join(';');
 
     const args = [
       '-y', '-loglevel', 'error',
       '-loop', '1', '-i', cover.path,
-      '-i', tmpQr,
     ];
     if (voiceApplied && ttsFile) {
       args.push('-i', ttsFile);
@@ -208,7 +209,7 @@ export async function renderListingVideo({
     }
     args.push(
       '-filter_complex', filter,
-      '-map', '[out]', '-map', '2:a',
+      '-map', '[out]', '-map', '1:a',
       '-t', String(total), '-r', String(FPS),
       '-c:v', 'libx264', '-crf', '27', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-threads', '2',
       '-c:a', 'aac', '-b:a', '96k', '-shortest',
@@ -229,7 +230,7 @@ export async function renderListingVideo({
 
     return { record, width: W, height: H, duration: total, voiceApplied };
   } finally {
-    for (const p of [tmpTitle, tmpQr, tmpOut, ttsFile]) {
+    for (const p of [tmpTitle, tmpOut, ttsFile]) {
       if (!p) continue;
       try {
         fs.unlinkSync(p);
@@ -352,7 +353,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
  *
  * 和项目的区别：
  *   · 素材是 news（title/summary/text/coverUrl/attachments）
- *   · 二维码指向资讯详情页 #/news/:id
+ *   · 视频里不出现二维码和联系方式
  *   · 封面优先用资讯自己的封面图；没有就本地生成一张资讯卡片
  */
 export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10, voice = true }) {
@@ -428,7 +429,6 @@ export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10
       seconds,
       voice,
       coverPathOverride: coverPath,
-      qrTextOverride: qrText,
     });
     if (!made) throw httpError(500, '视频生成失败');
 
