@@ -179,14 +179,100 @@ async function makeSilence(ms, stamp) {
  * @param {string} [opts.lang]  zh-CN
  * @param {'female'|'male'|'auto'} [opts.gender]
  * @param {string} [opts.seed]  auto 时用来决定音色的种子（一般传内容 id）
- * @returns {Promise<{path:string, duration:number, bytes:number, gender:string}|null>}
+ * @returns {Promise<{path:string, duration:number, bytes:number, gender:string, engine:string}|null>}
  */
 export async function synthesize(text, { lang = 'zh-CN', gender = 'female', seed = '' } = {}) {
   const speechText = cleanForSpeech(text);
+  if (!speechText) return null;
+
+  const g = pickGender(gender, seed || speechText);
+
+  /*
+   * 第 1 优先：Kokoro 中文神经语音（本地 ONNX 模型，新闻播报级）
+   *   男声 zm_*（实测 ~110Hz）/ 女声 zf_*（~220Hz），按内容哈希轮换音色
+   *   模型或 python 不可用时自动落到下面的 Google 通道
+   */
+  const kokoro = await synthesizeKokoro(speechText, g, seed || speechText);
+  if (kokoro) return kokoro;
+
+  return synthesizeGoogle(speechText, { lang, g });
+}
+
+let kokoroChecked = null;
+function kokoroAvailable() {
+  if (kokoroChecked !== null) return kokoroChecked;
+  try {
+    const candidates = [
+      process.env.KOKORO_PYTHON || '',
+      'python3',
+      '/usr/bin/python3',
+    ].filter(Boolean);
+    const py = candidates.find((p) => {
+      try {
+        return p.includes('/') ? fs.existsSync(p) : true;
+      } catch {
+        return false;
+      }
+    });
+    const dir = process.env.KOKORO_DIR || '/opt/xiaoyu-laile/models/kokoro';
+    const hasModel = fs.existsSync(path.join(dir, 'kokoro-v1.1-zh.onnx')) && fs.existsSync(path.join(dir, 'voices-v1.1-zh.bin'));
+    kokoroChecked = Boolean(py && hasModel);
+    if (kokoroChecked) kokoroChecked = { python: py, dir };
+  } catch {
+    kokoroChecked = false;
+  }
+  return kokoroChecked;
+}
+
+/** 调用本地 Kokoro 模型（子进程，跑完即释放内存） */
+async function synthesizeKokoro(speechText, gender, seed) {
+  const ok = kokoroAvailable();
+  if (!ok) return null;
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const txtFile = path.join(os.tmpdir(), `tts-${stamp}-k.txt`);
+  const out = path.join(os.tmpdir(), `tts-${stamp}-kokoro.wav`);
+  try {
+    fs.writeFileSync(txtFile, speechText.slice(0, 600), 'utf8');
+    const script = path.resolve(import.meta.dirname, '../../scripts/tts-kokoro.py');
+    if (!fs.existsSync(script)) return null;
+    const { stdout } = await execFileAsync(
+      ok.python,
+      [script, '--text-file', txtFile, '--gender', gender, '--seed', String(seed || ''), '--out', out],
+      {
+        timeout: 180000,
+        maxBuffer: 2 * 1024 * 1024,
+        env: { ...process.env, KOKORO_DIR: ok.dir },
+      },
+    );
+    const line = String(stdout || '').trim().split('\n').pop() || '{}';
+    const meta = JSON.parse(line);
+    if (!meta.ok || !fs.existsSync(out)) return null;
+    const st = fs.statSync(out);
+    if (!st.size) return null;
+    return {
+      path: out,
+      duration: Number(meta.duration) || 0,
+      bytes: st.size,
+      gender: meta.voice && String(meta.voice).startsWith('zm') ? 'male' : 'female',
+      voice: meta.voice,
+      engine: 'kokoro',
+    };
+  } catch {
+    return null;
+  } finally {
+    try {
+      fs.unlinkSync(txtFile);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** 备用：Google 翻译发音 + ffmpeg 变声（原方案） */
+async function synthesizeGoogle(speechText, { lang = 'zh-CN', g = 'female' } = {}) {
   const chunks = splitText(speechText);
   if (!chunks.length) return null;
 
-  const g = pickGender(gender, seed || speechText);
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const tmpAll = [];
   const parts = [];
@@ -245,7 +331,7 @@ export async function synthesize(text, { lang = 'zh-CN', gender = 'female', seed
       { timeout: 15000 },
     );
     const duration = Number(String(stdout).trim()) || 0;
-    return { path: merged, duration, bytes: st.size, gender: g };
+    return { path: merged, duration, bytes: st.size, gender: g, engine: 'google' };
   } catch {
     return null;
   } finally {
