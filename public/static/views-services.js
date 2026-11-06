@@ -484,6 +484,7 @@ export function renderServices(ctx) {
       <div class="svc-contact-d">
         以上服务由平台负责人直接对接，站内提交后由他本人回复。<br>
         <b>电话 / 微信：13456693544</b><br>
+        <b>邮箱：<a href="mailto:service@xiaoyulaile.online" style="color:#0b74ff">service@xiaoyulaile.online</a></b><br>
         工作时间：周一至周六 9:00–21:00
       </div>
     </div>
