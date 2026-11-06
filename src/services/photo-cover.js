@@ -712,5 +712,50 @@ export async function searchPhotos(query, { limit = 8 } = {}) {
   } catch {
     return [];
   }
+
+  /*
+   * 中文品牌 / 型号在 Wikimedia 上经常搜不到（那是一个英文为主的图库）。
+   * 国内用户写「华为 SUN2000」「西奥电梯」这种关键词，走百度图片更靠谱：
+   *   1. 优先结果用百度缩略图（CDN 直链，体积小）
+   *   2. 下载失败时前端会提示换一张，不影响主流程
+   */
+  if (!rows.length) {
+    try {
+      const bu =
+        'https://image.baidu.com/search/acjson?tn=resultjson_com&ipn=rj' +
+        `&word=${encodeURIComponent(q)}&pn=0&rn=${Math.max(limit * 3, 12)}&ie=utf-8`;
+      const res = await fetch(bu, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+          Referer: 'https://image.baidu.com/',
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        const data = Array.isArray(j && j.data) ? j.data : [];
+        rows = data
+          .map((d) => {
+            const thumb = d.thumbURL || d.middleURL || d.hoverURL || '';
+            const full = d.middleURL || d.objURL || d.thumbURL || '';
+            const title = String(d.fromPageTitleEnc || d.fromPageTitle || '').replace(/<[^>]+>/g, '').trim();
+            if (!thumb || !full) return null;
+            return {
+              url: full,
+              thumbUrl: thumb,
+              title: title.slice(0, 80) || q,
+              artist: '百度图片',
+              license: '来源网页',
+              width: Number(d.width) || 0,
+              height: Number(d.height) || 0,
+            };
+          })
+          .filter(Boolean);
+      }
+    } catch {
+      /* 百度也不通就算了 */
+    }
+  }
+
   return rows.slice(0, limit);
 }
