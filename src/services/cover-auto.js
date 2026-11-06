@@ -137,4 +137,110 @@ export async function ensureAllCovers({ limit = 50 } = {}) {
   };
 }
 
-export default { ensureCover, ensureAllCovers };
+export default { ensureCover, ensureAllCovers, ensureCoverForShort, resolveCoverPath };
+
+/* ================================================================== */
+/* 短视频用：没封面时自动配一张                                        */
+/* ================================================================== */
+
+/**
+ * 从 coverUrl / coverFileId 找到磁盘上的真实路径。
+ * 列表/资讯里存的是 URL，用 ffmpeg 当底图需要绝对路径。
+ */
+export function resolveCoverPath(coverUrl, coverFileId) {
+  try {
+    const files = db.collection('files');
+    if (coverFileId) {
+      const rec = files.get(coverFileId);
+      if (rec && rec.path && fs.existsSync(rec.path)) return rec.path;
+    }
+    const url = String(coverUrl || '').trim();
+    if (url) {
+      const rec = files.findOne((f) => f && f.url === url);
+      if (rec && rec.path && fs.existsSync(rec.path)) return rec.path;
+    }
+  } catch {
+    /* ignore */
+  }
+  return '';
+}
+
+/**
+ * 给「没有封面」的内容自动配一张图，用于生成短视频。
+ *
+ * 顺序：
+ *   1. 网络图片（photo-cover：Wikimedia 检索 + 排版）—— 好看，但依赖外网
+ *   2. 本地渐变卡片（cover.js + ffmpeg）—— 一定成功
+ *
+ * @param {object} p
+ * @param {string} p.title
+ * @param {string} [p.category] 用于卡片配色
+ * @param {string} [p.city]
+ * @param {string} [p.industry]
+ * @param {string} [p.kindLabel]
+ * @param {string} [p.ownerId]
+ * @param {string} [p.refId]   关联 id（listingId / newsId）
+ * @returns {Promise<{record:object, path:string}|null>}
+ */
+export async function ensureCoverForShort({
+  title,
+  category = 'project',
+  city = '',
+  industry = '',
+  kindLabel = '',
+  ownerId = '',
+  refId = '',
+} = {}) {
+  const t = String(title || '').trim();
+  if (!t) return null;
+
+  /* 1) 先试网络配图 */
+  try {
+    const photoMod = await import('./photo-cover.js');
+    const rec = await photoMod.generatePhotoCover(
+      { title: t, category, city, industry, kindLabel, categoryName: '' },
+      { ownerId, listingId: refId },
+    );
+    if (rec && rec.path && fs.existsSync(rec.path)) return { record: rec, path: rec.path };
+  } catch {
+    /* 网络不通就走本地卡片 */
+  }
+
+  /* 2) 本地渐变卡片 */
+  try {
+    const svg = makeCoverSvg({ title: t, category, city, industry, kindLabel });
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const svgPath = path.join(os.tmpdir(), `shortcov-${stamp}.svg`);
+    const pngPath = path.join(os.tmpdir(), `shortcov-${stamp}.png`);
+    fs.writeFileSync(svgPath, svg, 'utf8');
+    let srcPath = svgPath;
+    let name = `${t.slice(0, 20)}-配图.png`;
+    let mime = 'image/png';
+    try {
+      await execFileAsync('ffmpeg', ['-y', '-loglevel', 'error', '-i', svgPath, '-frames:v', '1', pngPath], {
+        timeout: 30000,
+      });
+      if (fs.existsSync(pngPath) && fs.statSync(pngPath).size > 0) srcPath = pngPath;
+    } catch {
+      name = `${t.slice(0, 20)}-配图.svg`;
+      mime = 'image/svg+xml';
+    }
+    const rec = await registerStoredFile({
+      srcPath,
+      name,
+      mime,
+      opts: { ownerId, listingId: refId, role: 'auto-cover', extract: false },
+    });
+    for (const p of [svgPath, pngPath]) {
+      try {
+        fs.unlinkSync(p);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (rec && rec.path && fs.existsSync(rec.path)) return { record: rec, path: rec.path };
+  } catch (err) {
+    console.warn('[cover] 短视频配图失败:', err.message);
+  }
+  return null;
+}

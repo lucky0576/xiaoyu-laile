@@ -21,6 +21,7 @@ import db from '../store/db.js';
 import { config } from '../config.js';
 import { httpError } from '../http/app.js';
 import { listFiles, looksLikeDocImage, registerStoredFile } from './files.js';
+import { ensureCoverForShort, resolveCoverPath } from './cover-auto.js';
 import { qrToPng } from '../lib/qrcode.js';
 
 const execFileAsync = promisify(execFile);
@@ -257,7 +258,55 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
     return { feed: existing, existed: true, voiceApplied: Boolean(existing.voiceApplied) };
   }
 
-  const made = await renderListingVideo({ listing, user, baseUrl, seconds, voice });
+  /*
+   * 没有封面就自动配一张 —— 用户要求「生成短视频，如果没有封面，自动配图」。
+   * 顺序：已有图片附件 → 已有 coverUrl 对应的本地文件 → 自动配图（网络图 → 本地卡片）
+   * 配好后回写 listing.coverUrl / coverFileId，列表页也能看到。
+   */
+  let coverPath = '';
+  const imgRecs = [];
+  try {
+    for (const id of listing.files || []) {
+      const rec = db.collection('files').get(id);
+      if (rec && (rec.kind === 'image' || looksLikeDocImage(rec)) && rec.path) imgRecs.push(rec);
+    }
+  } catch {
+    /* ignore */
+  }
+  if (!imgRecs.length) coverPath = resolveCoverPath(listing.coverUrl, listing.coverFileId);
+  if (!coverPath && !imgRecs.length) {
+    const gen = await ensureCoverForShort({
+      title: listing.title,
+      category: listing.category || 'project',
+      city: (listing.cities || [])[0] || '',
+      industry: (listing.industries || [])[0] || '',
+      kindLabel: '',
+      ownerId: listing.ownerId,
+      refId: listing.id,
+    });
+    if (gen) {
+      coverPath = gen.path;
+      try {
+        db.collection('listings').update(listing.id, {
+          coverUrl: gen.record.url,
+          coverFileId: gen.record.id,
+        });
+        listing.coverUrl = gen.record.url;
+        listing.coverFileId = gen.record.id;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  const made = await renderListingVideo({
+    listing,
+    user,
+    baseUrl,
+    seconds,
+    voice,
+    coverPathOverride: coverPath,
+  });
   if (!made) throw httpError(500, '视频生成失败');
 
   const feedsSvc = await import('./feeds.js');
@@ -300,47 +349,55 @@ export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   let coverPath = '';
-  let tmpCover = [];
+  const tmpCover = [];
   try {
-    /* 1. 资讯自己的封面图（本地文件记录） */
+    /* 1. 资讯自己的封面图（本地文件或外链） */
+    coverPath = resolveCoverPath(news.coverUrl, '');
     const coverUrl = String(news.coverUrl || '').trim();
-    if (coverUrl) {
-      const rec = db.collection('files').findOne((f) => f && f.url === coverUrl);
-      if (rec && rec.path) coverPath = rec.path;
-      if (!coverPath && /^https?:\/\//i.test(coverUrl)) {
-        // 外链封面：下载到临时文件
+    if (!coverPath && coverUrl && /^https?:\/\//i.test(coverUrl)) {
+      // 外链封面：下载到临时文件
+      try {
+        const res = await fetch(coverUrl, { signal: AbortSignal.timeout(20000) });
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          const p = path.join(os.tmpdir(), `newscov-${stamp}.img`);
+          fs.writeFileSync(p, buf);
+          coverPath = p;
+          tmpCover.push(p);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    /*
+     * 2. 没有封面：自动配图（网络图优先，失败用本地卡片）
+     *    配好的图会登记为文件并回写 news.coverUrl，资讯列表/详情也能看到。
+     */
+    if (!coverPath) {
+      const gen = await ensureCoverForShort({
+        title: news.title,
+        category: 'news',
+        city: '',
+        industry: '',
+        kindLabel: '资讯',
+        ownerId: news.authorId || '',
+        refId: news.id,
+      });
+      if (gen) {
+        coverPath = gen.path;
         try {
-          const res = await fetch(coverUrl, { signal: AbortSignal.timeout(20000) });
-          if (res.ok) {
-            const buf = Buffer.from(await res.arrayBuffer());
-            const p = path.join(os.tmpdir(), `newscov-${stamp}.img`);
-            fs.writeFileSync(p, buf);
-            coverPath = p;
-            tmpCover.push(p);
-          }
+          db.collection('news').update(news.id, {
+            coverUrl: gen.record.url,
+            coverFileId: gen.record.id,
+          });
+          news.coverUrl = gen.record.url;
         } catch {
           /* ignore */
         }
       }
     }
-
-    /* 2. 没有封面：本地生成一张资讯卡片 */
-    if (!coverPath) {
-      const { makeCoverSvg } = await import('./cover.js');
-      const svg = makeCoverSvg({ title: news.title, category: 'news' });
-      const svgPath = path.join(os.tmpdir(), `newscov-${stamp}.svg`);
-      const pngPath = path.join(os.tmpdir(), `newscov-${stamp}.png`);
-      fs.writeFileSync(svgPath, svg, 'utf8');
-      try {
-        await execFileAsync('ffmpeg', ['-y', '-loglevel', 'error', '-i', svgPath, '-frames:v', '1', pngPath], {
-          timeout: 30000,
-        });
-        if (fs.existsSync(pngPath) && fs.statSync(pngPath).size > 0) coverPath = pngPath;
-      } catch {
-        /* ignore */
-      }
-      tmpCover.push(svgPath, pngPath);
-    }
+    if (!coverPath) throw httpError(500, '没有可用封面，自动配图也失败了');
 
     const qrText = `${String(baseUrl || 'https://xiaoyulaile.online').replace(/\/+$/, '')}/#/news/${news.id}`;
     const made = await renderListingVideo({
