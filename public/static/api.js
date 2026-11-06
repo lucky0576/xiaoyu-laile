@@ -632,6 +632,7 @@ export const service = {
   referralCheck: (code) => api.get('/api/referral/check', { code }),
   newsMeta: () => api.get('/api/news/meta'),
   newsDetail: (id) => api.get(`/api/news/${id}`),
+  makeNewsShort: (id, body) => api.post('/api/news/' + id + '/make-short', body || {}),
   adminNewsRefresh: () => api.post('/api/admin/news/refresh', {}),
   productName: (body) => api.post('/api/ai/product-name', body),
   biddingFields: (body) => api.post('/api/ai/bidding-fields', body),

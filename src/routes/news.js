@@ -163,6 +163,38 @@ export default function registerNewsRoutes(app) {
     return data(res, { ids: finalIds, items, mode, note, scanned: pool.length });
   });
 
+  /**
+   * 资讯一键生成短视频（和项目发布后的短视频同一套能力）
+   * POST /api/news/:id/make-short  { seconds: 5|10|30, voice: boolean }
+   */
+  app.post('/api/news/:id/make-short', async (req, res) => {
+    const user = mustAuth(req);
+    const item = newsSvc.getNews(req.params.id);
+    if (!item) return fail(res, '资讯不存在', 404, 'not_found');
+    const ownerId = item.authorId || '';
+    if (ownerId && ownerId !== user.id && !user.isAdmin) {
+      return fail(res, '只能给自己的资讯生成短视频', 403, 'forbidden');
+    }
+    const rl = rateLimit(`newsshort:${clientIp(req)}`, 6, 60_000);
+    if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    try {
+      const svc = await import('../services/make-short.js');
+      const rawSeconds = Number(req.body?.seconds) || 10;
+      const seconds = [5, 10, 20, 30, 60].includes(rawSeconds) ? rawSeconds : 10;
+      const voice = req.body?.voice !== false;
+      const baseUrl = `${req.protocol || 'https'}://${req.headers?.host || 'xiaoyulaile.online'}`;
+      const r = await svc.makeShortFromNews({ news: item, user, baseUrl, seconds, voice });
+      return data(
+        res,
+        { feed: r.feed, existed: r.existed, voiceApplied: r.voiceApplied, duration: r.duration },
+        r.existed ? 200 : 201,
+      );
+    } catch (err) {
+      if (err.status) return fail(res, err.message, err.status, err.code || 'make_short_failed');
+      throw err;
+    }
+  });
+
   app.get('/api/news/:id', (req, res) => {
     const item = newsSvc.getNews(req.params.id);
     if (!item) return fail(res, '资讯不存在', 404, 'not_found');

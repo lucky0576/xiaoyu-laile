@@ -97,21 +97,31 @@ function coverImageOf(listing) {
 /**
  * 生成视频文件并登记为附件
  * @param {object} p
- * @param {object} p.listing 信息
+ * @param {object} p.listing 信息（新闻也能传：只要有 id/title/subtitle/text）
  * @param {object} p.user 发布者
  * @param {string} p.baseUrl 站点地址（二维码用）
  * @param {number} p.seconds 目标时长：5 / 10 / 30（默认 12）
  * @param {boolean} p.voice 是否配旁白（默认 true）
+ * @param {string} [p.coverPathOverride] 指定底图本地路径（新闻用封面图时传）
+ * @param {string} [p.qrTextOverride] 指定二维码内容（新闻用详情页地址）
  * @returns {Promise<{record:object, width:number, height:number, duration:number, voiceApplied:boolean}|null>}
  */
-export async function renderListingVideo({ listing, user, baseUrl = '', seconds = DURATION, voice = true }) {
+export async function renderListingVideo({
+  listing,
+  user,
+  baseUrl = '',
+  seconds = DURATION,
+  voice = true,
+  coverPathOverride = '',
+  qrTextOverride = '',
+}) {
   if (!listing) return null;
   if (!(await ffmpegOk())) throw httpError(500, '服务器缺少 ffmpeg，暂时无法生成视频');
   const font = cjkFont();
   if (!font) throw httpError(500, '服务器缺少中文字体，暂时无法生成视频');
 
   const title = String(listing.title || '').trim() || '小鱼来了';
-  const cover = coverImageOf(listing);
+  const cover = coverPathOverride ? { path: coverPathOverride } : coverImageOf(listing);
   if (!cover || !cover.path) {
     throw httpError(400, '这条信息还没有封面图，先在发布页上传一张图片再生成短视频');
   }
@@ -127,8 +137,10 @@ export async function renderListingVideo({ listing, user, baseUrl = '', seconds 
     const titleLines = wrapTitle(title, 46, W - 120);
     fs.writeFileSync(tmpTitle, titleLines.join('\n'), 'utf8');
 
-    /* 二维码：指向这条信息的分享页 */
-    const qrText = baseUrl ? `${String(baseUrl).replace(/\/+$/, '')}/s/${listing.id}` : `xiaoyulaile.online/s/${listing.id}`;
+    /* 二维码：默认指向信息分享页；新闻传自己的详情页 */
+    const qrText =
+      qrTextOverride ||
+      (baseUrl ? `${String(baseUrl).replace(/\/+$/, '')}/s/${listing.id}` : `xiaoyulaile.online/s/${listing.id}`);
     const qrBuf = qrToPng(qrText, { ecc: 'M', margin: 2, scale: 10 });
     fs.writeFileSync(tmpQr, qrBuf);
 
@@ -272,4 +284,113 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
   return { feed, existed: false, voiceApplied: Boolean(made.voiceApplied), duration: made.duration };
 }
 
-export default { renderListingVideo, makeShortForListing };
+/**
+ * 新闻资讯 → 短视频
+ *
+ * 和项目的区别：
+ *   · 素材是 news（title/summary/text/coverUrl/attachments）
+ *   · 二维码指向资讯详情页 #/news/:id
+ *   · 封面优先用资讯自己的封面图；没有就本地生成一张资讯卡片
+ */
+export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10, voice = true }) {
+  if (!news) throw httpError(404, '资讯不存在');
+  const feedsCol = db.collection('feeds');
+  const existing = feedsCol.findOne((f) => f.newsId === news.id && f.type === 'short' && f.autoMade);
+  if (existing) return { feed: existing, existed: true, voiceApplied: Boolean(existing.voiceApplied) };
+
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  let coverPath = '';
+  let tmpCover = [];
+  try {
+    /* 1. 资讯自己的封面图（本地文件记录） */
+    const coverUrl = String(news.coverUrl || '').trim();
+    if (coverUrl) {
+      const rec = db.collection('files').findOne((f) => f && f.url === coverUrl);
+      if (rec && rec.path) coverPath = rec.path;
+      if (!coverPath && /^https?:\/\//i.test(coverUrl)) {
+        // 外链封面：下载到临时文件
+        try {
+          const res = await fetch(coverUrl, { signal: AbortSignal.timeout(20000) });
+          if (res.ok) {
+            const buf = Buffer.from(await res.arrayBuffer());
+            const p = path.join(os.tmpdir(), `newscov-${stamp}.img`);
+            fs.writeFileSync(p, buf);
+            coverPath = p;
+            tmpCover.push(p);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    /* 2. 没有封面：本地生成一张资讯卡片 */
+    if (!coverPath) {
+      const { makeCoverSvg } = await import('./cover.js');
+      const svg = makeCoverSvg({ title: news.title, category: 'news' });
+      const svgPath = path.join(os.tmpdir(), `newscov-${stamp}.svg`);
+      const pngPath = path.join(os.tmpdir(), `newscov-${stamp}.png`);
+      fs.writeFileSync(svgPath, svg, 'utf8');
+      try {
+        await execFileAsync('ffmpeg', ['-y', '-loglevel', 'error', '-i', svgPath, '-frames:v', '1', pngPath], {
+          timeout: 30000,
+        });
+        if (fs.existsSync(pngPath) && fs.statSync(pngPath).size > 0) coverPath = pngPath;
+      } catch {
+        /* ignore */
+      }
+      tmpCover.push(svgPath, pngPath);
+    }
+
+    const qrText = `${String(baseUrl || 'https://xiaoyulaile.online').replace(/\/+$/, '')}/#/news/${news.id}`;
+    const made = await renderListingVideo({
+      listing: {
+        id: news.id,
+        title: news.title,
+        subtitle: news.summary || '',
+        text: news.text || '',
+        files: [],
+      },
+      user,
+      baseUrl,
+      seconds,
+      voice,
+      coverPathOverride: coverPath,
+      qrTextOverride: qrText,
+    });
+    if (!made) throw httpError(500, '视频生成失败');
+
+    const feedsSvc = await import('./feeds.js');
+    const feed = await feedsSvc.createFeed({
+      user,
+      body: {
+        type: 'short',
+        title: String(news.title || '').slice(0, 80) || '资讯短视频',
+        subtitle: String(news.summary || '').slice(0, 120),
+        description: String(news.text || '').slice(0, 300),
+        coverFileId: '',
+        tags: ['资讯视频', 'AI生成'],
+        featured: true,
+      },
+      files: [made.record],
+    });
+    feedsCol.update(feed.id, {
+      autoMade: true,
+      autoMadeAt: new Date().toISOString(),
+      newsId: news.id,
+      voiceApplied: Boolean(made.voiceApplied),
+      durationSec: made.duration,
+    });
+    return { feed, existed: false, voiceApplied: Boolean(made.voiceApplied), duration: made.duration };
+  } finally {
+    for (const p of tmpCover) {
+      try {
+        fs.unlinkSync(p);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+export default { renderListingVideo, makeShortForListing, makeShortFromNews };

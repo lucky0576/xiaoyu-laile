@@ -1282,6 +1282,74 @@ async function renderPublishNews(ctx) {
         }
       });
 
+      /*
+       * 资讯发布成功后：问一句要不要生成短视频。
+       * 和项目发布同一套选择（5/10/30 秒 + 旁白），走 /api/news/:id/make-short。
+       */
+      const askNewsShort = (newsId) =>
+        new Promise((resolve) => {
+          if (!newsId) return resolve(false);
+          let seconds = 10;
+          const mask = document.createElement('div');
+          mask.className = 'cbook-mask';
+          mask.innerHTML = `<div class="cbook-sheet">
+            <div class="cbook-head">
+              <div>
+                <div class="strong">🎬 要不要生成资讯短视频？</div>
+                <div class="tiny dim">用资讯标题 + 封面 + 二维码合成竖版视频，可配旁白</div>
+              </div>
+              <button class="cbook-x" type="button" aria-label="关闭">✕</button>
+            </div>
+            <div style="display:flex;gap:8px;margin:12px 0 6px">
+              ${[5, 10, 30]
+                .map(
+                  (s) =>
+                    `<button class="btn btn-sm ${s === seconds ? 'btn-primary' : ''}" type="button" data-nsec="${s}" style="flex:1">${s} 秒</button>`,
+                )
+                .join('')}
+            </div>
+            <label class="cbook-label" style="display:flex;align-items:center;gap:8px;margin-top:10px">
+              <input type="checkbox" id="ns-voice" checked>
+              <span>配旁白（自动朗读标题与摘要）</span>
+            </label>
+            <div class="tiny dim mt6">生成约需 10~40 秒，完成后可在短视频里看到</div>
+            <div class="row gap8 mt12">
+              <button class="btn btn-primary grow" id="ns-go" type="button">生成短视频</button>
+              <button class="btn grow" id="ns-skip" type="button">不用了</button>
+            </div>
+          </div>`;
+          document.body.appendChild(mask);
+          const close = (v) => {
+            mask.remove();
+            resolve(v);
+          };
+          mask.querySelector('.cbook-x').addEventListener('click', () => close(false));
+          mask.querySelector('#ns-skip').addEventListener('click', () => close(false));
+          mask.addEventListener('click', (e) => {
+            if (e.target === mask) close(false);
+          });
+          mask.querySelectorAll('[data-nsec]').forEach((b) => {
+            b.addEventListener('click', () => {
+              seconds = Number(b.getAttribute('data-nsec')) || 10;
+              mask.querySelectorAll('[data-nsec]').forEach((x) => x.classList.toggle('btn-primary', x === b));
+            });
+          });
+          mask.querySelector('#ns-go').addEventListener('click', async () => {
+            const voice = Boolean(mask.querySelector('#ns-voice')?.checked);
+            close(true);
+            ui.showLoading(`正在生成 ${seconds} 秒资讯短视频…`);
+            try {
+              const r = await service.makeNewsShort(newsId, { seconds, voice });
+              ui.hideLoading();
+              ui.toast(r && r.voiceApplied ? '短视频已生成（含旁白）' : '短视频已生成', 'ok');
+              ctx.nav('#/shorts');
+            } catch (err) {
+              ui.hideLoading();
+              ui.toast(err.message || '生成失败', 'err');
+            }
+          });
+        });
+
       /* ---------------- 提交 ---------------- */
       const btn = $('#news-submit');
       btn?.addEventListener('click', async () => {
@@ -1361,6 +1429,12 @@ async function renderPublishNews(ctx) {
             ui.toast(`已发布，${picked.length - attachments.length} 个附件上传失败`, 'err');
           } else {
             ui.toast('资讯已发布', 'ok');
+          }
+          // 问一句要不要生成短视频（失败不影响发布结果）
+          try {
+            await askNewsShort(id);
+          } catch {
+            /* ignore */
           }
           ctx.nav(id ? `#/news/${id}` : '#/news');
         } catch (err) {
