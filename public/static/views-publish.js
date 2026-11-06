@@ -1290,13 +1290,14 @@ async function renderPublishNews(ctx) {
         new Promise((resolve) => {
           if (!newsId) return resolve(false);
           let seconds = 10;
+          let voiceGender = 'auto';
           const mask = document.createElement('div');
           mask.className = 'cbook-mask';
           mask.innerHTML = `<div class="cbook-sheet">
             <div class="cbook-head">
               <div>
                 <div class="strong">🎬 要不要生成资讯短视频？</div>
-                <div class="tiny dim">用资讯标题 + 封面 + 二维码合成竖版视频，可配旁白</div>
+                <div class="tiny dim">用资讯标题 + 背景图合成竖版视频，可配旁白（可选男女声）</div>
               </div>
               <button class="cbook-x" type="button" aria-label="关闭">✕</button>
             </div>
@@ -1312,6 +1313,11 @@ async function renderPublishNews(ctx) {
               <input type="checkbox" id="ns-voice" checked>
               <span>配旁白（自动朗读标题与摘要）</span>
             </label>
+            <div class="row gap8 mt8" id="ns-gender-row">
+              <button class="btn btn-sm btn-primary" type="button" data-ngender="auto" style="flex:1">🎙 自动</button>
+              <button class="btn btn-sm" type="button" data-ngender="female" style="flex:1">👩 女声</button>
+              <button class="btn btn-sm" type="button" data-ngender="male" style="flex:1">👨 男声</button>
+            </div>
             <div class="tiny dim mt6">生成约需 10~40 秒，完成后可在短视频里看到</div>
             <div class="row gap8 mt12">
               <button class="btn btn-primary grow" id="ns-go" type="button">生成短视频</button>
@@ -1334,12 +1340,18 @@ async function renderPublishNews(ctx) {
               mask.querySelectorAll('[data-nsec]').forEach((x) => x.classList.toggle('btn-primary', x === b));
             });
           });
+          mask.querySelectorAll('[data-ngender]').forEach((b) => {
+            b.addEventListener('click', () => {
+              voiceGender = b.getAttribute('data-ngender') || 'auto';
+              mask.querySelectorAll('[data-ngender]').forEach((x) => x.classList.toggle('btn-primary', x === b));
+            });
+          });
           mask.querySelector('#ns-go').addEventListener('click', async () => {
             const voice = Boolean(mask.querySelector('#ns-voice')?.checked);
             close(true);
             ui.showLoading(`正在生成 ${seconds} 秒资讯短视频…`);
             try {
-              const r = await service.makeNewsShort(newsId, { seconds, voice });
+              const r = await service.makeNewsShort(newsId, { seconds, voice, voiceGender });
               ui.hideLoading();
               ui.toast(r && r.voiceApplied ? '短视频已生成（含旁白）' : '短视频已生成', 'ok');
               ctx.nav('#/shorts');
@@ -3835,13 +3847,14 @@ const removedFileIds = new Set();
           if (!listing || !listing.id) return resolve(false);
           let seconds = 10;
           let voice = true;
+          let voiceGender = 'auto';
           const mask = document.createElement('div');
           mask.className = 'cbook-mask';
           mask.innerHTML = `<div class="cbook-sheet">
             <div class="cbook-head">
               <div>
                 <div class="strong">🎬 要不要生成短视频？</div>
-                <div class="tiny dim">自动带项目标题、二维码，可配旁白朗读</div>
+                <div class="tiny dim">自动带项目标题和背景图，可配旁白朗读</div>
               </div>
               <button class="cbook-x" type="button" aria-label="关闭">✕</button>
             </div>
@@ -3857,6 +3870,18 @@ const removedFileIds = new Set();
               <input type="checkbox" id="sv-voice" ${voice ? 'checked' : ''}>
               <span>配旁白（自动朗读标题与城市行业）</span>
             </label>
+            <div class="row gap8 mt8" id="sv-gender-row">
+              ${[
+                ['auto', '🎙 自动'],
+                ['female', '👩 女声'],
+                ['male', '👨 男声'],
+              ]
+                .map(
+                  ([v, label]) =>
+                    `<button class="btn btn-sm ${v === voiceGender ? 'btn-primary' : ''}" type="button" data-gender="${v}" style="flex:1">${label}</button>`,
+                )
+                .join('')}
+            </div>
             <div class="tiny dim mt6">生成期间大约需要 10~40 秒，可以先去忙别的，完成后会在短视频列表里</div>
             <div class="row gap8 mt12">
               <button class="btn btn-primary grow" id="sv-go" type="button">生成短视频</button>
@@ -3879,12 +3904,18 @@ const removedFileIds = new Set();
               mask.querySelectorAll('[data-sec]').forEach((x) => x.classList.toggle('btn-primary', x === b));
             });
           });
+          mask.querySelectorAll('[data-gender]').forEach((b) => {
+            b.addEventListener('click', () => {
+              voiceGender = b.getAttribute('data-gender') || 'auto';
+              mask.querySelectorAll('[data-gender]').forEach((x) => x.classList.toggle('btn-primary', x === b));
+            });
+          });
           mask.querySelector('#sv-go').addEventListener('click', async () => {
             voice = Boolean(mask.querySelector('#sv-voice')?.checked);
             close(true);
             ui.showLoading(`正在生成 ${seconds} 秒短视频…`);
             try {
-              const r = await service.makeShort(listing.id, { seconds, voice });
+              const r = await service.makeShort(listing.id, { seconds, voice, voiceGender });
               ui.hideLoading();
               ui.toast(
                 r && r.voiceApplied ? '短视频已生成（含旁白）' : '短视频已生成（无旁白）',

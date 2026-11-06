@@ -182,8 +182,10 @@ export default function registerNewsRoutes(app) {
       const rawSeconds = Number(req.body?.seconds) || 10;
       const seconds = [5, 10, 20, 30, 60].includes(rawSeconds) ? rawSeconds : 10;
       const voice = req.body?.voice !== false;
+      const rawGender = String(req.body?.voiceGender || 'auto').toLowerCase();
+      const voiceGender = ['auto', 'female', 'male'].includes(rawGender) ? rawGender : 'auto';
       const baseUrl = `${req.protocol || 'https'}://${req.headers?.host || 'xiaoyulaile.online'}`;
-      const r = await svc.makeShortFromNews({ news: item, user, baseUrl, seconds, voice });
+      const r = await svc.makeShortFromNews({ news: item, user, baseUrl, seconds, voice, voiceGender });
       return data(
         res,
         { feed: r.feed, existed: r.existed, voiceApplied: r.voiceApplied, duration: r.duration },

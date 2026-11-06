@@ -122,6 +122,8 @@ export default function registerListingRoutes(app) {
       const rawSeconds = Number(req.body?.seconds) || 12;
       const seconds = [5, 10, 20, 30, 60].includes(rawSeconds) ? rawSeconds : 12;
       const voice = req.body?.voice !== false;
+    const rawGender = String(req.body?.voiceGender || 'auto').toLowerCase();
+    const voiceGender = ['auto', 'female', 'male'].includes(rawGender) ? rawGender : 'auto';
       const r = await svc.makeShortForListing({
         listing,
         user,

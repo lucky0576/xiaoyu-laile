@@ -111,6 +111,7 @@ export async function renderListingVideo({
   baseUrl = '',
   seconds = DURATION,
   voice = true,
+  voiceGender = 'auto',
   coverPathOverride = '',
 }) {
   if (!listing) return null;
@@ -160,17 +161,19 @@ export async function renderListingVideo({
     /* ---------- 旁白（不提扫码，不带电话） ---------- */
     let audioDuration = 0;
     let voiceApplied = false;
+    let voiceAppliedGender = 'none';
     if (voice) {
       try {
         const ttsMod = await import('./tts.js');
         const narration = sanitize(
           [videoTitle, metaLine, '上小鱼来了，免费发布产业需求。'].filter(Boolean).join('。'),
         ).replace(/。+/g, '。');
-        const t = await ttsMod.synthesize(narration);
+        const t = await ttsMod.synthesize(narration, { gender: voiceGender, seed: listing.id });
         if (t && t.path) {
           ttsFile = t.path;
           audioDuration = t.duration || 0;
           voiceApplied = true;
+          voiceAppliedGender = t.gender || 'female';
         }
       } catch {
         /* TTS 不可用就退化成无声视频 */
@@ -228,7 +231,7 @@ export async function renderListingVideo({
       opts: { extract: false, ownerId: user?.id || '', listingId: listing.id },
     });
 
-    return { record, width: W, height: H, duration: total, voiceApplied };
+    return { record, width: W, height: H, duration: total, voiceApplied, voiceGender: voiceApplied ? voiceAppliedGender : 'none' };
   } finally {
     for (const p of [tmpTitle, tmpOut, ttsFile]) {
       if (!p) continue;
@@ -250,7 +253,7 @@ export async function renderListingVideo({
  * @param {number} p.seconds 5 / 10 / 30
  * @param {boolean} p.voice 是否配旁白
  */
-export async function makeShortForListing({ listing, user, baseUrl = '', seconds = DURATION, voice = true }) {
+export async function makeShortForListing({ listing, user, baseUrl = '', seconds = DURATION, voice = true, voiceGender = 'auto' }) {
   const feedsCol = db.collection('feeds');
   const existing = feedsCol.findOne(
     (f) => f.listingId === listing.id && f.type === 'short' && f.autoMade,
@@ -311,6 +314,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
       baseUrl,
       seconds,
       voice,
+      voiceGender,
       coverPathOverride: coverPath,
     });
   } finally {
@@ -343,9 +347,10 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
     autoMade: true,
     autoMadeAt: new Date().toISOString(),
     voiceApplied: Boolean(made.voiceApplied),
+    voiceGender: made.voiceGender || 'none',
     durationSec: made.duration,
   });
-  return { feed, existed: false, voiceApplied: Boolean(made.voiceApplied), duration: made.duration };
+  return { feed, existed: false, voiceApplied: Boolean(made.voiceApplied), voiceGender: made.voiceGender || 'none', duration: made.duration };
 }
 
 /**
@@ -356,7 +361,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
  *   · 视频里不出现二维码和联系方式
  *   · 封面优先用资讯自己的封面图；没有就本地生成一张资讯卡片
  */
-export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10, voice = true }) {
+export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10, voice = true, voiceGender = 'auto' }) {
   if (!news) throw httpError(404, '资讯不存在');
   const feedsCol = db.collection('feeds');
   const existing = feedsCol.findOne((f) => f.newsId === news.id && f.type === 'short' && f.autoMade);
@@ -428,6 +433,7 @@ export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10
       baseUrl,
       seconds,
       voice,
+      voiceGender,
       coverPathOverride: coverPath,
     });
     if (!made) throw httpError(500, '视频生成失败');
@@ -451,9 +457,16 @@ export async function makeShortFromNews({ news, user, baseUrl = '', seconds = 10
       autoMadeAt: new Date().toISOString(),
       newsId: news.id,
       voiceApplied: Boolean(made.voiceApplied),
+      voiceGender: made.voiceGender || 'none',
       durationSec: made.duration,
     });
-    return { feed, existed: false, voiceApplied: Boolean(made.voiceApplied), duration: made.duration };
+    return {
+      feed,
+      existed: false,
+      voiceApplied: Boolean(made.voiceApplied),
+      voiceGender: made.voiceGender || 'none',
+      duration: made.duration,
+    };
   } finally {
     for (const p of tmpCover) {
       try {
