@@ -714,6 +714,33 @@ function cjkFont() {
  *
  * @returns {Promise<object|null>} 新的文件记录；失败返回 null（不影响原视频）
  */
+/**
+ * 把标题按「每行最多 maxChars 个字符」折行。
+ * 中文没有空格，只能按字数切；优先在标点处断开，避免整行被拆得难看。
+ */
+function wrapTitleLines(text, maxChars, maxLines) {
+  const chars = [...String(text || '').trim()];
+  if (!chars.length) return [];
+  const lines = [];
+  let cur = '';
+  const breakChars = new Set(['，', '。', '、', '；', '：', '｜', '|', ' ', '（', '）', '(', ')', '·', '-', '—']);
+  for (let i = 0; i < chars.length; i += 1) {
+    cur += chars[i];
+    const atBreak = breakChars.has(chars[i]);
+    if (cur.length >= maxChars || (atBreak && cur.length >= maxChars * 0.6)) {
+      lines.push(cur.trim());
+      cur = '';
+      if (lines.length >= maxLines) break;
+    }
+  }
+  if (cur.trim() && lines.length < maxLines) lines.push(cur.trim());
+  // 超出 maxLines 的部分用省略号收尾
+  if (lines.length === maxLines && (cur.trim() || lines.join('').length < chars.length)) {
+    lines[maxLines - 1] = lines[maxLines - 1].slice(0, Math.max(1, maxChars - 1)) + '…';
+  }
+  return lines.filter(Boolean);
+}
+
 export async function burnVideoTitle(record, title) {
   if (!record || record.kind !== 'video') return null;
   const text = String(title || '').trim().slice(0, 60);
@@ -728,25 +755,42 @@ export async function burnVideoTitle(record, title) {
   const font = cjkFont();
   if (!font) return null;
 
+  /* 先拿到分辨率：标题要按画面宽度折行，否则长标题会跑到画面外 */
+  const meta = await probeBitrate(record.path);
+  const vw = meta?.width || 1080;
+  const vh = meta?.height || 1920;
+  const maxWidth = vw * 0.86;
+
+  /*
+   * 选字号：从大往小试，直到标题能在 3 行内放下。
+   * 之前是固定 h/18、不折行 —— 长标题直接冲出画面两侧，
+   * 用户反馈「文字出现在外面」就是这个原因。
+   */
+  let fontSize = Math.round(vh / 26);
+  let lines = [];
+  for (let i = 0; i < 8; i += 1) {
+    const perLine = Math.max(6, Math.floor(maxWidth / (fontSize * 1.02)));
+    lines = wrapTitleLines(text, perLine, 3);
+    if (lines.length <= 3) break;
+    fontSize = Math.round(fontSize * 0.86);
+    if (fontSize < Math.round(vh / 70)) break;
+  }
+  fontSize = Math.max(18, fontSize);
+
   const tmpText = path.join(os.tmpdir(), `vtitle-${Date.now()}.txt`);
   const tmpOut = path.join(os.tmpdir(), `vtitle-${Date.now()}.mp4`);
   try {
-    fs.writeFileSync(tmpText, text, 'utf8');
+    fs.writeFileSync(tmpText, lines.join('\n'), 'utf8');
     /*
-     * 字号按高度算（h/18），保证不同分辨率下观感一致；
-     * 位置放在安全区内（y = h*0.10），不会被手机顶部菜单条挡住。
+     * 位置放在安全区内（y = h*0.08），字号按上一步算好的来；
+     * line_spacing 用字号的 0.42 倍，三行也不会糊在一起。
      */
     const draw =
       `drawtext=fontfile=${font.replace(/\\/g, '/').replace(/:/g, '\\:')}` +
       `:textfile=${tmpText.replace(/\\/g, '/').replace(/:/g, '\\:')}` +
-      `:fontcolor=white:fontsize=h/18:line_spacing=8` +
-      /*
-       * boxborderw 只接受数字，不接受 h/90 这种表达式
-       * （踩过一次：报 "Unable to parse option value h/90"，
-       *   整条 drawtext 初始化失败，标题一张都没烧上去）。
-       */
+      `:fontcolor=white:fontsize=${fontSize}:line_spacing=${Math.round(fontSize * 0.42)}` +
       `:box=1:boxcolor=black@0.5:boxborderw=14` +
-      `:x=(w-text_w)/2:y=h*0.10:enable='lt(t,8)'`;
+      `:x=(w-text_w)/2:y=h*0.08:enable='lt(t,8)'`;
 
     const ok = await runFfmpeg([
       '-y', '-i', record.path,

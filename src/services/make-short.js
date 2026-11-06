@@ -112,6 +112,7 @@ export async function renderListingVideo({
   seconds = DURATION,
   voice = true,
   voiceGender = 'auto',
+  blurCover = false,
   coverPathOverride = '',
 }) {
   if (!listing) return null;
@@ -192,8 +193,10 @@ export async function renderListingVideo({
     const total = Math.min(Math.max(target, 5), 90);
 
     const filter = [
-      // 底图：铺满 + 轻微压暗
-      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},eq=brightness=-0.08:saturation=0.92[bg]`,
+      // 底图：铺满 + 轻微压暗；带标题的封面当底图时先重模糊，避免出现第二套字
+      blurCover
+        ? `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=28,eq=brightness=-0.2:saturation=0.9[bg]`
+        : `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},eq=brightness=-0.08:saturation=0.92[bg]`,
       // 标题（居中偏上）
       `[bg]drawtext=fontfile=${escPath(font)}:textfile=${escPath(tmpTitle)}:fontcolor=white:fontsize=46:line_spacing=16:` +
         `box=1:boxcolor=black@0.42:boxborderw=26:x=(w-text_w)/2:y=h*0.30[withtitle]`,
@@ -271,18 +274,51 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
    * 顺序：已有图片附件 → 已有 coverUrl 对应的本地文件 → 自动配图（网络图 → 本地卡片）
    * 配好后回写 listing.coverUrl / coverFileId，列表页也能看到。
    */
+  /*
+   * 视频底图的选法（2026-11 修正「文字出现在外面」）：
+   *
+   * 之前会直接拿 listing.coverUrl 当底图，但封面是自动配图时，
+   * 封面本身已经把大标题烧进图里（那是给列表页看的），
+   * 视频又画一遍标题 → 画面里出现两套字，而且封面上的大字被裁到两侧，
+   * 就是用户看到的「文字出现在外面」。
+   *
+   * 现在：
+   *   · 用户自己上传的图片附件 → 直接用（没有烧字）
+   *   · 自动配图封面（role=auto-cover / auto-cover-plain）→ 重新生成一份「无字底图」
+   *   · 实在没有就退化成模糊底图（gblur），保证不出现第二套字
+   */
   let coverPath = '';
+  let blurCover = false;
   const coverCleanup = [];
   const imgRecs = [];
   try {
     for (const id of listing.files || []) {
       const rec = db.collection('files').get(id);
-      if (rec && (rec.kind === 'image' || looksLikeDocImage(rec)) && rec.path) imgRecs.push(rec);
+      if (rec && (rec.kind === 'image' || looksLikeDocImage(rec)) && rec.path && !rec.titleBurned) {
+        imgRecs.push(rec);
+      }
     }
   } catch {
     /* ignore */
   }
-  if (!imgRecs.length) coverPath = resolveCoverPath(listing.coverUrl, listing.coverFileId);
+
+  if (!imgRecs.length && listing.coverUrl) {
+    // 判断这个封面是不是我们自己合成的（合成封面带标题，不能当视频底图）
+    let role = '';
+    try {
+      const rec = db.collection('files').findOne((f) => f && f.url === listing.coverUrl);
+      role = rec?.role || '';
+    } catch {
+      /* ignore */
+    }
+    if (role === 'auto-cover' || role === 'auto-cover-plain') {
+      coverPath = '';
+      blurCover = false;
+    } else {
+      coverPath = resolveCoverPath(listing.coverUrl, listing.coverFileId);
+    }
+  }
+
   if (!coverPath && !imgRecs.length) {
     const gen = await ensureCoverForShort({
       title: listing.title,
@@ -297,16 +333,23 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
       // 视频用「无字底图」，封面存「带标题的图」
       coverPath = gen.videoPath || gen.path;
       coverCleanup.push(...(gen.cleanup || []));
-      try {
-        db.collection('listings').update(listing.id, {
-          coverUrl: gen.record.url,
-          coverFileId: gen.record.id,
-        });
-        listing.coverUrl = gen.record.url;
-        listing.coverFileId = gen.record.id;
-      } catch {
-        /* ignore */
+      // 只有原本没有封面时才回写，避免把用户已有的封面换掉
+      if (!listing.coverUrl) {
+        try {
+          db.collection('listings').update(listing.id, {
+            coverUrl: gen.record.url,
+            coverFileId: gen.record.id,
+          });
+          listing.coverUrl = gen.record.url;
+          listing.coverFileId = gen.record.id;
+        } catch {
+          /* ignore */
+        }
       }
+    } else if (listing.coverUrl) {
+      // 自动配图失败但有旧封面 → 用旧封面，但让它糊掉，避免重复字
+      coverPath = resolveCoverPath(listing.coverUrl, listing.coverFileId);
+      blurCover = Boolean(coverPath);
     }
   }
 
@@ -320,6 +363,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
       voice,
       voiceGender,
       coverPathOverride: coverPath,
+      blurCover,
     });
   } finally {
     for (const p of coverCleanup) {
