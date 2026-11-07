@@ -122,9 +122,12 @@ export async function renderListingVideo({
 
   const title = String(listing.title || '').trim() || '小鱼来了';
   const cover = coverPathOverride ? { path: coverPathOverride } : coverImageOf(listing);
-  if (!cover || !cover.path) {
-    throw httpError(400, '这条信息还没有封面图，先在发布页上传一张图片再生成短视频');
-  }
+  /*
+   * 没有封面不再报错。
+   * 用户要求「没有封面就自动生成」：上层会先自动配图；
+   * 万一自动配图也失败，这里用纯色品牌底图兜底，保证短视频一定能生成。
+   */
+  const hasCover = Boolean(cover && cover.path && fs.existsSync(cover.path));
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const tmpTitle = path.join(os.tmpdir(), `mkts-${stamp}.txt`);
@@ -208,10 +211,13 @@ export async function renderListingVideo({
         `box=1:boxcolor=black@0.5:boxborderw=16:x=(w-text_w)/2:y=h-220[out]`,
     ].join(';');
 
-    const args = [
-      '-y', '-loglevel', 'error',
-      '-loop', '1', '-i', cover.path,
-    ];
+    const args = ['-y', '-loglevel', 'error'];
+    if (hasCover) {
+      args.push('-loop', '1', '-i', cover.path);
+    } else {
+      // 纯色品牌底图（720x1280），不需要任何图片素材
+      args.push('-f', 'lavfi', '-t', String(total), '-i', `color=c=0x0B2A4A:s=${W}x${H}:r=${FPS}`);
+    }
     if (voiceApplied && ttsFile) {
       args.push('-i', ttsFile);
     } else {
@@ -289,6 +295,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
    */
   let coverPath = '';
   let blurCover = false;
+  let coverRecordId = '';
   const coverCleanup = [];
   const imgRecs = [];
   try {
@@ -332,6 +339,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
     if (gen) {
       // 视频用「无字底图」，封面存「带标题的图」
       coverPath = gen.videoPath || gen.path;
+      coverRecordId = gen.record?.id || '';
       coverCleanup.push(...(gen.cleanup || []));
       // 只有原本没有封面时才回写，避免把用户已有的封面换掉
       if (!listing.coverUrl) {
@@ -350,6 +358,51 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
       // 自动配图失败但有旧封面 → 用旧封面，但让它糊掉，避免重复字
       coverPath = resolveCoverPath(listing.coverUrl, listing.coverFileId);
       blurCover = Boolean(coverPath);
+    }
+  }
+
+  /* 自动配图全都失败时：本地生成一张纯色底图，视频照样能出 */
+  if (!coverPath) {
+    try {
+      const bg = path.join(os.tmpdir(), `shortplain-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`);
+      await execFileAsync(
+        'ffmpeg',
+        ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', `color=c=0x0B2A4A:s=${W}x${H}`, '-frames:v', '1', bg],
+        { timeout: 30000 },
+      );
+      if (fs.existsSync(bg) && fs.statSync(bg).size > 1000) {
+        coverPath = bg;
+        coverCleanup.push(bg);
+      }
+    } catch {
+      /* renderListingVideo 内部还有纯色兜底 */
+    }
+  }
+
+  /*
+   * 项目还没有封面：顺手生成一张「带标题」的封面写回项目，
+   * 列表页 / 详情页也不再是空白（用户要求封面自动生成）。
+   */
+  if (!listing.coverUrl) {
+    try {
+      const coverMod = await import('./cover.js');
+      const firstCity = (listing.cities || [])[0];
+      const firstInd = (listing.industries || [])[0];
+      const c = await coverMod.generateCoverFile({
+        title: listing.title,
+        category: listing.category || 'project',
+        city: typeof firstCity === 'string' ? firstCity : firstCity?.name || '',
+        industry: typeof firstInd === 'string' ? firstInd : firstInd?.name || '',
+        kindLabel: listing.typeName || '',
+      });
+      if (c && c.url) {
+        db.collection('listings').update(listing.id, { coverUrl: c.url, coverFileId: c.id });
+        listing.coverUrl = c.url;
+        listing.coverFileId = c.id;
+        coverRecordId = coverRecordId || c.id;
+      }
+    } catch {
+      /* 封面补不上不影响视频生成 */
     }
   }
 
@@ -385,7 +438,7 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
       subtitle: String(listing.subtitle || '').slice(0, 120),
       description: String(listing.text || '').slice(0, 300),
       listingId: listing.id,
-      coverFileId: '',
+      coverFileId: coverRecordId || listing.coverFileId || '',
       tags: ['项目视频', 'AI生成'],
       featured: true,
     },
