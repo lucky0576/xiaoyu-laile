@@ -165,7 +165,8 @@ export async function registerStoredFile({ srcPath, name, mime, opts = {} }) {
   let text = '';
   let meta = {};
   let notes = [];
-  const wantExtract = opts.extract !== false && kind !== 'video' && kind !== 'audio';
+  const wantExtract =
+    opts.extract !== false && !['video', 'audio', 'cad'].includes(kind); // CAD 图纸只保存，不解析
 
   /*
    * 解析不能在这条请求里同步做。

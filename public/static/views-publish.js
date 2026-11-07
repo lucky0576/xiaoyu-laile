@@ -898,7 +898,7 @@ async function renderPublishNews(ctx) {
         <div class="nd-t">把图片 / 文件 / 视频拖到这里</div>
         <div class="nd-d">图片自动作封面 · 文档和视频作为附件 · 也可以点这里选文件</div>
         <input type="file" id="news-file-input" multiple hidden
-          accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z">
+          accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z,.dwg,.dxf,.dwf,.dgn">
       </div>
 
       <!-- AI 帮写：把素材贴到正文框，点这里自动出标题 / 摘要 / 正文 -->
@@ -1566,7 +1566,7 @@ export async function renderPublish(ctx, params) {
         <div class="wphoto-grid" id="wphoto-grid"></div>
       </div>
 
-      <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / CAD / 图片 / 视频画面），据此生成标题并解析项目。</div>
+      <div class="tiny dim mt8">AI 会自动读取上传文件里的文字（PPT / PDF / Word / Excel / 图片 / 视频画面），据此生成标题并解析项目。CAD 图纸（.dwg / .dxf）只保存下载，不解析内容。</div>
       <div class="upload-cert-hint">
         💡 <b>营业执照、身份证、备案证等证照材料，请上传到「企业资质认证」</b>，不要放在项目附件里 ——
         附件里的图片会被用作项目封面和分享图，证照信息可能因此公开显示。

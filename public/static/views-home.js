@@ -3199,7 +3199,7 @@ export async function renderDetail(ctx, params) {
               </div>
               <div class="field">
                 <label>导入文件 / 图片（可多选）</label>
-                <input type="file" id="fu-files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.dwg">
+                <input type="file" id="fu-files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.dwg,.dxf,.dwf,.dgn">
                 <div class="tiny dim mt6">支持图片、PDF、Word、Excel、PPT、CAD 等，单个不超过 50MB</div>
               </div>
               <button class="btn btn-primary btn-block mt12" id="fu-submit">发布更新</button>`,
