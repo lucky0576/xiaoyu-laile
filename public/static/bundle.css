@@ -2012,6 +2012,33 @@ ul { margin: 0; padding-left: 18px; }
 
 /* 短剧管理后台 */
 .drama-admin-page .field { margin-top: 10px; }
+/* ---------------- 短视频流里的短剧穿插 ---------------- */
+.short-slide-drama .short-drama-badge {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  z-index: 6;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(90deg, #ff6a00, #ff2d55);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.short-drama-link {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+}
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

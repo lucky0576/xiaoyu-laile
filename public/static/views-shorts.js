@@ -19,8 +19,12 @@ const PAGE_SIZE = 20;
 
 export async function renderShorts(ctx, params) {
   const startId = params.id || '';
-  const res = await service.feeds({ type: 'short', limit: PAGE_SIZE }).catch(() => ({ items: [] }));
+  const [res, epRes] = await Promise.all([
+    service.feeds({ type: 'short', limit: PAGE_SIZE }).catch(() => ({ items: [] })),
+    service.dramaEpisodes({ limit: 20 }).catch(() => ({ items: [] })),
+  ]);
   let list = (res.items || []).filter((f) => f.type === 'short');
+  const dramaQueue = (((epRes && epRes.items) || []).filter((e) => e && e.videoUrl)).slice();
 
   // 从指定视频开始：把它放到第一位
   if (startId) {
@@ -33,7 +37,7 @@ export async function renderShorts(ctx, params) {
     }
   }
 
-  if (!list.length) {
+  if (!list.length && !dramaQueue.length) {
     return {
       title: '短视频',
       content: `<div class="page">${ui.emptyState('🎬', '还没有短视频', '<a class="btn btn-primary mt16" href="#/publish?category=short">发布第一条</a>')}</div>`,
@@ -42,7 +46,7 @@ export async function renderShorts(ctx, params) {
     };
   }
 
-  const slideHtml = (f, i) => `<section class="short-slide" data-idx="${i}" data-id="${ui.esc(f.id)}">
+  const shortSlideHtml = (f, i) => `<section class="short-slide" data-idx="${i}" data-id="${ui.esc(f.id)}">
     <video
       class="short-video"
       src="${ui.esc(ui.safeUrl(f.videoUrl))}"
@@ -92,13 +96,68 @@ export async function renderShorts(ctx, params) {
     <div class="short-progress"><i data-bar="${i}"></i></div>
   </section>`;
 
+  /* 短剧条目：同一播放器里穿插播放，点击「看全集」进短剧频道 */
+  const dramaSlideHtml = (ep, i) => `<section class="short-slide short-slide-drama" data-idx="${i}" data-drama="1" data-drama-id="${ui.esc(ep.dramaId)}" data-id="drama:${ui.esc(ep.dramaId)}">
+    <video
+      class="short-video"
+      src="${ui.esc(ui.safeUrl(ep.videoUrl))}"
+      poster="${ui.esc(ui.safeUrl(ep.coverUrl || ''))}"
+      loop playsinline webkit-playsinline preload="auto"
+      data-poster="${ui.esc(ui.safeUrl(ep.coverUrl || ''))}"></video>
+
+    <div class="short-center-play" data-center="${i}">▶</div>
+    <div class="short-drama-badge">🎬 短剧 · 第 ${ep.episodeNo} 集</div>
+
+    <div class="short-side">
+      <button class="short-act" data-open-drama="${i}" aria-label="看全集">
+        <span class="short-act-ico">📺</span>
+        <span class="short-act-n">看全集</span>
+      </button>
+      <button class="short-act" data-drama-share="${i}" aria-label="分享">
+        <span class="short-act-ico">↗️</span>
+        <span class="short-act-n">分享</span>
+      </button>
+      <button class="short-act" data-mute="${i}" aria-label="声音">
+        <span class="short-act-ico" data-muteico="${i}">🔊</span>
+        <span class="short-act-n">声音</span>
+      </button>
+    </div>
+
+    <div class="short-info">
+      <div class="short-author">
+        <span class="short-avatar">剧</span>
+        <span class="short-name">${ui.esc(ep.dramaTitle || '小鱼来了短剧')}</span>
+        <span class="short-views">📺 共 ${ep.totalEpisodes || 0} 集</span>
+      </div>
+      <div class="short-title">${ui.esc(ep.dramaTitle || '')} · 第 ${ep.episodeNo} 集</div>
+      <div class="short-desc">${ui.esc(String(ep.intro || '点击「看全集」进入短剧频道').slice(0, 80))}</div>
+      <a class="short-drama-link" href="#/drama/${ui.esc(ep.dramaId)}">看全集 ›</a>
+    </div>
+
+    <div class="short-progress"><i data-bar="${i}"></i></div>
+  </section>`;
+
+  /* 混排：每 4 条短视频插入 1 集短剧 */
+  const mixed = [];
+  list.forEach((f, idx) => {
+    mixed.push({ kind: 'short', feed: f });
+    if ((idx + 1) % 4 === 0 && dramaQueue.length) {
+      mixed.push({ kind: 'drama', ep: dramaQueue.shift() });
+    }
+  });
+  while (dramaQueue.length && mixed.length < 28) {
+    mixed.push({ kind: 'drama', ep: dramaQueue.shift() });
+  }
+  const slideHtml = (item, i) =>
+    item.kind === 'drama' ? dramaSlideHtml(item.ep, i) : shortSlideHtml(item.feed, i);
+
   const html = `<div class="shorts-wrap">
     <div class="shorts-feed" id="shorts-feed">
-      ${list.map((f, i) => slideHtml(f, i)).join('')}
+      ${mixed.map((item, i) => slideHtml(item, i)).join('')}
     </div>
     <div class="shorts-topbar">
       <button class="shorts-back" id="shorts-back">←</button>
-      <span class="shorts-count" id="shorts-count">1 / ${list.length}</span>
+      <span class="shorts-count" id="shorts-count">1 / ${mixed.length}</span>
     </div>
     <div class="shorts-loading hide" id="shorts-loading">加载中…</div>
   </div>`;
@@ -215,7 +274,7 @@ export async function renderShorts(ctx, params) {
         current = i;
         if (countEl) countEl.textContent = `${i + 1} / ${slides().length}`;
         const s = slides()[i];
-        if (s && !viewed.has(s.dataset.id)) {
+        if (s && s.dataset.id && !s.dataset.drama && !viewed.has(s.dataset.id)) {
           viewed.add(s.dataset.id);
           service.viewFeed(s.dataset.id).catch(() => {});
         }
@@ -249,7 +308,7 @@ export async function renderShorts(ctx, params) {
 
       // 单击暂停 / 播放
       feed.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-like],[data-comment],[data-share],[data-mute],[data-fav],[data-contact]');
+        const btn = e.target.closest('[data-like],[data-comment],[data-share],[data-mute],[data-fav],[data-contact],[data-open-drama],[data-drama-share]');
         if (btn) return;
         const slide = e.target.closest('.short-slide');
         if (!slide) return;
@@ -379,6 +438,35 @@ export async function renderShorts(ctx, params) {
         ui.toast(ok ? '链接已复制，可粘贴到微信' : '复制失败', ok ? 'ok' : 'err');
       });
 
+      // 短剧：看全集 / 分享
+      feed.addEventListener('click', async (e) => {
+        const open = e.target.closest('[data-open-drama]');
+        if (open) {
+          e.stopPropagation();
+          const i = Number(open.dataset.openDrama);
+          const s = slides()[i];
+          if (s && s.dataset.dramaId) ctx.nav(`#/drama/${s.dataset.dramaId}`);
+          return;
+        }
+        const sh = e.target.closest('[data-drama-share]');
+        if (sh) {
+          e.stopPropagation();
+          const i = Number(sh.dataset.dramaShare);
+          const s = slides()[i];
+          if (!s || !s.dataset.dramaId) return;
+          const url = `${location.origin}/#/drama/${s.dataset.dramaId}`;
+          const title = s.querySelector('.short-title')?.textContent || '小鱼来了 · 短剧';
+          if (navigator.share) {
+            try {
+              await navigator.share({ title, url });
+              return;
+            } catch { /* 取消 */ }
+          }
+          const ok = await ui.copyText(`${title}\n${url}`);
+          ui.toast(ok ? '链接已复制，可粘贴到微信' : '复制失败', ok ? 'ok' : 'err');
+        }
+      });
+
       // 评论 → 跳到详情页
       feed.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-comment]');
@@ -402,9 +490,20 @@ export async function renderShorts(ctx, params) {
           const fresh = (more.items || []).filter((f) => f.type === 'short' && !known.has(f.id));
           if (fresh.length) {
             const base = slides().length;
-            feed.insertAdjacentHTML('beforeend', fresh.map((f, k) => slideHtml(f, base + k)).join(''));
-            feed.querySelectorAll('.short-slide').forEach((s) => io.observe(s));
+            feed.insertAdjacentHTML(
+              'beforeend',
+              fresh.map((f, k) => slideHtml({ kind: 'short', feed: f }, base + k)).join(''),
+            );
           }
+          if (dramaQueue.length) {
+            const base2 = slides().length;
+            const take = dramaQueue.splice(0, 3);
+            feed.insertAdjacentHTML(
+              'beforeend',
+              take.map((ep, k) => slideHtml({ kind: 'drama', ep }, base2 + k)).join(''),
+            );
+          }
+          feed.querySelectorAll('.short-slide').forEach((s) => io.observe(s));
         } finally {
           feed.dataset.loading = '';
         }

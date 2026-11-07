@@ -47,6 +47,12 @@ export default function registerDramaRoutes(app) {
     return data(res, r);
   });
 
+  /** 最新短剧集（短视频流穿插用） */
+  app.get('/api/dramas/episodes', (req, res) => {
+    const q = queryOf(req);
+    return data(res, dramasSvc.listLatestEpisodes({ limit: Math.min(40, Math.max(1, num(q.limit, 20))) }));
+  });
+
   app.get('/api/dramas/:id', (req, res) => {
     const r = dramasSvc.getDrama(req.params.id);
     if (!r || r.drama.status !== 'published') return fail(res, '短剧不存在或已下架', 404, 'not_found');

@@ -639,6 +639,7 @@ export const service = {
   dramas: (query) => api.get('/api/dramas', query),
   dramaMeta: () => api.get('/api/dramas/meta'),
   dramaDetail: (id) => api.get('/api/dramas/' + id),
+  dramaEpisodes: (query) => api.get('/api/dramas/episodes', query),
   adminDramas: (query) => api.get('/api/admin/dramas', query),
   adminCreateDrama: (body) => api.post('/api/admin/dramas', body),
   adminDramaFromVideos: (body) => api.post('/api/admin/dramas/from-videos', body),

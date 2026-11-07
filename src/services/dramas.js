@@ -476,9 +476,38 @@ export async function createFromVideos({
   return { drama: dramaPublic(dramas().get(drama.id) || published), episodes: made, slices: sliceInfo.made };
 }
 
+/** 最新短剧集（用于短视频流穿插播放） */
+export function listLatestEpisodes({ limit = 20 } = {}) {
+  const pub = dramas()
+    .all()
+    .filter((d) => d.status === 'published')
+    .sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')));
+  const out = [];
+  for (const d of pub) {
+    const eps = episodes()
+      .all()
+      .filter((e) => e.dramaId === d.id && e.status !== 'deleted')
+      .sort((a, b) => (a.episodeNo || 0) - (b.episodeNo || 0));
+    for (const e of eps) {
+      out.push({
+        ...episodePublic(e),
+        dramaTitle: d.title,
+        dramaSubtitle: d.subtitle || '',
+        coverUrl: e.coverUrl || d.coverUrl || '',
+        intro: d.intro || '',
+        totalEpisodes: d.totalEpisodes || eps.length,
+        categoryName: CAT_NAME[d.category] || '',
+      });
+    }
+    if (out.length >= limit * 2) break;
+  }
+  return { total: out.length, items: out.slice(0, limit) };
+}
+
 export default {
   DRAMA_CATEGORIES,
   createFromVideos,
+  listLatestEpisodes,
   dramaPublic,
   episodePublic,
   listDramas,
