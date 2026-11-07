@@ -2208,20 +2208,35 @@ export async function renderDetail(ctx, params) {
       ${
         videos.length
           ? `<div class="card card-pad">
-        <div class="strong mb8">🎬 项目视频</div>
-        ${videos
-          .map(
-            (v) =>
-              `<video class="detail-video" src="${ui.esc(ui.safeUrl(withFileToken(v.url)))}" poster="${ui.esc(ui.safeUrl(heroSrc))}" controls playsinline webkit-playsinline preload="metadata"></video>`,
-          )
-          .join('')}
+        <div class="row between">
+          <div class="strong">🎬 项目视频</div>
+          <span class="tiny dim">${videos.length} 个</span>
+        </div>
+        <video class="detail-video" src="${ui.esc(ui.safeUrl(withFileToken(videos[0].url)))}" poster="${ui.esc(ui.safeUrl(heroSrc))}" controls playsinline webkit-playsinline preload="metadata"></video>
+        ${
+          videos.length > 1
+            ? `<details class="detail-video-more">
+          <summary>还有 ${videos.length - 1} 个视频 ›</summary>
+          ${videos
+            .slice(1)
+            .map(
+              (v) =>
+                `<video class="detail-video" src="${ui.esc(ui.safeUrl(withFileToken(v.url)))}" poster="${ui.esc(ui.safeUrl(heroSrc))}" controls playsinline webkit-playsinline preload="metadata"></video>`,
+            )
+            .join('')}
+        </details>`
+            : ''
+        }
       </div>`
           : ''
       }
       ${
         relatedShorts.length
           ? `<div class="card card-pad mt12">
-        <div class="strong mb8">📱 项目短视频</div>
+        <div class="row between">
+          <div class="strong">📱 项目短视频</div>
+          <span class="tiny dim">发布后自动生成</span>
+        </div>
         ${relatedShorts
           .map(
             (f) => `<div class="detail-short">

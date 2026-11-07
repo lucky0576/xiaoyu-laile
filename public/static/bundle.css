@@ -2051,6 +2051,16 @@ ul { margin: 0; padding-left: 18px; }
   object-fit: contain;
 }
 .detail-short + .detail-short { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #e5e9f0; }
+.detail-video-more { margin-top: 10px; }
+.detail-video-more > summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--brand, #0b74ff);
+  padding: 6px 0;
+  list-style: none;
+}
+.detail-video-more > summary::-webkit-details-marker { display: none; }
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
