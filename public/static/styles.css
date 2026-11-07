@@ -2322,3 +2322,14 @@ ul { margin: 0; padding-left: 18px; }
   .bc-publish-grid { grid-template-columns: 1fr; }
   .brainco-bar-img { width: 76px; height: 100px; }
 }
+
+
+/* 欢迎页：BrainCo 战略合作伙伴横栏 */
+.aw-brainco {
+  border: 1px solid rgba(11, 116, 255, 0.18);
+  background:
+    radial-gradient(120% 140% at 90% 10%, rgba(76, 201, 240, 0.16) 0%, rgba(76, 201, 240, 0) 60%),
+    #f7fbff;
+}
+.aw-brainco .aw-row-title { color: #0b3b6f; }
+.aw-brainco .aw-row-go { color: #0b74ff; }

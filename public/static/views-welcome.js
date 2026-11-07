@@ -123,6 +123,16 @@ export async function renderWelcome(ctx) {
       <span class="aw-row-go">免费发布 <span class="aw-chev">›</span></span>
     </a>
 
+    <!-- ③.5 战略合作伙伴：BrainCo 强脑科技 -->
+    <a class="aw-row aw-rise aw-brainco" style="--d:330ms" href="#/brainco">
+      <span class="aw-row-icon">🧠</span>
+      <span class="aw-row-body">
+        <span class="aw-row-title">BrainCo 强脑科技 · 战略合作伙伴</span>
+        <span class="aw-row-sub">脑机接口 · 灵巧手 · 双臂机器人 · 高校解决方案</span>
+      </span>
+      <span class="aw-row-go">进入专题 <span class="aw-chev">›</span></span>
+    </a>
+
     <footer class="aw-foot aw-rise" style="--d:360ms">
       <button class="aw-cta" id="wl-enter" type="button">
         进入小鱼来了
