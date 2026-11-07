@@ -1836,7 +1836,16 @@ export async function renderDetail(ctx, params) {
     (images[0] && images[0].url) ||
     listing.coverUrl ||
     '';
-  const others = files.filter((f) => f.kind !== 'image');
+  const videos = files.filter((f) => f.kind === 'video');
+  /* 项目关联的 AI 短视频（发布后自动生成的那条） */
+  let relatedShorts = [];
+  try {
+    const refeed = await service.feeds({ listingId: listing.id, type: 'short', limit: 3 });
+    relatedShorts = ((refeed && refeed.items) || []).filter((f) => f && f.type === 'short' && f.videoUrl);
+  } catch {
+    relatedShorts = [];
+  }
+  const others = files.filter((f) => f.kind !== 'image' && f.kind !== 'video');
   const dec = files.filter((f) => ['pdf', 'word', 'ppt', 'excel', 'cad', 'archive'].includes(f.kind));
 
   // 标记自己的留言
@@ -2192,6 +2201,44 @@ export async function renderDetail(ctx, params) {
       <div style="font-size:46px">${categoryIcon(listing.category)}</div>
       ${isOwner ? `<button class="btn btn-sm mt8" id="btn-gen-cover-from-hero">🎨 自动生成配图</button>` : ''}
     </div>`}
+
+    ${
+      videos.length || relatedShorts.length
+        ? `<div class="page detail-media">
+      ${
+        videos.length
+          ? `<div class="card card-pad">
+        <div class="strong mb8">🎬 项目视频</div>
+        ${videos
+          .map(
+            (v) =>
+              `<video class="detail-video" src="${ui.esc(ui.safeUrl(withFileToken(v.url)))}" poster="${ui.esc(ui.safeUrl(heroSrc))}" controls playsinline webkit-playsinline preload="metadata"></video>`,
+          )
+          .join('')}
+      </div>`
+          : ''
+      }
+      ${
+        relatedShorts.length
+          ? `<div class="card card-pad mt12">
+        <div class="strong mb8">📱 项目短视频</div>
+        ${relatedShorts
+          .map(
+            (f) => `<div class="detail-short">
+          <video class="detail-video" src="${ui.esc(ui.safeUrl(f.videoUrl))}" poster="${ui.esc(ui.safeUrl(f.coverUrl || ''))}" controls playsinline webkit-playsinline preload="metadata"></video>
+          <div class="row between mt6">
+            <span class="tiny dim">${ui.esc(f.title || '')}</span>
+            <a class="tiny" href="#/shorts/${ui.esc(f.id)}">全屏播放 ›</a>
+          </div>
+        </div>`,
+          )
+          .join('')}
+      </div>`
+          : ''
+      }
+    </div>`
+        : ''
+    }
 
     <div class="page">
       <div class="detail-layout">

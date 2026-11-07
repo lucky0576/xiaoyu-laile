@@ -2038,3 +2038,15 @@ ul { margin: 0; padding-left: 18px; }
   text-decoration: none;
   backdrop-filter: blur(8px);
 }
+/* ---------------- 项目详情页：图片 + 视频同时展示 ---------------- */
+.detail-media { padding-top: 12px; }
+.detail-video {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  margin-top: 8px;
+  border-radius: 12px;
+  background: #000;
+  object-fit: contain;
+}
+.detail-short + .detail-short { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #e5e9f0; }
