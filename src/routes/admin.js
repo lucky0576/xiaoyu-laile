@@ -35,6 +35,19 @@ export default function registerAdminRoutes(app) {
     });
   });
 
+  /* 批量改标题用：单条更新项目标题（管理员） */
+  app.post('/api/admin/listings/:id/title', (req, res) => {
+    requireAdmin(req);
+    const id = String(req.params.id || '');
+    const title = String(req.body?.title || '').trim();
+    if (!title || title.length > 80) return fail(res, '标题不合法', 400, 'bad_request');
+    const row = listings().get(id);
+    if (!row) return fail(res, '信息不存在', 404, 'not_found');
+    const type = title.split(/[｜|]/)[0];
+    const updated = listings().update(id, { title, titleType: type, titleUpdatedAt: new Date().toISOString() });
+    return data(res, { listing: { id: updated.id, title: updated.title } });
+  });
+
   app.get('/api/admin/qualifications', (req, res) => {
     requireAdmin(req);
     const status = String(req.query.status || 'pending');
