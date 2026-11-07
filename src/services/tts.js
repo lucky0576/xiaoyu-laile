@@ -22,6 +22,7 @@
  */
 
 import { execFile } from 'node:child_process';
+import settingsSvc from './settings.js';
 import { promisify } from 'node:util';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -192,6 +193,9 @@ export async function synthesize(text, { lang = 'zh-CN', gender = 'female', seed
    *   男声 zm_*（实测 ~110Hz）/ 女声 zf_*（~220Hz），按内容哈希轮换音色
    *   模型或 python 不可用时自动落到下面的 Google 通道
    */
+  const cosy = await synthesizeCosyVoice(speechText, g, seed || speechText);
+  if (cosy) return cosy;
+
   const kokoro = await synthesizeKokoro(speechText, g, seed || speechText);
   if (kokoro) return kokoro;
 
@@ -222,6 +226,85 @@ function kokoroAvailable() {
     kokoroChecked = false;
   }
   return kokoroChecked;
+}
+
+/* ------------------------------------------------------------------ */
+/* 首选：硅基流动 CosyVoice2（中文新闻播报级，比本地小模型自然）        */
+/* ------------------------------------------------------------------ */
+const COSY_MALE = [
+  'FunAudioLLM/CosyVoice2-0.5B:charles',
+  'FunAudioLLM/CosyVoice2-0.5B:benjamin',
+  'FunAudioLLM/CosyVoice2-0.5B:david',
+];
+const COSY_FEMALE = [
+  'FunAudioLLM/CosyVoice2-0.5B:anna',
+  'FunAudioLLM/CosyVoice2-0.5B:bella',
+  'FunAudioLLM/CosyVoice2-0.5B:claire',
+  'FunAudioLLM/CosyVoice2-0.5B:diana',
+];
+
+/** 硅基流动的 key：优先环境变量，其次复用视觉模型配置（同一个账号） */
+function siliconflowConfig() {
+  try {
+    const envKey = String(process.env.SILICONFLOW_API_KEY || '').trim();
+    if (envKey) return { baseUrl: 'https://api.siliconflow.cn/v1', apiKey: envKey };
+    const v = settingsSvc.effectiveVisionConfig();
+    if (v && v.apiKey && /siliconflow/i.test(String(v.baseUrl || ''))) {
+      return { baseUrl: String(v.baseUrl).replace(/\/+$/, ''), apiKey: v.apiKey };
+    }
+    if (v && v.apiKey && String(v.baseUrl || '').includes('siliconflow')) {
+      return { baseUrl: String(v.baseUrl).replace(/\/+$/, ''), apiKey: v.apiKey };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+async function synthesizeCosyVoice(speechText, gender, seed) {
+  const cfg = siliconflowConfig();
+  if (!cfg) return null;
+  const pool = gender === 'male' ? COSY_MALE : COSY_FEMALE;
+  const h = crypto.createHash('md5').update(String(seed || speechText)).digest();
+  const voice = pool[h[0] % pool.length];
+  try {
+    const res = await fetch(`${cfg.baseUrl}/audio/speech`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cfg.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'FunAudioLLM/CosyVoice2-0.5B',
+        input: speechText.slice(0, 600),
+        voice,
+        response_format: 'mp3',
+        speed: 0.95,
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    if (!res.ok) {
+      console.warn('[tts] CosyVoice HTTP', res.status, (await res.text().catch(() => '')).slice(0, 120));
+      return null;
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 2000) return null;
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const out = path.join(os.tmpdir(), `tts-${stamp}-cosy.mp3`);
+    fs.writeFileSync(out, buf);
+    let duration = 0;
+    try {
+      const { stdout } = await execFileAsync(
+        'ffprobe',
+        ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', out],
+        { timeout: 15000 },
+      );
+      duration = Number(String(stdout).trim()) || 0;
+    } catch {
+      /* ignore */
+    }
+    return { path: out, duration, bytes: buf.length, gender, voice, engine: 'cosyvoice' };
+  } catch (err) {
+    console.warn('[tts] CosyVoice 失败:', err.message);
+    return null;
+  }
 }
 
 /** 调用本地 Kokoro 模型（子进程，跑完即释放内存） */
