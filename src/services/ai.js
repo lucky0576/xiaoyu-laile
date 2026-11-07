@@ -1262,7 +1262,7 @@ ${factLines}
 
 export async function summarizeProject(input) {
   const local = localSummary(input);
-  if (!aiConfigured()) return local;
+  if (!aiConfigured()) return { ...local, title: ensureTitlePrefix(local.title, `${input.text || ''} ${input.digest || ''}`) };
 
   const bodyText = String(input.text || '');
   const fileText = String(input.fileText || '');
@@ -1920,6 +1920,45 @@ export async function speechToText(audio, filename = 'audio.wav') {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* 主标题统一格式：「类型｜核心内容」                                    */
+/* ------------------------------------------------------------------ */
+/**
+ * 运营要求：项目主标题统一成「投资｜xxx」「融资｜xxx」「EPC｜xxx」这种写法，
+ * 一眼能看出这是什么类型的信息。
+ *
+ * 规则：AI 生成/本地生成后，如果标题里没有「｜」，按关键词补一个类型前缀；
+ *       已经有「｜」就不动，避免把用户自己写的标题改坏。
+ */
+const TITLE_PREFIX_RULES = [
+  [/\bEPC\b|总承包|工程总承包|EPC总包/i, 'EPC'],
+  [/融资|募资|股权融资|找投资|引战|增资/i, '融资'],
+  [/招商|引资|投资方|寻投资|投资合作/i, '投资'],
+  [/招标|投标|中标|开标/i, '招标'],
+  [/采购|供货|供应|求购|采购需求/i, '采购'],
+  [/转让|出售|收购|并购/i, '转让'],
+  [/招聘|招人|招才/i, '招聘'],
+  [/合作|对接|寻合作|招募/i, '合作'],
+  [/租赁|出租|承租/i, '租赁'],
+  [/服务|外包|委托/i, '服务'],
+];
+
+export function titleTypeOf(text) {
+  const s = String(text || '');
+  for (const [re, name] of TITLE_PREFIX_RULES) {
+    if (re.test(s)) return name;
+  }
+  return '';
+}
+
+export function ensureTitlePrefix(title, contextText = '') {
+  const t = String(title || '').trim();
+  if (!t) return t;
+  if (/[｜|]/.test(t)) return t;
+  const type = titleTypeOf(`${t} ${contextText || ''}`);
+  return type ? `${type}｜${t}` : t;
+}
+
 export async function generateTitles(input) {
   const local = await localTitles(input);
   if (!aiConfigured()) return local;
@@ -1929,7 +1968,7 @@ export async function generateTitles(input) {
   const user = `请为下面这条【${input.categoryName || '项目'}】信息生成发布用主标题与副标题。
 
 要求：
-1. 主标题不超过 30 个汉字，包含地区、行业/领域、核心动作与合作方式，信息量优先，不要标题党、不要夸张承诺；
+1. 主标题必须用「类型｜核心内容」格式：类型从 投资/融资/EPC/采购/招标/转让/合作/租赁/服务/招聘 中选一个最贴切的，竖线用中文全角「｜」；核心内容不超过 28 个汉字，包含地区、行业/领域、核心动作，信息量优先，不要标题党、不要夸张承诺；
 2. 副标题不超过 40 个汉字，补充关键条件：金额、规模、周期、地点、合作方式（选最重要的 3-4 项，用" · "分隔）；
 3. 再给出 2 个备选主标题；
 4. 提炼 5-10 个关键词（用于行业/城市分类与检索）。
@@ -1953,7 +1992,7 @@ ${input.filename ? `\n主要附件：${input.filename}` : ''}
     );
     const parsed = extractJson(raw);
     if (!parsed || !parsed.title) return local;
-    const title = String(parsed.title).trim().slice(0, 60) || local.title;
+    const title = ensureTitlePrefix(String(parsed.title).trim().slice(0, 60) || local.title, `${input.text || ''} ${input.digest || ''}`);
     const subtitle = String(parsed.subtitle || local.subtitle).trim().slice(0, 80);
     const keywords = Array.isArray(parsed.keywords)
       ? parsed.keywords.map((k) => String(k).trim()).filter(Boolean).slice(0, 12)

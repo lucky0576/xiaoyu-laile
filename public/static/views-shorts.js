@@ -138,15 +138,40 @@ export async function renderShorts(ctx, params) {
   </section>`;
 
   /* 混排：每 4 条短视频插入 1 集短剧 */
+  /* 短剧切片会与整集重复，先从短视频里剔掉 */
+  list = list.filter((f) => !f.dramaId);
+
+  /* 短剧集去重：同一集只出现一次 */
+  const seenDrama = new Set();
+  const dramaList = [];
+  for (const e of dramaQueue) {
+    const key = `${e.dramaId}:${e.episodeNo}`;
+    if (seenDrama.has(key)) continue;
+    seenDrama.add(key);
+    dramaList.push(e);
+  }
+  dramaQueue.length = 0;
+
+  /*
+   * 混排规则（运营要求）：
+   *   每播放 3 集短剧，插入 1 条短视频
+   *   短剧不够 3 集时，剩余的位置全部放短视频
+   */
   const mixed = [];
-  list.forEach((f, idx) => {
-    mixed.push({ kind: 'short', feed: f });
-    if ((idx + 1) % 4 === 0 && dramaQueue.length) {
-      mixed.push({ kind: 'drama', ep: dramaQueue.shift() });
+  let si = 0;
+  for (let i = 0; i < dramaList.length; i += 1) {
+    mixed.push({ kind: 'drama', ep: dramaList[i] });
+    if ((i + 1) % 3 === 0 && si < list.length) {
+      mixed.push({ kind: 'short', feed: list[si] });
+      si += 1;
     }
-  });
-  while (dramaQueue.length && mixed.length < 28) {
-    mixed.push({ kind: 'drama', ep: dramaQueue.shift() });
+  }
+  while (si < list.length) {
+    mixed.push({ kind: 'short', feed: list[si] });
+    si += 1;
+  }
+  if (!mixed.length) {
+    list.forEach((f) => mixed.push({ kind: 'short', feed: f }));
   }
   const slideHtml = (item, i) =>
     item.kind === 'drama' ? dramaSlideHtml(item.ep, i) : shortSlideHtml(item.feed, i);
@@ -495,14 +520,7 @@ export async function renderShorts(ctx, params) {
               fresh.map((f, k) => slideHtml({ kind: 'short', feed: f }, base + k)).join(''),
             );
           }
-          if (dramaQueue.length) {
-            const base2 = slides().length;
-            const take = dramaQueue.splice(0, 3);
-            feed.insertAdjacentHTML(
-              'beforeend',
-              take.map((ep, k) => slideHtml({ kind: 'drama', ep }, base2 + k)).join(''),
-            );
-          }
+          /* 短剧集在首屏按 3:1 穿插完；这里只补短视频，避免同一集重复出现 */
           feed.querySelectorAll('.short-slide').forEach((s) => io.observe(s));
         } finally {
           feed.dataset.loading = '';

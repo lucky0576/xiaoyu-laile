@@ -1675,6 +1675,12 @@ export async function renderPublish(ctx, params) {
         <div class="field">
           <label>主标题</label>
           <input class="input" id="pub-title" maxlength="120" placeholder="点上面「第二步」自动生成，也可以自己写" value="${ui.esc(editing?.title || '')}">
+          <div class="chips mt8" id="pub-title-prefix">
+            <span class="tiny dim" style="margin-right:4px">标题前缀：</span>
+            ${['投资', '融资', 'EPC', '采购', '招标', '转让', '合作', '租赁', '服务', '招聘']
+              .map((x) => `<a class="chip" data-prefix="${x}">${x}｜</a>`)
+              .join('')}
+          </div>
         </div>
         <div class="field">
           <label>副标题 <span class="tiny dim">（选填）</span></label>
@@ -2846,6 +2852,19 @@ const removedFileIds = new Set();
       };
       $('#pub-text')?.addEventListener('input', checkContacts);
       $('#pub-title')?.addEventListener('input', checkContacts);
+      /* 标题前缀：投资｜ / 融资｜ / EPC｜ …… */
+      root.querySelectorAll('#pub-title-prefix [data-prefix]').forEach((chip) => {
+        chip.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          const el = $('#pub-title');
+          if (!el) return;
+          const prefix = chip.dataset.prefix + '｜';
+          const rest = String(el.value || '').trim().replace(/^[^｜|]{1,8}[｜|]/, '');
+          el.value = prefix + rest;
+          el.dispatchEvent(new Event('input'));
+          el.focus();
+        });
+      });
 
       /* ---------------- 品牌 + 型号 → 产品名 ---------------- */
       const pnameBtn = $('#pub-pname');
