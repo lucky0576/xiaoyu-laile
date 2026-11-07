@@ -2061,6 +2061,269 @@ ul { margin: 0; padding-left: 18px; }
   list-style: none;
 }
 .detail-video-more > summary::-webkit-details-marker { display: none; }
+
+/* ---------------- 战略合作伙伴横栏（强脑科技） ---------------- */
+.brainco-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  text-decoration: none;
+  color: #fff;
+  background:
+    radial-gradient(120% 140% at 88% 20%, rgba(76, 201, 240, 0.35) 0%, rgba(76, 201, 240, 0) 55%),
+    linear-gradient(135deg, #0b1220 0%, #101a2e 55%, #0e2233 100%);
+  overflow: hidden;
+  position: relative;
+}
+.brainco-bar:active { transform: scale(0.995); }
+.brainco-bar-left { flex: 1; min-width: 0; }
+.brainco-bar-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9be6ff;
+  background: rgba(76, 201, 240, 0.14);
+  border: 1px solid rgba(76, 201, 240, 0.35);
+}
+.brainco-bar-t {
+  margin-top: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.brainco-bar-d { margin-top: 4px; font-size: 12px; color: rgba(255, 255, 255, 0.72); }
+.brainco-bar-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.brainco-bar-chips span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.08);
+}
+.brainco-bar-cta { margin-top: 10px; font-size: 12.5px; font-weight: 800; color: #7fe3ff; }
+.brainco-bar-img {
+  flex: none;
+  width: 96px;
+  height: 128px;
+  object-fit: cover;
+  object-position: 50% 20%;
+  border-radius: 12px;
+  opacity: 0.95;
+}
+
+/* ---------------- 强脑科技专题页 ---------------- */
+.bc-page { padding-bottom: 96px; }
+.bc-hero {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 22px 20px;
+  border-radius: 20px;
+  color: #fff;
+  background:
+    radial-gradient(120% 130% at 85% 15%, rgba(76, 201, 240, 0.32) 0%, rgba(76, 201, 240, 0) 58%),
+    linear-gradient(135deg, #0a1120 0%, #101c33 50%, #0d2436 100%);
+}
+.bc-hero-left { flex: 1; min-width: 0; }
+.bc-partner-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9be6ff;
+  background: rgba(76, 201, 240, 0.14);
+  border: 1px solid rgba(76, 201, 240, 0.35);
+}
+.bc-logo { margin-top: 10px; font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+.bc-logo span { font-weight: 700; color: #9be6ff; margin-left: 4px; }
+.bc-hero-t { margin-top: 8px; font-size: 19px; line-height: 1.35; font-weight: 800; }
+.bc-hero-d { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.75); line-height: 1.7; }
+.bc-hero-points { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.bc-hero-points span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+}
+.bc-hero-right { flex: none; width: 120px; }
+.bc-hero-right img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  object-position: 50% 15%;
+  border-radius: 14px;
+  opacity: 0.95;
+}
+.bc-section { margin-top: 18px; }
+.bc-section-head { padding: 4px 2px 10px; }
+.bc-section-t { font-size: 18px; font-weight: 800; color: #1d1d1f; letter-spacing: -0.01em; }
+.bc-section-d { margin-top: 3px; font-size: 12px; color: #8a94a6; }
+.bc-about {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid #e8ecf3;
+  border-radius: 16px;
+  padding: 16px;
+}
+.bc-about-text { flex: 1; min-width: 0; }
+.bc-about-text p { margin: 0 0 9px; font-size: 13px; line-height: 1.9; color: #374151; }
+.bc-about-text b { color: #0b74ff; }
+.bc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.bc-stats > div {
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: #f5f8ff;
+  text-align: center;
+}
+.bc-stats b { display: block; font-size: 14px; font-weight: 900; color: #0b74ff; }
+.bc-stats span { display: block; margin-top: 2px; font-size: 10.5px; color: #8a94a6; }
+.bc-cities { margin-top: 10px; font-size: 12px; color: #8a94a6; }
+.bc-about-media { flex: none; width: 40%; display: flex; flex-direction: column; gap: 8px; }
+.bc-about-media img { width: 100%; border-radius: 12px; display: block; }
+.bc-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+.bc-tab {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5b6474;
+  background: #f2f5fa;
+  text-decoration: none;
+}
+.bc-tab.active { color: #fff; background: #0b74ff; }
+.bc-group { margin-top: 14px; }
+.bc-group-head { margin-bottom: 8px; }
+.bc-group-name { font-size: 15px; font-weight: 800; color: #1d1d1f; }
+.bc-group-desc { margin-top: 2px; font-size: 11.5px; color: #8a94a6; }
+.bc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.bc-card {
+  background: #fff;
+  border: 1px solid #e8ecf3;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.bc-card-img { position: relative; background: #f3f6fb; }
+.bc-card-img img { width: 100%; height: 130px; object-fit: cover; object-position: 50% 30%; display: block; }
+.bc-tag {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(10, 17, 32, 0.78);
+  backdrop-filter: blur(4px);
+}
+.bc-tag.price { background: linear-gradient(90deg, #0b74ff, #1890ff); }
+.bc-card-body { padding: 10px; display: flex; flex-direction: column; flex: 1; }
+.bc-card-name { font-size: 13px; font-weight: 800; color: #1d1d1f; }
+.bc-card-full { margin-top: 2px; line-height: 1.5; }
+.bc-specs {
+  margin: 8px 0 0;
+  padding-left: 14px;
+  flex: 1;
+}
+.bc-specs li { font-size: 11px; line-height: 1.65; color: #5b6474; margin-bottom: 3px; }
+.bc-card-foot {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bc-price { font-size: 14px; font-weight: 900; color: #0b74ff; }
+.bc-inquiry { font-size: 12px; color: #8a94a6; font-weight: 700; }
+.bc-qty { display: flex; align-items: center; gap: 8px; }
+.bc-qty button {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid #d6deea;
+  background: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  color: #0b74ff;
+}
+.bc-qty span { min-width: 16px; text-align: center; font-size: 13px; font-weight: 800; }
+.bc-buy-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f5f8ff;
+  border: 1px solid #dbe7ff;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #374151;
+}
+.bc-publish-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.bc-publish-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e8ecf3;
+}
+.bc-publish-t { font-size: 14px; font-weight: 800; color: #1d1d1f; }
+.bc-publish-d { margin: 6px 0 12px; font-size: 12px; line-height: 1.75; color: #5b6474; }
+.bc-foot { margin-top: 22px; text-align: center; font-size: 12px; color: #8a94a6; padding-bottom: 12px; }
+.bc-cart-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  width: min(560px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(10, 17, 32, 0.94);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+  z-index: 60;
+}
+.bc-cart-info { font-size: 12.5px; color: rgba(255, 255, 255, 0.82); }
+.bc-cart-info b { color: #7fe3ff; }
+.bc-cart-list { max-height: 180px; overflow-y: auto; }
+
+@media (min-width: 720px) {
+  .bc-grid { grid-template-columns: repeat(3, 1fr); }
+  .bc-about-media { width: 34%; }
+  .bc-hero-right { width: 200px; }
+  .bc-hero-right img { height: 260px; }
+}
+@media (max-width: 380px) {
+  .bc-grid { grid-template-columns: 1fr; }
+  .bc-publish-grid { grid-template-columns: 1fr; }
+  .brainco-bar-img { width: 76px; height: 100px; }
+}
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

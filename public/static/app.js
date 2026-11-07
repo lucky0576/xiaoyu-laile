@@ -63,6 +63,7 @@ const viewsFeedback = lazyView(() => import('./views-feedback.js'));
 const viewsLevelAdmin = lazyView(() => import('./views-level-admin.js'));
 const viewsDrama = lazyView(() => import('./views-drama.js'));
 const viewsPublishDrama = lazyView(() => import('./views-publish-drama.js'));
+const viewsBrainco = lazyView(() => import('./views-brainco.js'));
 const viewsAdminDrama = lazyView(() => import('./views-admin-drama.js'));
 
 const appEl = document.getElementById('app');
@@ -400,6 +401,8 @@ async function resolveView({ segs, query }) {
       return viewsAbout.renderAbout(ctx, query);
     case 'services':
       return viewsServices.renderServices(ctx, query);
+    case 'brainco':
+      return viewsBrainco.renderBrainco(ctx, query);
     case 'publish-drama':
       return viewsPublishDrama.renderPublishDrama(ctx, query);
     case 'drama':

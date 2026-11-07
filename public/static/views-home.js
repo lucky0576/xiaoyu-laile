@@ -625,6 +625,21 @@ export async function renderHome(ctx, query) {
     </div>
   </div>`;
 
+
+  /* 战略合作伙伴横栏：强脑科技专题（放在发布信息下面） */
+  const braincoBarHtml = `<a class="brainco-bar" href="#/brainco">
+    <div class="brainco-bar-left">
+      <div class="brainco-bar-badge">🤝 战略合作伙伴 · BrainCo 强脑科技</div>
+      <div class="brainco-bar-t">脑机接口 + 具身智能 · 高校整体解决方案</div>
+      <div class="brainco-bar-d">灵巧手 · 双臂机器人 · 32 通道脑电 · 脑控机器人 · 数据采集平台</div>
+      <div class="brainco-bar-chips">
+        <span>双形态部署</span><span>自研灵巧手</span><span>多模态数采</span><span>高校 / 科研</span>
+      </div>
+      <div class="brainco-bar-cta">进入专题 · 看产品与报价 ›</div>
+    </div>
+    <img class="brainco-bar-img" src="/static/brainco/robot.jpg" alt="BrainCo 双臂机器人" loading="lazy">
+  </a>`;
+
   /*
    * 首页顺序：
    *   通知 → 短视频 → AI 搜索 → 发布横栏 → 主入口宫格 → …
@@ -638,6 +653,7 @@ export async function renderHome(ctx, query) {
     ${shortHtml}
     ${aiBarHtml}
     ${publishBarHtml}
+    ${braincoBarHtml}
     ${gridHtml}
     ${topicHtml}
     ${eventQuickHtml}
