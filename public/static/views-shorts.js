@@ -15,7 +15,7 @@
 import { service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 export async function renderShorts(ctx, params) {
   const startId = params.id || '';
@@ -46,7 +46,18 @@ export async function renderShorts(ctx, params) {
     };
   }
 
-  const shortSlideHtml = (f, i) => `<section class="short-slide" data-idx="${i}" data-id="${ui.esc(f.id)}">
+  const shortSlideHtml = (f, i) => {
+    const linked = f.listing || null;
+    const c = (linked && linked.contact) || {};
+    const hasContact = Boolean(c.name || c.phone || c.wechat);
+    const authorHtml = linked
+      ? `<span class="short-avatar">项</span>
+        <span class="short-name">${ui.esc(c.name || '项目联系人')}${c.phone ? ' · ' + ui.esc(c.phone) : ''}</span>
+        ${c.wechat ? `<span class="short-views">微信 ${ui.esc(c.wechat)}</span>` : hasContact ? '' : '<span class="short-views">联系方式见项目页</span>'}`
+      : `<span class="short-avatar">${ui.esc(ui.initials(f.owner?.nickname || '用户'))}</span>
+        <span class="short-name">${ui.esc(f.owner?.nickname || '用户')}</span>
+        <span class="short-views">👁 ${f.stats?.views || 0}</span>`;
+    return `<section class="short-slide" data-idx="${i}" data-id="${ui.esc(f.id)}" data-listing-id="${ui.esc(f.listingId || '')}">
     <video
       class="short-video"
       src="${ui.esc(ui.safeUrl(f.videoUrl))}"
@@ -69,10 +80,14 @@ export async function renderShorts(ctx, params) {
         <span class="short-act-ico ${f.favorited ? 'faved' : ''}" data-favico="${i}">${f.favorited ? '⭐' : '☆'}</span>
         <span class="short-act-n" data-favcount="${i}">${f.stats?.favorites || 0}</span>
       </button>
-      ${f.source === 'collect' ? '' : `<button class="short-act" data-contact="${i}" aria-label="联系我">
+      ${f.source === 'collect' || f.listingId ? '' : `<button class="short-act" data-contact="${i}" aria-label="联系我">
         <span class="short-act-ico">📮</span>
         <span class="short-act-n">联系我</span>
       </button>`}
+      ${f.listingId ? `<button class="short-act" data-project="${i}" aria-label="了解项目">
+        <span class="short-act-ico">📄</span>
+        <span class="short-act-n">了解项目</span>
+      </button>` : ''}
       <button class="short-act" data-share="${i}" aria-label="分享">
         <span class="short-act-ico">↗️</span>
         <span class="short-act-n">分享</span>
@@ -85,9 +100,7 @@ export async function renderShorts(ctx, params) {
 
     <div class="short-info">
       <div class="short-author">
-        <span class="short-avatar">${ui.esc(ui.initials(f.owner?.nickname || '用户'))}</span>
-        <span class="short-name">${ui.esc(f.owner?.nickname || '用户')}</span>
-        <span class="short-views">👁 ${f.stats?.views || 0}</span>
+        ${authorHtml}
       </div>
       <div class="short-title">${ui.esc(f.title || '')}</div>
       ${f.description ? `<div class="short-desc">${ui.esc(f.description.slice(0, 80))}</div>` : ''}
@@ -95,6 +108,7 @@ export async function renderShorts(ctx, params) {
 
     <div class="short-progress"><i data-bar="${i}"></i></div>
   </section>`;
+  };
 
   /* 短剧条目：同一播放器里穿插播放，点击「看全集」进短剧频道 */
   const dramaSlideHtml = (ep, i) => `<section class="short-slide short-slide-drama" data-idx="${i}" data-drama="1" data-drama-id="${ui.esc(ep.dramaId)}" data-id="drama:${ui.esc(ep.dramaId)}">
@@ -333,7 +347,7 @@ export async function renderShorts(ctx, params) {
 
       // 单击暂停 / 播放
       feed.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-like],[data-comment],[data-share],[data-mute],[data-fav],[data-contact],[data-open-drama],[data-drama-share]');
+        const btn = e.target.closest('[data-like],[data-comment],[data-share],[data-mute],[data-fav],[data-contact],[data-open-drama],[data-drama-share],[data-project]');
         if (btn) return;
         const slide = e.target.closest('.short-slide');
         if (!slide) return;
@@ -490,6 +504,16 @@ export async function renderShorts(ctx, params) {
           const ok = await ui.copyText(`${title}\n${url}`);
           ui.toast(ok ? '链接已复制，可粘贴到微信' : '复制失败', ok ? 'ok' : 'err');
         }
+      });
+
+      // 项目短视频：了解项目
+      feed.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-project]');
+        if (!btn) return;
+        e.stopPropagation();
+        const i = Number(btn.dataset.project);
+        const s = slides()[i];
+        if (s && s.dataset.listingId) ctx.nav(`#/detail/${s.dataset.listingId}`);
       });
 
       // 评论 → 跳到详情页

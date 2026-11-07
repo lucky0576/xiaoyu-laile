@@ -44,6 +44,8 @@ export function feedPublic(f, viewerId = null) {
   const video = f.fileId ? files().get(f.fileId) : null;
   const cover = f.coverFileId ? files().get(f.coverFileId) : null;
   const owner = users().get(f.ownerId);
+  /* 项目关联的短视频：展示项目联系人，而不是发布者昵称 */
+  const linkedListing = f.listingId ? db.collection('listings').get(f.listingId) : null;
   return {
     id: f.id,
     type: f.type,
@@ -62,6 +64,21 @@ export function feedPublic(f, viewerId = null) {
     ownerId: f.ownerId,
     owner: f.ownerSnapshot || (owner ? { id: owner.id, nickname: owner.nickname, avatar: owner.avatar } : null),
     listingId: f.listingId || '',
+    listing: linkedListing
+      ? {
+          id: linkedListing.id,
+          title: linkedListing.title,
+          categoryName: linkedListing.categoryName || '',
+          contact: {
+            name: (linkedListing.contact && linkedListing.contact.name) || '',
+            phone: (linkedListing.contact && linkedListing.contact.phone) || '',
+            wechat: (linkedListing.contact && linkedListing.contact.wechat) || '',
+            email: (linkedListing.contact && linkedListing.contact.email) || '',
+            hidden: Boolean(linkedListing.contact && linkedListing.contact.hidden),
+            tip: (linkedListing.contact && linkedListing.contact.tip) || '',
+          },
+        }
+      : null,
     liveMeetingId: f.liveMeetingId || '',
     liveStatus: f.liveStatus || 'off',
     liveStartedAt: f.liveStartedAt || '',

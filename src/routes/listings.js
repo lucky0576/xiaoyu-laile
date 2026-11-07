@@ -400,6 +400,40 @@ export default function registerListingRoutes(app) {
 
     const created = listings().get(doc.id);
 
+    /*
+     * 发布时上传的视频：自动同步成短视频，进短视频流
+     * 带上 listingId 后，前端会显示项目联系人并提供「了解项目」按钮
+     */
+    if (bool(body.publish) && !bool(body.skipAuto)) {
+      try {
+        const videoFiles = (files || []).filter((f) => f.kind === 'video');
+        if (videoFiles.length) {
+          const feedsSvc = (await import('../services/feeds.js')).default;
+          for (let vi = 0; vi < videoFiles.length; vi += 1) {
+            const vf = videoFiles[vi];
+            const dup = db.collection('feeds').findOne((x) => x.fileId === vf.id);
+            if (dup) continue;
+            await feedsSvc.createFeed({
+              user,
+              body: {
+                type: 'short',
+                title: videoFiles.length > 1 ? `${created.title}（视频${vi + 1}）` : created.title,
+                description: created.summary || created.subtitle || '',
+                fileId: vf.id,
+                listingId: created.id,
+                coverFileId: created.coverFileId || '',
+              },
+              files: [],
+            });
+            db.collection('files').update(vf.id, { listingId: created.id });
+          }
+          console.log('[listings] 已同步项目视频到短视频流:', videoFiles.length, '个');
+        }
+      } catch (err) {
+        console.warn('[listings] 项目视频同步短视频失败:', err.message);
+      }
+    }
+
       // 发布时自动补全：无图生成封面 + AI 提炼补充信息要素
       if (bool(body.publish) && !bool(body.skipAuto)) {
         try {
