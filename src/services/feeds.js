@@ -65,19 +65,23 @@ export function feedPublic(f, viewerId = null) {
     owner: f.ownerSnapshot || (owner ? { id: owner.id, nickname: owner.nickname, avatar: owner.avatar } : null),
     listingId: f.listingId || '',
     listing: linkedListing
-      ? {
-          id: linkedListing.id,
-          title: linkedListing.title,
-          categoryName: linkedListing.categoryName || '',
-          contact: {
-            name: (linkedListing.contact && linkedListing.contact.name) || '',
-            phone: (linkedListing.contact && linkedListing.contact.phone) || '',
-            wechat: (linkedListing.contact && linkedListing.contact.wechat) || '',
-            email: (linkedListing.contact && linkedListing.contact.email) || '',
-            hidden: Boolean(linkedListing.contact && linkedListing.contact.hidden),
-            tip: (linkedListing.contact && linkedListing.contact.tip) || '',
-          },
-        }
+      ? (() => {
+          const lc = linkedListing.contact || {};
+          const hidden = Boolean(lc.hidden);
+          return {
+            id: linkedListing.id,
+            title: linkedListing.title,
+            categoryName: linkedListing.categoryName || '',
+            contact: {
+              name: hidden ? '' : lc.name || '',
+              phone: hidden ? '' : lc.phone || '',
+              wechat: hidden ? '' : lc.wechat || '',
+              email: hidden ? '' : lc.email || '',
+              hidden,
+              tip: lc.tip || '',
+            },
+          };
+        })()
       : null,
     liveMeetingId: f.liveMeetingId || '',
     liveStatus: f.liveStatus || 'off',

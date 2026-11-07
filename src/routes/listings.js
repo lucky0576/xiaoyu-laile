@@ -404,7 +404,7 @@ export default function registerListingRoutes(app) {
      * 发布时上传的视频：自动同步成短视频，进短视频流
      * 带上 listingId 后，前端会显示项目联系人并提供「了解项目」按钮
      */
-    if (bool(body.publish) && !bool(body.skipAuto)) {
+    if (bool(body.publish)) {
       try {
         const videoFiles = (files || []).filter((f) => f.kind === 'video');
         if (videoFiles.length) {
