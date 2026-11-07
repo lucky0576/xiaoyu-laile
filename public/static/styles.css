@@ -2333,3 +2333,16 @@ ul { margin: 0; padding-left: 18px; }
 }
 .aw-brainco .aw-row-title { color: #0b3b6f; }
 .aw-brainco .aw-row-go { color: #0b74ff; }
+
+
+/* 强脑科技专题：产品视频 */
+.bc-videos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.bc-video-card {
+  background: #fff;
+  border: 1px solid #e8ecf3;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.bc-video { width: 100%; display: block; max-height: 320px; background: #0a1120; object-fit: contain; }
+.bc-video-cap { padding: 8px 10px; font-size: 11.5px; color: #5b6474; }
+@media (max-width: 380px) { .bc-videos { grid-template-columns: 1fr; } }

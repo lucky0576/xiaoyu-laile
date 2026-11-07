@@ -429,6 +429,24 @@ export async function renderBrainco(ctx) {
       ${groupsHtml}
     </div>
 
+    <!-- 2.5 产品演示视频 -->
+    <div class="bc-section" id="bc-videos">
+      <div class="bc-section-head">
+        <div class="bc-section-t">产品演示视频</div>
+        <div class="bc-section-d">真机数据采集 · 灵巧手操作演示</div>
+      </div>
+      <div class="bc-videos">
+        <div class="bc-video-card">
+          <video class="bc-video" src="/files/f_mw6o4jgo95hkih/v1.mp4" poster="/static/brainco/robot.jpg" controls playsinline webkit-playsinline preload="metadata"></video>
+          <div class="bc-video-cap">BrainCo 双臂机器人 / 数据采集演示</div>
+        </div>
+        <div class="bc-video-card">
+          <video class="bc-video" src="/files/f_mw6o4jmmifl6l0/v2.mp4" poster="/static/brainco/revotron.jpg" controls playsinline webkit-playsinline preload="metadata"></video>
+          <div class="bc-video-cap">BrainCo 灵巧手 / 机器人操作演示</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 3. 采购 -->
     <div class="bc-section" id="bc-buy">
       <div class="bc-section-head">
