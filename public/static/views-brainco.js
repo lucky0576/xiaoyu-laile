@@ -757,7 +757,7 @@ export async function renderBrainco(ctx, query) {
         const card = root.querySelector(`.bc-card[data-item="${params.item}"]`);
         if (card) {
           card.classList.add('bc-card-hl');
-          setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+          setTimeout(() => card.scrollIntoView({ block: 'center' }), 300);
         }
       }
 
