@@ -72,6 +72,9 @@ const checks = [
   ['合作方向包含产教联合', html.includes('产教联合')],
   ['补充资料板块', html.includes('补充资料') && html.includes('brainco-revo3-spec.xlsx')],
   ['RevoHuman 产品', html.includes('RevoHuman')],
+  ['视频区 11 条视频', (html.match(/bc-video-card/g) || []).length >= 11],
+  ['视频含 RevoHuman 标签', html.includes('RevoHuman') && html.includes('bc-video-tag')],
+  ['没有销售话术资料', !html.includes('销售端话术') && !html.includes('sales wording')],
   ['Revo2 海报图', html.includes('/static/brainco/revo2-poster.jpg')],
   ['Revo3 海报图', html.includes('/static/brainco/revo3-poster.jpg')],
 ];

@@ -308,6 +308,20 @@ const GROUPS = [
   },
 ];
 
+const VIDEOS = [
+  { src: '/files/f_mw6o4jgo95hkih/v1.mp4', tag: '双臂机器人', cap: 'BrainCo 双臂机器人 / 数据采集演示', poster: '/static/brainco/robot.jpg' },
+  { src: '/files/f_mw7zdutmnuibgf/v02.mp4', tag: '双臂机器人', cap: '双臂机器人互动演示', poster: '/static/brainco/revotron.jpg' },
+  { src: '/files/f_mw7zdv2nq9kk70/v04.mp4', tag: '双臂机器人', cap: '双臂机器人精细操作特写', poster: '/static/brainco/revotron.jpg' },
+  { src: '/files/f_mw7zdur3r3yeum/v01.mp4', tag: '灵巧手', cap: '灵巧手弹奏电子琴（灵巧手弹琴平台）', poster: '/static/brainco/revo2-poster.jpg' },
+  { src: '/files/f_mw7zdv6v71dsg9/v05.mp4', tag: '灵巧手', cap: '灵巧手精细抓取小件物体', poster: '/static/brainco/revo2-poster.jpg' },
+  { src: '/files/f_mw7zdvvtcrqwn2/v06.mp4', tag: '灵巧手', cap: '灵巧手与人手协同操作', poster: '/static/brainco/revo2-poster.jpg' },
+  { src: '/files/f_mw6o4jmmifl6l0/v2.mp4', tag: '灵巧手', cap: '灵巧手 / 机器人操作演示', poster: '/static/brainco/revo3-poster.jpg' },
+  { src: '/files/f_mw7zdw9em1j7wr/v07.mp4', tag: '遥操作', cap: '遥操作：数据手套 + 机械臂', poster: '/static/brainco/remote.jpg' },
+  { src: '/files/f_mw7zdwg863roli/v08.mp4', tag: '数据采集', cap: '真机数据采集平台（软件界面 + 双手数据）', poster: '/static/brainco/revohuman.jpg' },
+  { src: '/files/f_mw7zdx5ola5efz/v10.mp4', tag: 'RevoHuman', cap: 'RevoHuman 外骨骼数采 · 双手操作', poster: '/static/brainco/revohuman.jpg' },
+  { src: '/files/f_mw7zdyj68d5uuq/v15.mp4', tag: 'RevoHuman', cap: 'RevoHuman 数采 · 整理衣物', poster: '/static/brainco/revohuman.jpg' },
+];
+
 const ALL_ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, group: g.name })));
 
 const CART_KEY = 'xyl_brainco_cart';
@@ -449,18 +463,16 @@ export async function renderBrainco(ctx) {
     <!-- 2.5 产品演示视频 -->
     <div class="bc-section" id="bc-videos">
       <div class="bc-section-head">
-        <div class="bc-section-t">产品演示视频</div>
-        <div class="bc-section-d">真机数据采集 · 灵巧手操作演示</div>
+        <div class="bc-section-t">产品与场景视频</div>
+        <div class="bc-section-d">双臂机器人 · 灵巧手 · 遥操作 · RevoHuman 数据采集（共 ${VIDEOS.length} 条）</div>
       </div>
       <div class="bc-videos">
-        <div class="bc-video-card">
-          <video class="bc-video" src="/files/f_mw6o4jgo95hkih/v1.mp4" poster="/static/brainco/robot.jpg" controls playsinline webkit-playsinline preload="metadata"></video>
-          <div class="bc-video-cap">BrainCo 双臂机器人 / 数据采集演示</div>
-        </div>
-        <div class="bc-video-card">
-          <video class="bc-video" src="/files/f_mw6o4jmmifl6l0/v2.mp4" poster="/static/brainco/revotron.jpg" controls playsinline webkit-playsinline preload="metadata"></video>
-          <div class="bc-video-cap">BrainCo 灵巧手 / 机器人操作演示</div>
-        </div>
+        ${VIDEOS.map(
+          (v) => `<div class="bc-video-card">
+          <video class="bc-video" src="${ui.esc(v.src)}" poster="${ui.esc(v.poster || '')}" controls playsinline webkit-playsinline preload="metadata"></video>
+          <div class="bc-video-cap"><span class="bc-video-tag">${ui.esc(v.tag)}</span>${ui.esc(v.cap)}</div>
+        </div>`,
+        ).join('')}
       </div>
     </div>
 

@@ -2380,6 +2380,18 @@ ul { margin: 0; padding-left: 18px; }
 .bc-doc-go { flex: none; font-size: 12px; font-weight: 800; color: #0b74ff; }
 .bc-publish-card .chips { margin-top: 2px; }
 
+.bc-video-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #0b74ff;
+  background: #eef5ff;
+}
+.bc-video-cap { display: flex; align-items: center; gap: 2px; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
