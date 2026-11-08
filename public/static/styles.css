@@ -2390,3 +2390,68 @@ ul { margin: 0; padding-left: 18px; }
   background: #eef5ff;
 }
 .bc-video-cap { display: flex; align-items: center; gap: 2px; }
+
+
+/* 强脑专题 v3：分享 / 参访 / 资料分组 / 看图 */
+.bc-share-ico {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(10, 17, 32, 0.55);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.bc-card { position: relative; }
+.bc-card-hl {
+  outline: 2px solid #0b74ff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(11, 116, 255, 0.12);
+}
+.bc-doc-groups { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 720px) { .bc-doc-groups { grid-template-columns: repeat(2, 1fr); } }
+.bc-doc-group {
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  background: #f7f9fd;
+  border: 1px solid #e8ecf3;
+}
+.bc-doc-group-t { font-size: 13px; font-weight: 800; color: #1d1d1f; margin-bottom: 6px; }
+.bc-doc { padding: 9px 10px; margin-top: 6px; }
+.bc-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(8, 12, 20, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.bc-viewer img {
+  max-width: 94vw;
+  max-height: 88vh;
+  border-radius: 10px;
+  object-fit: contain;
+  background: #fff;
+}
+.bc-viewer-x {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}

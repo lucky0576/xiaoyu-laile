@@ -75,6 +75,12 @@ const checks = [
   ['视频区 11 条视频', (html.match(/bc-video-card/g) || []).length >= 11],
   ['视频含 RevoHuman 标签', html.includes('RevoHuman') && html.includes('bc-video-tag')],
   ['没有销售话术资料', !html.includes('销售端话术') && !html.includes('sales wording')],
+  ['65 万套装', html.includes('65万') && html.includes('650,000')],
+  ['专题页分享按钮', html.includes('bc-share-page')],
+  ['产品分享按钮', html.includes('data-bc-share')],
+  ['申请参访按钮', html.includes('bc-visit')],
+  ['资料按产品分组', html.includes('bc-doc-groups') && html.includes('RevoHuman 外骨骼数采')],
+  ['资料可查看图片', html.includes('data-bc-img')],
   ['Revo2 海报图', html.includes('/static/brainco/revo2-poster.jpg')],
   ['Revo3 海报图', html.includes('/static/brainco/revo3-poster.jpg')],
 ];

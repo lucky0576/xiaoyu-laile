@@ -31,6 +31,21 @@ const GROUPS = [
     desc: '真机数据采集平台，支撑具身智能与高校实训',
     items: [
       {
+        id: 'bundle-65',
+        name: '双臂机器人 + 两对数据采集手套 + 数采平台（65 万套装）',
+        short: '65万双臂数采套装',
+        price: 650000,
+        unit: '套',
+        image: '/static/brainco/revohuman.jpg',
+        specs: [
+          '含 1 台双臂机器人（7DoF×2 机械臂 + Revo3 灵巧手）',
+          '含 2 对数据采集手套（外骨骼式，21 自由度×2 / 手）',
+          '含数据采集平台：真机运动控制 / 数据可视化 / 遥操作 / 数据导出',
+          '到手即用的具身智能真机数据采集方案',
+          '单套 650,000（市场参考价，含税）',
+        ],
+      },
+      {
         id: 'revotron-fixed',
         name: 'RevoTron 重量级高性能双臂机器人（固定支架版）',
         short: 'RevoTron 固定版',
@@ -363,6 +378,7 @@ function productCard(it, inCart) {
   const qty = Number(inCart[it.id] || 0);
   return `<div class="bc-card" data-item="${ui.esc(it.id)}">
     <div class="bc-card-img">
+      <button class="bc-share-ico" type="button" data-bc-share="${ui.esc(it.id)}" aria-label="分享这个产品">↗</button>
       <img src="${ui.esc(it.image)}" alt="${ui.esc(it.short)}" loading="lazy">
       ${it.inquiry ? '<span class="bc-tag">询价</span>' : `<span class="bc-tag price">${money(it.price)}</span>`}
     </div>
@@ -388,7 +404,8 @@ function productCard(it, inCart) {
   </div>`;
 }
 
-export async function renderBrainco(ctx) {
+export async function renderBrainco(ctx, query) {
+  const params = query || {};
   const cart = getCart();
   const groupsHtml = GROUPS.map((g, gi) => {
     const items = g.items.map((it) => productCard(it, cart)).join('');
@@ -413,7 +430,8 @@ export async function renderBrainco(ctx) {
         </div>
         <div class="row gap8 mt16" style="flex-wrap:wrap">
           <a class="btn btn-primary" href="#bc-products">看产品与报价</a>
-          <a class="btn btn-outline" href="#bc-publish">一键发布合作</a>
+          <button class="btn btn-outline" id="bc-visit" type="button">🏫 申请参访</button>
+          <button class="btn btn-outline" id="bc-share-page" type="button">↗ 分享专题</button>
         </div>
       </div>
       <div class="bc-hero-right">
@@ -513,43 +531,55 @@ export async function renderBrainco(ctx) {
       </div>
     </div>
 
-    <!-- 补充资料 -->
+    <!-- 补充资料（按产品分组，图片可查看，文档可下载） -->
     <div class="bc-section" id="bc-docs">
       <div class="bc-section-head">
         <div class="bc-section-t">补充资料</div>
-        <div class="bc-section-d">强脑科技官方参数表 / 常见问题 / 产品彩页（点击下载或查看）</div>
+        <div class="bc-section-d">按产品归类 · 官方参数与常见问题 · 已去除联系方式</div>
       </div>
-      <div class="bc-docs">
-        <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-spec.xlsx" download>
-          <span class="bc-doc-ico">📊</span>
-          <span class="bc-doc-body"><b>Revo3 灵巧手参数表（2026-10）</b><i>Excel · 24KB</i></span>
-          <span class="bc-doc-go">下载</span>
-        </a>
-        <a class="bc-doc" href="/static/brainco/docs/brainco-revo2-faq.docx" download>
-          <span class="bc-doc-ico">📘</span>
-          <span class="bc-doc-body"><b>BrainCo Revo2 灵巧手 FAQ</b><i>Word · 239KB</i></span>
-          <span class="bc-doc-go">下载</span>
-        </a>
-        <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-faq.docx" download>
-          <span class="bc-doc-ico">📘</span>
-          <span class="bc-doc-body"><b>BrainCo Revo3 灵巧手 FAQ</b><i>Word · 256KB</i></span>
-          <span class="bc-doc-go">下载</span>
-        </a>
-        <a class="bc-doc" href="/static/brainco/revo2-spec.jpg" target="_blank" rel="noopener">
-          <span class="bc-doc-ico">🖼️</span>
-          <span class="bc-doc-body"><b>Revo2 产品参数页</b><i>图片 · 可放大查看</i></span>
-          <span class="bc-doc-go">查看</span>
-        </a>
-        <a class="bc-doc" href="/static/brainco/revo3-spec.jpg" target="_blank" rel="noopener">
-          <span class="bc-doc-ico">🖼️</span>
-          <span class="bc-doc-body"><b>Revo3 产品参数页</b><i>图片 · 可放大查看</i></span>
-          <span class="bc-doc-go">查看</span>
-        </a>
-        <a class="bc-doc" href="/static/brainco/revohuman-spec.jpg" target="_blank" rel="noopener">
-          <span class="bc-doc-ico">🖼️</span>
-          <span class="bc-doc-body"><b>RevoHuman 参数页</b><i>图片 · 可放大查看</i></span>
-          <span class="bc-doc-go">查看</span>
-        </a>
+      <div class="bc-doc-groups">
+        <div class="bc-doc-group">
+          <div class="bc-doc-group-t">Revo2 灵巧手</div>
+          <a class="bc-doc" href="/static/brainco/revo2-spec.jpg" data-bc-img="/static/brainco/revo2-spec.jpg">
+            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo2 产品参数页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
+          </a>
+          <a class="bc-doc" href="/static/brainco/docs/brainco-revo2-faq.docx" download>
+            <span class="bc-doc-ico">📘</span><span class="bc-doc-body"><b>Revo2 灵巧手 FAQ</b><i>Word · 下载</i></span><span class="bc-doc-go">下载</span>
+          </a>
+        </div>
+        <div class="bc-doc-group">
+          <div class="bc-doc-group-t">Revo3 灵巧手</div>
+          <a class="bc-doc" href="/static/brainco/revo3-spec.jpg" data-bc-img="/static/brainco/revo3-spec.jpg">
+            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo3 产品参数页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
+          </a>
+          <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-spec.xlsx" download>
+            <span class="bc-doc-ico">📊</span><span class="bc-doc-body"><b>Revo3 参数表（2026-10）</b><i>Excel · 下载</i></span><span class="bc-doc-go">下载</span>
+          </a>
+          <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-faq.docx" download>
+            <span class="bc-doc-ico">📘</span><span class="bc-doc-body"><b>Revo3 灵巧手 FAQ</b><i>Word · 下载</i></span><span class="bc-doc-go">下载</span>
+          </a>
+        </div>
+        <div class="bc-doc-group">
+          <div class="bc-doc-group-t">RevoHuman 外骨骼数采</div>
+          <a class="bc-doc" href="/static/brainco/revohuman-spec.jpg" data-bc-img="/static/brainco/revohuman-spec.jpg">
+            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>RevoHuman 参数页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
+          </a>
+          <a class="bc-doc" href="/static/brainco/revohuman.jpg" data-bc-img="/static/brainco/revohuman.jpg">
+            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>RevoHuman 产品彩页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
+          </a>
+        </div>
+        <div class="bc-doc-group">
+          <div class="bc-doc-group-t">双臂机器人 / 整机方案</div>
+          <a class="bc-doc" href="/static/brainco/hero-poster.jpg" data-bc-img="/static/brainco/hero-poster.jpg">
+            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>双臂灵巧真机数采平台彩页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
+          </a>
+          <a class="bc-doc" href="/static/brainco/revo2-poster.jpg" data-bc-img="/static/brainco/revo2-poster.jpg">
+            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo2 产品海报</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
+          </a>
+          <a class="bc-doc" href="/static/brainco/revo3-poster.jpg" data-bc-img="/static/brainco/revo3-poster.jpg">
+            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo3 产品海报</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
+          </a>
+        </div>
       </div>
     </div>
 
@@ -615,6 +645,121 @@ export async function renderBrainco(ctx) {
         repaintCard(id);
         repaintBar();
       };
+
+      /* ---------- 分享专题 ---------- */
+      const shareUrl = () => `${location.origin}/#/brainco`;
+      const doShare = async (title, url) => {
+        try {
+          if (navigator.share) {
+            await navigator.share({ title, url });
+            return true;
+          }
+        } catch {
+          /* 用户取消 */
+        }
+        try {
+          await navigator.clipboard.writeText(`${title}\n${url}`);
+          ui.toast('链接已复制，可粘贴到微信', 'ok');
+          return true;
+        } catch {
+          ui.toast(url, 'ok');
+          return false;
+        }
+      };
+      root.querySelector('#bc-share-page')?.addEventListener('click', () => {
+        doShare('BrainCo 强脑科技 × 小鱼来了 · 脑机接口与具身智能专题', shareUrl());
+      });
+
+      /* ---------- 产品分享（链接带 ?item=，打开自动定位） ---------- */
+      root.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-bc-share]');
+        if (!btn) return;
+        e.stopPropagation();
+        const id = btn.dataset.bcShare;
+        const it = ALL_ITEMS.find((x) => x.id === id);
+        const url = `${location.origin}/#/brainco?item=${encodeURIComponent(id)}`;
+        await doShare(it ? `强脑科技 ${it.short}` : '强脑科技产品', url);
+      });
+
+      /* ---------- 申请参访 ---------- */
+      root.querySelector('#bc-visit')?.addEventListener('click', () => {
+        if (!isLoggedIn()) {
+          ui.toast('登录后才能提交参访申请', 'err');
+          ctx.nav('#/login');
+          return;
+        }
+        ui.openSheet({
+          title: '申请参访',
+          content: `<div class="tiny dim mb8">提交后平台与强脑科技商务会联系您确认参访时间（杭州 / 深圳展厅）。</div>
+            <div class="field"><label>姓名 <span style="color:#e74c3c">*</span></label><input class="input" id="bc-visit-name" maxlength="30" placeholder="您的姓名"></div>
+            <div class="field"><label>单位 <span style="color:#e74c3c">*</span></label><input class="input" id="bc-visit-org" maxlength="80" placeholder="学校 / 企业 / 园区"></div>
+            <div class="field"><label>电话 <span style="color:#e74c3c">*</span></label><input class="input" id="bc-visit-phone" maxlength="20" placeholder="手机号"></div>
+            <div class="field"><label>城市</label><input class="input" id="bc-visit-city" maxlength="30" placeholder="您所在城市"></div>
+            <div class="row gap8">
+              <div class="field grow"><label>参访人数</label><input class="input" id="bc-visit-people" type="number" min="1" max="50" value="2"></div>
+              <div class="field grow"><label>意向日期</label><input class="input" id="bc-visit-date" type="date"></div>
+            </div>
+            <div class="field"><label>备注</label><textarea class="textarea" id="bc-visit-note" rows="3" maxlength="500" placeholder="想重点了解的产品 / 方向"></textarea></div>
+            <button class="btn btn-primary btn-block mt8" id="bc-visit-submit">提交参访申请</button>`,
+          onMount(sheet, close) {
+            sheet.querySelector('#bc-visit-submit').addEventListener('click', async (e) => {
+              const btn = e.currentTarget;
+              const name = String(sheet.querySelector('#bc-visit-name').value || '').trim();
+              const org = String(sheet.querySelector('#bc-visit-org').value || '').trim();
+              const phone = String(sheet.querySelector('#bc-visit-phone').value || '').trim();
+              const city = String(sheet.querySelector('#bc-visit-city').value || '').trim();
+              const people = String(sheet.querySelector('#bc-visit-people').value || '2').trim();
+              const date = String(sheet.querySelector('#bc-visit-date').value || '').trim();
+              const note = String(sheet.querySelector('#bc-visit-note').value || '').trim();
+              if (!name || !org || !phone) return ui.toast('请填写姓名、单位、电话', 'err');
+              btn.disabled = true;
+              btn.textContent = '提交中…';
+              try {
+                await service.feedbackSubmit({
+                  text: `【申请参访 BrainCo 强脑科技】\n姓名：${name}\n单位：${org}\n电话：${phone}\n城市：${city || '（未填）'}\n人数：${people}\n意向日期：${date || '待定'}\n备注：${note || '（无）'}`,
+                  contact: phone,
+                  page: '#/brainco',
+                  topics: ['强脑科技', '申请参访'],
+                });
+                close();
+                ui.toast('参访申请已提交，商务会尽快联系您', 'ok');
+              } catch (err) {
+                btn.disabled = false;
+                btn.textContent = '提交参访申请';
+                ui.toast(err.message || '提交失败', 'err');
+              }
+            });
+          },
+        });
+      });
+
+      /* ---------- 图片查看（用弹层，不跳走） ---------- */
+      const viewer = document.createElement('div');
+      viewer.className = 'bc-viewer hide';
+      viewer.innerHTML = '<img alt="查看大图"><button type="button" class="bc-viewer-x" aria-label="关闭">✕</button>';
+      root.appendChild(viewer);
+      root.addEventListener('click', (e) => {
+        const a = e.target.closest('[data-bc-img]');
+        if (a) {
+          e.preventDefault();
+          const img = viewer.querySelector('img');
+          img.src = a.dataset.bcImg;
+          viewer.classList.remove('hide');
+          return;
+        }
+        if (e.target === viewer || e.target.classList.contains('bc-viewer-x')) {
+          viewer.classList.add('hide');
+        }
+      });
+
+      /* ---------- 分享链接 ?item= 定位高亮 ---------- */
+      if (params.item) {
+        const card = root.querySelector(`.bc-card[data-item="${params.item}"]`);
+        if (card) {
+          card.classList.add('bc-card-hl');
+          setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+        }
+      }
 
       root.querySelectorAll('[data-bc-jump]').forEach((tab) => {
         tab.addEventListener('click', (e) => {
