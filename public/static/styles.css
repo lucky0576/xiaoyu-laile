@@ -2520,3 +2520,26 @@ ul { margin: 0; padding-left: 18px; }
   background: #fff;
   display: block;
 }
+
+
+/* 产教联合子 tab */
+.bc-subtabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin: 0 0 10px;
+  padding-bottom: 2px;
+}
+.bc-subtab {
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f3;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5b6474;
+  cursor: pointer;
+}
+.bc-subtab.active { background: #eef5ff; border-color: #bcd7ff; color: #0b74ff; }
+.bc-card.bc-card-hide { display: none; }

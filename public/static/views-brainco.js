@@ -249,6 +249,7 @@ const GROUPS = [
     items: [
       {
         id: 'coop-center',
+        sub: '产业学院',
         name: '脑机智能机器人创践中心（产教联合共建方案）',
         short: '创践中心共建',
         price: 0,
@@ -263,22 +264,40 @@ const GROUPS = [
         inquiry: true,
       },
       {
+        id: 'coop-college',
+        sub: '产业学院',
+        name: '产业学院共建（专业共建 / 订单式培养）',
+        short: '产业学院共建',
+        price: 0,
+        unit: '套',
+        image: '/static/brainco/team.jpg',
+        specs: [
+          '专业方向共建：脑机接口 / 机器人 / 人工智能',
+          '企业导师进课堂 + 订单式培养',
+          '联合申报项目、共建课程与教材',
+          '面向高校 / 职校，方案面议',
+        ],
+        inquiry: true,
+      },
+      {
         id: 'coop-base',
-        name: '产教融合实训基地 / 产业学院共建',
-        short: '产教融合基地',
+        sub: '实训基地',
+        name: '产教融合实训基地共建',
+        short: '产教融合实训基地',
         price: 0,
         unit: '套',
         image: '/static/brainco/team.jpg',
         specs: [
           '联合实验室 + 实习实训基地 + 双创竞赛支持',
-          '订单式培养、企业导师进课堂',
-          '对接强脑科技产业资源与真实项目场景',
+          '真实项目场景与数据采集实训',
+          '对接强脑科技产业资源',
           '面向高校 / 职校 / 园区，方案面议',
         ],
         inquiry: true,
       },
       {
         id: 'coop-course-bci',
+        sub: '课程',
         name: '脑机接口技术与应用实训课程',
         short: '脑机接口实训课程',
         price: 100000,
@@ -288,6 +307,7 @@ const GROUPS = [
       },
       {
         id: 'coop-course-robot',
+        sub: '课程',
         name: '机器人应用实训课程',
         short: '机器人实训课程',
         price: 100000,
@@ -297,6 +317,7 @@ const GROUPS = [
       },
       {
         id: 'coop-course-ai',
+        sub: '课程',
         name: '人工智能与图像处理应用实训课程',
         short: 'AI 实训课程',
         price: 100000,
@@ -306,6 +327,7 @@ const GROUPS = [
       },
       {
         id: 'coop-platform',
+        sub: '实训基地',
         name: '产教联合实验平台组合（按校定制）',
         short: '产教联合平台组合',
         price: 0,
@@ -514,7 +536,7 @@ function cartTotal(cart) {
 
 function productCard(it, inCart) {
   const qty = Number(inCart[it.id] || 0);
-  return `<div class="bc-card" data-item="${ui.esc(it.id)}">
+  return `<div class="bc-card" data-item="${ui.esc(it.id)}" data-sub="${ui.esc(it.sub || '')}">
     <div class="bc-card-img">
       <button class="bc-share-ico" type="button" data-bc-share="${ui.esc(it.id)}" aria-label="分享这个产品">↗</button>
       <img src="${ui.esc(it.image)}" alt="${ui.esc(it.short)}" loading="lazy">
@@ -591,6 +613,16 @@ export async function renderBrainco(ctx, query) {
         <div class="bc-group-name">${ui.esc(g.name)}</div>
         <div class="bc-group-desc">${ui.esc(g.desc)}</div>
       </div>
+      ${
+        g.id === 'coop'
+          ? `<div class="bc-subtabs" data-subtabs="coop">
+               <button class="bc-subtab active" type="button" data-sub="all">全部</button>
+               <button class="bc-subtab" type="button" data-sub="产业学院">产业学院</button>
+               <button class="bc-subtab" type="button" data-sub="实训基地">实训基地</button>
+               <button class="bc-subtab" type="button" data-sub="课程">课程</button>
+             </div>`
+          : ''
+      }
       <div class="bc-grid">${items}</div>
       ${groupExtraHtml(g.id)}
     </div>`;
@@ -876,6 +908,20 @@ export async function renderBrainco(ctx, query) {
           setTimeout(() => card.scrollIntoView({ block: 'center' }), 300);
         }
       }
+
+      /* 产教联合子 tab：产业学院 / 实训基地 / 课程 */
+      root.querySelectorAll('.bc-subtabs [data-sub]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const group = btn.closest('[data-subtabs]');
+          if (!group) return;
+          group.querySelectorAll('.bc-subtab').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const want = btn.dataset.sub;
+          root.querySelectorAll('#bc-group-coop .bc-card').forEach((card) => {
+            card.classList.toggle('bc-card-hide', want !== 'all' && card.dataset.sub !== want);
+          });
+        });
+      });
 
       root.querySelectorAll('[data-bc-jump]').forEach((tab) => {
         tab.addEventListener('click', (e) => {

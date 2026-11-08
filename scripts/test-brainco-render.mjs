@@ -78,6 +78,8 @@ const checks = [
   ['65 万套装', html.includes('65万') && html.includes('650,000')],
   ['产品分组含产教联合', html.includes('产教联合</div>') || html.includes('id="bc-group-coop"')],
   ['产教联合含课程报价', html.includes('脑机接口技术与应用实训课程') && html.includes('¥100,000')],
+  ['产教联合子 tab（产业学院/实训基地/课程）', html.includes('data-subtabs="coop"') && html.includes('>产业学院<') && html.includes('>实训基地<') && html.includes('>课程<')],
+  ['产业学院/基地分开条目', html.includes('产业学院共建') && html.includes('产教融合实训基地共建')],
   ['产教联合共建方案（面议）', html.includes('创践中心共建') && html.includes('bc-inquiry')],
   ['视频并入产品分组', html.includes('bc-group-extra') && html.includes('bc-videos-inline')],
   ['资料只预览（无下载）', html.includes('data-bc-imgs') && !html.includes('download')],
