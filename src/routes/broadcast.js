@@ -131,7 +131,12 @@ export default function registerBroadcastRoutes(app) {
      * 图片版一律不带链接：微信会把长链接折行、点不动，看着乱；
      * 图上已经有二维码，扫一下就直达，链接纯属噪音。
      */
-    const text = buildText(req, items, { includeLink: false });
+    /*
+     * 带链接版 / 纯文字版：由前端 includeLink 决定。
+     * 之前这里写死 false，导致「带链接版」生成出来也没有链接（用户反馈的 bug）。
+     */
+    const includeLink = req.body?.includeLink !== false;
+    const text = buildText(req, items, { includeLink });
 
     return data(res, {
       text,
