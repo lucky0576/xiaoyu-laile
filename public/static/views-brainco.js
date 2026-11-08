@@ -337,6 +337,65 @@ const VIDEOS = [
   { src: '/files/f_mw7zdyj68d5uuq/v15.mp4', tag: 'RevoHuman', cap: 'RevoHuman 数采 · 整理衣物', poster: '/static/brainco/revohuman.jpg' },
 ];
 
+/* 每个产品组绑定的视频与资料（资料只预览，不提供下载） */
+const GROUP_EXTRAS = {
+  robot: {
+    videos: [
+      { src: '/files/f_mw6o4jgo95hkih/v1.mp4', cap: '双臂机器人 / 数据采集演示', poster: '/static/brainco/robot.jpg' },
+      { src: '/files/f_mw7zdutmnuibgf/v02.mp4', cap: '双臂机器人互动演示', poster: '/static/brainco/revotron.jpg' },
+      { src: '/files/f_mw7zdv2nq9kk70/v04.mp4', cap: '双臂机器人精细操作特写', poster: '/static/brainco/revotron.jpg' },
+      { src: '/files/f_mw7zdx5ola5efz/v10.mp4', cap: 'RevoHuman 外骨骼数采 · 双手操作', poster: '/static/brainco/revohuman.jpg' },
+      { src: '/files/f_mw7zdyj68d5uuq/v15.mp4', cap: 'RevoHuman 数采 · 整理衣物', poster: '/static/brainco/revohuman.jpg' },
+    ],
+    docs: [
+      { name: 'RevoHuman 参数页', imgs: ['/static/brainco/revohuman-spec.jpg'], kind: '图片' },
+      { name: 'RevoHuman 产品彩页', imgs: ['/static/brainco/revohuman.jpg'], kind: '图片' },
+      { name: '双臂灵巧真机数采平台彩页', imgs: ['/static/brainco/hero-poster.jpg'], kind: '图片' },
+    ],
+  },
+  hand: {
+    videos: [
+      { src: '/files/f_mw7zdur3r3yeum/v01.mp4', cap: '灵巧手弹奏电子琴（弹琴平台）', poster: '/static/brainco/revo2-poster.jpg' },
+      { src: '/files/f_mw7zdv6v71dsg9/v05.mp4', cap: '灵巧手精细抓取小件物体', poster: '/static/brainco/revo2-poster.jpg' },
+      { src: '/files/f_mw7zdvvtcrqwn2/v06.mp4', cap: '灵巧手与人手协同操作', poster: '/static/brainco/revo2-poster.jpg' },
+      { src: '/files/f_mw6o4jmmifl6l0/v2.mp4', cap: '灵巧手 / 机器人操作演示', poster: '/static/brainco/revo3-poster.jpg' },
+    ],
+    docs: [
+      { name: 'Revo2 产品参数页', imgs: ['/static/brainco/revo2-spec.jpg'], kind: '图片' },
+      {
+        name: 'Revo2 灵巧手 FAQ',
+        kind: '文档预览',
+        imgs: Array.from({ length: 9 }, (_, i) => `/static/brainco/preview/revo2-faq-p${String(i + 1).padStart(2, '0')}.jpg`),
+      },
+      { name: 'Revo3 产品参数页', imgs: ['/static/brainco/revo3-spec.jpg'], kind: '图片' },
+      {
+        name: 'Revo3 参数表（2026-10）',
+        kind: '文档预览',
+        imgs: Array.from({ length: 10 }, (_, i) => `/static/brainco/preview/revo3-spec-p${String(i + 1).padStart(2, '0')}.jpg`),
+      },
+      {
+        name: 'Revo3 灵巧手 FAQ',
+        kind: '文档预览',
+        imgs: Array.from({ length: 8 }, (_, i) => `/static/brainco/preview/revo3-faq-p${String(i + 1).padStart(2, '0')}.jpg`),
+      },
+      { name: 'Revo2 产品海报', imgs: ['/static/brainco/revo2-poster.jpg'], kind: '图片' },
+      { name: 'Revo3 产品海报', imgs: ['/static/brainco/revo3-poster.jpg'], kind: '图片' },
+    ],
+  },
+  bci: {
+    videos: [
+      { src: '/files/f_mw7zdw9em1j7wr/v07.mp4', cap: '遥操作：数据手套 + 机械臂', poster: '/static/brainco/remote.jpg' },
+    ],
+    docs: [],
+  },
+  solution: {
+    videos: [
+      { src: '/files/f_mw7zdwg863roli/v08.mp4', cap: '真机数据采集平台（软件界面 + 双手数据）', poster: '/static/brainco/revohuman.jpg' },
+    ],
+    docs: [],
+  },
+};
+
 const ALL_ITEMS = GROUPS.flatMap((g) => g.items.map((it) => ({ ...it, group: g.name })));
 
 const CART_KEY = 'xyl_brainco_cart';
@@ -407,6 +466,45 @@ function productCard(it, inCart) {
 export async function renderBrainco(ctx, query) {
   const params = query || {};
   const cart = getCart();
+  const groupExtraHtml = (gid) => {
+    const ex = GROUP_EXTRAS[gid] || {};
+    const vids = ex.videos || [];
+    const docs = ex.docs || [];
+    if (!vids.length && !docs.length) return '';
+    return `<div class="bc-group-extra">
+      ${
+        vids.length
+          ? `<div class="bc-extra-t">🎬 相关视频 <span class="tiny dim">（${vids.length} 条）</span></div>
+             <div class="bc-videos bc-videos-inline">
+               ${vids
+                 .map(
+                   (v) => `<div class="bc-video-card">
+                   <video class="bc-video" src="${ui.esc(v.src)}" poster="${ui.esc(v.poster || '')}" controls playsinline webkit-playsinline preload="metadata"></video>
+                   <div class="bc-video-cap">${ui.esc(v.cap)}</div>
+                 </div>`,
+                 )
+                 .join('')}
+             </div>`
+          : ''
+      }
+      ${
+        docs.length
+          ? `<div class="bc-extra-t">📄 相关资料 <span class="tiny dim">（点击预览，无需下载）</span></div>
+             <div class="bc-docs">
+               ${docs
+                 .map(
+                   (d) => `<button class="bc-doc" type="button" data-bc-imgs="${ui.esc(d.imgs.join('|'))}" data-bc-title="${ui.esc(d.name)}">
+                   <span class="bc-doc-ico">${d.kind === '文档预览' ? '📘' : '🖼️'}</span>
+                   <span class="bc-doc-body"><b>${ui.esc(d.name)}</b><i>${ui.esc(d.kind)} · 点击预览</i></span>
+                   <span class="bc-doc-go">预览</span>
+                 </button>`,
+                 )
+                 .join('')}
+             </div>`
+          : ''
+      }
+    </div>`;
+  };
   const groupsHtml = GROUPS.map((g, gi) => {
     const items = g.items.map((it) => productCard(it, cart)).join('');
     return `<div class="bc-group" id="bc-group-${ui.esc(g.id)}">
@@ -415,6 +513,7 @@ export async function renderBrainco(ctx, query) {
         <div class="bc-group-desc">${ui.esc(g.desc)}</div>
       </div>
       <div class="bc-grid">${items}</div>
+      ${groupExtraHtml(g.id)}
     </div>`;
   }).join('');
 
@@ -478,22 +577,6 @@ export async function renderBrainco(ctx, query) {
       ${groupsHtml}
     </div>
 
-    <!-- 2.5 产品演示视频 -->
-    <div class="bc-section" id="bc-videos">
-      <div class="bc-section-head">
-        <div class="bc-section-t">产品与场景视频</div>
-        <div class="bc-section-d">双臂机器人 · 灵巧手 · 遥操作 · RevoHuman 数据采集（共 ${VIDEOS.length} 条）</div>
-      </div>
-      <div class="bc-videos">
-        ${VIDEOS.map(
-          (v) => `<div class="bc-video-card">
-          <video class="bc-video" src="${ui.esc(v.src)}" poster="${ui.esc(v.poster || '')}" controls playsinline webkit-playsinline preload="metadata"></video>
-          <div class="bc-video-cap"><span class="bc-video-tag">${ui.esc(v.tag)}</span>${ui.esc(v.cap)}</div>
-        </div>`,
-        ).join('')}
-      </div>
-    </div>
-
     <!-- 3. 采购 -->
     <div class="bc-section" id="bc-buy">
       <div class="bc-section-head">
@@ -527,58 +610,6 @@ export async function renderBrainco(ctx, query) {
           <div class="bc-publish-t">📦 贸易供货</div>
           <div class="bc-publish-d">RevoTron 双臂机器人、Revo3 灵巧手、BCIGo 32 通道脑电等产品供货信息，自动生成贸易信息并发布。</div>
           <button class="btn btn-primary btn-block" id="bc-publish-trade" type="button">一键发布贸易信息</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 补充资料（按产品分组，图片可查看，文档可下载） -->
-    <div class="bc-section" id="bc-docs">
-      <div class="bc-section-head">
-        <div class="bc-section-t">补充资料</div>
-        <div class="bc-section-d">按产品归类 · 官方参数与常见问题 · 已去除联系方式</div>
-      </div>
-      <div class="bc-doc-groups">
-        <div class="bc-doc-group">
-          <div class="bc-doc-group-t">Revo2 灵巧手</div>
-          <a class="bc-doc" href="/static/brainco/revo2-spec.jpg" data-bc-img="/static/brainco/revo2-spec.jpg">
-            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo2 产品参数页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
-          </a>
-          <a class="bc-doc" href="/static/brainco/docs/brainco-revo2-faq.docx" download>
-            <span class="bc-doc-ico">📘</span><span class="bc-doc-body"><b>Revo2 灵巧手 FAQ</b><i>Word · 下载</i></span><span class="bc-doc-go">下载</span>
-          </a>
-        </div>
-        <div class="bc-doc-group">
-          <div class="bc-doc-group-t">Revo3 灵巧手</div>
-          <a class="bc-doc" href="/static/brainco/revo3-spec.jpg" data-bc-img="/static/brainco/revo3-spec.jpg">
-            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo3 产品参数页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
-          </a>
-          <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-spec.xlsx" download>
-            <span class="bc-doc-ico">📊</span><span class="bc-doc-body"><b>Revo3 参数表（2026-10）</b><i>Excel · 下载</i></span><span class="bc-doc-go">下载</span>
-          </a>
-          <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-faq.docx" download>
-            <span class="bc-doc-ico">📘</span><span class="bc-doc-body"><b>Revo3 灵巧手 FAQ</b><i>Word · 下载</i></span><span class="bc-doc-go">下载</span>
-          </a>
-        </div>
-        <div class="bc-doc-group">
-          <div class="bc-doc-group-t">RevoHuman 外骨骼数采</div>
-          <a class="bc-doc" href="/static/brainco/revohuman-spec.jpg" data-bc-img="/static/brainco/revohuman-spec.jpg">
-            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>RevoHuman 参数页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
-          </a>
-          <a class="bc-doc" href="/static/brainco/revohuman.jpg" data-bc-img="/static/brainco/revohuman.jpg">
-            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>RevoHuman 产品彩页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
-          </a>
-        </div>
-        <div class="bc-doc-group">
-          <div class="bc-doc-group-t">双臂机器人 / 整机方案</div>
-          <a class="bc-doc" href="/static/brainco/hero-poster.jpg" data-bc-img="/static/brainco/hero-poster.jpg">
-            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>双臂灵巧真机数采平台彩页</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
-          </a>
-          <a class="bc-doc" href="/static/brainco/revo2-poster.jpg" data-bc-img="/static/brainco/revo2-poster.jpg">
-            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo2 产品海报</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
-          </a>
-          <a class="bc-doc" href="/static/brainco/revo3-poster.jpg" data-bc-img="/static/brainco/revo3-poster.jpg">
-            <span class="bc-doc-ico">🖼️</span><span class="bc-doc-body"><b>Revo3 产品海报</b><i>图片 · 点击查看</i></span><span class="bc-doc-go">查看</span>
-          </a>
         </div>
       </div>
     </div>
@@ -736,14 +767,20 @@ export async function renderBrainco(ctx, query) {
       /* ---------- 图片查看（用弹层，不跳走） ---------- */
       const viewer = document.createElement('div');
       viewer.className = 'bc-viewer hide';
-      viewer.innerHTML = '<img alt="查看大图"><button type="button" class="bc-viewer-x" aria-label="关闭">✕</button>';
+      viewer.innerHTML =
+        '<div class="bc-viewer-panel"><div class="bc-viewer-head"><b class="bc-viewer-title"></b><button type="button" class="bc-viewer-x" aria-label="关闭">✕</button></div><div class="bc-viewer-body"></div></div>';
       root.appendChild(viewer);
       root.addEventListener('click', (e) => {
-        const a = e.target.closest('[data-bc-img]');
-        if (a) {
+        const btn = e.target.closest('[data-bc-imgs]');
+        if (btn) {
           e.preventDefault();
-          const img = viewer.querySelector('img');
-          img.src = a.dataset.bcImg;
+          const imgs = String(btn.dataset.bcImgs || '').split('|').filter(Boolean);
+          if (!imgs.length) return;
+          viewer.querySelector('.bc-viewer-title').textContent = btn.dataset.bcTitle || '资料预览';
+          viewer.querySelector('.bc-viewer-body').innerHTML = imgs
+            .map((u, i) => `<img src="${ui.esc(u)}" alt="第 ${i + 1} 页" loading="lazy">`)
+            .join('');
+          viewer.querySelector('.bc-viewer-body').scrollTop = 0;
           viewer.classList.remove('hide');
           return;
         }
