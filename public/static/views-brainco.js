@@ -31,21 +31,6 @@ const GROUPS = [
     desc: '真机数据采集平台，支撑具身智能与高校实训',
     items: [
       {
-        id: 'bundle-65',
-        name: '双臂机器人 + 两对数据采集手套 + 数采平台（65 万套装）',
-        short: '65万双臂数采套装',
-        price: 650000,
-        unit: '套',
-        image: '/static/brainco/revohuman.jpg',
-        specs: [
-          '含 1 台双臂机器人（7DoF×2 机械臂 + Revo3 灵巧手）',
-          '含 2 对数据采集手套（外骨骼式，21 自由度×2 / 手）',
-          '含数据采集平台：真机运动控制 / 数据可视化 / 遥操作 / 数据导出',
-          '到手即用的具身智能真机数据采集方案',
-          '单套 650,000（市场参考价，含税）',
-        ],
-      },
-      {
         id: 'revotron-fixed',
         name: 'RevoTron 重量级高性能双臂机器人（固定支架版）',
         short: 'RevoTron 固定版',
@@ -325,6 +310,23 @@ const GROUPS = [
         image: '/static/brainco/brainrobot.jpg',
         specs: ['CNN / ResNet / 迁移学习 / Vision Transformer', 'PyTorch 实战：搭建、训练与评估', '结合具身智能数据采集场景'],
       },
+      {
+        id: 'bundle-65',
+        sub: '实训基地',
+        name: '双臂机器人 + 两对数据采集手套 + 数采平台（65 万套装）',
+        short: '65万双臂数采套装',
+        price: 650000,
+        unit: '套',
+        image: '/static/brainco/revohuman.jpg',
+        specs: [
+          '含 1 台双臂机器人（7DoF×2 机械臂 + Revo3 灵巧手）',
+          '含 2 对数据采集手套（外骨骼式，21 自由度×2 / 手）',
+          '含数据采集平台：真机运动控制 / 数据可视化 / 遥操作 / 数据导出',
+          '到手即用的具身智能真机数据采集方案',
+          '单套 650,000（市场参考价，含税）',
+        ],
+      },
+
       {
         id: 'coop-platform',
         sub: '实训基地',

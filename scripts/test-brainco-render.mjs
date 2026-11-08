@@ -75,7 +75,7 @@ const checks = [
   ['视频区 11 条视频', (html.match(/bc-video-card/g) || []).length >= 11],
   ['视频并入产品（含 RevoHuman 数采视频）', html.includes('RevoHuman 外骨骼数采') && html.includes('bc-videos-inline')],
   ['没有销售话术资料', !html.includes('销售端话术') && !html.includes('sales wording')],
-  ['65 万套装', html.includes('65万') && html.includes('650,000')],
+  ['65 万套装（归入实训基地）', html.includes('65万') && html.includes('650,000') && html.includes('data-sub="实训基地"')],
   ['产品分组含产教联合', html.includes('产教联合</div>') || html.includes('id="bc-group-coop"')],
   ['产教联合含课程报价', html.includes('脑机接口技术与应用实训课程') && html.includes('¥100,000')],
   ['产教联合子 tab（产业学院/实训基地/课程）', html.includes('data-subtabs="coop"') && html.includes('>产业学院<') && html.includes('>实训基地<') && html.includes('>课程<')],
