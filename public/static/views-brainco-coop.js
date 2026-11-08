@@ -21,7 +21,7 @@ const SECTIONS = [
         name: '脑机智能机器人创践中心（产教联合共建方案）',
         short: '创践中心共建',
         price: 0,
-        image: '/static/brainco/company.jpg',
+        image: '/static/brainco/revohuman.jpg',
         specs: [
           '场地规划 + 设备配置 + 展示动线设计',
           '脑机接口 / 灵巧手 / 双臂机器人 / 数据采集平台组合',
@@ -33,7 +33,7 @@ const SECTIONS = [
         name: '产业学院共建（专业共建 / 订单式培养）',
         short: '产业学院共建',
         price: 0,
-        image: '/static/brainco/team.jpg',
+        image: '/static/brainco/robot.jpg',
         specs: [
           '专业方向共建：脑机接口 / 机器人 / 人工智能',
           '企业导师进课堂 + 订单式培养',
@@ -53,7 +53,7 @@ const SECTIONS = [
         name: '产教融合实训基地共建',
         short: '产教融合实训基地',
         price: 0,
-        image: '/static/brainco/team.jpg',
+        image: '/static/brainco/revohuman.jpg',
         specs: ['联合实验室 + 实习实训基地 + 双创竞赛支持', '真实项目场景与数据采集实训', '对接强脑科技产业资源'],
       },
       {
