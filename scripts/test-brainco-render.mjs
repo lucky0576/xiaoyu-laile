@@ -57,7 +57,7 @@ const checks = [
   ['公司简介板块', html.includes('01 公司简介') && html.includes('2015')],
   ['产品板块', html.includes('02 合作项目及产品介绍')],
   ['采购板块（电商模式）', html.includes('03 产品报价采购')],
-  ['自动发布板块', html.includes('04 自动生成项目')],
+  ['寻求合作/发布板块', html.includes('04 寻求合作')],
   ['RevoTron 报价', html.includes('¥560,000') && html.includes('¥695,000')],
   ['Revo2 报价', html.includes('¥19,999') && html.includes('¥34,999')],
   ['Revo3 报价', html.includes('¥100,000') && html.includes('¥200,000')],
@@ -65,9 +65,15 @@ const checks = [
   ['脑控机器人套件 649000', html.includes('¥649,000')],
   ['加入采购单按钮', (html.match(/data-bc-add=/g) || []).length >= 20],
   ['咨询报价按钮（面议产品）', html.includes('data-bc-inquiry')],
-  ['一键发布合作项目按钮', html.includes('bc-publish-project')],
+  ['寻求合作按钮', html.includes('bc-coop-open')],
   ['一键发布贸易按钮', html.includes('bc-publish-trade')],
   ['采购单底部栏', html.includes('bc-cart-bar')],
+  ['寻求合作入口（不是一键发布合作）', html.includes('bc-coop-open') && !html.includes('bc-publish-project')],
+  ['合作方向包含产教联合', html.includes('产教联合')],
+  ['补充资料板块', html.includes('补充资料') && html.includes('brainco-revo3-spec.xlsx')],
+  ['RevoHuman 产品', html.includes('RevoHuman')],
+  ['Revo2 海报图', html.includes('/static/brainco/revo2-poster.jpg')],
+  ['Revo3 海报图', html.includes('/static/brainco/revo3-poster.jpg')],
 ];
 
 let pass = 0;

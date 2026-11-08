@@ -49,6 +49,23 @@ const GROUPS = [
         specs: ['整机 25 自由度：头部 2 + 双臂 7×2 + 腰部 2 + 升降 3 + 底盘 4', '四轮四转底盘，带导航、自动回充', '折叠腰腿结构，可移动部署', '末端 Revo3 基础版（21 自由度）', '支持双臂 + 双手示教'],
       },
       {
+        id: 'revohuman',
+        name: 'RevoHuman 外骨骼式人类中心数采方案（P1 / PTV1 / PTVE1）',
+        short: 'RevoHuman 数采方案',
+        price: 0,
+        unit: '套',
+        image: '/static/brainco/revohuman.jpg',
+        specs: [
+          '外骨骼数据手套：21 自由度 × 2 + 6D 腕部位姿，精度 ±0.1°，范围 0~360°',
+          '触觉：211 触觉点 × 2，0~25N，分辨率 0.01N（PTV1 / PTVE1）',
+          '腕部相机：FOV 90°，1080P/720P@30FPS，电子卷帘快门',
+          'Ego 头环：RGB 1080p + 灰度 640×480，vSLAM 定位精度 2mm',
+          '采样 200Hz（角度/触觉），USB / 无线，整套 125g + 350g + 500g',
+          '一站式 Ego + 触觉外骨骼灵巧操作人类数采方案',
+        ],
+        inquiry: true,
+      },
+      {
         id: 'dual-arm-lab',
         name: '科研双臂灵巧手控制平台',
         short: '科研双臂平台',
@@ -63,7 +80,7 @@ const GROUPS = [
         short: '科研单臂平台',
         price: 200000,
         unit: '套',
-        image: '/static/brainco/revoarm.jpg',
+        image: '/static/brainco/revo2-poster.jpg',
         specs: ['7DoF 机械臂 + 1 只 Revo3 基础版灵巧手', '腕部鱼眼相机，内走线', '1kHz EtherCAT 通讯', '位置 / 阻抗 / 力位混合控制'],
       },
       {
@@ -72,7 +89,7 @@ const GROUPS = [
         short: 'RevoArm 七轴臂',
         price: 0,
         unit: '套',
-        image: '/static/brainco/revoarm.jpg',
+        image: '/static/brainco/revo2-poster.jpg',
         specs: ['7 自由度，末端 Revo2 Pro 仿生手', '本体 5.18kg，额定负载 3kg', '工作半径 436mm（含手 658mm）', '重复定位精度 ±0.1mm，48V DC / CAN FD', '支持 C / C++ / Python SDK、ROS2 适配'],
         inquiry: true,
       },
@@ -99,7 +116,7 @@ const GROUPS = [
         short: 'Revo2 基础版',
         price: 19999,
         unit: '只',
-        image: '/static/brainco/revoarm.jpg',
+        image: '/static/brainco/revo2-poster.jpg',
         specs: ['6 电机 / 11 自由度仿生关节', '整手负载 20kg，五指握力 50N', '单指捏力 15N，开合 0.65s', 'RS485 / CAN FD，支持 ROS、SDK', '提供 URDF，可二次开发'],
       },
       {
@@ -126,7 +143,7 @@ const GROUPS = [
         short: 'Revo3 基础版',
         price: 100000,
         unit: '只',
-        image: '/static/brainco/robot.jpg',
+        image: '/static/brainco/revo3-poster.jpg',
         specs: ['21 自由度全直驱可反驱：四指 4×4 + 拇指 5', '整手负载 20kg，主动握力 >50N', '指尖最大捏力 >20N，重复精度 0.1°', 'EtherCAT / CAN FD / 485，500Hz', '支持位置、速度、电流、力位混合控制'],
       },
       {
@@ -135,7 +152,7 @@ const GROUPS = [
         short: 'Revo3 触觉版',
         price: 130000,
         unit: '只',
-        image: '/static/brainco/robot.jpg',
+        image: '/static/brainco/revo3-poster.jpg',
         specs: ['全掌压阻触觉，感知精度 0.1N', '400+ 触觉点，其余规格同 U21', '适合灵巧操作与触觉反馈研究'],
       },
       {
@@ -144,7 +161,7 @@ const GROUPS = [
         short: 'Revo3 视触觉版',
         price: 200000,
         unit: '只',
-        image: '/static/brainco/robot.jpg',
+        image: '/static/brainco/revo3-poster.jpg',
         specs: ['全掌压阻触觉 + 指尖视触觉', '最小可测形变 130 微米', '面向高精度装配与具身智能研究'],
       },
     ],
@@ -459,23 +476,68 @@ export async function renderBrainco(ctx) {
       </div>
     </div>
 
-    <!-- 4. 自动发布 -->
+    <!-- 4. 寻求合作 / 贸易发布 -->
     <div class="bc-section" id="bc-publish">
       <div class="bc-section-head">
-        <div class="bc-section-t">04 自动生成项目 / 贸易发布</div>
-        <div class="bc-section-d">一键把强脑科技合作项目、产品供货发布到平台</div>
+        <div class="bc-section-t">04 寻求合作 / 发布需求</div>
+        <div class="bc-section-d">填写合作需求（含产教联合），平台与强脑科技商务对接</div>
       </div>
       <div class="bc-publish-grid">
         <div class="bc-publish-card">
-          <div class="bc-publish-t">📁 合作项目</div>
-          <div class="bc-publish-d">「强脑科技脑机智能机器人创践中心」共建合作，面向高校/科研机构/园区，自动生成项目信息并发布。</div>
-          <button class="btn btn-primary btn-block" id="bc-publish-project" type="button">一键发布合作项目</button>
+          <div class="bc-publish-t">🤝 寻求合作</div>
+          <div class="bc-publish-d">
+            面向高校 / 科研机构 / 园区 / 企业，寻求以下方向合作：<br>
+            <b>产教联合</b>（产业学院、产教融合实训基地、实习实训）<br>
+            脑机智能机器人创践中心共建 · 联合实验室 · 课程共建 · 设备采购 · 成果转化<br>
+            提交后自动生成「寻求合作」项目信息并发布，附联系人与补充资料。
+          </div>
+          <button class="btn btn-primary btn-block" id="bc-coop-open" type="button">填写寻求合作需求</button>
         </div>
         <div class="bc-publish-card">
-          <div class="bc-publish-t">🤝 贸易供货</div>
+          <div class="bc-publish-t">📦 贸易供货</div>
           <div class="bc-publish-d">RevoTron 双臂机器人、Revo3 灵巧手、BCIGo 32 通道脑电等产品供货信息，自动生成贸易信息并发布。</div>
           <button class="btn btn-primary btn-block" id="bc-publish-trade" type="button">一键发布贸易信息</button>
         </div>
+      </div>
+    </div>
+
+    <!-- 补充资料 -->
+    <div class="bc-section" id="bc-docs">
+      <div class="bc-section-head">
+        <div class="bc-section-t">补充资料</div>
+        <div class="bc-section-d">强脑科技官方参数表 / 常见问题 / 产品彩页（点击下载或查看）</div>
+      </div>
+      <div class="bc-docs">
+        <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-spec.xlsx" download>
+          <span class="bc-doc-ico">📊</span>
+          <span class="bc-doc-body"><b>Revo3 灵巧手参数表（2026-10）</b><i>Excel · 24KB</i></span>
+          <span class="bc-doc-go">下载</span>
+        </a>
+        <a class="bc-doc" href="/static/brainco/docs/brainco-revo2-faq.docx" download>
+          <span class="bc-doc-ico">📘</span>
+          <span class="bc-doc-body"><b>BrainCo Revo2 灵巧手 FAQ</b><i>Word · 239KB</i></span>
+          <span class="bc-doc-go">下载</span>
+        </a>
+        <a class="bc-doc" href="/static/brainco/docs/brainco-revo3-faq.docx" download>
+          <span class="bc-doc-ico">📘</span>
+          <span class="bc-doc-body"><b>BrainCo Revo3 灵巧手 FAQ</b><i>Word · 256KB</i></span>
+          <span class="bc-doc-go">下载</span>
+        </a>
+        <a class="bc-doc" href="/static/brainco/revo2-spec.jpg" target="_blank" rel="noopener">
+          <span class="bc-doc-ico">🖼️</span>
+          <span class="bc-doc-body"><b>Revo2 产品参数页</b><i>图片 · 可放大查看</i></span>
+          <span class="bc-doc-go">查看</span>
+        </a>
+        <a class="bc-doc" href="/static/brainco/revo3-spec.jpg" target="_blank" rel="noopener">
+          <span class="bc-doc-ico">🖼️</span>
+          <span class="bc-doc-body"><b>Revo3 产品参数页</b><i>图片 · 可放大查看</i></span>
+          <span class="bc-doc-go">查看</span>
+        </a>
+        <a class="bc-doc" href="/static/brainco/revohuman-spec.jpg" target="_blank" rel="noopener">
+          <span class="bc-doc-ico">🖼️</span>
+          <span class="bc-doc-body"><b>RevoHuman 参数页</b><i>图片 · 可放大查看</i></span>
+          <span class="bc-doc-go">查看</span>
+        </a>
       </div>
     </div>
 
@@ -682,30 +744,170 @@ export async function renderBrainco(ctx) {
         ui.toast('采购单已清空', 'ok');
       });
 
-      const autoPublish = async (kind) => {
+      const COOP_DIRECTIONS = ['产教联合', '创践中心共建', '联合实验室', '课程共建', '设备采购', '成果转化'];
+
+      /* 寻求合作：填需求 + 可选补充资料 → 自动发布一条「寻求合作」项目 */
+      const openCoopForm = () => {
+        if (!isLoggedIn()) {
+          ui.toast('登录后才能提交合作需求', 'err');
+          ctx.nav('#/login');
+          return;
+        }
+        const picked = new Set(['产教联合']);
+        ui.openSheet({
+          title: '寻求合作',
+          content: `<div class="field"><label>姓名 <span style="color:#e74c3c">*</span></label>
+              <input class="input" id="bc-coop-name" maxlength="30" placeholder="您的姓名"></div>
+            <div class="field"><label>单位 <span style="color:#e74c3c">*</span></label>
+              <input class="input" id="bc-coop-org" maxlength="80" placeholder="学校 / 企业 / 园区名称"></div>
+            <div class="field"><label>电话 <span style="color:#e74c3c">*</span></label>
+              <input class="input" id="bc-coop-phone" maxlength="20" placeholder="手机号，方便商务联系"></div>
+            <div class="field"><label>城市 <span style="color:#e74c3c">*</span></label>
+              <input class="input" id="bc-coop-city" maxlength="30" placeholder="例如：杭州 / 深圳"></div>
+            <div class="field"><label>合作方向 <span class="tiny dim">（可多选）</span></label>
+              <div class="chips" id="bc-coop-dirs">
+                ${COOP_DIRECTIONS.map((d) => `<a class="chip ${picked.has(d) ? 'active' : ''}" data-dir="${d}" href="javascript:;">${d}</a>`).join('')}
+              </div>
+            </div>
+            <div class="field"><label>需求说明</label>
+              <textarea class="textarea" id="bc-coop-note" rows="3" maxlength="1000" placeholder="例如：想共建产业学院 / 采购灵巧手与双臂机器人 / 联合申报项目"></textarea></div>
+            <div class="field"><label>补充资料 <span class="tiny dim">（选填，可多选：PDF / Word / 图片 / 视频）</span></label>
+              <input type="file" id="bc-coop-files" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,image/*,video/*">
+              <div class="tiny dim mt6" id="bc-coop-file-tip">可上传需求文档、建设方案、场地照片等，作为补充资料随需求一起发布</div>
+            </div>
+            <button class="btn btn-primary btn-block mt8" id="bc-coop-submit" type="button">提交并发布</button>`,
+          onMount(sheet, close) {
+            const dirsBox = sheet.querySelector('#bc-coop-dirs');
+            dirsBox?.addEventListener('click', (ev) => {
+              const chip = ev.target.closest('[data-dir]');
+              if (!chip) return;
+              ev.preventDefault();
+              const d = chip.dataset.dir;
+              if (picked.has(d)) picked.delete(d);
+              else picked.add(d);
+              chip.classList.toggle('active', picked.has(d));
+            });
+            const btn = sheet.querySelector('#bc-coop-submit');
+            btn.addEventListener('click', async () => {
+              const name = String(sheet.querySelector('#bc-coop-name').value || '').trim();
+              const org = String(sheet.querySelector('#bc-coop-org').value || '').trim();
+              const phone = String(sheet.querySelector('#bc-coop-phone').value || '').trim();
+              const city = String(sheet.querySelector('#bc-coop-city').value || '').trim();
+              const note = String(sheet.querySelector('#bc-coop-note').value || '').trim();
+              const fileInput = sheet.querySelector('#bc-coop-files');
+              const fileList = Array.from(fileInput?.files || []);
+              if (!name) return ui.toast('请填写姓名', 'err');
+              if (!org) return ui.toast('请填写单位', 'err');
+              if (!phone) return ui.toast('请填写电话', 'err');
+              if (!city) return ui.toast('请填写城市', 'err');
+              btn.disabled = true;
+              const old = btn.textContent;
+              try {
+                // 先上传补充资料
+                const fileIds = [];
+                for (let k = 0; k < fileList.length; k += 1) {
+                  btn.textContent = `上传资料 ${k + 1}/${fileList.length}…`;
+                  try {
+                    const up = await api.uploadFile(fileList[k], {
+                      onProgress: (pct) => {
+                        btn.textContent = `上传资料 ${k + 1}/${fileList.length} ${pct}%`;
+                      },
+                    });
+                    const rec = (up && up.files && up.files[0]) || up;
+                    if (rec && rec.id) fileIds.push(rec.id);
+                  } catch {
+                    /* 单个资料失败不影响提交 */
+                  }
+                }
+                btn.textContent = '提交中…';
+                const dirText = [...picked].join('、') || '产教联合';
+                const title = `寻求合作｜${org} · 强脑科技${dirText}`;
+                const text = `【寻求合作】BrainCo 强脑科技 × 小鱼来了
+
+合作单位：${org}
+联系人：${name}
+电话：${phone}
+城市：${city}
+合作方向：${dirText}
+
+需求说明：
+${note || '（未填写，可由商务电话沟通）'}
+
+合作方向说明：
+· 产教联合：产业学院、产教融合实训基地、实习实训基地共建
+· 创践中心共建：高校 / 科研机构「脑机智能机器人创践中心」
+· 联合实验室：脑机接口 / 具身智能联合实验室
+· 课程共建：脑机接口、机器人、人工智能实训课程与师资培训
+· 设备采购：Revo 灵巧手、RevoTron 双臂机器人、BCIGo 脑电系统等
+· 成果转化：科研设备联合采购、项目对接、技术落地场景
+
+（补充资料 ${fileIds.length} 个，见附件）`;
+                const res = await service.createListing(
+                  api.form({
+                    category: 'project',
+                    title: title.slice(0, 80),
+                    subtitle: `${city} · ${org} · 强脑科技产教联合 / 合作需求`,
+                    text,
+                    type: '寻求合作',
+                    durationDays: 180,
+                    contactName: name,
+                    phone,
+                    company: org,
+                    publish: '1',
+                    fileIds,
+                  }),
+                );
+                close();
+                ui.toast('已提交并发布，商务会尽快联系您', 'ok');
+                ctx.nav(`#/detail/${res.listing.id}`);
+              } catch (err) {
+                btn.disabled = false;
+                btn.textContent = old;
+                ui.toast(err.message || '提交失败', 'err');
+              }
+            });
+          },
+        });
+      };
+
+      /* 贸易供货：一键发布 */
+      const publishTrade = async () => {
         if (!isLoggedIn()) {
           ui.toast('登录后才能发布', 'err');
           ctx.nav('#/login');
           return;
         }
-        const btn = root.querySelector(kind === 'project' ? '#bc-publish-project' : '#bc-publish-trade');
+        const btn = root.querySelector('#bc-publish-trade');
         const old = btn.textContent;
         btn.disabled = true;
         btn.textContent = '生成中…';
         try {
-          const isProject = kind === 'project';
-          const title = isProject
-            ? '合作｜强脑科技脑机智能机器人创践中心共建合作'
-            : '供货｜强脑科技 RevoTron 双臂机器人 / Revo3 灵巧手 / 32 通道脑电';
-          const text = isProject
-            ? `【合作项目】BrainCo 强脑科技 × 小鱼来了\n\n一、合作背景\nBrainCo 强脑科技创立于 2015 年，是首家入选哈佛大学创新实验室的中国团队，全球非侵入式脑机接口技术领军企业，国内脑机接口领域首家「独角兽」，国家级专精特新「小巨人」企业。\n\n二、合作方向\n1. 高校 / 科研机构：共建「脑机智能机器人创践中心」，联合实验室、实训基地；\n2. 园区 / 政府：脑机接口 + 具身智能产业创新中心、科普展示中心；\n3. 人才培养：脑机接口、机器人、人工智能实训课程与师资培训；\n4. 成果转化：科研设备联合采购、项目对接、技术落地场景。\n\n三、合作方式\n设备采购 + 课程共建 + 联合实验室 + 项目对接，具体方案一事一议。\n\n四、联系\n通过小鱼来了平台对接强脑科技商务团队。`
-            : `【产品供货】BrainCo 强脑科技\n\n一、供货产品\n· RevoTron 重量级双臂机器人（固定版 ¥560,000 / 移动版 ¥695,000）\n· 科研双臂灵巧手平台 ¥450,000｜科研单臂平台 ¥200,000\n· Revo2 灵巧手 ¥19,999 起｜Revo3 灵巧手 ¥100,000 起\n· BCIGo 32 通道无线脑电系统 ¥250,000\n· 脑控机器人套件 ¥649,000｜脑控机械臂套件 ¥512,000\n· 遥操作套装 ¥65,000｜多模态生理信号套装 ¥68,000\n\n二、适用场景\n高校实训 / 科研实验室 / 具身智能数据采集 / 脑机接口教学\n\n三、交付\n原厂交付、安装调试、质保 1 年；可提供课程与师资培训。\n\n四、采购方式\n通过小鱼来了平台提交采购需求，由强脑科技商务统一报价。`;
+          const title = '供货｜强脑科技 RevoTron 双臂机器人 / Revo3 灵巧手 / 32 通道脑电';
+          const text = `【产品供货】BrainCo 强脑科技
+
+一、供货产品
+· RevoTron 重量级双臂机器人（固定版 ¥560,000 / 移动版 ¥695,000）
+· 科研双臂灵巧手平台 ¥450,000｜科研单臂平台 ¥200,000
+· Revo2 灵巧手 ¥19,999 起｜Revo3 灵巧手 ¥100,000 起
+· RevoHuman 外骨骼式人类中心数采方案（面议）
+· BCIGo 32 通道无线脑电系统 ¥250,000
+· 脑控机器人套件 ¥649,000｜脑控机械臂套件 ¥512,000
+· 遥操作套装 ¥65,000｜多模态生理信号套装 ¥68,000
+
+二、适用场景
+高校实训 / 科研实验室 / 具身智能数据采集 / 脑机接口教学
+
+三、交付
+原厂交付、安装调试、质保 1 年；可提供课程与师资培训。
+
+四、采购方式
+通过小鱼来了平台提交采购需求，由强脑科技商务统一报价。`;
           const res = await service.createListing(
             api.form({
-              category: isProject ? 'project' : 'trade',
+              category: 'trade',
               title,
               text,
-              subtitle: isProject ? '脑机接口 + 具身智能 · 校企共建' : '原厂供货 · 高校科研教育场景',
+              subtitle: '原厂供货 · 高校科研教育场景',
               durationDays: 180,
               publish: '1',
             }),
@@ -718,8 +920,8 @@ export async function renderBrainco(ctx) {
           ui.toast(err.message || '发布失败', 'err');
         }
       };
-      root.querySelector('#bc-publish-project')?.addEventListener('click', () => autoPublish('project'));
-      root.querySelector('#bc-publish-trade')?.addEventListener('click', () => autoPublish('trade'));
+      root.querySelector('#bc-coop-open')?.addEventListener('click', openCoopForm);
+      root.querySelector('#bc-publish-trade')?.addEventListener('click', publishTrade);
     },
   };
 }
