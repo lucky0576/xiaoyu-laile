@@ -612,16 +612,23 @@ export async function renderBrainco(ctx, query) {
     const items = g.items.map((it) => productCard(it, cart)).join('');
     return `<div class="bc-group" id="bc-group-${ui.esc(g.id)}">
       <div class="bc-group-head">
-        <div class="bc-group-name">${ui.esc(g.name)}</div>
+        <div class="row between" style="align-items:baseline">
+          <div class="bc-group-name">${ui.esc(g.name)}</div>
+          ${
+            g.id === 'coop'
+              ? '<a class="bc-more" href="#/brainco-coop">查看产教联合独立专题 ›</a>'
+              : ''
+          }
+        </div>
         <div class="bc-group-desc">${ui.esc(g.desc)}</div>
       </div>
       ${
         g.id === 'coop'
           ? `<div class="bc-subtabs" data-subtabs="coop">
-               <button class="bc-subtab active" type="button" data-sub="all">全部</button>
-               <button class="bc-subtab" type="button" data-sub="产业学院">产业学院</button>
-               <button class="bc-subtab" type="button" data-sub="实训基地">实训基地</button>
-               <button class="bc-subtab" type="button" data-sub="课程">课程</button>
+               <button class="bc-subtab active" type="button" data-sub="all">全部 <span class="bc-sub-n">8</span></button>
+               <button class="bc-subtab" type="button" data-sub="产业学院">产业学院 <span class="bc-sub-n">2</span></button>
+               <button class="bc-subtab" type="button" data-sub="实训基地">实训基地 <span class="bc-sub-n">3</span></button>
+               <button class="bc-subtab" type="button" data-sub="课程">课程 <span class="bc-sub-n">3</span></button>
              </div>`
           : ''
       }

@@ -2545,6 +2545,79 @@ ul { margin: 0; padding-left: 18px; }
 .bc-subtab.active { background: #eef5ff; border-color: #bcd7ff; color: #0b74ff; }
 .bc-card.bc-card-hide { display: none; }
 
+
+/* 子 tab 数量角标 + 独立专题入口 */
+.bc-sub-n {
+  display: inline-block;
+  margin-left: 3px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7a90;
+  background: #eef2f8;
+}
+.bc-subtab.active .bc-sub-n { color: #0b74ff; background: #dbeafe; }
+.bc-more { font-size: 11.5px; font-weight: 700; color: #0b74ff; text-decoration: none; }
+
+/* 产教联合独立专题页 */
+.bcc-page { padding-bottom: 20px; }
+.bcc-hero {
+  padding: 22px 18px;
+  border-radius: 20px;
+  color: #fff;
+  background:
+    radial-gradient(120% 130% at 85% 10%, rgba(255, 176, 59, 0.28) 0%, rgba(255, 176, 59, 0) 58%),
+    linear-gradient(135deg, #0a1120 0%, #13253d 52%, #123a3a 100%);
+}
+.bcc-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffd48a;
+  background: rgba(255, 176, 59, 0.14);
+  border: 1px solid rgba(255, 176, 59, 0.38);
+}
+.bcc-hero-t { margin-top: 10px; font-size: 22px; line-height: 1.35; font-weight: 900; letter-spacing: -0.01em; }
+.bcc-hero-d { margin-top: 6px; font-size: 12.5px; line-height: 1.8; color: rgba(255, 255, 255, 0.78); }
+.bcc-hero-stats { display: flex; gap: 18px; margin-top: 14px; }
+.bcc-hero-stats > div { text-align: left; }
+.bcc-hero-stats b { display: block; font-size: 22px; font-weight: 900; color: #ffd48a; }
+.bcc-hero-stats span { font-size: 11px; color: rgba(255, 255, 255, 0.7); }
+.bcc-back { display: inline-block; margin-top: 14px; font-size: 12px; color: rgba(255, 255, 255, 0.72); text-decoration: none; }
+.bcc-section { margin-top: 18px; }
+.bcc-section-head { padding: 2px 2px 10px; }
+.bcc-section-t { font-size: 17px; font-weight: 800; color: #1d1d1f; }
+.bcc-section-d { margin-top: 3px; font-size: 12px; color: #8a94a6; }
+.bcc-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 720px) { .bcc-grid { grid-template-columns: repeat(3, 1fr); } }
+.bcc-card {
+  background: #fff;
+  border: 1px solid #e8ecf3;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.bcc-card-img { width: 100%; height: 120px; object-fit: cover; display: block; background: #f3f6fb; }
+.bcc-card-body { padding: 10px; display: flex; flex-direction: column; flex: 1; }
+.bcc-card-name { font-size: 13px; font-weight: 800; color: #1d1d1f; }
+.bcc-card-full { margin-top: 2px; line-height: 1.5; }
+.bcc-specs { margin: 8px 0 0; padding-left: 14px; flex: 1; }
+.bcc-specs li { font-size: 11px; line-height: 1.65; color: #5b6474; margin-bottom: 3px; }
+.bcc-card-foot { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bcc-price { font-size: 13.5px; font-weight: 900; color: #0b74ff; }
+.bcc-note {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fffaf0;
+  border: 1px solid #ffe2b0;
+  font-size: 12px;
+}
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
