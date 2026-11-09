@@ -3137,7 +3137,9 @@ const removedFileIds = new Set();
       const importWechatNote = async ({ html = '', text = '', files = [] }) => {
         const plain = String(text || '').trim() || htmlToPlainText(html);
         const imgs = extractImgSrcs(html);
-        const localFiles = Array.from(files || []).filter((f) => f && /^image\//.test(f.type || ''));
+        const localFiles = Array.from(files || []).filter(
+          (f) => f && (/^image\//.test(f.type || '') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name || '')),
+        );
         if (!plain && !imgs.length && !localFiles.length) {
           ui.toast('没有识别到笔记内容（文字 / 图片）', 'err');
           return;
