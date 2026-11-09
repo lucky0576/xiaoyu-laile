@@ -151,7 +151,7 @@ export async function renderMetaverse(ctx) {
       <button class="mv-btn" id="mv-up" type="button" aria-label="前进">▲</button>
       <button class="mv-btn" id="mv-down" type="button" aria-label="后退">▼</button>
     </div>
-    <button class="mv-narrate" id="mv-narrate" type="button">🔊 听讲解</button>
+    <button class="mv-narrate" id="mv-narrate" type="button">🔊 数字人讲解</button>
     <div class="mv-subtitle hide" id="mv-subtitle"></div>
     <div class="mv-loading" id="mv-loading">正在搭建展厅…</div>
     <div class="mv-qr-mask hide" id="mv-qr-mask">
@@ -282,7 +282,8 @@ export async function renderMetaverse(ctx) {
       const narrBtn = root.querySelector('#mv-narrate');
       const splitText = (t) =>
         String(t || '')
-          .split(/(?<=[。！？；])/)
+          .replace(/([。！？；])/g, '$1|')
+          .split('|')
           .map((x) => x.trim())
           .filter(Boolean);
       const stopNarration = (say = '') => {
@@ -295,23 +296,92 @@ export async function renderMetaverse(ctx) {
           }
         }
         if (narTimer) clearInterval(narTimer);
-        narrTimer = null;
+        narTimer = null;
+        if (subtitleTimer) clearInterval(subtitleTimer);
+        subtitleTimer = null;
+        try {
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+        } catch {
+          /* ignore */
+        }
         if (subtitleEl) subtitleEl.classList.add('hide');
-        if (narrBtn) narrBtn.textContent = '🔊 听讲解';
+        if (narrBtn) narrBtn.textContent = '🔊 数字人讲解';
         if (say) ui.toast(say, 'ok');
       };
+      let subtitleTimer = null;
+
+      /* 纯文字讲解：按阅读速度推进字幕（没有声音时至少能看文字） */
+      const speakBySubtitle = (segs, speed = 4.2) => {
+        let idx = 0;
+        if (subtitleEl) {
+          subtitleEl.classList.remove('hide');
+          subtitleEl.textContent = segs[0] || '';
+        }
+        const step = () => {
+          if (!narrating) return;
+          const cur = segs[idx];
+          const delay = Math.max(1200, Math.min(5200, String(cur || '').length * (1000 / speed)));
+          subtitleTimer = setTimeout(() => {
+            idx += 1;
+            if (idx >= segs.length) {
+              stopNarration();
+              return;
+            }
+            if (subtitleEl) subtitleEl.textContent = segs[idx] || '';
+            step();
+          }, delay);
+        };
+        step();
+        narrating = true;
+        if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}（文字）`;
+      };
+
+      /* 系统语音兜底 */
+      const speakBySystem = (item, segs) => {
+        const synth = window.speechSynthesis;
+        if (!synth) return false;
+        try {
+          synth.cancel();
+          const u = new SpeechSynthesisUtterance(item.text);
+          u.lang = 'zh-CN';
+          u.rate = 1.0;
+          let last = -1;
+          u.onboundary = () => {
+            const d = audioEl ? 0 : 0;
+            const idx = Math.min(segs.length - 1, last + 1);
+            if (idx !== last) {
+              last = idx;
+              if (subtitleEl) subtitleEl.textContent = segs[idx] || '';
+            }
+          };
+          u.onend = () => stopNarration();
+          if (subtitleEl) {
+            subtitleEl.classList.remove('hide');
+            subtitleEl.textContent = segs[0] || '';
+          }
+          narrating = true;
+          synth.speak(u);
+          if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}（系统语音）`;
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
       const startNarration = (i) => {
         stopNarration();
         narrIndex = i % NARRATIONS.length;
         const item = NARRATIONS[narrIndex];
         const segs = splitText(item.text);
         audioEl = new Audio(item.audio);
+        audioEl.preload = 'auto';
         narrating = true;
         if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}`;
         if (subtitleEl) {
           subtitleEl.classList.remove('hide');
           subtitleEl.textContent = segs[0] || '';
         }
+        /* 字幕跟随 */
         const tick = () => {
           if (!audioEl || !subtitleEl) return;
           const d = audioEl.duration || 0;
@@ -321,13 +391,35 @@ export async function renderMetaverse(ctx) {
         };
         narTimer = setInterval(tick, 300);
         audioEl.addEventListener('ended', () => stopNarration());
-        audioEl.play().catch(() => {
-          stopNarration('浏览器拦截了自动播放，请再点一次');
+        audioEl.addEventListener('error', () => {
+          if (!narrating) return;
+          if (!speakBySystem(item, segs)) speakBySubtitle(segs);
         });
+        const p = audioEl.play();
+        if (p && p.catch) {
+          p.catch(() => {
+            if (!narrating) return;
+            /* 声音被浏览器拦截：先试系统语音，再退文字 */
+            if (!speakBySystem(item, segs)) {
+              speakBySubtitle(segs);
+              ui.toast('浏览器不允许自动播放声音，已切换文字讲解', 'err');
+            }
+          });
+        }
       };
+      // 预加载音频，第一次点击更快
+      NARRATIONS.forEach((n) => {
+        try {
+          const a = new Audio();
+          a.preload = 'auto';
+          a.src = n.audio;
+        } catch {
+          /* ignore */
+        }
+      });
       narrBtn?.addEventListener('click', () => {
         if (narrating && audioEl) {
-          if (audioEl.paused) {
+          if (audioEl.paused && !subtitleTimer) {
             audioEl.play().catch(() => {});
             narrating = true;
             if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}`;
@@ -338,6 +430,27 @@ export async function renderMetaverse(ctx) {
         }
         startNarration(narrIndex + 1);
       });
+
+      /* 首次进入引导：提示点画面 / 按钮开始讲解 */
+      if (subtitleEl) {
+        subtitleEl.classList.remove('hide');
+        subtitleEl.textContent = '👋 点一下画面，或点左下角「数字人讲解」，讲解员会为您介绍展厅';
+        setTimeout(() => {
+          if (!narrating && subtitleEl) subtitleEl.classList.add('hide');
+        }, 6000);
+      }
+
+      /* 首次触摸画面时自动开始讲解（用户手势内，避免被拦截） */
+      let autoNarrated = false;
+      canvas.addEventListener(
+        'pointerdown',
+        () => {
+          if (autoNarrated) return;
+          autoNarrated = true;
+          if (!narrating && narrIndex < 0) startNarration(0);
+        },
+        { once: true },
+      );
 
       let raf = 0;
       let renderer = null;
@@ -646,6 +759,7 @@ export async function renderMetaverse(ctx) {
         avatar.add(badge);
         avatar.position.set(2.4, 0, 7.6);
         avatar.rotation.y = -0.18;
+        avatar.userData = { narrate: true };
         // 数字人脚下光圈
         const ring = new THREE.Mesh(
           new THREE.RingGeometry(0.55, 0.72, 40),
@@ -655,6 +769,7 @@ export async function renderMetaverse(ctx) {
         ring.position.y = 0.02;
         avatar.add(ring);
         scene.add(avatar);
+        clickable.push(avatar);
         avatarParts = { avatar, mouth, arms: avatar.children.filter((c) => c.geometry && c.geometry.type === 'CylinderGeometry') };
 
         // 交互
@@ -677,13 +792,17 @@ export async function renderMetaverse(ctx) {
           let obj = hits[0].object;
           let data = null;
           while (obj) {
-            if (obj.userData && (obj.userData.listingId || obj.userData.href)) {
+            if (obj.userData && (obj.userData.listingId || obj.userData.href || obj.userData.narrate)) {
               data = obj.userData;
               break;
             }
             obj = obj.parent;
           }
           if (!data) return;
+          if (data.narrate) {
+            startNarration(narrIndex + 1);
+            return;
+          }
           if (data.listingId) ctx.nav(`#/detail/${data.listingId}`);
           else if (data.href) ctx.nav(data.href);
         };
