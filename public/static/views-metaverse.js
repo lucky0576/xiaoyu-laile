@@ -396,6 +396,7 @@ export async function renderMetaverse(ctx) {
         const estDur = Math.max(8, String(item.text || '').length * 0.205);
         let audioOk = false;
         clog('narrate-start', { index: narrIndex, textLen: item.text.length });
+        ui.toast('开始讲解 ' + (narrIndex + 1) + '/3', 'ok');
         audioEl = new Audio(item.audio);
         audioEl.preload = 'auto';
         narrating = true;
