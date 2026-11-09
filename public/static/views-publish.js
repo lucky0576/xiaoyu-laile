@@ -3235,7 +3235,20 @@ const removedFileIds = new Set();
         const inField = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
         const html = cd.getData('text/html') || '';
         const text = cd.getData('text/plain') || '';
-        const files = Array.from(cd.files || []).filter((f) => /^image\//.test(f.type || ''));
+        const files = [];
+        try {
+          if (cd.items) {
+            for (const it of cd.items) {
+              if (it.kind === 'file') {
+                const f = it.getAsFile();
+                if (f) files.push(f);
+              }
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+        Array.from(cd.files || []).forEach((f) => files.push(f));
         if (!html && !files.length) {
           if (!inField && text) {
             e.preventDefault();
@@ -3249,6 +3262,7 @@ const removedFileIds = new Set();
         }
         e.preventDefault();
         await importWechatNote({ html, text, files });
+        clogPublish('paste-import', { htmlLen: html.length, textLen: text.length, files: files.length });
       });
 
       /* ---------------- 拖拽上传（含文件夹） ---------------- */
@@ -3276,6 +3290,19 @@ const removedFileIds = new Set();
         dragDepth = Math.max(0, dragDepth - 1);
         if (dragDepth === 0) setDragging(false);
       });
+      const clogPublish = (event, data) => {
+        try {
+          const payload = JSON.stringify({ event, data: data || null });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/client-log', new Blob([payload], { type: 'application/json' }));
+          } else {
+            fetch('/api/client-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+          }
+        } catch {
+          /* ignore */
+        }
+      };
+
       /* 诊断日志：把微信拖入实际带的数据记下来（服务器 journalctl 可查） */
       const plog = (event, data) => {
         try {
@@ -3342,7 +3369,14 @@ const removedFileIds = new Set();
         const droppedHtml = dt.getData('text/html') || '';
         const droppedText = dt.getData('text/plain') || '';
         const dtTypes = Array.from(dt.types || []);
+        let itemInfo = [];
+        try {
+          itemInfo = Array.from(dt.items || []).map((it) => `${it.kind}:${it.type}`);
+        } catch {
+          /* ignore */
+        }
         plog('wechat-drop', {
+          items: itemInfo,
           types: dtTypes,
           files: picked.map((f) => ({ n: f.name || '', t: f.type || '', s: f.size || 0 })),
           htmlLen: droppedHtml.length,
@@ -3357,7 +3391,10 @@ const removedFileIds = new Set();
               await importWechatNote({ html: droppedHtml, text: droppedText, files: [] });
               return;
             }
-            return ui.toast('没有识别到内容。请从微信笔记里拖文字/图片/文件过来，或直接复制粘贴', 'err');
+            return ui.toast(
+              '微信这次拖出没有携带内容（微信客户端限制）。请在笔记里全选复制，然后到正文框 Ctrl+V 粘贴；截图也可以直接 Ctrl+V',
+              'err',
+            );
           }
 
           /* 2) 分类：笔记 html 文件 / 图片 / 已支持文件 / 未知文件 */
