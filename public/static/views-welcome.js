@@ -133,6 +133,16 @@ export async function renderWelcome(ctx) {
       <span class="aw-row-go">进入专题 <span class="aw-chev">›</span></span>
     </a>
 
+    <!-- ③.6 产业元宇宙展厅 -->
+    <a class="aw-row aw-rise aw-metaverse" style="--d:345ms" href="#/metaverse">
+      <span class="aw-row-icon">🌐</span>
+      <span class="aw-row-body">
+        <span class="aw-row-title">产业元宇宙展厅</span>
+        <span class="aw-row-sub">3D 看项目 · 数字人讲解 · 强脑科技展位</span>
+      </span>
+      <span class="aw-row-go">进入展厅 <span class="aw-chev">›</span></span>
+    </a>
+
     <footer class="aw-foot aw-rise" style="--d:360ms">
       <button class="aw-cta" id="wl-enter" type="button">
         进入小鱼来了

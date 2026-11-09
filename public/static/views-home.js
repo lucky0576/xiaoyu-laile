@@ -627,6 +627,20 @@ export async function renderHome(ctx, query) {
   </div>`;
 
 
+  /* 产业元宇宙横栏：放在强脑科技（脑机接口）下面 */
+  const metaverseBarHtml = `<a class="brainco-bar metaverse-bar" href="#/metaverse">
+    <div class="brainco-bar-left">
+      <div class="brainco-bar-badge">🌐 产业元宇宙 · 3D 展厅</div>
+      <div class="brainco-bar-t">杭州上城区 · 产业元宇宙展厅</div>
+      <div class="brainco-bar-d">20 个真实项目展板 · 数字人讲解 · 强脑科技展位 · VR 模式</div>
+      <div class="brainco-bar-chips">
+        <span>3D 漫游</span><span>数字人讲解</span><span>分享海报</span><span>WebXR</span>
+      </div>
+      <div class="brainco-bar-cta">进入展厅 · 3D 看项目 ›</div>
+    </div>
+    <div class="metaverse-bar-art">🌐<span>3D</span></div>
+  </a>`;
+
   /* 战略合作伙伴横栏：强脑科技专题（放在发布信息下面） */
   const braincoBarHtml = `<a class="brainco-bar" href="#/brainco">
     <div class="brainco-bar-left">
@@ -655,6 +669,7 @@ export async function renderHome(ctx, query) {
     ${aiBarHtml}
     ${publishBarHtml}
     ${braincoBarHtml}
+    ${metaverseBarHtml}
     ${gridHtml}
     ${topicHtml}
     ${eventQuickHtml}

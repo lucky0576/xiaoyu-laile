@@ -2807,3 +2807,49 @@ ul { margin: 0; padding-left: 18px; }
   0%, 100% { box-shadow: 0 0 0 0 rgba(90, 190, 255, 0.35); }
   50% { box-shadow: 0 0 0 6px rgba(90, 190, 255, 0); }
 }
+
+
+/* ---------------- 元宇宙展厅横栏 ---------------- */
+.metaverse-bar {
+  background:
+    radial-gradient(120% 140% at 88% 20%, rgba(123, 97, 255, 0.42) 0%, rgba(123, 97, 255, 0) 55%),
+    linear-gradient(135deg, #0a0f22 0%, #171436 55%, #0c2233 100%);
+  border: 1px solid rgba(123, 97, 255, 0.28);
+}
+.metaverse-bar .brainco-bar-badge {
+  color: #c9c2ff;
+  background: rgba(123, 97, 255, 0.18);
+  border-color: rgba(123, 97, 255, 0.5);
+}
+.metaverse-bar .brainco-bar-cta { color: #bfb4ff; }
+.metaverse-bar-art {
+  flex: none;
+  width: 96px;
+  height: 128px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 40px;
+  line-height: 1;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(127, 227, 255, 0.55) 0%, rgba(127, 227, 255, 0) 45%),
+    radial-gradient(circle at 70% 75%, rgba(150, 120, 255, 0.6) 0%, rgba(150, 120, 255, 0) 50%),
+    linear-gradient(160deg, #101a3a 0%, #1b1240 60%, #0d2436 100%);
+  border: 1px solid rgba(150, 170, 255, 0.35);
+  color: #eaf2ff;
+}
+.metaverse-bar-art span {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: #a9c7ff;
+}
+.home-meta-mv {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.aw-metaverse .aw-row-icon { filter: drop-shadow(0 0 8px rgba(123, 97, 255, 0.7)); }
