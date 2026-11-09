@@ -1543,7 +1543,7 @@ export async function renderPublish(ctx, params) {
       <div class="upload-zone" id="pub-drop">
         <div class="upload-zone-ico">📥</div>
         <div class="upload-zone-main">把文件或<b>整个文件夹</b>拖到这里</div>
-        <div class="upload-zone-sub" id="pub-drop-hint">PPT · Word · Excel · PDF · CAD · 图片 · 视频 · 压缩包；<b>微信笔记可直接拖进来</b></div>
+        <div class="upload-zone-sub" id="pub-drop-hint">PPT · Word · Excel · PDF · CAD · 图片 · 视频 · 压缩包；<b>只传图片也会自动识别文字填入正文</b></div>
         <div class="row gap8 mt12" style="justify-content:center;flex-wrap:wrap">
           <button class="btn btn-sm btn-outline" id="pub-import" type="button">📎 选择文件</button>
           <button class="btn btn-sm btn-outline" id="pub-import-dir" type="button">📁 选择文件夹</button>
@@ -2844,6 +2844,10 @@ const removedFileIds = new Set();
           await uploadOne(t);
         }
 
+        // 只传图片时：上传完成后自动识别图片文字填入正文
+        if (batch.some((t) => t.status === 'done')) {
+          autoFillBodyFromImages().catch(() => {});
+        }
         const ok = batch.filter((t) => t.status === 'done').length;
         const bad = batch.filter((t) => t.status === 'error').length;
         if (bad) {
@@ -3291,6 +3295,44 @@ const removedFileIds = new Set();
           n += 1;
         }
         return text;
+      };
+
+      /*
+       * 只上传了图片、正文还是空的时候：
+       * 用平台视觉模型识别图片里的文字，自动填进正文/标题。
+       * （活动通知、海报、截图这类内容最常用）
+       */
+      let autoFillPending = false;
+      const autoFillBodyFromImages = async () => {
+        if (autoFillPending) return;
+        const textEl = $('#pub-text');
+        if (!textEl) return;
+        if (String(textEl.value || '').trim()) return; // 用户已经写了正文
+        const imgs = uploaded.filter((f) => f && (f.kind === 'image' || /^image\//.test(f.mime || '')));
+        if (!imgs.length) return;
+        autoFillPending = true;
+        try {
+          const texts = [];
+          for (const rec of imgs.slice(0, 3)) {
+            const t = await waitFileText(rec, 10);
+            if (t) texts.push(t);
+            if (String($('#pub-text')?.value || '').trim()) return; // 期间用户自己写了
+          }
+          if (!texts.length) return;
+          if (String($('#pub-text')?.value || '').trim()) return;
+          const joined = texts.join('\n\n').replace(/【图片\s*\d*】/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 6000);
+          textEl.value = joined;
+          textEl.dispatchEvent(new Event('input'));
+          const titleEl = $('#pub-title');
+          if (titleEl && !String(titleEl.value || '').trim()) {
+            const firstLine = joined.split('\n').map((x) => x.trim()).find(Boolean) || '';
+            titleEl.value = firstLine.slice(0, 60);
+            titleEl.dispatchEvent(new Event('input'));
+          }
+          ui.toast('已从图片中识别出文字，并自动填入正文', 'ok');
+        } finally {
+          autoFillPending = false;
+        }
       };
 
       /*
