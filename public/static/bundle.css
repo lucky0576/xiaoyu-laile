@@ -2900,7 +2900,13 @@ ul { margin: 0; padding-left: 18px; }
   .bc-hero-right { width: 118px; }
   .bc-hero-right img.bc-hero-robot { width: 84px; height: 112px; }
 }
-.bcc-hero { position: relative; }
+.bcc-hero {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.bcc-page { overflow-x: hidden; }
 .bcc-hero-logo {
   position: absolute;
   top: 16px;
