@@ -100,6 +100,61 @@ function renderMeta({ title, desc, image, url, redirectHash }) {
   return out;
 }
 
+function renderLanding({ title, desc, image, ctaHref, ctaText = '打开详情', tag = '' }) {
+  const t = esc(title);
+  const d = esc(clip(desc, 220));
+  const img = esc(image || '');
+  const cta = esc(ctaHref || '/');
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>${t} · 小鱼来了</title>
+<meta name="description" content="${d}" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="小鱼来了" />
+<meta property="og:title" content="${t}" />
+<meta property="og:description" content="${d}" />
+${img ? `<meta property="og:image" content="${img}" />` : ''}
+<meta property="og:url" content="${esc(ctaHref)}" />
+<meta itemprop="name" content="${t}" />
+<meta itemprop="description" content="${d}" />
+${img ? `<meta itemprop="image" content="${img}" />` : ''}
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#eef4fb;color:#16202e;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}
+.wrap{max-width:560px;margin:0 auto;min-height:100vh;background:#fff;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:8px;padding:14px 18px;background:linear-gradient(135deg,#0b1220,#123a5c);color:#fff}
+.brand b{font-size:15px;letter-spacing:.02em}
+.brand span{font-size:11px;color:rgba(255,255,255,.55);margin-left:auto}
+.cover{width:100%;max-height:280px;object-fit:cover;display:block;background:#dbe7f5}
+.body{padding:18px 18px 24px;flex:1}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;background:#eaf3ff;color:#0b74ff;font-size:11px;font-weight:700;margin-bottom:10px}
+h1{font-size:20px;line-height:1.45;margin:0 0 10px;font-weight:800}
+.desc{font-size:13.5px;line-height:1.8;color:#5b6b82;white-space:pre-wrap;word-break:break-word}
+.cta{display:block;margin-top:20px;padding:14px 18px;border-radius:14px;background:linear-gradient(135deg,#0b74ff,#00a9c2);color:#fff;text-align:center;font-size:15px;font-weight:800;text-decoration:none}
+.sub{display:block;margin-top:10px;text-align:center;font-size:12px;color:#8a9bb5;text-decoration:none}
+.foot{padding:14px 18px 24px;font-size:11px;color:#9aa8bd;text-align:center;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">🐟 <b>小鱼来了</b><span>xiaoyulaile.online</span></div>
+  ${img ? `<img class="cover" src="${img}" alt="" />` : ''}
+  <div class="body">
+    ${tag ? `<div class="tag">${esc(tag)}</div>` : ''}
+    <h1>${t}</h1>
+    <div class="desc">${d}</div>
+    <a class="cta" href="${cta}">${esc(ctaText)} ›</a>
+    <a class="sub" href="/">打开小鱼来了首页</a>
+  </div>
+  <div class="foot">小鱼来了 · 让每一条好项目，都被对的人看见</div>
+</div>
+</body>
+</html>`;
+}
+
 function sendHtml(res, html, code = 200) {
   // 注意：不能用 res.text()，它遇到 __handled 会直接返回空响应，
   // 而且会把 Content-Type 写成 text/plain。这里直接写字节。
@@ -138,17 +193,17 @@ export default function registerSharePageRoutes(app) {
         const code = String(id || '').toUpperCase();
         const inviter = referralSvc.findByRefCode(code);
 
-        const html = renderMeta({
-          title: inviter
-            ? `${inviter.nickname || '好友'} 邀请你加入小鱼来了`
-            : '小鱼来了 · AI 信息发布平台',
+        const html = renderLanding({
+          title: inviter ? `${inviter.nickname || '好友'} 邀请你加入小鱼来了` : '小鱼来了 · AI 信息发布平台',
           desc:
             '找项目、投资、产业。免费发布项目需求、活动赛事、贸易采供、科技成果转化，' +
             'AI 自动生成标题与解析，按行业和城市推给对口的人。',
           image: `${base}/static/icon-512.png`,
-          url: `${base}/r/${code}`,
+          ctaHref: `${base}/#/register?ref=${encodeURIComponent(code)}`,
+          ctaText: '立即注册',
+          tag: '邀请注册',
         });
-        return sendHtml(res, html || '');
+        return sendHtml(res, html);
       }
 
       if (kind === 's') {
@@ -179,12 +234,13 @@ export default function registerSharePageRoutes(app) {
         if (!image && pub.coverUrl && isRaster(pub.coverUrl)) image = abs(pub.coverUrl);
         if (!image) image = `${base}/static/icon-512.png`;
 
-        const html = renderMeta({
+        const html = renderLanding({
           title,
           desc,
           image,
-          url: `${base}/s/${id}`,
-          redirectHash: `#/detail/${id}`,
+          ctaHref: `${base}/#/detail/${encodeURIComponent(id)}`,
+          ctaText: '查看详情 / 联系发布方',
+          tag: [pub.typeName, (pub.cities || [])[0]?.name, (pub.industries || [])[0]?.name].filter(Boolean).join(' · ') || '项目信息',
         });
         return sendHtml(res, html);
       }
@@ -208,12 +264,13 @@ export default function registerSharePageRoutes(app) {
       }
       if (!image) image = `${base}/static/icon-512.png`;
 
-      const html = renderMeta({
+      const html = renderLanding({
         title,
         desc: pub.subtitle || pub.description || '短视频 · 直播，尽在小鱼来了',
         image,
-        url: `${base}/v/${id}`,
-        redirectHash: `#/live/${id}`,
+        ctaHref: `${base}/#/live/${encodeURIComponent(id)}`,
+        ctaText: '观看视频',
+        tag: '短视频 · 直播',
       });
       return sendHtml(res, html);
     } catch {

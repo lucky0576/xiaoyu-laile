@@ -652,7 +652,9 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="brainco-bar-cta">进入专题 · 看产品与报价 ›</div>
     </div>
-    <img class="brainco-bar-img" src="/static/brainco/robot.jpg" alt="BrainCo 双臂机器人" loading="lazy">
+    <div class="brainco-bar-brand">
+      <img class="brainco-bar-logo" src="/static/brainco/brainco-logo.png" alt="BrainCo 强脑科技" loading="lazy">
+    </div>
   </a>`;
 
   /*

@@ -2853,3 +2853,24 @@ ul { margin: 0; padding-left: 18px; }
   gap: 4px;
 }
 .aw-metaverse .aw-row-icon { filter: drop-shadow(0 0 8px rgba(123, 97, 255, 0.7)); }
+
+
+/* 强脑横栏右侧品牌字标 */
+.brainco-bar-brand {
+  flex: none;
+  width: 168px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.brainco-bar-logo {
+  width: 100%;
+  max-width: 168px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35));
+}
+@media (max-width: 420px) {
+  .brainco-bar-brand { width: 128px; }
+  .brainco-bar-logo { max-width: 128px; }
+}
