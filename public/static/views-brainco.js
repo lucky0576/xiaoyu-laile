@@ -654,7 +654,8 @@ export async function renderBrainco(ctx, query) {
         </div>
       </div>
       <div class="bc-hero-right">
-        <img src="/static/brainco/robot.jpg" alt="BrainCo 双臂机器人">
+        <img class="bc-hero-logo" src="/static/brainco/brainco-logo.png" alt="BrainCo 强脑科技">
+        <img class="bc-hero-robot" src="/static/brainco/robot.jpg" alt="BrainCo 双臂机器人">
       </div>
     </div>
 
