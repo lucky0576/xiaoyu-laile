@@ -3309,9 +3309,17 @@ const removedFileIds = new Set();
             if (chunk.includes('ppt/')) return { ext: '.pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
             return { ext: '.zip', mime: 'application/zip' };
           }
-          const head = new TextDecoder().decode(buf).trim().toLowerCase();
-          if (head.startsWith('<') || head.includes('<!doctype')) return { ext: '.html', mime: 'text/html' };
-          if (head && /^[\x09\x0a\x0d\x20-\x7e\u4e00-\u9fa5]+$/.test(head)) return { ext: '.txt', mime: 'text/plain' };
+          const chunk = new Uint8Array(await file.slice(0, 4096).arrayBuffer());
+          const textHead = new TextDecoder('utf-8').decode(chunk);
+          const bad = (textHead.match(/\uFFFD/g) || []).length;
+          const printable = textHead.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFD]/g, '').length;
+          if (textHead && bad <= 2 && printable >= textHead.length * 0.92) {
+            const low = textHead.trim().toLowerCase();
+            if (low.startsWith('<') || low.includes('<!doctype') || low.includes('<html')) {
+              return { ext: '.html', mime: 'text/html' };
+            }
+            return { ext: '.txt', mime: 'text/plain' };
+          }
         } catch {
           /* ignore */
         }
@@ -3319,7 +3327,6 @@ const removedFileIds = new Set();
       };
 
       const handleDropped = async (dt) => {
-        e.preventDefault();
         dragDepth = 0;
         setDragging(false);
         if (!dt) return;
@@ -3392,7 +3399,10 @@ const removedFileIds = new Set();
 
           /* 4) 普通文件拖入（微信笔记里的文件走这里） */
           const { files, skipped } = filterImportable([...imgFiles, ...supported, ...fixed]);
-          if (!files.length) return ui.toast('拖入的文件都不受支持', 'err');
+          if (!files.length) {
+            const names = picked.map((f) => (f.name || '(无文件名)') + (f.type ? ` [${f.type}]` : '')).slice(0, 3).join('、');
+            return ui.toast(`拖入的文件都不受支持：${names}`, 'err');
+          }
           if (skipped) ui.toast(`已跳过 ${skipped} 个不支持或空文件`, '');
           uploadFiles(files);
         } catch (err) {
