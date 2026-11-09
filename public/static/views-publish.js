@@ -1528,10 +1528,12 @@ export async function renderPublish(ctx, params) {
       <div class="row between mb6">
         <div class="strong" style="font-size:13px">📝 项目情况</div>
         <div class="row gap12">
+          <a class="tiny" href="javascript:;" id="pub-image-ocr" style="color:var(--brand,#0b74ff)">📷 截图/长图导入</a>
           <a class="tiny" href="javascript:;" id="pub-paste-import" style="color:var(--brand,#0b74ff)">📋 粘贴导入</a>
           <a class="tiny" href="javascript:;" id="pub-text-demo" style="color:var(--brand,#0b74ff)">填入示例</a>
         </div>
       </div>
+      <input type="file" id="pub-image-ocr-input" accept="image/*" multiple hidden>
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
 山东东营 200MW 渔光互补光伏电站 EPC 总承包招标
 总投资约 8.6 亿元，工期 14 个月
@@ -3258,6 +3260,76 @@ const removedFileIds = new Set();
       };
 
       /* 按钮：读剪贴板 */
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      /* 上传图片后等 OCR 结果（服务端视觉识别图片文字） */
+      const waitFileText = async (rec, tries = 15) => {
+        let text = String(rec.text || '').trim();
+        let n = 0;
+        while (!text && n < tries) {
+          await sleep(1200);
+          try {
+            const r = await api.get('/api/files/' + rec.id);
+            text = String((r && r.text) || '').trim();
+          } catch {
+            /* 继续等 */
+          }
+          n += 1;
+        }
+        return text;
+      };
+
+      /*
+       * 截图/长图导入：微信笔记可以「保存为图片」或直接截图，
+       * 上传后由平台视觉模型识别图中文字，自动填进正文。
+       */
+      const importOcrImages = async (files) => {
+        const imgs = Array.from(files || []).filter(
+          (f) => f && (/^image\//.test(f.type || '') || /\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name || '')),
+        );
+        if (!imgs.length) {
+          ui.toast('请选择图片（截图或长图）', 'err');
+          return;
+        }
+        const before = new Set(uploaded.map((f) => f.id));
+        ui.toast(`正在上传 ${imgs.length} 张图片并识别文字…`, 'ok');
+        await uploadFiles(imgs);
+        const fresh = uploaded.filter((f) => !before.has(f.id));
+        const texts = [];
+        if (fresh.length) ui.toast('图片已上传，正在识别图中文字（约 5~15 秒）…', 'ok');
+        for (const rec of fresh) {
+          const t = await waitFileText(rec);
+          if (t) texts.push(t);
+        }
+        if (!texts.length) {
+          ui.toast('图片已上传，但暂未识别出文字；可手动填写，或稍后重试', 'err');
+          return;
+        }
+        const joined = texts.join('\n\n');
+        const textEl = $('#pub-text');
+        if (textEl) {
+          const prev = String(textEl.value || '').trim();
+          textEl.value = (prev ? prev + '\n\n' : '') + joined;
+          textEl.dispatchEvent(new Event('input'));
+        }
+        const titleEl = $('#pub-title');
+        if (titleEl && !String(titleEl.value || '').trim()) {
+          const firstLine = joined.split('\n').map((x) => x.trim()).find(Boolean) || '';
+          titleEl.value = firstLine.slice(0, 60);
+          titleEl.dispatchEvent(new Event('input'));
+        }
+        ui.toast(`已识别 ${texts.length} 张图片的文字并填入正文`, 'ok');
+      };
+      $('#pub-image-ocr')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        $('#pub-image-ocr-input')?.click();
+      });
+      $('#pub-image-ocr-input')?.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = '';
+        await importOcrImages(files);
+      });
+
       /* 剪贴板权限被浏览器限制时的兜底：开一个输入框，用粘贴事件拿内容 */
       const collectClipboard = (cd) => {
         const html = cd.getData ? cd.getData('text/html') || '' : '';
@@ -3306,8 +3378,12 @@ const removedFileIds = new Set();
               if (info) {
                 info.textContent = `已读取：文字 ${String(text || '').length} 字、HTML ${String(html || '').length} 字符、文件 ${files.length} 个`;
               }
-              await importWechatNote({ html, text, files });
               close();
+              if (!html && !String(text || '').trim() && files.length) {
+                await importOcrImages(files);
+                return;
+              }
+              await importWechatNote({ html, text, files });
             });
             /* 用户直接手打/长按粘贴后，也允许点「完成」把内容导入 */
             const foot = sheetEl.querySelector('.sheet-foot, .sheet-actions, .mt12');
