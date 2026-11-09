@@ -2804,7 +2804,21 @@ const removedFileIds = new Set();
       };
 
       const uploadFiles = async (files) => {
-        const list = [...files];
+        const fileSig = (f) => `${f.name || ''}::${f.size || 0}`;
+        const inUploaded = new Set(uploaded.map((u) => `${u.name || ''}::${u.size || 0}`));
+        const inQueue = new Set(
+          uploadTasks.filter((t) => t.status === 'pending' || t.status === 'uploading').map((t) => fileSig(t.file)),
+        );
+        const dup = [];
+        const list = [...files].filter((f) => {
+          const sig = fileSig(f);
+          if (inUploaded.has(sig) || inQueue.has(sig)) {
+            dup.push(f.name || '文件');
+            return false;
+          }
+          return true;
+        });
+        if (dup.length) ui.toast(`已自动跳过 ${dup.length} 个重复文件`, '');
         if (!list.length) return;
         // 上一批已完成的清掉，避免队列越来越长（失败的要留着重试）
         uploadTasks = uploadTasks.filter((t) => t.status !== 'done');
@@ -3666,6 +3680,8 @@ const removedFileIds = new Set();
       const onDrop = async (e) => {
         if (!e.dataTransfer) return;
         e.preventDefault();
+        /* 关键：阻止冒泡，否则 window 上的 drop 会再触发一次 → 同一批文件上传 2 份 */
+        e.stopPropagation();
         dragDepth = 0;
         setDragging(false);
         await handleDropped(e.dataTransfer);
@@ -3674,6 +3690,7 @@ const removedFileIds = new Set();
       /* 整个页面都接受拖入：拖到虚线框外面也能识别（微信笔记常被拖偏） */
       window.addEventListener('drop', (e) => {
         if (!e.dataTransfer) return;
+        if (e.defaultPrevented) return; // 已经由上传区处理过
         const t = e.target;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
         onDrop(e);
