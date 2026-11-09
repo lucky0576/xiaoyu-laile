@@ -64,6 +64,30 @@ export default function registerCoreRoutes(app) {
    * 之前出现过部署后浏览器仍用缓存的新旧混合模块，导致点发布没反应，
    * 但页面上看不出任何线索。有了这个接口就能一眼比对。
    */
+  /* 前端诊断日志（元宇宙展厅等排查用，限频） */
+  app.post('/api/client-log', (req, res) => {
+    try {
+      const ip = clientIp(req);
+      const rl = rateLimit('clog:' + ip, 80, 60_000);
+      if (rl.ok) {
+        const b = req.body || {};
+        console.log(
+          '[client-log]',
+          JSON.stringify({
+            at: new Date().toISOString(),
+            event: String(b.event || '').slice(0, 60),
+            data: b.data || null,
+            ua: String(req.headers['user-agent'] || '').slice(0, 160),
+            ip,
+          }),
+        );
+      }
+    } catch {
+      /* 日志失败不影响业务 */
+    }
+    return data(res, { ok: true });
+  });
+
   app.get('/api/version', (req, res) => {
     const dir = path.join(PUBLIC_DIR, 'static');
     let newest = 0;

@@ -173,6 +173,21 @@ export async function renderMetaverse(ctx) {
     mount(root) {
       const canvas = root.querySelector('#mv-canvas');
       const hint = root.querySelector('#mv-hint');
+      /* 前端诊断日志：出问题可在服务器 journalctl 里看到 */
+      const clog = (event, data) => {
+        try {
+          const payload = JSON.stringify({ event, data: data || null });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/client-log', new Blob([payload], { type: 'application/json' }));
+          } else {
+            fetch('/api/client-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+          }
+        } catch {
+          /* ignore */
+        }
+      };
+      window.addEventListener('error', (e) => clog('window-error', { msg: String(e.message || ''), src: String(e.filename || ''), line: e.lineno || 0 }));
+      window.addEventListener('unhandledrejection', (e) => clog('unhandledrejection', { msg: String((e.reason && e.reason.message) || e.reason || '') }));
       const loading = root.querySelector('#mv-loading');
       const installBar = document.getElementById('install-bar');
       if (installBar) installBar.style.display = 'none';
@@ -373,6 +388,11 @@ export async function renderMetaverse(ctx) {
         narrIndex = i % NARRATIONS.length;
         const item = NARRATIONS[narrIndex];
         const segs = splitText(item.text);
+        const startAt = Date.now();
+        // 估算时长：中文约 0.2 秒/字（没有音频时按这个推进字幕）
+        const estDur = Math.max(8, String(item.text || '').length * 0.205);
+        let audioOk = false;
+        clog('narrate-start', { index: narrIndex, textLen: item.text.length });
         audioEl = new Audio(item.audio);
         audioEl.preload = 'auto';
         narrating = true;
@@ -381,56 +401,66 @@ export async function renderMetaverse(ctx) {
           subtitleEl.classList.remove('hide');
           subtitleEl.textContent = segs[0] || '';
         }
-        /* 字幕跟随 */
-        const tick = () => {
-          if (!audioEl || !subtitleEl) return;
-          const d = audioEl.duration || 0;
-          if (!d) return;
-          const idx = Math.min(segs.length - 1, Math.floor((audioEl.currentTime / d) * segs.length));
-          subtitleEl.textContent = segs[idx] || '';
+
+        /* 字幕始终推进：优先跟音频进度，无音频按估算时间 */
+        const paint = () => {
+          if (!narrating || !subtitleEl) return;
+          const dur = audioEl && isFinite(audioEl.duration) && audioEl.duration > 0.5 ? audioEl.duration : estDur;
+          const cur = audioOk && audioEl && !audioEl.paused ? audioEl.currentTime : (Date.now() - startAt) / 1000;
+          const idx = Math.max(0, Math.min(segs.length - 1, Math.floor((cur / dur) * segs.length)));
+          subtitleEl.textContent = (audioOk ? '🔊 ' : '📝 ') + (segs[idx] || '');
         };
-        narTimer = setInterval(tick, 300);
-        audioEl.addEventListener('ended', () => stopNarration());
+        if (narTimer) clearInterval(narTimer);
+        narTimer = setInterval(paint, 250);
+
+        audioEl.addEventListener('ended', () => {
+          clog('narrate-ended', { index: narrIndex, audioOk });
+          stopNarration();
+        });
         audioEl.addEventListener('error', () => {
           if (!narrating) return;
-          if (!speakBySystem(item, segs)) speakBySubtitle(segs);
+          clog('audio-error', { index: narrIndex });
+          if (!speakBySystem(item, segs)) {
+            speakBySubtitle(segs);
+            ui.toast('浏览器无法播放讲解音频，已切换文字讲解', 'err');
+          }
         });
+
         const p = audioEl.play();
+        const onPlaying = () => {
+          audioOk = true;
+          clog('audio-playing', { index: narrIndex, duration: Math.round((audioEl.duration || 0) * 10) / 10 });
+        };
         if (p && p.catch) {
-          p.catch(() => {
+          p.then(onPlaying).catch((err) => {
+            clog('audio-blocked', { index: narrIndex, err: String((err && err.name) || err) });
             if (!narrating) return;
-            /* 声音被浏览器拦截：先试系统语音，再退文字 */
             if (!speakBySystem(item, segs)) {
               speakBySubtitle(segs);
-              ui.toast('浏览器不允许自动播放声音，已切换文字讲解', 'err');
+              ui.toast('浏览器拦截了声音，已切换文字讲解', 'err');
             }
           });
+        } else {
+          onPlaying();
         }
-      };
-      // 预加载音频，第一次点击更快
-      NARRATIONS.forEach((n) => {
-        try {
-          const a = new Audio();
-          a.preload = 'auto';
-          a.src = n.audio;
-        } catch {
-          /* ignore */
-        }
-      });
-      narrBtn?.addEventListener('click', () => {
-        if (narrating && audioEl) {
-          if (audioEl.paused && !subtitleTimer) {
-            audioEl.play().catch(() => {});
-            narrating = true;
-            if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}`;
-          } else {
-            stopNarration();
-          }
-          return;
-        }
-        startNarration(narrIndex + 1);
-      });
 
+        /* 看门狗：播放成功但 1.2 秒没出声（静音键/解码问题）→ 切换兜底 */
+        setTimeout(() => {
+          if (!narrating) return;
+          if (audioEl && !audioEl.paused && (audioEl.currentTime || 0) < 0.05) {
+            clog('audio-silent', { index: narrIndex });
+            try {
+              audioEl.pause();
+            } catch {
+              /* ignore */
+            }
+            if (!speakBySystem(item, segs)) {
+              speakBySubtitle(segs);
+              ui.toast('没检测到声音（可能是手机静音），已切换文字讲解', 'err');
+            }
+          }
+        }, 1500);
+      };
       /* 首次进入引导：提示点画面 / 按钮开始讲解 */
       if (subtitleEl) {
         subtitleEl.classList.remove('hide');
@@ -447,6 +477,7 @@ export async function renderMetaverse(ctx) {
         () => {
           if (autoNarrated) return;
           autoNarrated = true;
+          clog('canvas-first-touch', {});
           if (!narrating && narrIndex < 0) startNarration(0);
         },
         { once: true },
@@ -800,6 +831,7 @@ export async function renderMetaverse(ctx) {
           }
           if (!data) return;
           if (data.narrate) {
+            clog('avatar-click', {});
             startNarration(narrIndex + 1);
             return;
           }
