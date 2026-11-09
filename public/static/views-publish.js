@@ -3104,13 +3104,20 @@ const removedFileIds = new Set();
         try {
           const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
           doc.querySelectorAll('img').forEach((img) => {
-            const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
-            if (/^(data:image\/|https?:\/\/)/i.test(src) && !out.includes(src)) out.push(src);
+            const src = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-original') || '';
+            if (src && !out.includes(src)) out.push(src);
           });
         } catch {
           /* ignore */
         }
-        return out.slice(0, 9);
+        return out.slice(0, 12);
+      };
+      const imgScheme = (src) => {
+        if (/^data:image\//i.test(src)) return 'data';
+        if (/^https?:\/\//i.test(src)) return 'http';
+        if (/^file:\/\//i.test(src)) return 'file';
+        if (/^blob:/i.test(src)) return 'blob';
+        return 'other';
       };
       const dataUrlToFile = (dataUrl, idx) => {
         try {
@@ -3165,8 +3172,20 @@ const removedFileIds = new Set();
           }
 
           /* 2) HTML 里的 http(s) 图片（mmbiz 等）→ 后端下载登记 */
-          const remote = imgs.filter((src) => /^https?:\/\//i.test(src)).slice(0, 6);
+          const schemes = {};
+          imgs.forEach((src) => {
+            const k = imgScheme(src);
+            schemes[k] = (schemes[k] || 0) + 1;
+          });
+          clogPublish('note-images', {
+            total: imgs.length,
+            schemes,
+            files: localFiles.length,
+            sample: imgs.slice(0, 3).map((x) => x.slice(0, 60)),
+          });
+          const remote = imgs.filter((src) => /^https?:\/\//i.test(src)).slice(0, 9);
           let remoteOk = 0;
+          let remoteFail = 0;
           for (const src of remote) {
             try {
               const r = await api.post('/api/media/remote-image', { url: src });
@@ -3175,10 +3194,19 @@ const removedFileIds = new Set();
                 uploaded = [...uploaded, rec];
                 remoteOk += 1;
               }
-            } catch {
-              /* 单张失败跳过 */
+            } catch (err) {
+              remoteFail += 1;
+              clogPublish('note-remote-fail', { err: String((err && err.message) || err), src: src.slice(0, 80) });
             }
           }
+          if (remoteFail) {
+            ui.toast(`笔记里有 ${remoteFail} 张网络图片下载失败（微信图床限制）`, 'err');
+          }
+          const fileImgs = imgs.filter((src) => imgScheme(src) === 'file').length;
+          if (fileImgs) {
+            ui.toast(`笔记里有 ${fileImgs} 张图片是微信本地缓存，网页无法直接读取；请截图粘贴，或右键图片另存为后拖入`, 'err');
+          }
+          clogPublish('note-import-done', { remoteOk, remoteFail, fileImgs, localFiles: localFiles.length });
           if (remoteOk) {
             try {
               renderFiles();
