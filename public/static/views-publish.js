@@ -3258,6 +3258,77 @@ const removedFileIds = new Set();
       };
 
       /* 按钮：读剪贴板 */
+      /* 剪贴板权限被浏览器限制时的兜底：开一个输入框，用粘贴事件拿内容 */
+      const collectClipboard = (cd) => {
+        const html = cd.getData ? cd.getData('text/html') || '' : '';
+        const text = cd.getData ? cd.getData('text/plain') || '' : '';
+        const files = [];
+        try {
+          if (cd.items) {
+            for (const it of cd.items) {
+              if (it.kind === 'file') {
+                const f = it.getAsFile();
+                if (f) files.push(f);
+              }
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+        try {
+          Array.from(cd.files || []).forEach((f) => files.push(f));
+        } catch {
+          /* ignore */
+        }
+        return { html, text, files };
+      };
+
+      const openPasteSheet = () => {
+        const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+        ui.openSheet({
+          title: '粘贴微信笔记',
+          content: `<div class="tiny dim mb10">把微信笔记复制后，在下面框里按 <b>Ctrl+V</b>${
+            isMobile ? '（手机：长按输入框 → 粘贴）' : ''
+          }；截图也可以直接粘。粘贴后会自动识别文字、上传图片和文件。</div>
+          <textarea class="textarea" id="pub-paste-box" rows="7" placeholder="点这里，然后按 ${
+            isMobile ? '长按 → 粘贴' : 'Ctrl+V'
+          }"></textarea>
+          <div class="tiny dim mt8" id="pub-paste-info"></div>`,
+          onMount(sheetEl, close) {
+            const box = sheetEl.querySelector('#pub-paste-box');
+            const info = sheetEl.querySelector('#pub-paste-info');
+            if (!box) return;
+            box.focus();
+            box.addEventListener('paste', async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const { html, text, files } = collectClipboard(e.clipboardData || {});
+              if (info) {
+                info.textContent = `已读取：文字 ${String(text || '').length} 字、HTML ${String(html || '').length} 字符、文件 ${files.length} 个`;
+              }
+              await importWechatNote({ html, text, files });
+              close();
+            });
+            /* 用户直接手打/长按粘贴后，也允许点「完成」把内容导入 */
+            const foot = sheetEl.querySelector('.sheet-foot, .sheet-actions, .mt12');
+            if (foot && !foot.querySelector('#pub-paste-ok')) {
+              const btn = document.createElement('button');
+              btn.className = 'btn btn-sm btn-primary mt10';
+              btn.id = 'pub-paste-ok';
+              btn.type = 'button';
+              btn.textContent = '只导入文字';
+              btn.addEventListener('click', async () => {
+                const text = String(box.value || '').trim();
+                if (!text) return ui.toast('输入框是空的', 'err');
+                await importWechatNote({ html: '', text, files: [] });
+                close();
+              });
+              foot.appendChild(btn);
+            }
+          },
+        });
+      };
+
       const importFromClipboard = async () => {
         const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
         try {
@@ -3285,15 +3356,8 @@ const removedFileIds = new Set();
           }
           throw new Error('clipboard-read 不可用');
         } catch (err) {
-          const textEl = $('#pub-text');
-          if (isMobile) {
-            ui.toast('请长按「项目情况」输入框，选择「粘贴」即可把微信笔记粘进来', 'err');
-          } else {
-            ui.toast('剪贴板读取被浏览器限制了：点正文框后按 Ctrl/⌘+V 粘贴即可（图片同样支持 Ctrl+V）', 'err');
-          }
-          if (textEl) {
-            textEl.focus();
-          }
+          ui.toast('浏览器限制了剪贴板读取，已打开粘贴框：请在里面按 Ctrl+V 粘贴', 'err');
+          openPasteSheet();
         }
       };
       root.querySelectorAll('#pub-wechat-note, #pub-paste-import').forEach((btn) => {
