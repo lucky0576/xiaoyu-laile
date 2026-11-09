@@ -2878,14 +2878,28 @@ ul { margin: 0; padding-left: 18px; }
 
 
 /* 强脑专题 / 产教联合：hero 大字 logo */
-.bc-hero-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.bc-hero-logo {
-  width: 136px;
+.bc-hero-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; width: 148px; }
+.bc-hero-right img.bc-hero-logo {
+  width: 100%;
   height: auto;
+  object-fit: contain;
+  border-radius: 0;
+  opacity: 1;
   display: block;
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
 }
-.bc-hero-robot { width: 96px; height: 128px; object-fit: cover; object-position: 50% 20%; border-radius: 12px; }
+.bc-hero-right img.bc-hero-robot {
+  width: 96px;
+  height: 128px;
+  object-fit: cover;
+  object-position: 50% 20%;
+  border-radius: 12px;
+  opacity: 0.95;
+}
+@media (max-width: 430px) {
+  .bc-hero-right { width: 118px; }
+  .bc-hero-right img.bc-hero-robot { width: 84px; height: 112px; }
+}
 .bcc-hero-top {
   display: flex;
   align-items: flex-start;
