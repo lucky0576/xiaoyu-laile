@@ -1527,7 +1527,10 @@ export async function renderPublish(ctx, params) {
       </div>
       <div class="row between mb6">
         <div class="strong" style="font-size:13px">📝 项目情况</div>
-        <a class="tiny" href="javascript:;" id="pub-text-demo" style="color:var(--brand,#0b74ff)">填入示例</a>
+        <div class="row gap12">
+          <a class="tiny" href="javascript:;" id="pub-paste-import" style="color:var(--brand,#0b74ff)">📋 粘贴导入</a>
+          <a class="tiny" href="javascript:;" id="pub-text-demo" style="color:var(--brand,#0b74ff)">填入示例</a>
+        </div>
       </div>
       <textarea class="textarea" id="pub-text" style="min-height:180px" placeholder="把项目情况写在这里，例如：
 山东东营 200MW 渔光互补光伏电站 EPC 总承包招标
@@ -3255,8 +3258,10 @@ const removedFileIds = new Set();
       };
 
       /* 按钮：读剪贴板 */
-      $('#pub-wechat-note')?.addEventListener('click', async () => {
+      const importFromClipboard = async () => {
+        const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
         try {
+          if (isMobile) throw new Error('mobile-clipboard');
           if (navigator.clipboard && navigator.clipboard.read) {
             const items = await navigator.clipboard.read();
             const files = [];
@@ -3266,7 +3271,7 @@ const removedFileIds = new Set();
               for (const type of item.types) {
                 if (/^image\//.test(type)) {
                   const blob = await item.getType(type);
-                  files.push(new File([blob], `微信笔记图片-${files.length + 1}.${type.split('/')[1] || 'png'}`, { type }));
+                  files.push(new File([blob], `剪贴板图片-${files.length + 1}.${type.split('/')[1] || 'png'}`, { type }));
                 } else if (type === 'text/html') {
                   html = await (await item.getType(type)).text();
                 } else if (type === 'text/plain') {
@@ -3274,14 +3279,28 @@ const removedFileIds = new Set();
                 }
               }
             }
+            if (!html && !text && !files.length) throw new Error('empty');
             await importWechatNote({ html, text, files });
-          } else {
-            throw new Error('clipboard-read 不可用');
+            return;
           }
+          throw new Error('clipboard-read 不可用');
         } catch (err) {
-          ui.toast('请点正文框后按 Ctrl/⌘+V 粘贴微信笔记，或把笔记直接拖进上传区', 'err');
-          $('#pub-text')?.focus();
+          const textEl = $('#pub-text');
+          if (isMobile) {
+            ui.toast('请长按「项目情况」输入框，选择「粘贴」即可把微信笔记粘进来', 'err');
+          } else {
+            ui.toast('剪贴板读取被浏览器限制了：点正文框后按 Ctrl/⌘+V 粘贴即可（图片同样支持 Ctrl+V）', 'err');
+          }
+          if (textEl) {
+            textEl.focus();
+          }
         }
+      };
+      root.querySelectorAll('#pub-wechat-note, #pub-paste-import').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          importFromClipboard();
+        });
       });
 
       /* 粘贴：发布页任意位置 Ctrl/⌘+V */
