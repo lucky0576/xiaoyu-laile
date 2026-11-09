@@ -175,6 +175,31 @@ export async function renderMetaverse(ctx) {
       const wxTip = document.getElementById('wx-tip');
       if (wxTip) wxTip.style.display = 'none';
 
+      /* WebGL 不可用时的兜底：2D 展厅列表（项目照样能点开） */
+      const showFallback = (msg) => {
+        const wrap = root.querySelector('.mv-wrap');
+        const box = root.querySelector('#mv-loading');
+        if (!wrap || !box) return;
+        wrap.classList.add('mv-fallback');
+        const cards = listings.length
+          ? listings
+              .map(
+                (l) => `<a class="mv-fb-card" href="#/detail/${ui.esc(l.id)}">
+                  <b>${ui.esc(l.title || '')}</b>
+                  <span>${ui.esc((l.categoryName || '项目') + ' · ' + ((l.cities || [])[0]?.name || ''))}</span>
+                </a>`,
+              )
+              .join('')
+          : '<div class="tiny dim">暂无项目数据</div>';
+        box.classList.remove('hide');
+        box.innerHTML = `<div class="mv-fb">
+          <div class="mv-fb-t">🖥️ 3D 展厅暂不可用（${ui.esc(msg)}）</div>
+          <div class="mv-fb-d">已切换为 2D 展厅列表，点项目照样可以看详情；去手机上打开可体验 3D。</div>
+          <div class="mv-fb-grid">${cards}</div>
+          <a class="btn btn-sm btn-outline mt12" href="#/brainco-coop">先看产教联合专题</a>
+        </div>`;
+      };
+
       // 分享
       const share = async () => {
         const url = `${location.origin}/${SHARE_PATH}`;
@@ -233,16 +258,15 @@ export async function renderMetaverse(ctx) {
         try {
           THREE = await import('/static/vendor/three.module.js');
         } catch (err) {
-          if (loading) loading.textContent = '3D 组件加载失败，请刷新重试';
           console.warn('[metaverse] three 加载失败', err);
+          showFallback('3D 组件加载失败');
           return;
         }
         try {
           renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
         } catch (err) {
-          if (loading) {
-            loading.innerHTML = '当前浏览器不支持 WebGL3D<br><a class="btn btn-sm mt8" href="#/brainco-coop">先看产教联合专题</a>';
-          }
+          console.warn('[metaverse] WebGL 初始化失败', err);
+          showFallback('浏览器不支持 WebGL');
           return;
         }
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -558,7 +582,10 @@ export async function renderMetaverse(ctx) {
         animate();
         // 自动隐藏提示
         setTimeout(() => hint?.classList.add('hide'), 6000);
-      })();
+      })().catch((err) => {
+        console.warn('[metaverse] 初始化失败', err);
+        showFallback(String((err && err.message) || err).slice(0, 40));
+      });
     },
   };
 }

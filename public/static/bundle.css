@@ -2741,6 +2741,25 @@ ul { margin: 0; padding-left: 18px; }
 .mv-qr img { width: 100%; height: auto; margin: 10px 0 6px; display: block; }
 .mv-qr-d { font-size: 10.5px; color: #8a94a6; word-break: break-all; margin-bottom: 10px; }
 
+
+/* 元宇宙 2D 兜底 */
+.mv-fallback .mv-topbar { position: relative; }
+.mv-fb { padding: 20px 16px; max-width: 760px; margin: 0 auto; text-align: left; }
+.mv-fb-t { font-size: 15px; font-weight: 800; color: #fff; }
+.mv-fb-d { margin-top: 6px; font-size: 12px; line-height: 1.8; color: rgba(255, 255, 255, 0.72); }
+.mv-fb-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 14px; }
+@media (min-width: 720px) { .mv-fb-grid { grid-template-columns: repeat(2, 1fr); } }
+.mv-fb-card {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(127, 215, 255, 0.22);
+  text-decoration: none;
+}
+.mv-fb-card b { display: block; font-size: 13px; font-weight: 800; color: #fff; }
+.mv-fb-card span { display: block; margin-top: 4px; font-size: 11px; color: rgba(255, 255, 255, 0.6); }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
