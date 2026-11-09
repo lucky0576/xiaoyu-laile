@@ -131,7 +131,7 @@ html,body{margin:0;padding:0;background:#eef4fb;color:#16202e;font-family:-apple
 .cover{width:100%;max-height:280px;object-fit:cover;display:block;background:#dbe7f5}
 .body{padding:18px 18px 24px;flex:1}
 .tag{display:inline-block;padding:3px 10px;border-radius:999px;background:#eaf3ff;color:#0b74ff;font-size:11px;font-weight:700;margin-bottom:10px}
-h1{font-size:20px;line-height:1.45;margin:0 0 10px;font-weight:800}
+h1{font-size:20px;line-height:1.45;margin:0 0 10px;font-weight:800;word-break:break-word;overflow-wrap:anywhere}
 .desc{font-size:13.5px;line-height:1.8;color:#5b6b82;white-space:pre-wrap;word-break:break-word}
 .cta{display:block;margin-top:20px;padding:14px 18px;border-radius:14px;background:linear-gradient(135deg,#0b74ff,#00a9c2);color:#fff;text-align:center;font-size:15px;font-weight:800;text-decoration:none}
 .sub{display:block;margin-top:10px;text-align:center;font-size:12px;color:#8a9bb5;text-decoration:none}
