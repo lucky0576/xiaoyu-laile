@@ -142,6 +142,7 @@ export async function renderMetaverse(ctx) {
     <div class="mv-topbar">
       <a class="mv-back" href="#/home" aria-label="返回">←</a>
       <div class="mv-title">杭州上城区 · 产业元宇宙展厅</div>
+      <button class="mv-share mv-narr-top" id="mv-narrate-top" type="button">🔊 讲解</button>
       <button class="mv-share" id="mv-share" type="button">↗ 分享</button>
       <button class="mv-share mv-poster-btn" id="mv-poster" type="button">🖼 海报</button>
       <button class="mv-share hide" id="mv-vr" type="button">🥽 VR</button>
@@ -171,6 +172,7 @@ export async function renderMetaverse(ctx) {
     noTab: true,
     activeTab: 'home',
     mount(root) {
+      clog('mount-start', { w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
       const canvas = root.querySelector('#mv-canvas');
       const hint = root.querySelector('#mv-hint');
       /* 前端诊断日志：出问题可在服务器 journalctl 里看到 */
@@ -215,6 +217,7 @@ export async function renderMetaverse(ctx) {
           <div class="mv-fb-t">🖥️ 3D 展厅暂不可用（${ui.esc(msg)}）</div>
           <div class="mv-fb-d">已切换为 2D 展厅列表，点项目照样可以看详情；去手机上打开可体验 3D。</div>
           <div class="mv-fb-grid">${cards}</div>
+          <button class="btn btn-sm btn-primary mt12" id="mv-fb-narrate" type="button">🔊 数字人讲解</button>
           <a class="btn btn-sm btn-outline mt12" href="#/brainco-coop">先看产教联合专题</a>
         </div>`;
       };
@@ -461,6 +464,45 @@ export async function renderMetaverse(ctx) {
           }
         }, 1500);
       };
+      /* 讲解放开关：底部按钮 / 顶栏按钮 / 兜底页按钮 都走这里 */
+      const toggleNarration = () => {
+        clog('narrate-toggle', { narrating, narrIndex, paused: audioEl ? audioEl.paused : null });
+        if (narrating && audioEl) {
+          if (audioEl.paused && !subtitleTimer) {
+            audioEl.play().catch(() => {});
+            narrating = true;
+            if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}`;
+          } else {
+            stopNarration();
+          }
+          return;
+        }
+        startNarration(narrIndex + 1);
+      };
+      narrBtn?.addEventListener('click', toggleNarration);
+      root.querySelector('#mv-narrate-top')?.addEventListener('click', toggleNarration);
+      root.querySelectorAll('#mv-narrate-top, #mv-narrate').forEach((b) =>
+        b.addEventListener('click', () => clog('narrate-entry-click', { id: b.id }), { capture: true }),
+      );
+      /* 兜底页里动态插入的讲解按钮 */
+      root.addEventListener('click', (e) => {
+        if (e.target.closest('#mv-fb-narrate')) {
+          clog('fallback-narrate-click', {});
+          toggleNarration();
+        }
+      });
+
+      /* 预加载音频 */
+      NARRATIONS.forEach((n) => {
+        try {
+          const a = new Audio();
+          a.preload = 'auto';
+          a.src = n.audio;
+        } catch {
+          /* ignore */
+        }
+      });
+
       /* 首次进入引导：提示点画面 / 按钮开始讲解 */
       if (subtitleEl) {
         subtitleEl.classList.remove('hide');

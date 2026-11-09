@@ -2765,7 +2765,7 @@ ul { margin: 0; padding-left: 18px; }
 .mv-narrate {
   position: absolute;
   left: 14px;
-  bottom: calc(24px + env(safe-area-inset-bottom));
+  bottom: calc(92px + env(safe-area-inset-bottom));
   padding: 10px 16px;
   border-radius: 999px;
   border: 1px solid rgba(127, 215, 255, 0.5);
@@ -2795,3 +2795,15 @@ ul { margin: 0; padding-left: 18px; }
   backdrop-filter: blur(8px);
 }
 .mv-subtitle.hide { display: none; }
+
+
+/* 顶栏讲解按钮 */
+.mv-narr-top {
+  background: rgba(9, 175, 255, 0.22) !important;
+  border-color: rgba(127, 215, 255, 0.8) !important;
+  animation: mvNarrPulse 2.2s ease-in-out infinite;
+}
+@keyframes mvNarrPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(90, 190, 255, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(90, 190, 255, 0); }
+}
