@@ -2908,14 +2908,15 @@ ul { margin: 0; padding-left: 18px; }
 }
 .bcc-hero-logo {
   flex: none;
-  width: 118px;
+  width: 104px;
+  max-width: 44%;
   height: auto;
   margin-top: -2px;
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.4));
 }
 @media (max-width: 430px) {
   .bc-hero-logo { width: 108px; }
-  .bcc-hero-logo { width: 96px; }
+  .bcc-hero-logo { width: 86px; }
 }
 
 /* ==== home.css ==== */
