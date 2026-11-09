@@ -250,23 +250,15 @@ export async function renderMetaverse(ctx) {
         qrMask.classList.remove('hide');
       };
       root.querySelector('#mv-share')?.addEventListener('click', async () => {
-        // 手机优先系统分享；没有就复制链接 + 打开二维码
         const url = `${location.origin}/${SHARE_PATH}`;
-        try {
-          if (navigator.share) {
-            await navigator.share({ title: '小鱼来了 · 产业元宇宙展厅', url });
-            return;
-          }
-        } catch {
-          /* 取消 */
-        }
-        try {
-          await navigator.clipboard.writeText(`小鱼来了 · 产业元宇宙展厅\n${url}`);
-          ui.toast('链接已复制，可扫码或粘贴到微信', 'ok');
-        } catch {
-          /* ignore */
-        }
-        openQr();
+        const m = await import('./share.js');
+        await m.openQuickShare({
+          title: '小鱼来了 · 产业元宇宙展厅',
+          desc: '20 个真实项目展板 · 数字人讲解 · 强脑科技展位 · 支持 VR',
+          url,
+          image: '/static/brainco/revohuman.jpg',
+          tag: '产业元宇宙',
+        });
       });
       root.querySelector('#mv-qr-close')?.addEventListener('click', () => qrMask.classList.add('hide'));
       qrMask?.addEventListener('click', (e) => {

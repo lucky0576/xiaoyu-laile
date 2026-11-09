@@ -976,4 +976,118 @@ export async function openInvestShare(plan = {}, quota = {}) {
   });
 }
 
-export default { openInviteShare, openInvestShare, openShareSheet, setupWechatShare, renderPoster, downloadCanvas, isWechatBrowser };
+/* ------------------------------------------------------------------ */
+/* 通用分享：任意页面/内容都能用「图片+文字」或「链接+文字」           */
+/* ------------------------------------------------------------------ */
+export async function openQuickShare({ title = '小鱼来了', desc = '', url = '', image = '', tag = '' } = {}) {
+  const shareUrl = url || location.href;
+  const plainText = [title, desc].filter(Boolean).join('\n') + '\n' + shareUrl;
+
+  openSheet({
+    title: '分享',
+    content: `
+      <div class="share-mode active" data-qmode="poster">
+        <div class="ico">🖼️</div>
+        <div class="grow">
+          <div class="strong">图片 + 文字</div>
+          <div class="tiny dim">生成带二维码的海报，可发朋友圈 / 微信群，对方扫码查看</div>
+        </div>
+      </div>
+      <div class="share-mode" data-qmode="link">
+        <div class="ico">🔗</div>
+        <div class="grow">
+          <div class="strong">链接 + 文字</div>
+          <div class="tiny dim">复制「标题 + 描述 + 链接」，或调起系统分享</div>
+        </div>
+      </div>
+      <div id="qshare-panel" class="mt12"></div>`,
+    async onMount(sheet) {
+      const panel = sheet.querySelector('#qshare-panel');
+      let mode = 'poster';
+      let posterCanvas = null;
+
+      const renderPanel = async () => {
+        if (mode === 'poster') {
+          panel.innerHTML = `<div class="poster-wrap"><div class="tiny dim">海报生成中…</div></div>
+            <div class="row gap8 mt8">
+              <button class="btn btn-primary grow" id="q-save" type="button">保存图片</button>
+              <button class="btn grow" id="q-copy-poster-text" type="button">复制文字</button>
+            </div>
+            <div class="tiny dim center mt8">微信里可长按图片保存 / 发送给好友</div>`;
+          try {
+            posterCanvas = await renderPoster({
+              title,
+              subtitle: tag,
+              summary: String(desc || '').slice(0, 120),
+              qrText: service.qrUrl(shareUrl, 360),
+              coverUrl: image,
+              meta: [tag || '小鱼来了'],
+            });
+            const holder = panel.querySelector('.poster-wrap');
+            if (holder) {
+              holder.innerHTML = '';
+              holder.appendChild(posterCanvas);
+            }
+          } catch {
+            panel.querySelector('.poster-wrap').innerHTML = '<div class="tiny dim">海报生成失败，请改用「链接 + 文字」</div>';
+          }
+          panel.querySelector('#q-save')?.addEventListener('click', async () => {
+            if (!posterCanvas) return toast('海报还没生成好', 'err');
+            const ok = await downloadCanvas(posterCanvas, `${String(title).slice(0, 20) || '小鱼来了'}.png`);
+            toast(ok ? '图片已保存' : '保存失败，请长按图片保存', ok ? 'ok' : 'err');
+          });
+          panel.querySelector('#q-copy-poster-text')?.addEventListener('click', async () => {
+            const ok = await copyText(plainText);
+            toast(ok ? '文字已复制' : '复制失败，请手动选择', ok ? 'ok' : 'err');
+          });
+        } else {
+          panel.innerHTML = `<div class="field">
+              <label>链接 + 文字</label>
+              <textarea class="input" id="q-link-text" rows="8" readonly>${esc(plainText)}</textarea>
+            </div>
+            <div class="row gap8 mt8">
+              <button class="btn btn-primary grow" id="q-copy-link" type="button">复制文字与链接</button>
+              <button class="btn grow" id="q-native" type="button">系统分享</button>
+            </div>`;
+          panel.querySelector('#q-copy-link')?.addEventListener('click', async () => {
+            const ok = await copyText(plainText);
+            toast(ok ? '文字与链接已复制，可直接粘贴到微信' : '复制失败，请手动选择', ok ? 'ok' : 'err');
+          });
+          panel.querySelector('#q-native')?.addEventListener('click', async () => {
+            if (navigator.share) {
+              try {
+                await navigator.share({ title, text: desc, url: shareUrl });
+                return;
+              } catch {
+                /* 用户取消 */
+              }
+            }
+            const ok = await copyText(plainText);
+            toast(ok ? '文字与链接已复制' : '复制失败', ok ? 'ok' : 'err');
+          });
+        }
+      };
+
+      sheet.addEventListener('click', (e) => {
+        const m = e.target.closest('[data-qmode]');
+        if (!m) return;
+        mode = m.dataset.qmode;
+        [...sheet.querySelectorAll('[data-qmode]')].forEach((el) => el.classList.toggle('active', el === m));
+        renderPanel();
+      });
+
+      await renderPanel();
+    },
+  });
+}
+
+export default {
+  openInviteShare,
+  openInvestShare,
+  openShareSheet,
+  openQuickShare,
+  setupWechatShare,
+  renderPoster,
+  downloadCanvas,
+  isWechatBrowser,
+};

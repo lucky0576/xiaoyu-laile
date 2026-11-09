@@ -467,14 +467,9 @@ export async function renderShorts(ctx, params) {
         if (!slide) return;
         const url = `${location.origin}/#/live/${slide.dataset.id}`;
         const title = slide.querySelector('.short-title')?.textContent || '小鱼来了 · 短视频';
-        if (navigator.share) {
-          try {
-            await navigator.share({ title, url });
-            return;
-          } catch { /* 取消 */ }
-        }
-        const ok = await ui.copyText(`${title}\n${url}`);
-        ui.toast(ok ? '链接已复制，可粘贴到微信' : '复制失败', ok ? 'ok' : 'err');
+        const cover = slide.querySelector('img')?.getAttribute('src') || '';
+        const m = await import('./share.js');
+        await m.openQuickShare({ title, desc: '小鱼来了 · 产业短视频', url, image: cover, tag: '短视频' });
       });
 
       // 短剧：看全集 / 分享

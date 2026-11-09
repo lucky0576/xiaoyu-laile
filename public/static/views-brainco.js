@@ -818,8 +818,15 @@ export async function renderBrainco(ctx, query) {
           return false;
         }
       };
-      root.querySelector('#bc-share-page')?.addEventListener('click', () => {
-        doShare('BrainCo 强脑科技 × 小鱼来了 · 脑机接口与具身智能专题', shareUrl());
+      root.querySelector('#bc-share-page')?.addEventListener('click', async () => {
+        const m = await import('./share.js');
+        await m.openQuickShare({
+          title: 'BrainCo 强脑科技 × 小鱼来了 · 脑机接口与具身智能专题',
+          desc: '灵巧手 · 双臂机器人 · 32 通道脑电 · 脑控机器人 · 数据采集平台',
+          url: shareUrl(),
+          image: '/static/brainco/robot.jpg',
+          tag: '强脑科技专题',
+        });
       });
 
       /* ---------- 产品分享（链接带 ?item=，打开自动定位） ---------- */
@@ -830,7 +837,14 @@ export async function renderBrainco(ctx, query) {
         const id = btn.dataset.bcShare;
         const it = ALL_ITEMS.find((x) => x.id === id);
         const url = `${location.origin}/#/brainco?item=${encodeURIComponent(id)}`;
-        await doShare(it ? `强脑科技 ${it.short}` : '强脑科技产品', url);
+        const m = await import('./share.js');
+        await m.openQuickShare({
+          title: it ? `强脑科技 ${it.short}` : '强脑科技产品',
+          desc: it ? (it.specs || []).slice(0, 3).join(' · ') : '',
+          url,
+          image: it?.image || '/static/brainco/robot.jpg',
+          tag: '强脑科技产品',
+        });
       });
 
       /* ---------- 申请参访 ---------- */

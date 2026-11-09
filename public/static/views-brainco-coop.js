@@ -199,9 +199,16 @@ export async function renderBraincoCoop(ctx) {
           ui.toast(url, 'ok');
         }
       };
-      root.querySelector('#bcc-share')?.addEventListener('click', () =>
-        doShare('强脑科技产教联合专题 · 产业学院 / 实训基地 / 课程', CUR),
-      );
+      root.querySelector('#bcc-share')?.addEventListener('click', async () => {
+        const m = await import('./share.js');
+        await m.openQuickShare({
+          title: '强脑科技产教联合专题 · 产业学院 / 实训基地 / 课程',
+          desc: '产业学院共建 · 产教融合实训基地 · 实训课程 · 65 万数采套装',
+          url: CUR,
+          image: '/static/brainco/revohuman.jpg',
+          tag: '产教联合',
+        });
+      });
 
       /* 申请合作（可预设某个方向/产品） */
       const openApply = (presetId) => {
