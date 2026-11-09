@@ -3290,6 +3290,8 @@ const removedFileIds = new Set();
         }
       };
 
+      plog('publish-mount', { ua: navigator.userAgent.slice(0, 120), v: 'v3' });
+
       /* 没有扩展名 / 类型未知的文件，按文件头猜真实类型（微信拖出来常见） */
       const sniffFileType = async (file) => {
         try {
@@ -3316,11 +3318,10 @@ const removedFileIds = new Set();
         return null;
       };
 
-      dropZone.addEventListener('drop', async (e) => {
+      const handleDropped = async (dt) => {
         e.preventDefault();
         dragDepth = 0;
         setDragging(false);
-        const dt = e.dataTransfer;
         if (!dt) return;
 
         dropHint.innerHTML = '正在读取…';
@@ -3396,6 +3397,29 @@ const removedFileIds = new Set();
           uploadFiles(files);
         } catch (err) {
           ui.toast('读取拖入内容失败：' + (err.message || '未知错误'), 'err');
+        }
+      };
+
+      const onDrop = async (e) => {
+        if (!e.dataTransfer) return;
+        e.preventDefault();
+        dragDepth = 0;
+        setDragging(false);
+        await handleDropped(e.dataTransfer);
+      };
+      dropZone.addEventListener('drop', onDrop);
+      /* 整个页面都接受拖入：拖到虚线框外面也能识别（微信笔记常被拖偏） */
+      window.addEventListener('drop', (e) => {
+        if (!e.dataTransfer) return;
+        const t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+        onDrop(e);
+      });
+      dropZone.addEventListener('dragenter', (e) => {
+        try {
+          plog('wechat-dragenter', { types: Array.from((e.dataTransfer && e.dataTransfer.types) || []) });
+        } catch {
+          /* ignore */
         }
       });
 
