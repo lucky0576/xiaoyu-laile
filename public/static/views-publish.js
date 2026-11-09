@@ -3135,13 +3135,27 @@ const removedFileIds = new Set();
 
       let noteImporting = false;
       const importWechatNote = async ({ html = '', text = '', files = [] }) => {
-        const plain = String(text || '').trim() || htmlToPlainText(html);
+        const htmlText = htmlToPlainText(html);
+        // 微信复制笔记时 text/plain 常把图片变成 [图片] 占位符；HTML 里文字更干净
+        let plain = (htmlText || String(text || '')).trim();
+        const placeholders = plain.match(/\[(图片|视频|文件|位置|语音|链接|动画表情)\]/g) || [];
+        plain = plain.replace(/\[(图片|视频|文件|位置|语音|链接|动画表情)\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
         const imgs = extractImgSrcs(html);
-        const localFiles = Array.from(files || []).filter(
-          (f) => f && (/^image\//.test(f.type || '') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name || '')),
+        const allFiles = Array.from(files || []).filter(Boolean);
+        const localFiles = allFiles.filter(
+          (f) => /^image\//.test(f.type || '') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name || ''),
         );
-        if (!plain && !imgs.length && !localFiles.length) {
-          ui.toast('没有识别到笔记内容（文字 / 图片）', 'err');
+        const otherFiles = allFiles.filter((f) => !localFiles.includes(f));
+        clogPublish('note-parse', {
+          htmlLen: html.length,
+          htmlTextLen: htmlText.length,
+          textLen: String(text || '').length,
+          placeholders: placeholders.length,
+          imgs: imgs.length,
+          files: allFiles.length,
+        });
+        if (!plain && !imgs.length && !localFiles.length && !otherFiles.length) {
+          ui.toast('没有识别到笔记内容（文字 / 图片 / 文件）', 'err');
           return;
         }
         if (noteImporting) return;
@@ -3171,6 +3185,10 @@ const removedFileIds = new Set();
           if (localList.length) {
             ui.toast(`正在上传笔记里的 ${localList.length} 张图片…`, 'ok');
             await uploadFiles(localList);
+          }
+          if (otherFiles.length) {
+            ui.toast(`正在上传笔记里的 ${otherFiles.length} 个文件/视频…`, 'ok');
+            await uploadFiles(otherFiles);
           }
 
           /* 2) HTML 里的 http(s) 图片（mmbiz 等）→ 后端下载登记 */
@@ -3216,10 +3234,19 @@ const removedFileIds = new Set();
               /* ignore */
             }
           }
-          ui.toast(
-            `微信笔记已导入${localList.length + remoteOk ? `（${localList.length + remoteOk} 张图片）` : ''}`,
-            'ok',
-          );
+          const gotImgs = localList.length + remoteOk;
+          if (placeholders.length && !gotImgs) {
+            const kinds = [...new Set(placeholders.map((x) => x.slice(1, -1)))].join('、');
+            ui.toast(
+              `已导入文字；微信复制笔记时只带了占位符（${kinds}），没有带真实图片/视频/文件。请把图片另存或截图后 Ctrl+V，视频/文件另存后拖入`,
+              'err',
+            );
+          } else {
+            ui.toast(
+              `微信笔记已导入${gotImgs ? `（${gotImgs} 张图片）` : ''}${otherFiles.length ? `，${otherFiles.length} 个文件` : ''}`,
+              'ok',
+            );
+          }
         } catch (err) {
           ui.toast('笔记导入失败：' + (err.message || '未知错误'), 'err');
         } finally {
