@@ -2918,3 +2918,7 @@ ul { margin: 0; padding-left: 18px; }
   .bc-hero-logo { width: 108px; }
   .bcc-hero-logo { width: 82px; top: 14px; right: 12px; }
 }
+
+
+/* 防止个别页面内容撑出横向滚动，导致 hero 贴边裁切 */
+html, body { max-width: 100%; overflow-x: hidden; }
