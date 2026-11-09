@@ -143,10 +143,8 @@ export async function renderBraincoCoop(ctx) {
 
   const html = `<div class="page bcc-page">
     <div class="bcc-hero">
-      <div class="bcc-hero-top">
-        <div class="bcc-badge">🤝 BrainCo 强脑科技 × 小鱼来了</div>
-        <img class="bcc-hero-logo" src="/static/brainco/brainco-logo.png" alt="BrainCo 强脑科技">
-      </div>
+      <img class="bcc-hero-logo" src="/static/brainco/brainco-logo.png" alt="BrainCo 强脑科技">
+      <div class="bcc-badge">🤝 BrainCo 强脑科技 × 小鱼来了</div>
       <div class="bcc-hero-t">产教联合<br>脑机接口 + 具身智能 校企合作</div>
       <div class="bcc-hero-d">产业学院 · 产教融合实训基地 · 实训课程 · 创践中心共建</div>
       <div class="bcc-hero-stats">

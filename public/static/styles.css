@@ -2899,21 +2899,16 @@ ul { margin: 0; padding-left: 18px; }
   .bc-hero-right { width: 118px; }
   .bc-hero-right img.bc-hero-robot { width: 84px; height: 112px; }
 }
-.bcc-hero-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
+.bcc-hero { position: relative; }
 .bcc-hero-logo {
-  flex: none;
-  width: 104px;
-  max-width: 44%;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 96px;
   height: auto;
-  margin-top: -2px;
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.4));
 }
 @media (max-width: 430px) {
   .bc-hero-logo { width: 108px; }
-  .bcc-hero-logo { width: 86px; }
+  .bcc-hero-logo { width: 82px; top: 14px; right: 12px; }
 }
