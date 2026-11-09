@@ -1538,10 +1538,11 @@ export async function renderPublish(ctx, params) {
       <div class="upload-zone" id="pub-drop">
         <div class="upload-zone-ico">📥</div>
         <div class="upload-zone-main">把文件或<b>整个文件夹</b>拖到这里</div>
-        <div class="upload-zone-sub" id="pub-drop-hint">PPT · Word · Excel · PDF · CAD · 图片 · 视频 · 压缩包，可一次拖多个</div>
+        <div class="upload-zone-sub" id="pub-drop-hint">PPT · Word · Excel · PDF · CAD · 图片 · 视频 · 压缩包；<b>微信笔记可直接拖进来</b></div>
         <div class="row gap8 mt12" style="justify-content:center;flex-wrap:wrap">
           <button class="btn btn-sm btn-outline" id="pub-import" type="button">📎 选择文件</button>
           <button class="btn btn-sm btn-outline" id="pub-import-dir" type="button">📁 选择文件夹</button>
+          <button class="btn btn-sm btn-primary" id="pub-wechat-note" type="button">📋 微信笔记导入</button>
         </div>
       </div>
       <input type="file" id="pub-file-input" multiple accept="${ACCEPT}" style="display:none">
@@ -3073,6 +3074,183 @@ const removedFileIds = new Set();
         if (task.status === 'done') ui.toast(`${task.name} 已重试成功`, 'ok');
       });
 
+      /* ---------------- 微信笔记导入（文字 + 图片） ---------------- */
+      /*
+       * 使用场景：
+       *   · 电脑微信里打开「笔记」→ 全选复制 → 在发布页 Ctrl/⌘+V 粘贴
+       *   · 或直接把笔记拖进上传区（浏览器会给出 text/html）
+       * 处理：
+       *   · HTML → 纯文本，填进正文，首行填标题
+       *   · 内嵌图片（data: / http(s)）→ 上传成平台文件（可当封面/附件）
+       */
+      const htmlToPlainText = (html) => {
+        try {
+          const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+          doc.querySelectorAll('script,style,iframe,noscript').forEach((el) => el.remove());
+          doc.querySelectorAll('p,div,li,h1,h2,h3,h4,section,article').forEach((el) => el.append('\n'));
+          doc.querySelectorAll('br').forEach((el) => el.replaceWith('\n'));
+          const text = doc.body ? doc.body.textContent || '' : '';
+          return text
+            .replace(/\u00a0/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+        } catch {
+          return '';
+        }
+      };
+      const extractImgSrcs = (html) => {
+        const out = [];
+        try {
+          const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+          doc.querySelectorAll('img').forEach((img) => {
+            const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+            if (/^(data:image\/|https?:\/\/)/i.test(src) && !out.includes(src)) out.push(src);
+          });
+        } catch {
+          /* ignore */
+        }
+        return out.slice(0, 9);
+      };
+      const dataUrlToFile = (dataUrl, idx) => {
+        try {
+          const m = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(dataUrl);
+          if (!m) return null;
+          const bin = atob(m[2]);
+          const arr = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i += 1) arr[i] = bin.charCodeAt(i);
+          const ext = m[1].split('/')[1].replace('jpeg', 'jpg');
+          return new File([arr], `微信笔记图片-${idx + 1}.${ext}`, { type: m[1] });
+        } catch {
+          return null;
+        }
+      };
+
+      let noteImporting = false;
+      const importWechatNote = async ({ html = '', text = '', files = [] }) => {
+        const plain = String(text || '').trim() || htmlToPlainText(html);
+        const imgs = extractImgSrcs(html);
+        const localFiles = Array.from(files || []).filter((f) => f && /^image\//.test(f.type || ''));
+        if (!plain && !imgs.length && !localFiles.length) {
+          ui.toast('没有识别到笔记内容（文字 / 图片）', 'err');
+          return;
+        }
+        if (noteImporting) return;
+        noteImporting = true;
+        try {
+          const textEl = $('#pub-text');
+          if (textEl && plain) {
+            const prev = String(textEl.value || '').trim();
+            textEl.value = (prev ? prev + '\n\n' : '') + plain;
+            textEl.dispatchEvent(new Event('input'));
+          }
+          const titleEl = $('#pub-title');
+          if (titleEl && !String(titleEl.value || '').trim() && plain) {
+            const firstLine = plain.split('\n').map((x) => x.trim()).find(Boolean) || '';
+            titleEl.value = firstLine.slice(0, 60);
+            titleEl.dispatchEvent(new Event('input'));
+          }
+
+          /* 1) 剪贴板/拖拽里直接给出的图片文件 + data:image */
+          const localList = [...localFiles];
+          imgs.forEach((src, i) => {
+            if (/^data:image\//i.test(src)) {
+              const f = dataUrlToFile(src, i);
+              if (f) localList.push(f);
+            }
+          });
+          if (localList.length) {
+            ui.toast(`正在上传笔记里的 ${localList.length} 张图片…`, 'ok');
+            await uploadFiles(localList);
+          }
+
+          /* 2) HTML 里的 http(s) 图片（mmbiz 等）→ 后端下载登记 */
+          const remote = imgs.filter((src) => /^https?:\/\//i.test(src)).slice(0, 6);
+          let remoteOk = 0;
+          for (const src of remote) {
+            try {
+              const r = await api.post('/api/media/remote-image', { url: src });
+              const rec = { id: r.id, url: r.url, name: r.name || '笔记图片', kind: 'image', size: 0 };
+              if (!uploaded.some((f) => f.id === rec.id)) {
+                uploaded = [...uploaded, rec];
+                remoteOk += 1;
+              }
+            } catch {
+              /* 单张失败跳过 */
+            }
+          }
+          if (remoteOk) {
+            try {
+              renderFiles();
+            } catch {
+              /* ignore */
+            }
+          }
+          ui.toast(
+            `微信笔记已导入${localList.length + remoteOk ? `（${localList.length + remoteOk} 张图片）` : ''}`,
+            'ok',
+          );
+        } catch (err) {
+          ui.toast('笔记导入失败：' + (err.message || '未知错误'), 'err');
+        } finally {
+          noteImporting = false;
+        }
+      };
+
+      /* 按钮：读剪贴板 */
+      $('#pub-wechat-note')?.addEventListener('click', async () => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.read) {
+            const items = await navigator.clipboard.read();
+            const files = [];
+            let html = '';
+            let text = '';
+            for (const item of items) {
+              for (const type of item.types) {
+                if (/^image\//.test(type)) {
+                  const blob = await item.getType(type);
+                  files.push(new File([blob], `微信笔记图片-${files.length + 1}.${type.split('/')[1] || 'png'}`, { type }));
+                } else if (type === 'text/html') {
+                  html = await (await item.getType(type)).text();
+                } else if (type === 'text/plain') {
+                  text = await (await item.getType(type)).text();
+                }
+              }
+            }
+            await importWechatNote({ html, text, files });
+          } else {
+            throw new Error('clipboard-read 不可用');
+          }
+        } catch (err) {
+          ui.toast('请点正文框后按 Ctrl/⌘+V 粘贴微信笔记，或把笔记直接拖进上传区', 'err');
+          $('#pub-text')?.focus();
+        }
+      });
+
+      /* 粘贴：发布页任意位置 Ctrl/⌘+V */
+      root.addEventListener('paste', async (e) => {
+        const cd = e.clipboardData;
+        if (!cd) return;
+        const active = document.activeElement;
+        const inField = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+        const html = cd.getData('text/html') || '';
+        const text = cd.getData('text/plain') || '';
+        const files = Array.from(cd.files || []).filter((f) => /^image\//.test(f.type || ''));
+        if (!html && !files.length) {
+          if (!inField && text) {
+            e.preventDefault();
+            const el = $('#pub-text');
+            if (el) {
+              el.value = (String(el.value || '').trim() ? String(el.value).trim() + '\n\n' : '') + text;
+              el.dispatchEvent(new Event('input'));
+            }
+          }
+          return;
+        }
+        e.preventDefault();
+        await importWechatNote({ html, text, files });
+      });
+
       /* ---------------- 拖拽上传（含文件夹） ---------------- */
       const dropZone = $('#pub-drop');
       const dropHint = $('#pub-drop-hint');
@@ -3114,8 +3292,37 @@ const removedFileIds = new Set();
         }
         dropHint.innerHTML = hintText;
 
-        if (!picked.length) return ui.toast('没有识别到文件', 'err');
-        const { files, skipped } = filterImportable(picked);
+        /* 微信笔记：拖入时没有独立文件，但带 text/html */
+        if (!picked.length) {
+          const html = e.dataTransfer.getData('text/html') || '';
+          const text = e.dataTransfer.getData('text/plain') || '';
+          if (html || text) {
+            await importWechatNote({ html, text, files: [] });
+            return;
+          }
+          return ui.toast('没有识别到文件', 'err');
+        }
+        /* 微信笔记文件拖入（.html/.mht/无扩展名，或 html+图片） */
+        const droppedHtml = e.dataTransfer.getData('text/html') || '';
+        const droppedText = e.dataTransfer.getData('text/plain') || '';
+        const noteLike = picked.filter((f) => /\.(html?|mht|mhtml)$/i.test(f.name || '') || !/\./.test(f.name || ''));
+        const imgFiles = picked.filter((f) => /^image\//.test(f.type || ''));
+        const normal = filterImportable(picked);
+        if (droppedHtml || (noteLike.length && !normal.files.length)) {
+          let html = droppedHtml;
+          if (!html && noteLike.length) {
+            try {
+              html = await noteLike[0].text();
+            } catch {
+              html = '';
+            }
+          }
+          if (html || droppedText || imgFiles.length) {
+            await importWechatNote({ html, text: droppedText, files: imgFiles });
+            return;
+          }
+        }
+        const { files, skipped } = normal;
         if (!files.length) return ui.toast('拖入的文件都不受支持', 'err');
         if (skipped) ui.toast(`已跳过 ${skipped} 个不支持或空文件`, '');
         uploadFiles(files);

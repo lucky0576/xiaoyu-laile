@@ -1054,7 +1054,17 @@ export default function registerCoreRoutes(app) {
     const rl = rateLimit(`remotimg:${clientIp(req)}`, 20, 60_000);
     if (!rl.ok) return fail(res, `操作太频繁，请 ${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(25000), redirect: 'follow' });
+      const r = await fetch(url, {
+        signal: AbortSignal.timeout(25000),
+        redirect: 'follow',
+        headers: {
+          // 微信笔记里的图片（mmbiz.qpic.cn）有防盗链，必须带 Referer/UA
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36 MicroMessenger/7.0.20',
+          Referer: 'https://mp.weixin.qq.com/',
+          Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+      });
       if (!r.ok) return fail(res, '图片下载失败', 502, 'download_failed');
       const mime = String(r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
       if (!/^image\/(jpeg|png|webp|gif)$/.test(mime)) return fail(res, '对方不是图片', 415, 'not_image');
