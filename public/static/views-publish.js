@@ -3276,56 +3276,127 @@ const removedFileIds = new Set();
         dragDepth = Math.max(0, dragDepth - 1);
         if (dragDepth === 0) setDragging(false);
       });
+      /* 诊断日志：把微信拖入实际带的数据记下来（服务器 journalctl 可查） */
+      const plog = (event, data) => {
+        try {
+          const payload = JSON.stringify({ event, data: data || null });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/client-log', new Blob([payload], { type: 'application/json' }));
+          } else {
+            fetch('/api/client-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+          }
+        } catch {
+          /* ignore */
+        }
+      };
+
+      /* 没有扩展名 / 类型未知的文件，按文件头猜真实类型（微信拖出来常见） */
+      const sniffFileType = async (file) => {
+        try {
+          const buf = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+          const hex = Array.from(buf.slice(0, 16)).map((b) => b.toString(16).padStart(2, '0')).join('');
+          if (hex.startsWith('89504e47')) return { ext: '.png', mime: 'image/png' };
+          if (hex.startsWith('ffd8ff')) return { ext: '.jpg', mime: 'image/jpeg' };
+          if (hex.startsWith('47494638')) return { ext: '.gif', mime: 'image/gif' };
+          if (hex.startsWith('25504446')) return { ext: '.pdf', mime: 'application/pdf' };
+          if (hex.startsWith('52494646') && hex.slice(16, 24) === '57454250') return { ext: '.webp', mime: 'image/webp' };
+          if (hex.startsWith('504b0304')) {
+            const chunk = await file.slice(0, 131072).text().catch(() => '');
+            if (chunk.includes('word/')) return { ext: '.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+            if (chunk.includes('xl/')) return { ext: '.xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+            if (chunk.includes('ppt/')) return { ext: '.pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
+            return { ext: '.zip', mime: 'application/zip' };
+          }
+          const head = new TextDecoder().decode(buf).trim().toLowerCase();
+          if (head.startsWith('<') || head.includes('<!doctype')) return { ext: '.html', mime: 'text/html' };
+          if (head && /^[\x09\x0a\x0d\x20-\x7e\u4e00-\u9fa5]+$/.test(head)) return { ext: '.txt', mime: 'text/plain' };
+        } catch {
+          /* ignore */
+        }
+        return null;
+      };
+
       dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dragDepth = 0;
         setDragging(false);
-        if (!e.dataTransfer) return;
+        const dt = e.dataTransfer;
+        if (!dt) return;
 
         dropHint.innerHTML = '正在读取…';
         let picked = [];
         try {
-          picked = await filesFromDataTransfer(e.dataTransfer);
+          picked = await filesFromDataTransfer(dt);
         } catch (err) {
           dropHint.innerHTML = hintText;
           return ui.toast('读取拖入内容失败：' + err.message, 'err');
         }
+        const droppedHtml = dt.getData('text/html') || '';
+        const droppedText = dt.getData('text/plain') || '';
+        const dtTypes = Array.from(dt.types || []);
+        plog('wechat-drop', {
+          types: dtTypes,
+          files: picked.map((f) => ({ n: f.name || '', t: f.type || '', s: f.size || 0 })),
+          htmlLen: droppedHtml.length,
+          textLen: droppedText.length,
+        });
         dropHint.innerHTML = hintText;
 
-        /* 微信笔记：拖入时没有独立文件，但带 text/html */
-        if (!picked.length) {
-          const html = e.dataTransfer.getData('text/html') || '';
-          const text = e.dataTransfer.getData('text/plain') || '';
-          if (html || text) {
-            await importWechatNote({ html, text, files: [] });
-            return;
+        try {
+          /* 1) 没有任何文件：只有 HTML/文本 → 当笔记导入 */
+          if (!picked.length) {
+            if (droppedHtml || droppedText) {
+              await importWechatNote({ html: droppedHtml, text: droppedText, files: [] });
+              return;
+            }
+            return ui.toast('没有识别到内容。请从微信笔记里拖文字/图片/文件过来，或直接复制粘贴', 'err');
           }
-          return ui.toast('没有识别到文件', 'err');
-        }
-        /* 微信笔记文件拖入（.html/.mht/无扩展名，或 html+图片） */
-        const droppedHtml = e.dataTransfer.getData('text/html') || '';
-        const droppedText = e.dataTransfer.getData('text/plain') || '';
-        const noteLike = picked.filter((f) => /\.(html?|mht|mhtml)$/i.test(f.name || '') || !/\./.test(f.name || ''));
-        const imgFiles = picked.filter((f) => /^image\//.test(f.type || ''));
-        const normal = filterImportable(picked);
-        if (droppedHtml || (noteLike.length && !normal.files.length)) {
-          let html = droppedHtml;
-          if (!html && noteLike.length) {
+
+          /* 2) 分类：笔记 html 文件 / 图片 / 已支持文件 / 未知文件 */
+          const noteFiles = picked.filter((f) => /\.(html?|mht|mhtml)$/i.test(f.name || ''));
+          const imgFiles = picked.filter((f) => /^image\//.test(f.type || '') || /^\s*$/.test(f.type || '') && /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name || ''));
+          const others = picked.filter((f) => !noteFiles.includes(f) && !imgFiles.includes(f));
+          const supported = [];
+          const unknowns = [];
+          for (const f of others) {
+            const ext = String((f.name || '').match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase().replace('.', '');
+            if (ext && ACCEPT_EXTS.includes(ext)) supported.push(f);
+            else unknowns.push(f);
+          }
+          const fixed = [];
+          for (const f of unknowns) {
+            const sniff = await sniffFileType(f);
+            if (sniff) fixed.push(new File([f], (f.name || '文件') + sniff.ext, { type: sniff.mime }));
+            else fixed.push(f);
+          }
+
+          /* 3) 有 HTML / 文本 / 笔记文件 → 先导笔记，再把其余文件按附件上传 */
+          let noteHtml = droppedHtml;
+          if (!noteHtml && noteFiles.length) {
             try {
-              html = await noteLike[0].text();
+              noteHtml = await noteFiles[0].text();
             } catch {
-              html = '';
+              noteHtml = '';
             }
           }
-          if (html || droppedText || imgFiles.length) {
-            await importWechatNote({ html, text: droppedText, files: imgFiles });
+          if (noteHtml || droppedText) {
+            await importWechatNote({ html: noteHtml, text: droppedText, files: imgFiles });
+            const rest = [...supported, ...fixed];
+            if (rest.length) {
+              const r = filterImportable(rest);
+              if (r.files.length) uploadFiles(r.files);
+            }
             return;
           }
+
+          /* 4) 普通文件拖入（微信笔记里的文件走这里） */
+          const { files, skipped } = filterImportable([...imgFiles, ...supported, ...fixed]);
+          if (!files.length) return ui.toast('拖入的文件都不受支持', 'err');
+          if (skipped) ui.toast(`已跳过 ${skipped} 个不支持或空文件`, '');
+          uploadFiles(files);
+        } catch (err) {
+          ui.toast('读取拖入内容失败：' + (err.message || '未知错误'), 'err');
         }
-        const { files, skipped } = normal;
-        if (!files.length) return ui.toast('拖入的文件都不受支持', 'err');
-        if (skipped) ui.toast(`已跳过 ${skipped} 个不支持或空文件`, '');
-        uploadFiles(files);
       });
 
       // 整个页面也接受拖拽，避免用户拖到附近没反应
