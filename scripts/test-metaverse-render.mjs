@@ -65,6 +65,12 @@ const checks = [
   ['three.js 文件存在且完整', fs.existsSync(three) && fs.statSync(three).size > 500000],
   ['项目展板可点击进详情', src.includes('listingId') && src.includes('#/detail/')],
   ['强脑科技展位', src.includes('#/brainco') && src.includes('BrainCo')],
+  ['数字人讲解音频', src.includes('/static/metaverse/mv-voice-1.mp3') && src.includes('voice-3')],
+  ['讲解按钮与字幕', html.includes('mv-narrate') && html.includes('mv-subtitle')],
+  ['3D 简模（灵巧手/双臂机器人）', src.includes('fingerParts') && src.includes('robotArms')],
+  ['数字人讲解员', src.includes('avatarParts') && src.includes('mouth')],
+  ['分享海报', src.includes('makePoster') && src.includes('mv-poster')],
+  ['VR 模式', src.includes('immersive-vr')],
   ['移动端手势（拖动/缩放）', src.includes('pointermove') && src.includes('pinchDist')],
 ];
 

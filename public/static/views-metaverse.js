@@ -143,12 +143,16 @@ export async function renderMetaverse(ctx) {
       <a class="mv-back" href="#/home" aria-label="返回">←</a>
       <div class="mv-title">杭州上城区 · 产业元宇宙展厅</div>
       <button class="mv-share" id="mv-share" type="button">↗ 分享</button>
+      <button class="mv-share mv-poster-btn" id="mv-poster" type="button">🖼 海报</button>
+      <button class="mv-share hide" id="mv-vr" type="button">🥽 VR</button>
     </div>
     <div class="mv-hint" id="mv-hint">拖动画面环顾展厅 · 点展板看项目</div>
     <div class="mv-ctl">
       <button class="mv-btn" id="mv-up" type="button" aria-label="前进">▲</button>
       <button class="mv-btn" id="mv-down" type="button" aria-label="后退">▼</button>
     </div>
+    <button class="mv-narrate" id="mv-narrate" type="button">🔊 听讲解</button>
+    <div class="mv-subtitle hide" id="mv-subtitle"></div>
     <div class="mv-loading" id="mv-loading">正在搭建展厅…</div>
     <div class="mv-qr-mask hide" id="mv-qr-mask">
       <div class="mv-qr">
@@ -251,6 +255,90 @@ export async function renderMetaverse(ctx) {
         if (e.target === qrMask) qrMask.classList.add('hide');
       });
 
+      /*
+       * 数字人讲解：3 段脚本（CosyVoice 配音，本地 mp3）
+       * 点击按钮循环播放：欢迎词 → 展厅介绍 → 强脑展位
+       */
+      const NARRATIONS = [
+        {
+          audio: '/static/metaverse/mv-voice-1.mp3',
+          text: '欢迎来到小鱼来了产业元宇宙展厅。这里是杭州上城区产业展厅，两侧展板展示了二十个真实产业项目，点击任意展板就能查看项目详情。',
+        },
+        {
+          audio: '/static/metaverse/mv-voice-2.mp3',
+          text: '小鱼来了把产业需求结构化，再用人工智能生成标题、摘要和短视频。现在您可以在这个三维展厅里浏览项目，也可以直接进入短视频和专题页面。',
+        },
+        {
+          audio: '/static/metaverse/mv-voice-3.mp3',
+          text: '这是强脑科技展位。强脑科技是全球非侵入式脑机接口领军企业，这里展示仿生灵巧手与双臂机器人，以及产教联合合作方案。',
+        },
+      ];
+      let narrIndex = -1;
+      let audioEl = null;
+      let narrating = false;
+      let narTimer = null;
+      let avatarParts = null;
+      const subtitleEl = root.querySelector('#mv-subtitle');
+      const narrBtn = root.querySelector('#mv-narrate');
+      const splitText = (t) =>
+        String(t || '')
+          .split(/(?<=[。！？；])/)
+          .map((x) => x.trim())
+          .filter(Boolean);
+      const stopNarration = (say = '') => {
+        narrating = false;
+        if (audioEl) {
+          try {
+            audioEl.pause();
+          } catch {
+            /* ignore */
+          }
+        }
+        if (narTimer) clearInterval(narTimer);
+        narrTimer = null;
+        if (subtitleEl) subtitleEl.classList.add('hide');
+        if (narrBtn) narrBtn.textContent = '🔊 听讲解';
+        if (say) ui.toast(say, 'ok');
+      };
+      const startNarration = (i) => {
+        stopNarration();
+        narrIndex = i % NARRATIONS.length;
+        const item = NARRATIONS[narrIndex];
+        const segs = splitText(item.text);
+        audioEl = new Audio(item.audio);
+        narrating = true;
+        if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}`;
+        if (subtitleEl) {
+          subtitleEl.classList.remove('hide');
+          subtitleEl.textContent = segs[0] || '';
+        }
+        const tick = () => {
+          if (!audioEl || !subtitleEl) return;
+          const d = audioEl.duration || 0;
+          if (!d) return;
+          const idx = Math.min(segs.length - 1, Math.floor((audioEl.currentTime / d) * segs.length));
+          subtitleEl.textContent = segs[idx] || '';
+        };
+        narTimer = setInterval(tick, 300);
+        audioEl.addEventListener('ended', () => stopNarration());
+        audioEl.play().catch(() => {
+          stopNarration('浏览器拦截了自动播放，请再点一次');
+        });
+      };
+      narrBtn?.addEventListener('click', () => {
+        if (narrating && audioEl) {
+          if (audioEl.paused) {
+            audioEl.play().catch(() => {});
+            narrating = true;
+            if (narrBtn) narrBtn.textContent = `⏸ 讲解 ${narrIndex + 1}/${NARRATIONS.length}`;
+          } else {
+            stopNarration();
+          }
+          return;
+        }
+        startNarration(narrIndex + 1);
+      });
+
       let raf = 0;
       let renderer = null;
       (async () => {
@@ -263,7 +351,7 @@ export async function renderMetaverse(ctx) {
           return;
         }
         try {
-          renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+          renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
         } catch (err) {
           console.warn('[metaverse] WebGL 初始化失败', err);
           showFallback('浏览器不支持 WebGL');
@@ -435,6 +523,140 @@ export async function renderMetaverse(ctx) {
         scene.add(booth);
         clickable.push(booth);
 
+        /* ---------------- 3D 简模：灵巧手 / 双臂机器人 / 数字人 ---------------- */
+        const metal = new THREE.MeshStandardMaterial({ color: 0xd8e2ec, metalness: 0.75, roughness: 0.32 });
+        const darkMetal = new THREE.MeshStandardMaterial({ color: 0x2b3a4a, metalness: 0.6, roughness: 0.5 });
+        const accent = new THREE.MeshStandardMaterial({ color: 0x1e9bff, emissive: 0x0a3f77, metalness: 0.4, roughness: 0.4 });
+
+        // 灵巧手（展台左侧）
+        const handRoot = new THREE.Group();
+        const palm = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.32, 1.5), metal);
+        palm.position.y = 1.9;
+        handRoot.add(palm);
+        const fingerParts = [];
+        const fingerX = [-0.42, -0.14, 0.14, 0.42];
+        fingerX.forEach((x, i) => {
+          const base = new THREE.Group();
+          base.position.set(x, 2.06, 0.72);
+          const seg1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), darkMetal);
+          seg1.position.y = 0.25;
+          base.add(seg1);
+          const j2 = new THREE.Group();
+          j2.position.y = 0.5;
+          const seg2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.42, 0.14), metal);
+          seg2.position.y = 0.21;
+          j2.add(seg2);
+          j2.rotation.x = -0.25 - i * 0.02;
+          base.add(j2);
+          base.rotation.x = -0.15;
+          handRoot.add(base);
+          fingerParts.push({ base, j2, phase: i * 0.9 });
+        });
+        // 拇指
+        const thumb = new THREE.Group();
+        thumb.position.set(-0.66, 1.9, 0.3);
+        const thumbSeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.5, 0.18), darkMetal);
+        thumbSeg.position.y = 0.22;
+        thumb.add(thumbSeg);
+        thumb.rotation.z = 0.7;
+        handRoot.add(thumb);
+        fingerParts.push({ base: thumb, j2: null, phase: 1.7 });
+
+        // 机械臂底座 + 机械臂
+        const armBase = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 0.5, 24), darkMetal);
+        armBase.position.y = 0.25;
+        handRoot.add(armBase);
+        const armLower = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 1.1, 16), metal);
+        armLower.position.set(0, 0.95, -0.28);
+        armLower.rotation.x = 0.25;
+        handRoot.add(armLower);
+        handRoot.position.set(-4.6, 0, -20.6);
+        handRoot.rotation.y = 0.35;
+        scene.add(handRoot);
+
+        // 双臂机器人（展台右侧）
+        const robotRoot = new THREE.Group();
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.6, 0.8), metal);
+        torso.position.y = 3.1;
+        robotRoot.add(torso);
+        const chest = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.1), accent);
+        chest.position.set(0, 3.25, 0.44);
+        robotRoot.add(chest);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.6), metal);
+        head.position.y = 4.15;
+        robotRoot.add(head);
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.16, 0.05), new THREE.MeshBasicMaterial({ color: 0x7fd7ff }));
+        visor.position.set(0, 4.18, 0.33);
+        robotRoot.add(visor);
+        const robotArms = [];
+        [-1, 1].forEach((side) => {
+          const shoulder = new THREE.Group();
+          shoulder.position.set(side * 0.95, 3.8, 0);
+          const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.9, 14), darkMetal);
+          upper.position.y = -0.45;
+          shoulder.add(upper);
+          const elbow = new THREE.Group();
+          elbow.position.y = -0.9;
+          const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.85, 14), metal);
+          fore.position.y = -0.42;
+          elbow.add(fore);
+          const hand = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.4, 0.12), darkMetal);
+          hand.position.y = -0.95;
+          elbow.add(hand);
+          shoulder.add(elbow);
+          shoulder.rotation.z = side * 0.22;
+          robotRoot.add(shoulder);
+          robotArms.push({ shoulder, elbow, side, phase: side * 1.3 });
+        });
+        const robotBase = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.5, 28), darkMetal);
+        robotBase.position.y = 0.25;
+        robotRoot.add(robotBase);
+        robotBase.position.y = 1.2;
+        robotRoot.position.set(4.7, 0, -20.6);
+        robotRoot.rotation.y = -0.3;
+        scene.add(robotRoot);
+
+        // 数字人讲解员（入口右侧）
+        const avatar = new THREE.Group();
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1b2b44, roughness: 0.7, metalness: 0.2 });
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0xf0d6c4, roughness: 0.8 });
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.46, 1.25, 20), bodyMat);
+        body.position.y = 1.35;
+        avatar.add(body);
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.16, 12), skinMat);
+        neck.position.y = 2.05;
+        avatar.add(neck);
+        const avatarHead = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 20), skinMat);
+        avatarHead.position.y = 2.36;
+        avatar.add(avatarHead);
+        const hair = new THREE.Mesh(new THREE.SphereGeometry(0.29, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: 0x1b1b1f, roughness: 0.9 }));
+        hair.position.y = 2.4;
+        avatar.add(hair);
+        const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.02), new THREE.MeshBasicMaterial({ color: 0x8a3b3b }));
+        mouth.position.set(0, 2.28, 0.27);
+        avatar.add(mouth);
+        [-1, 1].forEach((side) => {
+          const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.95, 12), bodyMat);
+          arm.position.set(side * 0.42, 1.5, 0);
+          arm.rotation.z = side * 0.25;
+          avatar.add(arm);
+        });
+        const badge = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.02), accent);
+        badge.position.set(0, 1.78, 0.3);
+        avatar.add(badge);
+        avatar.position.set(2.4, 0, 7.6);
+        avatar.rotation.y = -0.18;
+        // 数字人脚下光圈
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.55, 0.72, 40),
+          new THREE.MeshBasicMaterial({ color: 0x2a8fd6, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.02;
+        avatar.add(ring);
+        scene.add(avatar);
+        avatarParts = { avatar, mouth, arms: avatar.children.filter((c) => c.geometry && c.geometry.type === 'CylinderGeometry') };
+
         // 交互
         let dragging = false;
         let moved = 0;
@@ -541,6 +763,102 @@ export async function renderMetaverse(ctx) {
         resize();
         window.addEventListener('resize', resize);
 
+        /* ---------------- 分享海报（3D 截图 + 二维码） ---------------- */
+        const posterBtn = root.querySelector('#mv-poster');
+        const makePoster = async () => {
+          if (!posterBtn) return;
+          posterBtn.disabled = true;
+          posterBtn.textContent = '生成中…';
+          try {
+            renderer.render(scene, camera);
+            const src = renderer.domElement;
+            const W = 1080;
+            const H = 1440;
+            const cv = document.createElement('canvas');
+            cv.width = W;
+            cv.height = H;
+            const g = cv.getContext('2d');
+            const bg = g.createLinearGradient(0, 0, W, H);
+            bg.addColorStop(0, '#06101f');
+            bg.addColorStop(0.55, '#0d2740');
+            bg.addColorStop(1, '#123a3a');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            const iw = W - 120;
+            const ih = Math.min(700, Math.round((iw * src.height) / Math.max(1, src.width)));
+            g.drawImage(src, 60, 210, iw, ih);
+            g.fillStyle = '#ffffff';
+            g.font = '800 54px "PingFang SC", "Microsoft YaHei", sans-serif';
+            g.fillText('小鱼来了 · 产业元宇宙展厅', 60, 118);
+            g.fillStyle = '#7fd7ff';
+            g.font = '600 27px "PingFang SC", "Microsoft YaHei", sans-serif';
+            g.fillText('杭州上城区 · 20 个真实产业项目 · 强脑科技展位', 60, 164);
+            g.fillStyle = 'rgba(255,255,255,0.85)';
+            g.font = '400 26px "PingFang SC", "Microsoft YaHei", sans-serif';
+            g.fillText('扫码进入展厅', 60, H - 300);
+            g.fillStyle = 'rgba(255,255,255,0.62)';
+            g.font = '400 22px "PingFang SC", "Microsoft YaHei", sans-serif';
+            g.fillText('拖动环顾 · 点展板看项目 · 强脑科技展位', 60, H - 262);
+            const qr = await new Promise((resolve) => {
+              const im = new Image();
+              im.onload = () => resolve(im);
+              im.onerror = () => resolve(null);
+              im.src = `/api/share/qrcode?size=360&text=${encodeURIComponent(location.origin + '/#/metaverse')}`;
+            });
+            if (qr) g.drawImage(qr, W - 420, H - 460, 360, 360);
+            g.fillStyle = 'rgba(255,255,255,0.55)';
+            g.font = '400 20px "PingFang SC", "Microsoft YaHei", sans-serif';
+            g.fillText('小鱼来了 · xiaoyulaile.online', 60, H - 56);
+            const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+            const file = new File([blob], '小鱼来了-产业元宇宙展厅.png', { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: '小鱼来了 · 产业元宇宙展厅' });
+            } else {
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = file.name;
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+              ui.toast('海报已生成，已开始下载', 'ok');
+            }
+          } catch (err) {
+            console.warn('[metaverse] 海报生成失败', err);
+            ui.toast('海报生成失败，可直接截图分享', 'err');
+          } finally {
+            posterBtn.disabled = false;
+            posterBtn.textContent = '🖼 海报';
+          }
+        };
+        posterBtn?.addEventListener('click', makePoster);
+
+        /* ---------------- VR 模式（WebXR，支持才显示） ---------------- */
+        const vrBtn = root.querySelector('#mv-vr');
+        if (vrBtn && navigator.xr && navigator.xr.isSessionSupported) {
+          navigator.xr
+            .isSessionSupported('immersive-vr')
+            .then((ok) => {
+              if (ok) vrBtn.classList.remove('hide');
+            })
+            .catch(() => {});
+          vrBtn.addEventListener('click', async () => {
+            try {
+              const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
+              renderer.xr.enabled = true;
+              renderer.xr.setSession(session);
+              cancelAnimationFrame(raf);
+              renderer.setAnimationLoop(() => renderer.render(scene, camera));
+              ui.toast('已进入 VR 模式', 'ok');
+              session.addEventListener('end', () => {
+                renderer.setAnimationLoop(null);
+                renderer.xr.enabled = false;
+                raf = requestAnimationFrame(animate);
+              });
+            } catch (err) {
+              ui.toast('当前设备不支持 VR 或未授权', 'err');
+            }
+          });
+        }
+
         let t = 0;
         let disposed = false;
         const clock = new THREE.Clock();
@@ -575,6 +893,24 @@ export async function renderMetaverse(ctx) {
           clickable.forEach((obj, i) => {
             if (obj.geometry) obj.position.y = 3.6 + Math.sin(t * 0.8 + i) * 0.05;
           });
+          // 灵巧手手指 + 机械臂
+          fingerParts.forEach((f) => {
+            f.base.rotation.x = -0.15 + Math.sin(t * 1.6 + f.phase) * 0.28;
+            if (f.j2) f.j2.rotation.x = -0.25 + Math.sin(t * 1.9 + f.phase) * 0.3;
+          });
+          robotArms.forEach((a) => {
+            a.shoulder.rotation.z = a.side * (0.22 + Math.sin(t * 1.1 + a.phase) * 0.12);
+            a.elbow.rotation.x = Math.sin(t * 0.9 + a.phase) * 0.18;
+          });
+          // 数字人：呼吸 + 讲解时张嘴
+          if (avatarParts) {
+            avatarParts.avatar.position.y = Math.sin(t * 1.4) * 0.02;
+            const m = narrating ? 1 + Math.abs(Math.sin(t * 14)) * 1.6 : 1;
+            avatarParts.mouth.scale.y = m;
+            avatarParts.arms.forEach((arm, i) => {
+              arm.rotation.z = (i === 0 ? -1 : 1) * (0.25 + (narrating ? Math.sin(t * 1.3 + i) * 0.12 : 0));
+            });
+          }
           renderer.render(scene, camera);
           raf = requestAnimationFrame(animate);
         };

@@ -2758,3 +2758,40 @@ ul { margin: 0; padding-left: 18px; }
 }
 .mv-fb-card b { display: block; font-size: 13px; font-weight: 800; color: #fff; }
 .mv-fb-card span { display: block; margin-top: 4px; font-size: 11px; color: rgba(255, 255, 255, 0.6); }
+
+
+/* 元宇宙：讲解按钮 + 字幕 + 海报按钮 */
+.mv-poster-btn { margin-left: 4px; }
+.mv-narrate {
+  position: absolute;
+  left: 14px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(127, 215, 255, 0.5);
+  background: rgba(4, 10, 20, 0.72);
+  color: #bfe9ff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+.mv-narrate:active { background: rgba(9, 175, 255, 0.28); }
+.mv-subtitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  width: min(760px, calc(100% - 32px));
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(4, 10, 20, 0.78);
+  color: #eaf6ff;
+  font-size: 13.5px;
+  line-height: 1.7;
+  text-align: center;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+.mv-subtitle.hide { display: none; }
