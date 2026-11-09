@@ -172,10 +172,7 @@ export async function renderMetaverse(ctx) {
     noTab: true,
     activeTab: 'home',
     mount(root) {
-      clog('mount-start', { w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
-      const canvas = root.querySelector('#mv-canvas');
-      const hint = root.querySelector('#mv-hint');
-      /* 前端诊断日志：出问题可在服务器 journalctl 里看到 */
+      /* 前端诊断日志：出问题可在服务器日志里看到（必须最先定义，避免 TDZ） */
       const clog = (event, data) => {
         try {
           const payload = JSON.stringify({ event, data: data || null });
@@ -190,6 +187,9 @@ export async function renderMetaverse(ctx) {
       };
       window.addEventListener('error', (e) => clog('window-error', { msg: String(e.message || ''), src: String(e.filename || ''), line: e.lineno || 0 }));
       window.addEventListener('unhandledrejection', (e) => clog('unhandledrejection', { msg: String((e.reason && e.reason.message) || e.reason || '') }));
+      clog('mount-start', { w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
+      const canvas = root.querySelector('#mv-canvas');
+      const hint = root.querySelector('#mv-hint');
       const loading = root.querySelector('#mv-loading');
       const installBar = document.getElementById('install-bar');
       if (installBar) installBar.style.display = 'none';
