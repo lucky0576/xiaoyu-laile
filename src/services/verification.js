@@ -3,7 +3,7 @@
  *
  * 注册时选择身份类型，之后完成对应认证：
  *   - 个人：姓名 + 身份证号 + 身份证正反面照片
- *   - 企业：营业执照 + 企业信息，通过 AI 征信审核
+ *   - 企业 / 机构：营业执照或执业许可证 + 机构信息，通过 AI 征信审核
  *
  * 关于"AI 征信审核"的边界（很重要）：
  *   本模块的审核依据是**用户提交的材料本身**，包括：
@@ -55,7 +55,7 @@ export const RISK_LEVELS = {
 const RISK_KEYWORDS = [
   { re: /失信被执行|失信人/, level: 'high', label: '涉及失信被执行' },
   { re: /经营异常|异常名录/, level: 'high', label: '被列入经营异常名录' },
-  { re: /吊销|已注销|注销中/, level: 'high', label: '营业执照已吊销或注销' },
+  { re: /吊销|已注销|注销中/, level: 'high', label: '证照已吊销或注销' },
   { re: /破产|清算/, level: 'high', label: '涉及破产或清算' },
   { re: /限制高消费|限高/, level: 'medium', label: '涉及限制高消费' },
   { re: /被执行人|强制执行/, level: 'medium', label: '涉及被执行' },
@@ -169,13 +169,13 @@ const SYSTEM_HINT =
 
 export async function aiReviewCompany(input) {
   const materials = [
-    `企业名称：${input.companyName || '（未填）'}`,
+    `机构名称：${input.companyName || '（未填）'}`,
     `统一社会信用代码：${input.creditCode || '（未填）'}`,
-    `法定代表人：${input.legalPerson || '（未填）'}`,
-    `注册资本：${input.regCapital || '（未填）'}`,
+    `法定代表人 / 负责人：${input.legalPerson || '（未填）'}`,
+    `注册资本 / 开办资金：${input.regCapital || '（未填）'}`,
     `成立日期：${input.foundedAt || '（未填）'}`,
-    `注册地址：${input.address || '（未填）'}`,
-    `经营范围：${input.scope || '（未填）'}`,
+    `注册地址 / 执业场所：${input.address || '（未填）'}`,
+    `经营范围 / 执业范围：${input.scope || '（未填）'}`,
     input.extra ? `补充材料：${input.extra}` : '',
   ]
     .filter(Boolean)
@@ -199,11 +199,11 @@ export async function aiReviewCompany(input) {
           content: `请审核下面这家企业的注册材料，判断其作为平台会员的风险等级。
 
 ${materials}
-${input.licenseText ? `\n营业执照 OCR 文本：\n"""${String(input.licenseText).slice(0, 3000)}"""` : ''}
+${input.licenseText ? `\n营业执照 / 执业许可证 OCR 文本：\n"""${String(input.licenseText).slice(0, 3000)}"""` : ''}
 ${external ? `\n外部征信结果：${JSON.stringify(external)}` : ''}
 
 评估维度：
-1. 材料完整性与一致性（名称 / 代码 / 法人 / 地址是否互相吻合，有无矛盾）
+1. 材料完整性与一致性（名称 / 代码 / 法人或负责人 / 地址是否互相吻合，有无矛盾）
 2. 经营范围是否清晰、是否含需要前置审批的项目
 3. 成立时间与注册资本是否与其声称的业务规模相称
 4. 是否存在经营异常、失信、涉诉、处罚等风险信号
@@ -264,7 +264,7 @@ export function localReviewCompany(input, materials = '') {
 
   const name = checkCompanyName(input.companyName);
   if (!input.companyName) {
-    missing.push('企业名称');
+    missing.push('机构名称');
     score -= 20;
   } else if (!name.ok) {
     findings.push(name.reason);
@@ -275,10 +275,10 @@ export function localReviewCompany(input, materials = '') {
   }
 
   for (const [key, label] of [
-    ['legalPerson', '法定代表人'],
-    ['regCapital', '注册资本'],
+    ['legalPerson', '法定代表人 / 负责人'],
+    ['regCapital', '注册资本 / 开办资金'],
     ['foundedAt', '成立日期'],
-    ['scope', '经营范围'],
+    ['scope', '经营范围 / 执业范围'],
   ]) {
     if (!String(input[key] || '').trim()) {
       missing.push(label);
@@ -287,10 +287,10 @@ export function localReviewCompany(input, materials = '') {
   }
 
   if (!input.licenseFileId) {
-    missing.push('营业执照照片');
+    missing.push('营业执照 / 执业许可证照片');
     score -= 25;
   } else {
-    findings.push('已上传营业执照');
+    findings.push('已上传营业执照 / 执业许可证');
   }
 
   // 成立时间与规模是否相称
@@ -339,7 +339,7 @@ export function localReviewCompany(input, materials = '') {
       riskLevel === 'low'
         ? '可自动通过，正常开展业务。'
         : riskLevel === 'medium'
-          ? '建议转人工复核，重点核对营业执照照片与填写信息是否一致。'
+          ? '建议转人工复核，重点核对营业执照 / 执业许可证照片与填写信息是否一致。'
           : '建议拒绝或要求补充材料后重新提交。',
     materials,
     source: 'local',

@@ -894,18 +894,25 @@ export default function registerAuthUserRoutes(app) {
         ],
       },
       company: {
-        label: '企业认证',
-        desc: '填写企业信息并上传营业执照，系统会做 AI 征信审核。',
+        label: '企业 / 机构认证',
+        desc:
+          '填写机构信息并上传营业执照或执业许可证（律师事务所、会计师事务所等专业机构），'
+          + '系统会做 AI 征信审核。',
         fields: [
-          { key: 'companyName', label: '企业名称', placeholder: '与营业执照一致', required: true },
-          { key: 'creditCode', label: '统一社会信用代码', placeholder: '18 位', required: true },
-          { key: 'legalPerson', label: '法定代表人', required: true },
-          { key: 'regCapital', label: '注册资本', placeholder: '如 5000 万元' },
+          { key: 'companyName', label: '机构名称', placeholder: '与营业执照 / 执业许可证一致', required: true },
+          {
+            key: 'creditCode',
+            label: '统一社会信用代码',
+            placeholder: '18 位（执照或执业许可证上的代码）',
+            required: true,
+          },
+          { key: 'legalPerson', label: '法定代表人 / 负责人', placeholder: '律所填负责人', required: true },
+          { key: 'regCapital', label: '注册资本 / 开办资金', placeholder: '如 5000 万元' },
           { key: 'foundedAt', label: '成立日期', placeholder: '如 2015-06-01' },
-          { key: 'address', label: '注册地址' },
-          { key: 'scope', label: '经营范围', multiline: true },
+          { key: 'address', label: '注册地址 / 执业场所' },
+          { key: 'scope', label: '经营范围 / 执业范围', multiline: true },
         ],
-        files: [{ key: 'license', label: '营业执照照片', required: true }],
+        files: [{ key: 'license', label: '营业执照 / 执业许可证照片', required: true }],
       },
       creditNote:
         'AI 征信审核依据的是您提交的材料本身（代码校验位、字段一致性、经营范围匹配、风险关键词），'

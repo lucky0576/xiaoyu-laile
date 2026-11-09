@@ -573,7 +573,7 @@ export async function renderRegister(ctx, query) {
 
       const typeHint = {
         personal: '认证是选填的：填姓名与身份证号并上传照片即可完成。发布项目或成为服务商时需要认证。',
-        company: '认证是选填的：上传营业执照并填写企业信息，由 AI 征信审核。发布项目或成为服务商时需要认证。',
+        company: '认证是选填的：上传营业执照或执业许可证（律所、会计师事务所等）并填写机构信息，由 AI 征信审核。发布项目或成为服务商时需要认证。',
       };
       const applyType = (t) => {
         accountType = t;
@@ -886,7 +886,7 @@ export async function renderVerify(ctx, query) {
       <div class="acct-opt" data-type="personal"><div class="ico">👤</div><div class="strong">个人认证</div>
         <div class="tiny dim">身份证实名认证</div></div>
       <div class="acct-opt" data-type="company"><div class="ico">🏢</div><div class="strong">企业认证</div>
-        <div class="tiny dim">营业执照 + AI 征信审核</div></div>
+        <div class="tiny dim">营业执照 / 执业许可证 + AI 征信审核</div></div>
     </div>
 
     <div class="step-hint mb12" id="vf-desc"></div>
@@ -967,7 +967,7 @@ export async function renderVerify(ctx, query) {
           desc.innerHTML =
             t === 'personal'
               ? `<b>个人认证</b> —— ${ui.esc(meta.personal?.desc || '填写姓名与身份证号，上传身份证正反面照片。')}`
-              : `<b>企业认证</b> —— ${ui.esc(meta.company?.desc || '填写企业信息并上传营业执照，由 AI 征信审核。')}`;
+              : `<b>企业 / 机构认证</b> —— ${ui.esc(meta.company?.desc || '填写机构信息并上传营业执照 / 执业许可证，由 AI 征信审核。')}`;
         }
       };
       root.querySelector('#vf-type')?.addEventListener('click', (e) => {
@@ -1156,7 +1156,7 @@ export async function renderMe(ctx, query) {
             ? 'AI 审核中，等待人工复核'
             : u.verification?.status === 'rejected'
               ? '未通过，请核对材料后重新提交'
-              : '个人上传身份证 / 企业上传营业执照 + AI 征信审核'
+              : '个人上传身份证 / 企业或机构上传营业执照或执业许可证 + AI 征信审核'
       }</div></div><span class="dim">›</span></a>
       <a class="item" href="#/qualification"><div class="avatar">🛡️</div><div class="item-body"><div class="item-title">企业资质认证</div><div class="item-sub">${verified ? '已通过认证' : u.qualification?.status === 'pending' ? '审核中' : '上传营业执照与资质证书'}</div></div><span class="dim">›</span></a>
       <a class="item" href="#/profile"><div class="avatar">⚙️</div><div class="item-body"><div class="item-title">资料与设置</div><div class="item-sub">头像、企业介绍、通知偏好</div></div><span class="dim">›</span></a>
@@ -1618,7 +1618,7 @@ export async function renderQualification(ctx) {
       </div>
       <div class="field">
         <label>资质文件</label>
-        <button class="btn btn-sm btn-outline" id="qf-pick">📎 上传营业执照 / 资质证书（可多选）</button>
+        <button class="btn btn-sm btn-outline" id="qf-pick">📎 上传营业执照 / 执业许可证 / 资质证书（可多选）</button>
         <input type="file" id="qf-files" multiple accept="image/*,.pdf,.doc,.docx" style="display:none">
         <div id="qf-file-list" class="row wrap gap8 mt8">
           ${(q.files || []).map((f) => fileCardHtml(f)).join('')}

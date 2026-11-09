@@ -39,8 +39,8 @@ export async function renderProvider(ctx, params) {
       </div>
 
       <div class="field">
-        <label>公司全称 <span class="tiny dim">（必填）</span></label>
-        <input class="input" id="sp-company" maxlength="60" placeholder="如：山东某某电力工程有限公司" value="${ui.esc(app?.companyName || '')}">
+        <label>机构全称 <span class="tiny dim">（必填）</span></label>
+        <input class="input" id="sp-company" maxlength="60" placeholder="如：山东某某电力工程有限公司 / 北京市某某（呼和浩特）律师事务所" value="${ui.esc(app?.companyName || '')}">
       </div>
       <div class="field">
         <label>简称 <span class="tiny dim">（选填，用于列表展示）</span></label>
@@ -48,7 +48,8 @@ export async function renderProvider(ctx, params) {
       </div>
       <div class="field">
         <label>统一社会信用代码 <span class="tiny dim">（选填）</span></label>
-        <input class="input" id="sp-credit" maxlength="30" placeholder="18 位" value="${ui.esc(app?.creditCode || '')}">
+        <input class="input" id="sp-credit" maxlength="30" placeholder="18 位（营业执照或执业许可证上的代码）" value="${ui.esc(app?.creditCode || '')}">
+        <div class="tiny dim mt4">律师事务所、会计师事务所等专业机构：代码填《执业许可证》上的统一社会信用代码</div>
       </div>
 
       <div class="field">
@@ -86,7 +87,7 @@ export async function renderProvider(ctx, params) {
 
       <div class="field">
         <label>资质证书 <span class="tiny dim">（选填）</span></label>
-        <textarea class="textarea" id="sp-quals" rows="2" maxlength="1000" placeholder="如：电力工程施工总承包一级、承装（修、试）二级">${ui.esc(app?.qualifications || '')}</textarea>
+        <textarea class="textarea" id="sp-quals" rows="2" maxlength="1000" placeholder="如：电力工程施工总承包一级；律所填「律师事务所分所执业许可证」（证号/发证机关/有效期）">${ui.esc(app?.qualifications || '')}</textarea>
       </div>
 
       <div class="row gap8">
