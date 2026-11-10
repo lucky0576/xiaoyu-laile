@@ -39,9 +39,19 @@ function priceText(x) {
   return String(p);
 }
 
+const TYPE_LABEL = {
+  asset_sale: '出售',
+  asset_transfer: '转让',
+  asset_financing: '融资',
+  transfer: '转让',
+  sale: '出售',
+  financing: '融资',
+};
+
 function cardHtml(x) {
   const city = (x.cities || [])[0];
-  const meta = [city && (city.name || city), x.typeName].filter(Boolean).join(' · ');
+  const typeName = TYPE_LABEL[x.typeName] || x.typeName || '';
+  const meta = [city && (city.name || city), typeName].filter(Boolean).join(' · ');
   const price = priceText(x);
   return `<a class="es-card" href="#/detail/${ui.esc(x.id)}">
     <div class="es-card-t">${ui.esc(x.title || '')}</div>
