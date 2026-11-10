@@ -172,7 +172,7 @@ export async function renderTajian(ctx) {
         </div>
         <div class="row gap8 mt16" style="flex-wrap:wrap">
           <a class="btn btn-primary" href="#tj-business">看业务与合作</a>
-          <button class="btn btn-outline" id="tj-apply" type="button">🤝 申请合作</button>
+          <button class="btn btn-outline" id="tj-apply" type="button">🤝 申请成为合伙人</button>
           <button class="btn btn-outline" id="tj-quote" type="button">💰 获取报价</button>
           <button class="btn btn-outline" id="tj-share" type="button">↗ 分享专题</button>
         </div>
@@ -432,11 +432,11 @@ export async function renderTajian(ctx) {
     <!-- 08 申请合作 -->
     <div class="tj-section" id="tj-contact">
       <div class="tj-sec-head">
-        <div class="tj-sec-t">08 申请合作 / 报价</div>
+        <div class="tj-sec-t">08 申请成为合伙人 / 获取报价</div>
         <div class="tj-sec-d">工商业光伏、储能、整村微电网均可提交需求</div>
       </div>
       <div class="row gap8" style="flex-wrap:wrap">
-        <button class="btn btn-primary" id="tj-apply2" type="button" style="flex:1;min-width:130px;height:46px">🤝 申请合作</button>
+        <button class="btn btn-primary" id="tj-apply2" type="button" style="flex:1;min-width:130px;height:46px">🤝 申请成为合伙人</button>
         <button class="btn btn-outline" id="tj-quote2" type="button" style="flex:1;min-width:130px;height:46px">💰 获取报价</button>
       </div>
       <div class="tiny dim center mt8">提交后平台与塔建集团商务对接，提供踏勘与方案报价</div>
@@ -522,14 +522,14 @@ export async function renderTajian(ctx) {
       /* 申请合作表单 */
       const openApply = (preset, mode = 'coop') => {
         if (!isLoggedIn()) {
-          ui.toast(mode === 'quote' ? '登录后才能获取报价' : '登录后才能提交合作需求', 'err');
+          ui.toast(mode === 'quote' ? '登录后才能获取报价' : '登录后才能申请成为合伙人', 'err');
           ctx.nav('#/login');
           return;
         }
         const isQuote = mode === 'quote';
         const picked = new Set(isQuote ? ['工商业光伏', '工商业储能'] : preset ? [preset] : ['工商业光伏']);
         ui.openSheet({
-          title: isQuote ? '获取报价' : '申请合作',
+          title: isQuote ? '获取报价' : '申请成为合伙人',
           content: `<div class="tiny dim mb8">${isQuote ? '告诉我们项目情况，商务会提供投资模式与收益测算报价。' : '提交后平台与塔建集团商务会联系您，安排踏勘与方案测算。'}</div>
             <div class="field"><label>姓名 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-name" maxlength="30" placeholder="您的姓名"></div>
             <div class="field"><label>单位 / 公司 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-org" maxlength="80" placeholder="公司或单位名称"></div>
@@ -558,7 +558,7 @@ export async function renderTajian(ctx) {
               <input type="file" id="tj-files" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,image/*">
               <div class="tiny dim mt6">可上传屋顶照片、电费单、场地图纸等</div>
             </div>
-            <button class="btn btn-primary btn-block mt8" id="tj-submit">提交合作需求</button>`,
+            <button class="btn btn-primary btn-block mt8" id="tj-submit">${isQuote ? '提交报价需求' : '提交合伙人申请'}</button>`,
           onMount(sheet, close) {
             const modeSet = new Set();
             sheet.querySelector('#tj-modes')?.addEventListener('click', (ev) => {
@@ -611,9 +611,9 @@ export async function renderTajian(ctx) {
                 }
                 btn.textContent = '提交中…';
                 const dirText = [...picked].join('、') || '工商业光伏';
-                const text = `【塔建集团 · ${isQuote ? '新能源报价' : '新能源合作'}】杭州塔建新能源科技集团有限公司
+                const text = `【塔建集团 · ${isQuote ? '新能源报价' : '合伙人申请'}】杭州塔建新能源科技集团有限公司
 
-申请类型：${isQuote ? '报价申请（投资 / EPC / 收益测算）' : '合作申请'}
+申请类型：${isQuote ? '报价申请（投资 / EPC / 收益测算）' : '合伙人申请（合作 / 投资 / 项目共建）'}
 合作单位：${org}
 联系人：${name}
 电话：${phone}
@@ -637,8 +637,8 @@ ${note || '（未填写，可由商务电话沟通）'}
                 const res = await service.createListing(
                   api.form({
                     category: 'project',
-                    title: `寻求合作｜${org} · 塔建集团新能源`.slice(0, 80),
-                    subtitle: `${city} · ${org} · ${isQuote ? '光伏 / 储能报价需求' : '工商业光伏 / 储能合作需求'}`,
+                    title: `申请合伙人｜${org} · 塔建集团新能源`.slice(0, 80),
+                    subtitle: `${city} · ${org} · ${isQuote ? '光伏 / 储能报价需求' : '申请成为合伙人 · 工商业光伏 / 储能'}`,
                     text,
                     type: '寻求合作',
                     durationDays: 180,
