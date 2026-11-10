@@ -3355,3 +3355,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .atp-side { flex: none; display: flex; align-items: center; gap: 8px; }
 .atp-time { font-size: 10.5px; color: #8a94a6; }
 .atp-go { color: #c3ccda; }
+
+
+/* 页内锚点跳转时给吸顶栏留出空间 */
+[id] { scroll-margin-top: 72px; }

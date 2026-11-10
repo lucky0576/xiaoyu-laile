@@ -3357,6 +3357,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .atp-time { font-size: 10.5px; color: #8a94a6; }
 .atp-go { color: #c3ccda; }
 
+
+/* 页内锚点跳转时给吸顶栏留出空间 */
+[id] { scroll-margin-top: 72px; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

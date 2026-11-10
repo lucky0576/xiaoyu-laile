@@ -111,6 +111,21 @@ document.addEventListener('click', (e) => {
   render();
 });
 
+/*
+ * 页内锚点（如 #bc-products / #tj-business）：只滚动到对应区块，
+ * 不能交给 hash 路由 —— 否则会被当成未知页面，点了像「没反应」。
+ */
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  const href = a.getAttribute('href') || '';
+  if (!href || href === '#' || href.startsWith('#/')) return;
+  const target = document.getElementById(href.slice(1));
+  if (!target) return;
+  e.preventDefault();
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
 const TABS = [
   { id: 'home', icon: '🏠', name: '首页', href: '#/home' },
   { id: 'project', icon: '📁', name: '项目', href: '#/list/project' },
