@@ -197,7 +197,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
       ` : `
         <div class="upload-zone" id="pm-drop">
           <div class="upload-zone-ico">🎬</div>
-          <div class="upload-zone-main" id="pm-video-hint">把短视频拖到这里，或点下面选择</div>
+          <div class="upload-zone-main" id="pm-video-hint">把短视频拖到这里，或点下面选择<br><span class="tiny dim">视频超过 30MB 会自动压缩，播放更流畅</span></div>
           <div class="upload-zone-sub">MP4 / MOV / WebM，建议 1080p 以内、单条 200MB 以内 · <b>一次最多 3 条</b></div>
           <div class="row gap8 mt12" style="justify-content:center">
             <button class="btn btn-sm btn-outline" id="pm-video-btn" type="button">📎 选择视频（最多 3 条）</button>
@@ -587,11 +587,13 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           if (status) status.textContent = '';
           if (genTitle && !$('#pm-title').value.trim()) await genTitle();
 
-          // 体积提醒：跨境带宽有限，超 80MB 的视频传起来会很慢
-          const tooBig = videoFiles.filter((v) => (v.file.size || 0) > 80 * 1048576);
-          if (tooBig.length) {
-            const mb = Math.round(tooBig.reduce((a, v) => a + v.file.size, 0) / 1048576);
-            ui.toast(`有 ${toBig.length} 个视频共 ${mb}MB，上传会比较慢，建议先压缩或用 Wi-Fi`, 'err');
+          // 大视频提示：上传完成后服务端会自动压缩（720p/540p/480p）
+          const bigVideos = videoFiles.filter((v) => (v.file.size || 0) > 30 * 1048576);
+          if (bigVideos.length) {
+            ui.toast(
+              `有 ${bigVideos.length} 个视频较大，上传后会自动压缩（约 720p），播放更流畅`,
+              'ok',
+            );
           }
         };
 
