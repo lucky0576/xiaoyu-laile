@@ -47,7 +47,7 @@ const checks = [
   ['合作模式', html.includes('零投资') && html.includes('免运维')],
   ['服务流程', html.includes('现场踏勘') && html.includes('智能运维')],
   ['资料预览入口', html.includes('tj-doc-profile') && html.includes('tj-doc-ppt')],
-  ['申请合作按钮', html.includes('tj-apply') && html.includes('tj-apply2')],
+  ['合伙人/报价入口', html.includes('href="#/tajian-partner"') && html.includes('tj-quote')],
   ['分享按钮', html.includes('tj-share')],
   ['图片资源存在', fs.existsSync(path.join(assets, 'company-cover.jpg')) && fs.existsSync(path.join(assets, 'village.jpg'))],
   ['萧山案例地图', html.includes('tj-map') && html.includes('钱塘江') && html.includes('所前镇 · 三泉王村')],
