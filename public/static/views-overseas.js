@@ -8,7 +8,10 @@
 import * as ui from './ui.js';
 import { service } from './api.js';
 
-const KEYWORDS = ['出海', '海外', '跨境', '国际市场', '东南亚', '中东', '一带一路', '海外仓'];
+const KEYWORDS = [
+  '出海', '海外', '跨境', '出口', '进口', '外贸', '国际',
+  '东南亚', '中东', '一带一路', '海外仓', '俄罗斯', '沙特', '越南', '印尼', '泰国',
+];
 
 const QUICK = [
   { name: '海外项目', q: '海外' },
@@ -44,7 +47,7 @@ export async function renderOverseas(ctx) {
   const results = await Promise.all(
     KEYWORDS.map((q) =>
       service
-        .listings({ q, pageSize: 8, sort: 'latest' })
+        .listings({ q, pageSize: 6, sort: 'latest' })
         .then((r) => r.items || [])
         .catch(() => []),
     ),
