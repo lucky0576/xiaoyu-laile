@@ -45,6 +45,7 @@ const viewsForum = lazyView(() => import('./views-forum.js'));
 const viewsBindings = lazyView(() => import('./views-bindings.js'));
 const viewsInvest = lazyView(() => import('./views-invest.js'));
 const viewsAdminInvest = lazyView(() => import('./views-admin-invest.js'));
+const viewsAdminHome = lazyView(() => import('./views-admin-home.js'));
 const viewsAbout = lazyView(() => import('./views-about.js'));
 const viewsTopic = lazyView(() => import('./views-topic.js'));
 const viewsFunds = lazyView(() => import('./views-funds.js'));
@@ -526,6 +527,8 @@ async function resolveView({ segs, query }) {
       return viewsAccount.renderAdmin(ctx, query);
     case 'admin-ai':
       return viewsAccount.renderAdminAi(ctx, query);
+    case 'admin-home':
+      return viewsAdminHome.renderAdminHome(ctx, query);
     case 'admin-invest':
       return viewsAdminInvest.renderAdminInvest(ctx, query);
     case 'chat':

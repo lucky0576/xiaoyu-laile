@@ -11,6 +11,7 @@ import { getFile, filePublic, saveUploads, aggregateText, KIND_LABEL, EXT_KIND, 
 import filesecure from '../services/filesecure.js';
 import chunksSvc from '../services/chunks.js';
 import listingsSvc from '../services/listings.js';
+import settingsSvc from '../services/settings.js';
 import wechat from '../services/wechat.js';
 import wechatStatusSvc from '../services/wechat-status.js';
 import hub from '../services/hub.js';
@@ -86,6 +87,15 @@ export default function registerCoreRoutes(app) {
       /* 日志失败不影响业务 */
     }
     return data(res, { ok: true });
+  });
+
+  /* 首页板块顺序（公开读取） */
+  app.get('/api/home-layout', (req, res) => {
+    try {
+      return data(res, settingsSvc.homeLayoutPublic());
+    } catch {
+      return data(res, { order: [], sections: [] });
+    }
   });
 
   app.get('/api/version', (req, res) => {

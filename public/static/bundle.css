@@ -3037,6 +3037,34 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .home-wrap .brainco-bar { margin: 18px 0 22px; }
 .home-wrap .site-foot { margin-top: 30px; padding-top: 22px; border-top: 1px solid #e8ecf3; }
 
+
+/* 后台：首页板块排序 */
+.admin-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f4f9;
+}
+.admin-sort-row:last-child { border-bottom: none; }
+.admin-sort-idx {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #0b74ff;
+  background: #eaf3ff;
+}
+.admin-sort-body { flex: 1; min-width: 0; }
+.admin-sort-name { font-size: 13.5px; font-weight: 700; color: #1d1d1f; }
+.admin-sort-desc { margin-top: 2px; font-size: 11px; color: #8a94a6; line-height: 1.5; }
+.admin-sort-btns { flex: none; display: flex; gap: 6px; }
+.admin-sort-btns .btn { padding: 4px 8px; font-size: 11px; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

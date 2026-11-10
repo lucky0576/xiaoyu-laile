@@ -14,6 +14,19 @@ const users = () => db.collection('users');
 const listings = () => db.collection('listings');
 
 export default function registerAdminRoutes(app) {
+  /* 首页板块顺序 */
+  app.get('/api/admin/home-layout', (req, res) => {
+    requireAdmin(req);
+    return data(res, settingsSvc.homeLayoutPublic());
+  });
+
+  app.put('/api/admin/home-layout', (req, res) => {
+    requireAdmin(req);
+    const order = req.body?.order;
+    if (!Array.isArray(order)) return fail(res, 'order 必须是数组');
+    return data(res, settingsSvc.saveHomeLayout(order));
+  });
+
   app.get('/api/admin/overview', (req, res) => {
     requireAdmin(req);
     const stats = listingsSvc.platformStats();

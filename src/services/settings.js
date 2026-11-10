@@ -434,3 +434,62 @@ export default {
   testVisionConnection,
   testAsrConnection,
   effectiveAiConfig, aiSettingsPublic, saveAiSettings, clearAiSettings, testAiConnection };
+
+
+/* ------------------------------------------------------------------ */
+/* 首页板块顺序（管理员可上下移动）                                     */
+/* ------------------------------------------------------------------ */
+
+export const HOME_SECTIONS = [
+  { id: 'publish', name: '发布信息横栏', desc: '蓝色「发布信息」横栏' },
+  { id: 'grid', name: '主入口宫格', desc: '活动赛事 / 贸易采供 / 会议 / 元宇宙展厅 / 出海…' },
+  { id: 'topic', name: '创业大赛入口', desc: '江浙沪创业大赛 · 政策速查' },
+  { id: 'events', name: '活动与赛事', desc: '活动分类 + 最新 5 条活动' },
+  { id: 'brainco', name: 'BrainCo 横栏', desc: '战略合作伙伴 · 强脑科技' },
+  { id: 'projects', name: '项目分类横栏', desc: '投资 / 融资 / EMC / EPC…' },
+  { id: 'ecom', name: '电商', desc: '转让 · 供应 · 收购' },
+  { id: 'promos', name: '服务商 / 新闻 / 论坛', desc: '成为服务商、新闻资讯、行业论坛' },
+  { id: 'rec', name: '推荐', desc: '推荐项目 / 活动 / 贸易' },
+  { id: 'industries', name: '热门行业', desc: '行业快捷入口' },
+  { id: 'metaverse', name: '元宇宙横栏', desc: '产业元宇宙展厅' },
+  { id: 'latest', name: '最新发布', desc: '最新发布（两列卡片）' },
+  { id: 'cases', name: '项目案例', desc: '项目案例' },
+  { id: 'stats', name: '平台数据', desc: '平台数据统计' },
+];
+
+const HOME_LAYOUT_ID = 'home_layout';
+
+function defaultOrder() {
+  return HOME_SECTIONS.map((x) => x.id);
+}
+
+function normalizeOrder(input) {
+  const valid = new Set(defaultOrder());
+  const out = [];
+  for (const id of Array.isArray(input) ? input : []) {
+    const v = String(id || '');
+    if (valid.has(v) && !out.includes(v)) out.push(v);
+  }
+  // 未包含的板块补到最后，保证以后新增板块一定显示
+  for (const id of defaultOrder()) if (!out.includes(id)) out.push(id);
+  return out;
+}
+
+export function homeLayoutPublic() {
+  const rec = settings().get(HOME_LAYOUT_ID);
+  const order = normalizeOrder(rec && rec.order);
+  return {
+    order,
+    sections: HOME_SECTIONS,
+    updatedAt: (rec && rec.updatedAt) || '',
+  };
+}
+
+export function saveHomeLayout(input) {
+  const order = normalizeOrder(input);
+  const patch = { id: HOME_LAYOUT_ID, order, updatedAt: new Date().toISOString() };
+  const existing = settings().get(HOME_LAYOUT_ID);
+  if (existing) settings().update(HOME_LAYOUT_ID, patch);
+  else settings().insert(patch);
+  return homeLayoutPublic();
+}

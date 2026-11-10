@@ -80,6 +80,15 @@ export async function renderHome(ctx, query) {
   const logged = Boolean(ctx.state.user);
   const recent = latest.items || [];
 
+  // 首页板块顺序（管理员可在后台上下移动）
+  let homeLayoutOrder = [];
+  try {
+    const layout = await api.get('/api/home-layout');
+    homeLayoutOrder = (layout && layout.order) || [];
+  } catch {
+    homeLayoutOrder = [];
+  }
+
   const clip = (s, n) => {
     const t = String(s || '').trim();
     return t.length > n ? `${t.slice(0, n)}…` : t;
@@ -666,31 +675,37 @@ export async function renderHome(ctx, query) {
    * 它和下面的短视频区其实是同一批内容，重复展示；
    * 现在把短视频区整体提到最上面，取代轮播的位置。
    */
+  const SECTIONS = {
+    publish: publishBarHtml,
+    grid: gridHtml,
+    topic: topicHtml,
+    events: eventQuickHtml,
+    brainco: braincoBarHtml,
+    projects: projectBarHtml,
+    ecom: ecomBarHtml,
+    promos: promoHtml,
+    rec: `${loginStrip}${recHtml}`,
+    industries: industryHtml,
+    metaverse: metaverseBarHtml,
+    latest: latestHtml,
+    cases: casesHtml,
+    stats: statsHtml,
+  };
+  const DEFAULT_ORDER = [
+    'publish', 'grid', 'topic', 'events', 'brainco', 'projects', 'ecom',
+    'promos', 'rec', 'industries', 'metaverse', 'latest', 'cases', 'stats',
+  ];
+  const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(
+    (id) => SECTIONS[id],
+  );
+  const orderedSections = order.map((id) => SECTIONS[id]).join('\n');
+
   const html = `<div class="home-wrap">
     ${noticeHtml}
     ${shortHtml}
     ${aiBarHtml}
 
-    ${publishBarHtml}
-
-    ${gridHtml}
-    ${topicHtml}
-    ${eventQuickHtml}
-
-    ${braincoBarHtml}
-
-    ${projectBarHtml}
-    ${ecomBarHtml}
-    ${promoHtml}
-    ${loginStrip}
-    ${recHtml}
-    ${industryHtml}
-
-    ${metaverseBarHtml}
-
-    ${latestHtml}
-    ${casesHtml}
-    ${statsHtml}
+    ${orderedSections}
 
     <div class="site-foot">
       <div class="site-foot-links">

@@ -2034,6 +2034,14 @@ export async function renderAdmin(ctx) {
         </div>
         <span class="dim">›</span>
       </a>
+      <a class="card card-pad mb12" href="#/admin-home" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+        <div style="font-size:26px">🧩</div>
+        <div style="flex:1">
+          <div class="strong">首页板块排序</div>
+          <div class="tiny dim">上下移动横栏与板块，调整首页顺序</div>
+        </div>
+        <span class="dim">›</span>
+      </a>
       <a class="card card-pad mb12" href="#/admin-invest" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
         <div style="font-size:26px">💰</div>
         <div style="flex:1">
