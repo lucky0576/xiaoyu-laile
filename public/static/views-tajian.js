@@ -350,13 +350,14 @@ export async function renderTajian(ctx) {
           <path d="M70 110 Q110 44 205 40 Q310 34 372 100 Q416 150 395 232 Q372 322 258 338 Q146 352 90 280 Q50 222 70 110 Z"
                 fill="#dff2e8" stroke="#8fd5b6" stroke-width="2" stroke-dasharray="6 4"/>
           <path d="M70 150 Q170 196 268 176 Q350 160 392 128" fill="none" stroke="#9cc7ea" stroke-width="6" opacity="0.7"/>
-          <text x="230" y="120" font-size="12" fill="#7d94ad">钱塘江</text>
+          <text x="300" y="150" font-size="12" fill="#7d94ad">钱塘江</text>
           <text x="200" y="58" font-size="12" fill="#6b859c">萧山区（示意）</text>
 
           <!-- 萧山城区：工商业光伏 / 储能 -->
           <a href="#tj-cases"><circle cx="126" cy="150" r="9" fill="#0b74ff" stroke="#fff" stroke-width="3"/></a>
           <text x="142" y="142" font-size="12" font-weight="700" fill="#1d1d1f">萧山城区 · 工商业光伏/储能</text>
-          <text x="142" y="158" font-size="10.5" fill="#6b7a90">胜思诚讯 1799.655kWp · 简康 928.26kWp</text>
+          <text x="142" y="158" font-size="10.5" fill="#6b7a90">胜思诚讯 1799.655kWp</text>
+          <text x="142" y="172" font-size="10.5" fill="#6b7a90">简康新材料 928.26kWp</text>
 
           <!-- 瓜沥镇 官一村 -->
           <a href="#tj-cases"><circle cx="330" cy="112" r="9" fill="#0e8f5f" stroke="#fff" stroke-width="3"/></a>
@@ -375,9 +376,8 @@ export async function renderTajian(ctx) {
 
           <!-- 所前镇 三泉王村 -->
           <a href="#tj-cases"><circle cx="238" cy="300" r="11" fill="#b45309" stroke="#fff" stroke-width="3"/></a>
-          <text x="256" y="292" font-size="12" font-weight="700" fill="#b45309">所前镇 · 三泉王村</text>
-          <text x="256" y="308" font-size="10.5" fill="#6b7a90">9.36MW 光伏 + 2MW/4MWh 储能</text>
-          <text x="256" y="322" font-size="10.5" fill="#6b7a90">+ 23 台充电桩</text>
+          <text x="120" y="334" font-size="12" font-weight="700" fill="#b45309">所前镇 · 三泉王村</text>
+          <text x="120" y="350" font-size="10.5" fill="#6b7a90">9.36MW 光伏 + 2MW/4MWh 储能 + 23 台充电桩</text>
         </svg>
         <div class="tj-map-legend">
           <span><i style="background:#0b74ff"></i>工商业光伏 / 储能</span>
