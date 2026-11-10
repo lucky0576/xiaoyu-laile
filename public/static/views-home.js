@@ -387,7 +387,7 @@ export async function renderHome(ctx, query) {
     ${
       latestListings.length
         ? `<div class="promo-group promo-group-publish">
-      <div class="promo-group-head">🔥 最新发布</div>
+      <div class="promo-group-head">🔥 最新发布 <a class="promo-more" href="#/latest">更多 ›</a></div>
       ${promoItems(latestListings)}
     </div>`
         : ''
@@ -523,7 +523,7 @@ export async function renderHome(ctx, query) {
       </div>
     </a>`;
   };
-  const latestHtml = `<div class="home-sec-head"><h2>最新发布</h2><a href="#/list/project?sort=latest">更多 ›</a></div>
+  const latestHtml = `<div class="home-sec-head"><h2>最新发布</h2><a href="#/latest">更多 ›</a></div>
     <div class="home-list2">
       ${recent.slice(0, 6).map(itemCard).join('') || ui.emptyState('📭', '还没有发布的信息')}
     </div>`;
