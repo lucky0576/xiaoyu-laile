@@ -6881,6 +6881,71 @@ a.about-c-phone {
 .ev-q:active { background: #eef4ff; border-color: #cfe0ff; }
 .ev-q-ico { font-size: 20px; line-height: 1; }
 .ev-q-t { font-size: 11.5px; color: #475569; white-space: nowrap; }
+
+/* ================================================================== */
+/* 最新发布 / 项目案例：小缩略图 + 最多 3 行文字（文字为主）            */
+/* ================================================================== */
+
+.home-list2 .home-item {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  min-height: 0;
+}
+
+.home-list2 .home-item .cover {
+  flex: 0 0 74px;
+  width: 74px;
+  height: 74px;
+  min-height: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.home-list2 .home-item .cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-list2 .home-item .cover .badge2 {
+  left: 3px;
+  top: 3px;
+  font-size: 8.5px;
+  padding: 1px 4px;
+}
+
+.home-list2 .home-item .body {
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.home-list2 .home-item .t {
+  font-size: 12.5px;
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
+}
+
+.home-list2 .home-item .m {
+  margin-top: 0;
+  padding-top: 2px;
+  font-size: 10.5px;
+}
+
+@media (max-width: 420px) {
+  .home-list2 .home-item .cover {
+    flex: 0 0 62px;
+    width: 62px;
+    height: 62px;
+  }
+  .home-list2 .home-item .t { font-size: 12px; }
+}
+
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
