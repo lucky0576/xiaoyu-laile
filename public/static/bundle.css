@@ -2976,6 +2976,20 @@ html, body { max-width: 100%; overflow-x: hidden; }
   font-size: 12px;
 }
 
+
+/* 出海服务能力卡片 */
+.os-services { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.os-service {
+  display: block;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e8ecf3;
+  text-decoration: none;
+}
+.os-service-t { font-size: 13px; font-weight: 800; color: #1d1d1f; }
+.os-service-d { margin-top: 3px; font-size: 11px; color: #8a94a6; line-height: 1.55; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

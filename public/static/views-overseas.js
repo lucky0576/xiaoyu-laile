@@ -60,7 +60,13 @@ export async function renderOverseas(ctx) {
     items.push(x);
   });
   items.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-  const list = items.slice(0, 30);
+  // 过滤掉仅因泛词（如“国际”）匹配到的无关内容：标题/副标题必须含强关键词
+  const STRONG = ['出海', '海外', '跨境', '出口', '进口', '外贸', '海外仓', '一带一路', '东南亚', '中东', '俄罗斯', '沙特', '越南', '印尼', '泰国', '马来西亚', '墨西哥', '巴西', '非洲', '欧洲', '美国', '中亚', '日韩', '阿联酋', '新加坡', '德国', '日本', '香港', '台湾'];
+  const relevant = items.filter((x) => {
+    const hay = `${x.title || ''} ${x.subtitle || ''}`.toLowerCase();
+    return STRONG.some((k) => hay.includes(k.toLowerCase()));
+  });
+  const list = (relevant.length ? relevant : items).slice(0, 30);
 
   const html = `<div class="page os-page">
     <div class="os-hero">
@@ -72,9 +78,8 @@ export async function renderOverseas(ctx) {
         <div><b>${KEYWORDS.length}</b><span>个方向聚合</span></div>
       </div>
       <div class="row gap8 mt14" style="flex-wrap:wrap">
-        <a class="btn btn-primary" href="#/publish?category=project">发布出海项目</a>
-        <a class="btn btn-outline" href="#/list/project?q=海外">看全部海外项目</a>
-        <a class="btn btn-outline" href="#/provider">成为出海服务商</a>
+        <a class="btn btn-primary" href="#/publish?category=project" style="flex:1;min-width:120px;text-align:center">发布出海项目</a>
+        <a class="btn btn-outline" href="#/provider" style="flex:1;min-width:120px;text-align:center">成为出海服务商</a>
       </div>
     </div>
 
@@ -89,6 +94,30 @@ export async function renderOverseas(ctx) {
 
     <div class="os-grid">
       ${list.length ? list.map(cardHtml).join('') : ui.emptyState('🌏', '暂无出海项目，发布一条试试')}
+    </div>
+
+    <div class="os-sec-head" style="margin-top:18px">
+      <div class="os-sec-t">出海服务能力</div>
+      <a class="tiny" href="#/provider">找服务商 ›</a>
+    </div>
+    <div class="os-services">
+      ${[
+        ['🚢 跨境物流', '海运 / 空运 / 铁运，门到门'],
+        ['🏬 海外仓', '美国 / 欧洲 / 东南亚仓储与一件代发'],
+        ['📜 认证合规', 'CE / FCC / UL / RoHS / 当地准入'],
+        ['🏗️ 海外 EPC', '光伏 / 储能 / 厂房 / 基础设施'],
+        ['⚙️ 设备出口', '光伏组件 / 储能柜 / 机器人 / 产线'],
+        ['⚖️ 法律税务', '海外公司注册、合同、税务合规'],
+        ['🎪 海外展会', '展会报名、展台搭建、客户邀约'],
+        ['💱 跨境结算', '收付款、汇率、信用证'],
+      ]
+        .map(
+          ([t, d]) => `<a class="os-service" href="#/provider">
+            <div class="os-service-t">${ui.esc(t)}</div>
+            <div class="os-service-d">${ui.esc(d)}</div>
+          </a>`,
+        )
+        .join('')}
     </div>
 
     <div class="os-note">
