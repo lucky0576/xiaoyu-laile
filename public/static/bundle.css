@@ -3032,6 +3032,11 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .lt-time { flex: none; font-size: 11px; color: #8a94a6; }
 @media (max-width: 380px) { .lt-time { display: none; } }
 
+
+/* 首页横栏：与上下内容留出间距，不要挤在一起 */
+.home-wrap .brainco-bar { margin: 18px 0 22px; }
+.home-wrap .site-foot { margin-top: 30px; padding-top: 22px; border-top: 1px solid #e8ecf3; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

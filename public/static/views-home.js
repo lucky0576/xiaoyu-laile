@@ -670,12 +670,27 @@ export async function renderHome(ctx, query) {
     ${noticeHtml}
     ${shortHtml}
     ${aiBarHtml}
+
     ${publishBarHtml}
-    ${braincoBarHtml}
-    ${metaverseBarHtml}
+
     ${gridHtml}
     ${topicHtml}
     ${eventQuickHtml}
+
+    ${braincoBarHtml}
+
+    ${projectBarHtml}
+    ${ecomBarHtml}
+    ${promoHtml}
+    ${loginStrip}
+    ${recHtml}
+    ${industryHtml}
+
+    ${metaverseBarHtml}
+
+    ${latestHtml}
+    ${casesHtml}
+    ${statsHtml}
 
     <div class="site-foot">
       <div class="site-foot-links">
@@ -692,15 +707,6 @@ export async function renderHome(ctx, query) {
         <div class="site-foot-org">运营主体：小鱼来了科技有限公司</div>
       </div>
     </div>
-    ${projectBarHtml}
-    ${ecomBarHtml}
-    ${promoHtml}
-    ${loginStrip}
-    ${recHtml}
-    ${industryHtml}
-    ${latestHtml}
-    ${casesHtml}
-    ${statsHtml}
   </div>`;
 
   const CAT_GRAD = { project: 0, event: 1, trade: 2 };
