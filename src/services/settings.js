@@ -434,7 +434,7 @@ export default {
   testVisionConnection,
   testAsrConnection,
   effectiveAiConfig, aiSettingsPublic, saveAiSettings, clearAiSettings, testAiConnection,
-  homeLayoutPublic, saveHomeLayout, HOME_SECTIONS };
+  homeLayoutPublic, saveHomeLayout };
 
 
 /* ------------------------------------------------------------------ */
