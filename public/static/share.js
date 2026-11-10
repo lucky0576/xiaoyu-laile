@@ -621,33 +621,50 @@ export async function openShareSheet(listing) {
             <div class="tiny dim center mt8">不含图片与链接，适合发朋友圈纯文字、微信群、短信或其他平台</div>`;
         } else if (mode === 'poster') {
           panel.innerHTML = `<div class="poster-wrap"><canvas id="poster-canvas"></canvas></div>
+            <div class="field mt10"><label>海报文字 <span class="tiny dim">（可修改，改完自动重绘）</span></label>
+              <textarea class="textarea" id="share-poster-text" rows="2" maxlength="160">${esc(shareDesc)}</textarea>
+            </div>
             <div class="row gap8 mt8"><button class="btn btn-primary grow" id="btn-save">保存海报</button>
             <button class="btn grow" id="btn-copy-text">复制文案</button></div>
             <div class="tiny dim center mt8">提示：在微信中长按图片可直接发送给好友或分享到朋友圈</div>`;
-          const holder = panel.querySelector('#poster-canvas');
-          try {
-            posterCanvas = await renderPoster({
-              title: payload.title,
-              subtitle: shareDesc,
-              summary: '',
-              qrText: service.qrUrl(payload.url, 360),
-              coverUrl,
-              meta: [listing.categoryName || '小鱼来了'],
-            });
-            holder.replaceWith(posterCanvas);
-            posterCanvas.id = 'poster-canvas';
-          } catch {
-            panel.querySelector('.poster-wrap').innerHTML = '<div class="tiny dim">海报生成失败，请改用链接分享</div>';
-          }
+
+          const drawPoster = async () => {
+            const target = panel.querySelector('.poster-wrap');
+            if (!target) return;
+            target.innerHTML = '<div class="tiny dim" style="padding:20px;text-align:center">海报生成中…</div>';
+            try {
+              posterCanvas = await renderPoster({
+                title: payload.title,
+                subtitle: shareDesc,
+                summary: '',
+                qrText: service.qrUrl(payload.url, 360),
+                coverUrl,
+                meta: [listing.categoryName || '小鱼来了'],
+              });
+              target.innerHTML = '';
+              target.appendChild(posterCanvas);
+              posterCanvas.id = 'poster-canvas';
+            } catch {
+              target.innerHTML = '<div class="tiny dim">海报生成失败，请改用链接分享</div>';
+            }
+          };
+          await drawPoster();
+          let posterTimer = null;
+          panel.querySelector('#share-poster-text')?.addEventListener('input', (e) => {
+            shareDesc = String(e.target.value || '').trim();
+            clearTimeout(posterTimer);
+            posterTimer = setTimeout(drawPoster, 600);
+          });
         } else {
-          panel.innerHTML = `<div class="share-preview" id="share-text">${esc(payload.title)}\n${esc(payload.desc)}\n${esc(payload.url)}</div>
+          panel.innerHTML = `<div class="field"><label>文字 + 链接 <span class="tiny dim">（可直接修改）</span></label>
+              <textarea class="textarea" id="share-link-text" rows="8">${esc(`${payload.title}\n${shareDesc}\n${payload.url}`)}</textarea>
+            </div>
             <div class="row gap8 mt12">
-              <button class="btn btn-primary grow" id="btn-copy-link">复制链接与文案</button>
+              <button class="btn btn-primary grow" id="btn-copy-link">复制文字与链接</button>
               <button class="btn grow" id="btn-native">系统分享</button>
             </div>
             ${isWechatBrowser() ? '<div class="tiny dim center mt8">在微信内点击右上角「···」即可转发给好友或分享到朋友圈</div>' : '<div class="tiny dim center mt8">可粘贴到微信聊天窗口，或复制后在微信中发送</div>'}`;
         }
-        bind();
       };
 
       const bind = () => {
@@ -701,7 +718,8 @@ export async function openShareSheet(listing) {
           toast(ok ? '文案已复制' : '复制失败，请手动选择', ok ? 'ok' : 'err');
         });
         panel.querySelector('#btn-copy-link')?.addEventListener('click', async () => {
-          const ok = await copyText(`${payload.title}\n${payload.desc}\n${payload.url}`);
+          const ta = panel.querySelector('#share-link-text');
+          const ok = await copyText((ta && ta.value) || `${payload.title}\n${shareDesc}\n${payload.url}`);
           service.recordShare(listing.id, 'link').catch(() => {});
           toast(ok ? '链接与文案已复制' : '复制失败', ok ? 'ok' : 'err');
         });
@@ -1059,28 +1077,41 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
       const renderPanel = async () => {
         if (mode === 'poster') {
           panel.innerHTML = `<div class="poster-wrap"><div class="tiny dim">海报生成中…</div></div>
+            <div class="field mt10"><label>海报文字 <span class="tiny dim">（可修改，改完自动重绘）</span></label>
+              <textarea class="textarea" id="q-poster-text" rows="2" maxlength="160">${esc(shareText)}</textarea>
+            </div>
             <div class="row gap8 mt8">
               <button class="btn btn-primary grow" id="q-save" type="button">保存图片</button>
               <button class="btn grow" id="q-copy-poster-text" type="button">复制文字</button>
             </div>
             <div class="tiny dim center mt8">微信里可长按图片保存 / 发送给好友</div>`;
-          try {
-            posterCanvas = await renderPoster({
-              title,
-              subtitle: tag,
-              summary: shareText,
-              qrText: service.qrUrl(shareUrl, 360),
-              coverUrl: image,
-              meta: [tag || '小鱼来了'],
-            });
+
+          const drawQuickPoster = async () => {
             const holder = panel.querySelector('.poster-wrap');
-            if (holder) {
+            if (!holder) return;
+            holder.innerHTML = '<div class="tiny dim">海报生成中…</div>';
+            try {
+              posterCanvas = await renderPoster({
+                title,
+                subtitle: tag,
+                summary: shareText,
+                qrText: service.qrUrl(shareUrl, 360),
+                coverUrl: image,
+                meta: [tag || '小鱼来了'],
+              });
               holder.innerHTML = '';
               holder.appendChild(posterCanvas);
+            } catch {
+              holder.innerHTML = '<div class="tiny dim">海报生成失败，请改用「链接 + 文字」</div>';
             }
-          } catch {
-            panel.querySelector('.poster-wrap').innerHTML = '<div class="tiny dim">海报生成失败，请改用「链接 + 文字」</div>';
-          }
+          };
+          await drawQuickPoster();
+          let quickTimer = null;
+          panel.querySelector('#q-poster-text')?.addEventListener('input', (e) => {
+            shareText = String(e.target.value || '').trim();
+            clearTimeout(quickTimer);
+            quickTimer = setTimeout(drawQuickPoster, 600);
+          });
           panel.querySelector('#q-save')?.addEventListener('click', async () => {
             if (!posterCanvas) return toast('海报还没生成好', 'err');
             const ok = await downloadCanvas(posterCanvas, `${String(title).slice(0, 20) || '小鱼来了'}.png`);
@@ -1093,14 +1124,15 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
         } else {
           panel.innerHTML = `<div class="field">
               <label>链接 + 文字</label>
-              <textarea class="input" id="q-link-text" rows="8" readonly>${esc(plainText())}</textarea>
+              <textarea class="textarea" id="q-link-text" rows="8">${esc(plainText())}</textarea>
             </div>
             <div class="row gap8 mt8">
               <button class="btn btn-primary grow" id="q-copy-link" type="button">复制文字与链接</button>
               <button class="btn grow" id="q-native" type="button">系统分享</button>
             </div>`;
           panel.querySelector('#q-copy-link')?.addEventListener('click', async () => {
-            const ok = await copyText(plainText());
+            const ta = panel.querySelector('#q-link-text');
+            const ok = await copyText((ta && ta.value) || plainText());
             toast(ok ? '文字与链接已复制，可直接粘贴到微信' : '复制失败，请手动选择', ok ? 'ok' : 'err');
           });
           panel.querySelector('#q-native')?.addEventListener('click', async () => {
