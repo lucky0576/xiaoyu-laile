@@ -85,6 +85,25 @@ export const state = {
   online: false,
 };
 
+/*
+ * 点击「当前页」对应的底部导航 / 首页按钮时：
+ *   浏览器不会触发 hashchange（hash 没变），会让人以为「点了没反应」。
+ *   这里统一处理：回到顶部并重新渲染当前页。
+ */
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#/"]');
+  if (!a) return;
+  const href = a.getAttribute('href');
+  if (!href || href !== location.hash) return;
+  e.preventDefault();
+  try {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch {
+    window.scrollTo(0, 0);
+  }
+  render();
+});
+
 const TABS = [
   { id: 'home', icon: '🏠', name: '首页', href: '#/home' },
   { id: 'project', icon: '📁', name: '项目', href: '#/list/project' },

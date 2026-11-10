@@ -123,6 +123,7 @@ export async function filesFromDataTransfer(dt) {
 /* 发布页 —— 短视频 / 直播                                              */
 /* ================================================================== */
 async function renderPublishMedia(ctx, type, taxonomy) {
+  let genTitle = null;
   const isLive = type === 'live';
   const isAdmin = Boolean(ctx.state?.user?.isAdmin);
   const catGrid = `
@@ -391,7 +392,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         };
 
         /* 调后端 AI 生成标题 */
-        const genTitle = async (force = false) => {
+        genTitle = async (force = false) => {
           const hintEl = $('#pm-ai-hint');
           const altEl = $('#pm-ai-alts');
           const btn = $('#pm-ai');
@@ -584,7 +585,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           renderVideoList();
           renderPreview();
           if (status) status.textContent = '';
-          if (!$('#pm-title').value.trim()) await genTitle();
+          if (genTitle && !$('#pm-title').value.trim()) await genTitle();
 
           // 体积提醒：跨境带宽有限，超 80MB 的视频传起来会很慢
           const tooBig = videoFiles.filter((v) => (v.file.size || 0) > 80 * 1048576);
@@ -612,7 +613,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           coverFile = e.target.files[0] || null;
         });
 
-        $('#pm-ai').addEventListener('click', () => genTitle(true));
+        $('#pm-ai').addEventListener('click', () => { if (genTitle) genTitle(true); });
 
         /* 从链接导入：抓正文 → AI 生成标题副标题 */
         const pmUrlBtn = $('#pm-url-import');
@@ -659,7 +660,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
         let title = ($('#pm-title').value || '').trim();
         if (!title) {
           // 留空则现场生成一次
-          await genTitle(true);
+          if (genTitle) await genTitle(true);
           title = ($('#pm-title').value || '').trim();
         }
         if (!title) return ui.toast('请填写标题，或点「AI 生成」', 'err');
