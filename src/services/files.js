@@ -612,29 +612,52 @@ export async function optimizeVideoAsync(record) {
 
   if (!(await hasFfmpeg())) return;
 
+  const sizeMB = st.size / 1048576;
   const tmp = `${record.path}.opt.mp4`;
   try {
     const info = await probeBitrate(record.path);
-    const size = st.size;
     // 用大小/时长估算真实码率，取较大值
     let target = info?.bitrate || 0;
     if (info?.duration > 0) {
-      const est = Math.round((size * 8) / info.duration);
+      const est = Math.round((st.size * 8) / info.duration);
       if (est > target) target = est;
     }
 
+    // 触发条件：文件过大（>30MB）或码率过高（>1.8Mbps）
+    const tooBig = sizeMB > 30;
+    const highBitrate = target > 1800000;
+    const needTranscode = tooBig || highBitrate;
+
+    // 越大压得越狠：>80MB 降到 540p，>200MB 降到 480p
+    let maxSide = 720;
+    let crf = '26';
+    if (sizeMB > 200) {
+      maxSide = 480;
+      crf = '28';
+    } else if (sizeMB > 80) {
+      maxSide = 540;
+      crf = '27';
+    }
+
+    // 竖屏视频按短边限制，横屏按宽限制
+    const scale = `scale='if(gt(iw,ih),min(${maxSide},iw),-2)':'if(gt(iw,ih),-2,min(${maxSide},ih))'`;
+
     let ok = false;
-    if (target > 1800000) {
-      // 码率过高：转码 + faststart
-      ok = await runFfmpeg([
-        '-y', '-i', record.path,
-        '-c:v', 'libx264', '-crf', '26', '-preset', 'veryfast',
-        '-profile:v', 'high', '-level', '4.0',
-        '-vf', "scale='min(720,iw)':-2",
-        '-c:a', 'aac', '-b:a', '96k', '-ac', '1',
-        '-movflags', '+faststart', '-f', 'mp4', tmp,
-        '-loglevel', 'error', '-nostdin',
-      ]);
+    if (needTranscode) {
+      // 大文件转码可能较久：按体积放宽超时（20 分钟封顶）
+      const timeout = Math.min(1200000, 180000 + Math.round(sizeMB * 3000));
+      ok = await runFfmpeg(
+        [
+          '-y', '-i', record.path,
+          '-c:v', 'libx264', '-crf', crf, '-preset', 'veryfast',
+          '-profile:v', 'high', '-level', '4.0',
+          '-vf', scale,
+          '-c:a', 'aac', '-b:a', '64k', '-ac', '1',
+          '-movflags', '+faststart', '-f', 'mp4', tmp,
+          '-loglevel', 'error', '-nostdin',
+        ],
+        timeout,
+      );
     } else {
       // 码率够低：只重封装做 faststart
       ok = await runFfmpeg([
@@ -653,9 +676,8 @@ export async function optimizeVideoAsync(record) {
       fs.unlinkSync(tmp);
       return;
     }
-    // 转码后反而更大就保留原文件（只接受 faststart 版本的等价大小）
-    const isTranscoded = target > 1800000;
-    if (isTranscoded && newSize >= size) {
+    // 转码后反而更大就保留原文件
+    if (needTranscode && newSize >= st.size) {
       fs.unlinkSync(tmp);
       return;
     }
@@ -665,12 +687,13 @@ export async function optimizeVideoAsync(record) {
       db.collection('files').update(record.id, updated);
     } catch { /* ignore */ }
     console.log(
-      `[video] ${record.name} 已优化 ${Math.round(size / 1024 / 1024)}MB -> ` +
-      `${Math.round(newSize / 1024 / 1024)}MB${isTranscoded ? '（转码）' : '（faststart）'}`,
+      `[video] ${record.name} 已压缩 ${Math.round(st.size / 1024 / 1024)}MB -> ` +
+      `${Math.round(newSize / 1024 / 1024)}MB` +
+      `${needTranscode ? `（转码 ${maxSide}p CRF${crf}${tooBig ? '，超过30MB自动压缩' : ''}）` : '（faststart）'}`,
     );
   } catch (err) {
     try { fs.unlinkSync(tmp); } catch { /* ignore */ }
-    console.warn('[video] 优化失败:', record.name, err.message);
+    console.warn('[video] 压缩失败:', record.name, err.message);
   }
 }
 
