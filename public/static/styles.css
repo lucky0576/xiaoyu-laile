@@ -3280,3 +3280,58 @@ html, body { max-width: 100%; overflow-x: hidden; }
 @media (min-width: 601px) {
   .tj-logo { display: none; }
 }
+
+
+/* ---------------- 塔建合伙人计划页 ---------------- */
+.tjp-page { padding-bottom: 24px; }
+.tjp-hero {
+  padding: 22px 18px;
+  border-radius: 20px;
+  color: #fff;
+  background:
+    radial-gradient(120% 130% at 85% 10%, rgba(255, 176, 59, 0.32) 0%, rgba(255, 176, 59, 0) 60%),
+    linear-gradient(135deg, #07131f 0%, #123043 55%, #12413a 100%);
+}
+.tjp-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffd48a;
+  background: rgba(255, 176, 59, 0.16);
+  border: 1px solid rgba(255, 176, 59, 0.4);
+}
+.tjp-hero-t { margin-top: 12px; font-size: 24px; line-height: 1.35; font-weight: 900; }
+.tjp-hero-d { margin-top: 6px; font-size: 12.5px; color: rgba(255, 255, 255, 0.78); }
+.tjp-hero-points { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tjp-hero-points span { padding: 3px 9px; border-radius: 999px; font-size: 11px; color: rgba(255, 255, 255, 0.85); background: rgba(255, 255, 255, 0.08); }
+.tjp-back { display: inline-block; margin-top: 12px; font-size: 12px; color: rgba(255, 255, 255, 0.72); text-decoration: none; }
+.tjp-section { margin-top: 18px; }
+.tjp-sec-t { font-size: 18px; font-weight: 800; color: #1d1d1f; }
+.tjp-sec-d { margin-top: 3px; font-size: 12px; color: #8a94a6; margin-bottom: 10px; }
+.tjp-benefits { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 720px) { .tjp-benefits { grid-template-columns: repeat(3, 1fr); } }
+.tjp-benefit { background: #fff; border: 1px solid #e8ecf3; border-radius: 14px; padding: 14px; }
+.tjp-benefit-t { font-size: 15px; font-weight: 800; color: #1d1d1f; }
+.tjp-list { margin: 8px 0 0; padding-left: 16px; }
+.tjp-list li { font-size: 12px; line-height: 1.75; color: #5b6474; margin-bottom: 3px; }
+.tjp-types { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 640px) { .tjp-types { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .tjp-types { grid-template-columns: repeat(4, 1fr); } }
+.tjp-type { background: #fff; border: 1px solid #e8ecf3; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; }
+.tjp-type-icon { font-size: 26px; }
+.tjp-type-name { margin-top: 6px; font-size: 15px; font-weight: 800; color: #1d1d1f; }
+.tjp-type-desc { margin-top: 4px; font-size: 12px; color: #6b7a90; line-height: 1.6; }
+.tjp-type-points { margin: 8px 0 12px; padding-left: 16px; flex: 1; }
+.tjp-type-points li { font-size: 11.5px; line-height: 1.7; color: #5b6474; }
+.tjp-pick { margin-top: auto; }
+.tjp-flow { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 720px) { .tjp-flow { grid-template-columns: repeat(5, 1fr); } }
+.tjp-step { background: #fff; border: 1px solid #e8ecf3; border-radius: 12px; padding: 10px; }
+.tjp-step .n { font-size: 11px; font-weight: 900; color: #0b74ff; }
+.tjp-step .t { margin-top: 2px; font-size: 12.5px; font-weight: 800; color: #1d1d1f; }
+.tjp-step .d { margin-top: 3px; font-size: 10px; color: #8a94a6; line-height: 1.5; }
+.tjp-faq details { background: #fff; border: 1px solid #e8ecf3; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.tjp-faq summary { font-size: 13px; font-weight: 700; color: #1d1d1f; cursor: pointer; }
+.tjp-faq details div { margin-top: 6px; font-size: 12px; line-height: 1.75; color: #5b6474; }

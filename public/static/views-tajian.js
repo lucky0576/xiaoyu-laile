@@ -172,7 +172,7 @@ export async function renderTajian(ctx) {
         </div>
         <div class="row gap8 mt16" style="flex-wrap:wrap">
           <a class="btn btn-primary" href="#tj-business">看业务与合作</a>
-          <button class="btn btn-outline" id="tj-apply" type="button">🤝 申请成为合伙人</button>
+          <a class="btn btn-outline" href="#/tajian-partner">🤝 申请成为合伙人</a>
           <button class="btn btn-outline" id="tj-quote" type="button">💰 获取报价</button>
           <button class="btn btn-outline" id="tj-share" type="button">↗ 分享专题</button>
         </div>
@@ -436,10 +436,10 @@ export async function renderTajian(ctx) {
         <div class="tj-sec-d">工商业光伏、储能、整村微电网均可提交需求</div>
       </div>
       <div class="row gap8" style="flex-wrap:wrap">
-        <button class="btn btn-primary" id="tj-apply2" type="button" style="flex:1;min-width:130px;height:46px">🤝 申请成为合伙人</button>
+        <a class="btn btn-primary" href="#/tajian-partner" style="flex:1;min-width:130px;height:46px;display:flex;align-items:center;justify-content:center">🤝 申请成为合伙人</a>
         <button class="btn btn-outline" id="tj-quote2" type="button" style="flex:1;min-width:130px;height:46px">💰 获取报价</button>
       </div>
-      <div class="tiny dim center mt8">提交后平台与塔建集团商务对接，提供踏勘与方案报价</div>
+      <div class="tiny dim center mt8">合伙人申请请进入 <a href="#/tajian-partner">合伙人计划页</a>；报价提交后商务提供踏勘与方案报价</div>
     </div>
 
     <div class="bc-foot">

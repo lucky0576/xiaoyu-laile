@@ -71,6 +71,7 @@ const viewsOverseas = lazyView(() => import('./views-overseas.js'));
 const viewsLatest = lazyView(() => import('./views-latest.js'));
 const viewsEstate = lazyView(() => import('./views-estate.js'));
 const viewsTajian = lazyView(() => import('./views-tajian.js'));
+const viewsTajianPartner = lazyView(() => import('./views-tajian-partner.js'));
 const viewsAdminDrama = lazyView(() => import('./views-admin-drama.js'));
 
 const appEl = document.getElementById('app');
@@ -427,6 +428,8 @@ async function resolveView({ segs, query }) {
       return viewsAbout.renderAbout(ctx, query);
     case 'services':
       return viewsServices.renderServices(ctx, query);
+    case 'tajian-partner':
+      return viewsTajianPartner.renderTajianPartner(ctx, query);
     case 'tajian':
       return viewsTajian.renderTajian(ctx, query);
     case 'estate':
