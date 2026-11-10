@@ -340,38 +340,44 @@ export async function renderTajian(ctx) {
         <div class="tj-sec-d">整村光伏 · 村级微电网 · 工商业光伏 / 储能（示意图，非精确地理坐标）</div>
       </div>
       <div class="tj-card tj-map-card">
-        <svg class="tj-map" viewBox="0 0 360 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="萧山项目案例分布示意图">
+        <svg class="tj-map" viewBox="0 0 460 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="萧山项目案例分布示意图">
           <defs>
             <linearGradient id="tjmapbg" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stop-color="#f2fbf7"/><stop offset="1" stop-color="#eaf3ff"/>
             </linearGradient>
           </defs>
-          <rect width="360" height="320" fill="url(#tjmapbg)" rx="14"/>
-          <path d="M58 96 Q92 42 168 40 Q250 36 296 88 Q330 130 312 196 Q296 268 210 282 Q120 296 74 236 Q42 188 58 96 Z"
+          <rect width="460" height="380" fill="url(#tjmapbg)" rx="14"/>
+          <path d="M70 110 Q110 44 205 40 Q310 34 372 100 Q416 150 395 232 Q372 322 258 338 Q146 352 90 280 Q50 222 70 110 Z"
                 fill="#dff2e8" stroke="#8fd5b6" stroke-width="2" stroke-dasharray="6 4"/>
-          <path d="M60 128 Q140 168 220 150 Q286 136 318 112" fill="none" stroke="#9cc7ea" stroke-width="6" opacity="0.7"/>
-          <text x="196" y="112" font-size="11" fill="#7d94ad">钱塘江</text>
-          <text x="150" y="46" font-size="11" fill="#6b859c">萧山区（示意）</text>
-          <!-- 城区工商业 -->
-          <a href="#tj-cases"><circle cx="150" cy="120" r="8" fill="#0b74ff" stroke="#fff" stroke-width="3"/>
-            <text x="163" y="118" font-size="11" font-weight="700" fill="#1d1d1f">萧山城区 · 工商业光伏/储能</text>
-            <text x="163" y="132" font-size="10" fill="#6b7a90">胜思诚讯 1799.655kWp · 简康 928.26kWp</text></a>
-          <!-- 瓜沥群力 -->
-          <a href="#tj-cases"><circle cx="252" cy="128" r="8" fill="#0e8f5f" stroke="#fff" stroke-width="3"/>
-            <text x="200" y="150" font-size="11" font-weight="700" fill="#1d1d1f">瓜沥镇 · 群力村</text>
-            <text x="200" y="164" font-size="10" fill="#6b7a90">整村光伏 1500kW</text></a>
-          <!-- 瓜沥官一 -->
-          <a href="#tj-cases"><circle cx="286" cy="98" r="8" fill="#0e8f5f" stroke="#fff" stroke-width="3"/>
-            <text x="236" y="88" font-size="11" font-weight="700" fill="#1d1d1f">瓜沥镇 · 官一村</text>
-            <text x="236" y="102" font-size="10" fill="#6b7a90">整村光伏 2000kW</text></a>
-          <!-- 义桥湘南 -->
-          <a href="#tj-cases"><circle cx="96" cy="228" r="8" fill="#0e8f5f" stroke="#fff" stroke-width="3"/>
-            <text x="40" y="250" font-size="11" font-weight="700" fill="#1d1d1f">义桥镇 · 湘南村</text>
-            <text x="40" y="264" font-size="10" fill="#6b7a90">整村光伏 2000kW</text></a>
-          <!-- 所前三泉王 -->
-          <a href="#tj-cases"><circle cx="196" cy="248" r="10" fill="#b45309" stroke="#fff" stroke-width="3"/>
-            <text x="210" y="244" font-size="11" font-weight="700" fill="#b45309">所前镇 · 三泉王村</text>
-            <text x="210" y="258" font-size="10" fill="#6b7a90">9.36MW 光伏 + 2MW/4MWh 储能 + 23 台充电桩</text></a>
+          <path d="M70 150 Q170 196 268 176 Q350 160 392 128" fill="none" stroke="#9cc7ea" stroke-width="6" opacity="0.7"/>
+          <text x="230" y="120" font-size="12" fill="#7d94ad">钱塘江</text>
+          <text x="200" y="58" font-size="12" fill="#6b859c">萧山区（示意）</text>
+
+          <!-- 萧山城区：工商业光伏 / 储能 -->
+          <a href="#tj-cases"><circle cx="126" cy="150" r="9" fill="#0b74ff" stroke="#fff" stroke-width="3"/></a>
+          <text x="142" y="142" font-size="12" font-weight="700" fill="#1d1d1f">萧山城区 · 工商业光伏/储能</text>
+          <text x="142" y="158" font-size="10.5" fill="#6b7a90">胜思诚讯 1799.655kWp · 简康 928.26kWp</text>
+
+          <!-- 瓜沥镇 官一村 -->
+          <a href="#tj-cases"><circle cx="330" cy="112" r="9" fill="#0e8f5f" stroke="#fff" stroke-width="3"/></a>
+          <text x="230" y="86" font-size="12" font-weight="700" fill="#1d1d1f">瓜沥镇 · 官一村</text>
+          <text x="230" y="102" font-size="10.5" fill="#6b7a90">整村光伏 2000kW</text>
+
+          <!-- 瓜沥镇 群力村 -->
+          <a href="#tj-cases"><circle cx="286" cy="208" r="9" fill="#0e8f5f" stroke="#fff" stroke-width="3"/></a>
+          <text x="302" y="200" font-size="12" font-weight="700" fill="#1d1d1f">群力村</text>
+          <text x="302" y="216" font-size="10.5" fill="#6b7a90">整村光伏 1500kW</text>
+
+          <!-- 义桥镇 湘南村 -->
+          <a href="#tj-cases"><circle cx="104" cy="286" r="9" fill="#0e8f5f" stroke="#fff" stroke-width="3"/></a>
+          <text x="36" y="272" font-size="12" font-weight="700" fill="#1d1d1f">义桥镇 · 湘南村</text>
+          <text x="36" y="288" font-size="10.5" fill="#6b7a90">整村光伏 2000kW</text>
+
+          <!-- 所前镇 三泉王村 -->
+          <a href="#tj-cases"><circle cx="238" cy="300" r="11" fill="#b45309" stroke="#fff" stroke-width="3"/></a>
+          <text x="256" y="292" font-size="12" font-weight="700" fill="#b45309">所前镇 · 三泉王村</text>
+          <text x="256" y="308" font-size="10.5" fill="#6b7a90">9.36MW 光伏 + 2MW/4MWh 储能</text>
+          <text x="256" y="322" font-size="10.5" fill="#6b7a90">+ 23 台充电桩</text>
         </svg>
         <div class="tj-map-legend">
           <span><i style="background:#0b74ff"></i>工商业光伏 / 储能</span>
