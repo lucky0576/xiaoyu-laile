@@ -540,6 +540,19 @@ export async function renderTajian(ctx) {
             </div>
             <div class="field"><label>屋顶面积 / 用电量 <span class="tiny dim">（选填）</span></label>
               <input class="input" id="tj-scale" maxlength="60" placeholder="如：屋顶 1 万㎡ / 年用电 600 万度"></div>
+            ${
+              isQuote
+                ? `<div class="row gap8">
+                    <div class="field grow"><label>装机容量</label><input class="input" id="tj-cap" maxlength="40" placeholder="如：1.2MW / 800kWp"></div>
+                    <div class="field grow"><label>预算范围</label><input class="input" id="tj-budget" maxlength="40" placeholder="如：300~500 万 / 面议"></div>
+                  </div>
+                  <div class="field"><label>期望合作模式 <span class="tiny dim">（可多选）</span></label>
+                    <div class="chips" id="tj-modes">${['业主投资', '塔建投资（零投资）', 'EPC 总包', '合同能源管理 EMC', '设备采购', '其他']
+                      .map((m) => `<a class="chip" data-mode="${m}" href="javascript:;">${m}</a>`)
+                      .join('')}</div>
+                  </div>`
+                : ''
+            }
             <div class="field"><label>需求说明</label><textarea class="textarea" id="tj-note" rows="3" maxlength="1000" placeholder="如：工厂屋顶想装光伏 + 储能，希望了解投资模式与收益"></textarea></div>
             <div class="field"><label>补充资料 <span class="tiny dim">（选填，可多选）</span></label>
               <input type="file" id="tj-files" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,image/*">
@@ -547,6 +560,16 @@ export async function renderTajian(ctx) {
             </div>
             <button class="btn btn-primary btn-block mt8" id="tj-submit">提交合作需求</button>`,
           onMount(sheet, close) {
+            const modeSet = new Set();
+            sheet.querySelector('#tj-modes')?.addEventListener('click', (ev) => {
+              const chip = ev.target.closest('[data-mode]');
+              if (!chip) return;
+              ev.preventDefault();
+              const m = chip.dataset.mode;
+              if (modeSet.has(m)) modeSet.delete(m);
+              else modeSet.add(m);
+              chip.classList.toggle('active', modeSet.has(m));
+            });
             sheet.querySelector('#tj-dirs')?.addEventListener('click', (ev) => {
               const chip = ev.target.closest('[data-dir]');
               if (!chip) return;
@@ -563,6 +586,9 @@ export async function renderTajian(ctx) {
               const phone = String(sheet.querySelector('#tj-phone').value || '').trim();
               const city = String(sheet.querySelector('#tj-city').value || '').trim();
               const scale = String(sheet.querySelector('#tj-scale').value || '').trim();
+              const cap = String(sheet.querySelector('#tj-cap')?.value || '').trim();
+              const budget = String(sheet.querySelector('#tj-budget')?.value || '').trim();
+              const modes = [...modeSet];
               const note = String(sheet.querySelector('#tj-note').value || '').trim();
               const files = Array.from(sheet.querySelector('#tj-files')?.files || []);
               if (!name) return ui.toast('请填写姓名', 'err');
@@ -594,7 +620,10 @@ export async function renderTajian(ctx) {
 项目地址 / 城市：${city}
 合作方向：${dirText}
 屋顶面积 / 用电量：${scale || '（未填写）'}
-
+${isQuote ? `装机容量：${cap || '（未填写）'}
+预算范围：${budget || '（未填写）'}
+期望合作模式：${modes.join('、') || '（未填写）'}
+` : ''}
 需求说明：
 ${note || '（未填写，可由商务电话沟通）'}
 
@@ -609,7 +638,7 @@ ${note || '（未填写，可由商务电话沟通）'}
                   api.form({
                     category: 'project',
                     title: `寻求合作｜${org} · 塔建集团新能源`.slice(0, 80),
-                    subtitle: `${city} · ${org} · 工商业光伏 / 储能合作需求`,
+                    subtitle: `${city} · ${org} · ${isQuote ? '光伏 / 储能报价需求' : '工商业光伏 / 储能合作需求'}`,
                     text,
                     type: '寻求合作',
                     durationDays: 180,

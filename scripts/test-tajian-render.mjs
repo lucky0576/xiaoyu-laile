@@ -56,6 +56,7 @@ const checks = [
   ['营业执照图片存在', fs.existsSync(path.join(assets, 'license.jpg'))],
   ['hero 中间 logo', html.includes('tj-hero-logo') && fs.existsSync(path.join(assets, 'tajian-logo.png'))],
   ['合作/报价按钮分开', html.includes('tj-quote') && html.includes('tj-quote2')],
+  ['报价表单专用字段', src.includes('tj-cap') && src.includes('tj-budget') && src.includes('tj-modes')],
   ['无下载入口', !/download=|下载资料/.test(html)],
 ];
 
