@@ -651,6 +651,22 @@ export async function renderHome(ctx, query) {
     <div class="metaverse-bar-art">🌐<span>3D</span></div>
   </a>`;
 
+  /* 战略合作伙伴横栏：塔建集团 · 工商业光伏与储能 */
+  const tajianBarHtml = `<a class="brainco-bar tajian-bar" href="#/tajian">
+    <div class="brainco-bar-left">
+      <div class="brainco-bar-badge">🌞 战略合作伙伴 · 塔建集团</div>
+      <div class="brainco-bar-t">工商业光伏 + 储能 · 浙江全链路新能源服务商</div>
+      <div class="brainco-bar-d">整镇整村能源 · 工商业光伏 · 工商业储能 · 源网荷储充一体化微电网</div>
+      <div class="brainco-bar-chips">
+        <span>70+ 整村光伏</span><span>9.36MW 村级微电网</span><span>2MW/4MWh 储能</span><span>华为 EMS</span>
+      </div>
+      <div class="brainco-bar-cta">进入专题 · 看业务与合作 ›</div>
+    </div>
+    <div class="brainco-bar-brand">
+      <img class="brainco-bar-logo tj-bar-img" src="/static/tajian/company-cover.jpg" alt="塔建集团" loading="lazy">
+    </div>
+  </a>`;
+
   /* 战略合作伙伴横栏：强脑科技专题（放在发布信息下面） */
   const braincoBarHtml = `<a class="brainco-bar" href="#/brainco">
     <div class="brainco-bar-left">
@@ -681,6 +697,7 @@ export async function renderHome(ctx, query) {
     topic: topicHtml,
     events: eventQuickHtml,
     brainco: braincoBarHtml,
+    tajian: tajianBarHtml,
     projects: projectBarHtml,
     ecom: ecomBarHtml,
     promos: promoHtml,
@@ -692,7 +709,7 @@ export async function renderHome(ctx, query) {
     stats: statsHtml,
   };
   const DEFAULT_ORDER = [
-    'publish', 'grid', 'topic', 'events', 'brainco', 'projects', 'ecom',
+    'publish', 'grid', 'topic', 'events', 'brainco', 'tajian', 'projects', 'ecom',
     'promos', 'rec', 'industries', 'metaverse', 'latest', 'cases', 'stats',
   ];
   const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(

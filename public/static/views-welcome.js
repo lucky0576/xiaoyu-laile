@@ -133,6 +133,16 @@ export async function renderWelcome(ctx) {
       <span class="aw-row-go">进入专题 <span class="aw-chev">›</span></span>
     </a>
 
+    <!-- ③.65 塔建集团：工商业光伏与储能 -->
+    <a class="aw-row aw-rise aw-tajian" style="--d:352ms" href="#/tajian">
+      <span class="aw-row-icon">🌞</span>
+      <span class="aw-row-body">
+        <span class="aw-row-title">塔建集团 · 工商业光伏与储能</span>
+        <span class="aw-row-sub">整镇整村能源 · 工商业光伏 / 储能 · 源网荷储充微电网</span>
+      </span>
+      <span class="aw-row-go">进入专题 <span class="aw-chev">›</span></span>
+    </a>
+
     <!-- ③.6 产业元宇宙展厅 -->
     <a class="aw-row aw-rise aw-metaverse" style="--d:345ms" href="#/metaverse">
       <span class="aw-row-icon">🌐</span>

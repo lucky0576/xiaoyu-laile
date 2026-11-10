@@ -3127,3 +3127,116 @@ html, body { max-width: 100%; overflow-x: hidden; }
   border: 1px solid #ffe2b0;
   font-size: 12px;
 }
+
+
+/* ---------------- 塔建集团专题页 ---------------- */
+.tj-page { padding-bottom: 24px; }
+.tj-hero {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 22px 18px;
+  border-radius: 20px;
+  color: #fff;
+  background:
+    radial-gradient(120% 130% at 85% 12%, rgba(255, 176, 59, 0.32) 0%, rgba(255, 176, 59, 0) 58%),
+    linear-gradient(135deg, #07131f 0%, #0d2a3a 52%, #12413a 100%);
+}
+.tj-hero-left { flex: 1; min-width: 0; }
+.tj-hero-right { flex: none; width: 118px; }
+.tj-hero-right img { width: 100%; height: 170px; object-fit: cover; border-radius: 14px; opacity: 0.95; }
+.tj-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffd48a;
+  background: rgba(255, 176, 59, 0.16);
+  border: 1px solid rgba(255, 176, 59, 0.4);
+}
+.tj-logo { margin-top: 10px; font-size: 22px; font-weight: 900; }
+.tj-logo span { margin-left: 4px; font-size: 12px; font-weight: 700; color: #9dffd9; letter-spacing: 0.06em; }
+.tj-hero-t { margin-top: 8px; font-size: 19px; line-height: 1.35; font-weight: 800; }
+.tj-hero-d { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.75); line-height: 1.7; }
+.tj-hero-points { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tj-hero-points span { padding: 3px 9px; border-radius: 999px; font-size: 11px; color: rgba(255, 255, 255, 0.85); background: rgba(255, 255, 255, 0.08); }
+.tj-section { margin-top: 18px; }
+.tj-sec-head { padding: 4px 2px 10px; }
+.tj-sec-t { font-size: 18px; font-weight: 800; color: #1d1d1f; }
+.tj-sec-d { margin-top: 3px; font-size: 12px; color: #8a94a6; }
+.tj-subhead { margin: 14px 2px 8px; font-size: 14px; font-weight: 800; color: #1d1d1f; }
+.tj-card { background: #fff; border: 1px solid #e8ecf3; border-radius: 16px; padding: 16px; }
+.tj-card p { margin: 0 0 9px; font-size: 13px; line-height: 1.9; color: #374151; }
+.tj-card b { color: #0b74ff; }
+.tj-mission { color: #b45309; font-weight: 700; }
+.tj-stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0 14px; }
+.tj-stats b { display: block; font-size: 20px; font-weight: 900; color: #0b74ff; }
+.tj-stats span { font-size: 11px; color: #8a94a6; }
+.tj-license { border-top: 1px dashed #e8ecf3; padding-top: 12px; }
+.tj-license-t { font-size: 13px; font-weight: 800; color: #1d1d1f; margin-bottom: 8px; }
+.tj-kv { display: flex; gap: 10px; padding: 5px 0; font-size: 12px; line-height: 1.7; border-bottom: 1px solid #f5f7fa; }
+.tj-kv:last-child { border-bottom: none; }
+.tj-kv .k { flex: none; width: 96px; color: #8a94a6; }
+.tj-kv .v { flex: 1; min-width: 0; color: #374151; word-break: break-word; }
+.tj-grid3 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 720px) { .tj-grid3 { grid-template-columns: repeat(3, 1fr); } }
+.tj-biz { background: #fff; border: 1px solid #e8ecf3; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.tj-biz-img { width: 100%; height: 130px; object-fit: cover; display: block; }
+.tj-biz-body { padding: 12px; }
+.tj-biz-t { font-size: 14px; font-weight: 800; color: #1d1d1f; }
+.tj-biz-s { margin-top: 3px; font-size: 11px; color: #0b74ff; font-weight: 700; }
+.tj-list { margin: 8px 0 0; padding-left: 16px; }
+.tj-list li { font-size: 11.5px; line-height: 1.7; color: #5b6474; margin-bottom: 3px; }
+.tj-wide-img { width: 100%; border-radius: 12px; display: block; margin-bottom: 12px; }
+.tj-five { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.tj-five > div { text-align: center; padding: 8px 4px; border-radius: 10px; background: #f4fbf8; border: 1px solid #cdeee0; }
+.tj-five b { display: block; font-size: 16px; font-weight: 900; color: #0e8f5f; }
+.tj-five span { display: block; margin-top: 2px; font-size: 10px; color: #5b6474; line-height: 1.4; }
+.tj-benefits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.tj-benefits b { display: block; font-size: 16px; font-weight: 900; color: #0b74ff; }
+.tj-benefits span { font-size: 10.5px; color: #8a94a6; }
+.tj-grid2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 720px) { .tj-grid2 { grid-template-columns: repeat(2, 1fr); } }
+.tj-case { background: #fff; border: 1px solid #e8ecf3; border-radius: 14px; overflow: hidden; }
+.tj-case-img { width: 100%; height: 150px; object-fit: cover; display: block; }
+.tj-case-body { padding: 12px; }
+.tj-case-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; color: #0e8f5f; background: #eafaf1; }
+.tj-case-t { margin-top: 6px; font-size: 14px; font-weight: 800; color: #1d1d1f; line-height: 1.5; }
+.tj-case-d { margin-top: 4px; font-size: 12px; color: #6b7a90; line-height: 1.7; }
+.tj-case-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.tj-case-stats b { display: block; font-size: 15px; font-weight: 900; color: #b45309; }
+.tj-case-stats span { font-size: 10.5px; color: #8a94a6; }
+.tj-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 720px) { .tj-gallery { grid-template-columns: repeat(5, 1fr); } }
+.tj-g-item { padding: 0; border: 1px solid #e8ecf3; border-radius: 10px; overflow: hidden; background: #fff; cursor: pointer; }
+.tj-g-item img { width: 100%; height: 90px; object-fit: cover; display: block; }
+.tj-g-item span { display: block; padding: 4px; font-size: 10.5px; color: #5b6474; text-align: center; }
+.tj-coop6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+@media (max-width: 430px) { .tj-coop6 { grid-template-columns: repeat(2, 1fr); } }
+.tj-coop-item { padding: 10px; border-radius: 10px; background: #f7faff; border: 1px solid #e5eefb; }
+.tj-coop-item .ico { font-size: 18px; }
+.tj-coop-item .t { margin-top: 4px; font-size: 13px; font-weight: 800; color: #1d1d1f; }
+.tj-coop-item .d { margin-top: 2px; font-size: 10.5px; color: #6b7a90; line-height: 1.5; }
+.tj-coop-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #fffaf0; border: 1px solid #ffe2b0; font-size: 12px; line-height: 1.8; color: #5b4a2f; }
+.tj-flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+@media (max-width: 430px) { .tj-flow { grid-template-columns: repeat(2, 1fr); } }
+.tj-flow-item { padding: 10px; border-radius: 10px; background: #fff; border: 1px solid #e8ecf3; }
+.tj-flow-item .n { font-size: 11px; font-weight: 900; color: #0b74ff; }
+.tj-flow-item .t { margin-top: 2px; font-size: 12.5px; font-weight: 800; color: #1d1d1f; }
+.tj-flow-item .d { margin-top: 3px; font-size: 10px; color: #8a94a6; line-height: 1.5; }
+.tj-docs { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.tj-doc { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid #e8ecf3; cursor: pointer; text-align: left; }
+.tj-doc-ico { font-size: 26px; }
+.tj-doc-body { flex: 1; min-width: 0; }
+.tj-doc-t { font-size: 13.5px; font-weight: 800; color: #1d1d1f; }
+.tj-doc-d { margin-top: 2px; font-size: 11px; color: #8a94a6; }
+.tj-doc-go { flex: none; font-size: 12px; font-weight: 700; color: #0b74ff; }
+.tj-viewer-mask { position: fixed; inset: 0; z-index: 90; background: rgba(3, 8, 16, 0.85); display: flex; align-items: center; justify-content: center; padding: 12px; }
+.tj-viewer { width: 100%; max-width: 760px; max-height: 92vh; background: #0b1220; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.tj-viewer-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; color: #fff; font-size: 13px; font-weight: 700; }
+.tj-viewer-x { background: transparent; border: none; color: #fff; font-size: 18px; cursor: pointer; }
+.tj-viewer-img-wrap { flex: 1; min-height: 0; overflow: auto; background: #000; }
+.tj-viewer-img-wrap img { width: 100%; display: block; }
+.tj-viewer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; }
+.tj-bar-img { border-radius: 10px; object-fit: cover; }
