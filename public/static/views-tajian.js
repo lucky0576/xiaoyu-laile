@@ -350,7 +350,7 @@ export async function renderTajian(ctx) {
           <path d="M70 110 Q110 44 205 40 Q310 34 372 100 Q416 150 395 232 Q372 322 258 338 Q146 352 90 280 Q50 222 70 110 Z"
                 fill="#dff2e8" stroke="#8fd5b6" stroke-width="2" stroke-dasharray="6 4"/>
           <path d="M70 150 Q170 196 268 176 Q350 160 392 128" fill="none" stroke="#9cc7ea" stroke-width="6" opacity="0.7"/>
-          <text x="300" y="150" font-size="12" fill="#7d94ad">钱塘江</text>
+          <text x="74" y="136" font-size="10.5" fill="#7d94ad">钱塘江</text>
           <text x="200" y="58" font-size="12" fill="#6b859c">萧山区（示意）</text>
 
           <!-- 萧山城区：工商业光伏 / 储能 -->
@@ -370,7 +370,7 @@ export async function renderTajian(ctx) {
           <text x="302" y="216" font-size="10.5" fill="#6b7a90">整村光伏 1500kW</text>
 
           <!-- 义桥镇 湘南村 -->
-          <a href="#tj-cases"><circle cx="104" cy="286" r="9" fill="#0e8f5f" stroke="#fff" stroke-width="3"/></a>
+          <a href="#tj-cases"><circle cx="104" cy="302" r="9" fill="#0e8f5f" stroke="#fff" stroke-width="3"/></a>
           <text x="36" y="272" font-size="12" font-weight="700" fill="#1d1d1f">义桥镇 · 湘南村</text>
           <text x="36" y="288" font-size="10.5" fill="#6b7a90">整村光伏 2000kW</text>
 
