@@ -54,6 +54,7 @@ const checks = [
   ['营业执照资料', html.includes('tj-doc-license') && html.includes('营业执照')],
   ['战略合作生态', html.includes('华为技术') && html.includes('隆基绿能') && html.includes('国家电投')],
   ['营业执照图片存在', fs.existsSync(path.join(assets, 'license.jpg'))],
+  ['hero 中间 logo', html.includes('tj-hero-logo') && fs.existsSync(path.join(assets, 'tajian-logo.png'))],
   ['无下载入口', !/download=|下载资料/.test(html)],
 ];
 

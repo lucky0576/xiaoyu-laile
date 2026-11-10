@@ -176,6 +176,9 @@ export async function renderTajian(ctx) {
           <button class="btn btn-outline" id="tj-share" type="button">↗ 分享专题</button>
         </div>
       </div>
+      <div class="tj-hero-logo">
+        <img src="/static/tajian/tajian-logo.png" alt="塔建集团">
+      </div>
       <div class="tj-hero-right">
         <img src="/static/tajian/company-cover.jpg" alt="塔建集团">
       </div>

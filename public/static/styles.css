@@ -3250,3 +3250,33 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .tj-map-legend i { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
 .tj-brands { display: flex; flex-wrap: wrap; gap: 8px; }
 .tj-brand { padding: 5px 10px; border-radius: 8px; background: #f4f8fd; border: 1px solid #e2ebf7; font-size: 12px; color: #33465e; }
+
+
+/* 塔建 logo：放在文字与图片中间 */
+.tj-bar-logo {
+  flex: none;
+  width: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tj-bar-logo img { width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.35)); }
+.tj-hero-logo {
+  flex: none;
+  width: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tj-hero-logo img { width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45)); }
+.tj-logo { display: none; }
+@media (max-width: 600px) {
+  .tj-bar-logo, .tj-hero-logo { display: none; }
+  .tj-logo { display: block; }
+  .tj-hero { flex-wrap: nowrap; }
+  .tj-hero-right { width: 96px; }
+  .tj-hero-right img { height: 140px; }
+}
+@media (min-width: 601px) {
+  .tj-logo { display: none; }
+}

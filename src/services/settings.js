@@ -444,10 +444,10 @@ export default {
 export const HOME_SECTIONS = [
   { id: 'publish', name: '发布信息横栏', desc: '蓝色「发布信息」横栏' },
   { id: 'grid', name: '主入口宫格', desc: '活动赛事 / 贸易采供 / 会议 / 元宇宙展厅 / 出海…' },
-  { id: 'topic', name: '创业大赛入口', desc: '江浙沪创业大赛 · 政策速查' },
-  { id: 'events', name: '活动与赛事', desc: '活动分类 + 最新 5 条活动' },
   { id: 'brainco', name: 'BrainCo 横栏', desc: '战略合作伙伴 · 强脑科技' },
+  { id: 'topic', name: '创业大赛入口', desc: '江浙沪创业大赛 · 政策速查' },
   { id: 'tajian', name: '塔建集团横栏', desc: '工商业光伏 + 储能 · 塔建集团专题' },
+  { id: 'events', name: '活动与赛事', desc: '活动分类 + 最新 5 条活动' },
   { id: 'projects', name: '项目分类横栏', desc: '投资 / 融资 / EMC / EPC…' },
   { id: 'ecom', name: '电商', desc: '转让 · 供应 · 收购' },
   { id: 'promos', name: '服务商 / 新闻 / 论坛', desc: '成为服务商、新闻资讯、行业论坛' },

@@ -662,6 +662,7 @@ export async function renderHome(ctx, query) {
       </div>
       <div class="brainco-bar-cta">进入专题 · 看业务与合作 ›</div>
     </div>
+    <div class="tj-bar-logo"><img src="/static/tajian/tajian-logo.png" alt="塔建集团" loading="lazy"></div>
     <div class="brainco-bar-brand">
       <img class="brainco-bar-logo tj-bar-img" src="/static/tajian/company-cover.jpg" alt="塔建集团" loading="lazy">
     </div>
@@ -709,7 +710,7 @@ export async function renderHome(ctx, query) {
     stats: statsHtml,
   };
   const DEFAULT_ORDER = [
-    'publish', 'grid', 'topic', 'events', 'brainco', 'tajian', 'projects', 'ecom',
+    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'projects', 'ecom',
     'promos', 'rec', 'industries', 'metaverse', 'latest', 'cases', 'stats',
   ];
   const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(
