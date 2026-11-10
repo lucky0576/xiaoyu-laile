@@ -197,7 +197,7 @@ async function renderPublishMedia(ctx, type, taxonomy) {
       ` : `
         <div class="upload-zone" id="pm-drop">
           <div class="upload-zone-ico">🎬</div>
-          <div class="upload-zone-main" id="pm-video-hint">把短视频拖到这里，或点下面选择<br><span class="tiny dim">视频超过 30MB 会自动压缩，播放更流畅</span></div>
+          <div class="upload-zone-main" id="pm-video-hint">把短视频拖到这里，或点下面选择<br><span class="tiny dim">30~100MB 视频会先在浏览器压缩再上传；更大的由服务器自动压缩</span></div>
           <div class="upload-zone-sub">MP4 / MOV / WebM，建议 1080p 以内、单条 200MB 以内 · <b>一次最多 3 条</b></div>
           <div class="row gap8 mt12" style="justify-content:center">
             <button class="btn btn-sm btn-outline" id="pm-video-btn" type="button">📎 选择视频（最多 3 条）</button>
@@ -566,7 +566,27 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           if (files.length > room) ui.toast(`最多 ${MAX_VIDEOS} 条，只取了前 ${room} 个`, 'err');
 
           if (status) status.textContent = '正在解析视频…';
-          for (const f of files.slice(0, room)) {
+          for (const raw of files.slice(0, room)) {
+            let f = raw;
+            // 30~100MB 的视频先在浏览器压缩，上传更快；失败则原样上传（服务端兜底压缩）
+            try {
+              const vc = await import('./video-compress.js');
+              if (vc.canCompressVideo(f)) {
+                if (status) status.textContent = `正在压缩视频（${Math.round(f.size / 1048576)}MB）…`;
+                const r = await vc.compressVideo(f, {
+                  onProgress: (p) => {
+                    if (status) status.textContent = `正在压缩视频 ${Math.round(p * 100)}%…`;
+                  },
+                });
+                if (r.compressed) {
+                  ui.toast(`视频已压缩 ${(r.saved / 1048576).toFixed(1)}MB，上传更快`, 'ok');
+                  f = r.file;
+                }
+              }
+            } catch {
+              /* 浏览器压缩失败不影响发布 */
+            }
+            if (status) status.textContent = '正在解析视频…';
             const meta = await probeVideo(f);
             let cover = null;
             if (meta?.frame) {
