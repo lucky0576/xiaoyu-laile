@@ -532,7 +532,7 @@ export async function renderTajian(ctx) {
           title: isQuote ? '获取报价' : '申请成为合伙人',
           content: `<div class="tiny dim mb8">${isQuote ? '告诉我们项目情况，商务会提供投资模式与收益测算报价。' : '提交后平台与塔建集团商务会联系您，安排踏勘与方案测算。'}</div>
             <div class="field"><label>姓名 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-name" maxlength="30" placeholder="您的姓名"></div>
-            <div class="field"><label>单位 / 公司 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-org" maxlength="80" placeholder="公司或单位名称"></div>
+            <div class="field"><label>企业单位名称 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-org" maxlength="80" placeholder="公司 / 单位全称"></div>
             <div class="field"><label>电话 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-phone" maxlength="20" placeholder="手机号"></div>
             <div class="field"><label>项目地址 / 城市 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-city" maxlength="60" placeholder="如：杭州市萧山区某镇"></div>
             <div class="field"><label>合作方向 <span class="tiny dim">（可多选）</span></label>
@@ -550,6 +550,30 @@ export async function renderTajian(ctx) {
                     <div class="chips" id="tj-modes">${['业主投资', '塔建投资（零投资）', 'EPC 总包', '合同能源管理 EMC', '设备采购', '其他']
                       .map((m) => `<a class="chip" data-mode="${m}" href="javascript:;">${m}</a>`)
                       .join('')}</div>
+                  </div>
+                  <div class="field"><label>是否有产权证 <span class="tiny dim">（房产证 / 土地证）</span></label>
+                    <div class="chips" id="tj-property">${['两证齐全', '仅有房产证', '仅有土地证', '暂无', '其他']
+                      .map((m) => `<a class="chip" data-val="${m}" href="javascript:;">${m}</a>`)
+                      .join('')}</div>
+                  </div>
+                  <div class="row gap8">
+                    <div class="field grow"><label>变压器容量</label><input class="input" id="tj-transformer" maxlength="40" placeholder="如：800kVA"></div>
+                    <div class="field grow"><label>协议电价</label><input class="input" id="tj-price" maxlength="40" placeholder="如：0.55 元/度"></div>
+                  </div>
+                  <div class="field"><label>屋顶面积</label><input class="input" id="tj-roofarea" maxlength="40" placeholder="如：1.2 万㎡ / 8000㎡"></div>
+                  <div class="field"><label>屋顶照片 <span class="tiny dim">（可多张，用于测算）</span></label>
+                    <input type="file" id="tj-rooffiles" multiple accept="image/*">
+                    <div class="tiny dim mt6">建议上传：屋顶全景、屋面结构、配电房、变压器铭牌</div>
+                  </div>
+                  <div class="field"><label>上网方式</label>
+                    <div class="chips" id="tj-gridmode">${['全电上网', '余电上网'].map((m) => `<a class="chip" data-val="${m}" href="javascript:;">${m}</a>`).join('')}</div>
+                  </div>
+                  <div class="row gap8">
+                    <div class="field grow"><label>上网比例</label><input class="input" id="tj-ratio" type="number" min="0" max="100" placeholder="%"></div>
+                    <div class="field grow"><label>期望并网时间</label><input class="input" id="tj-gridtime" type="month"></div>
+                  </div>
+                  <div class="field"><label>是否有储能需求</label>
+                    <div class="chips" id="tj-storage">${['有', '暂无', '待评估'].map((m) => `<a class="chip" data-val="${m}" href="javascript:;">${m}</a>`).join('')}</div>
                   </div>`
                 : ''
             }
@@ -561,6 +585,21 @@ export async function renderTajian(ctx) {
             <button class="btn btn-primary btn-block mt8" id="tj-submit">${isQuote ? '提交报价需求' : '提交合伙人申请'}</button>`,
           onMount(sheet, close) {
             const modeSet = new Set();
+            let propertyVal = '';
+            let gridModeVal = '';
+            let storageVal = '';
+            const bindSingle = (sel, setter) => {
+              sheet.querySelector(sel)?.addEventListener('click', (ev) => {
+                const chip = ev.target.closest('[data-val]');
+                if (!chip) return;
+                ev.preventDefault();
+                sheet.querySelectorAll(`${sel} [data-val]`).forEach((x) => x.classList.toggle('active', x === chip));
+                setter(chip.dataset.val);
+              });
+            };
+            bindSingle('#tj-property', (v) => (propertyVal = v));
+            bindSingle('#tj-gridmode', (v) => (gridModeVal = v));
+            bindSingle('#tj-storage', (v) => (storageVal = v));
             sheet.querySelector('#tj-modes')?.addEventListener('click', (ev) => {
               const chip = ev.target.closest('[data-mode]');
               if (!chip) return;
@@ -589,6 +628,12 @@ export async function renderTajian(ctx) {
               const cap = String(sheet.querySelector('#tj-cap')?.value || '').trim();
               const budget = String(sheet.querySelector('#tj-budget')?.value || '').trim();
               const modes = [...modeSet];
+              const transformer = String(sheet.querySelector('#tj-transformer')?.value || '').trim();
+              const price = String(sheet.querySelector('#tj-price')?.value || '').trim();
+              const roofArea = String(sheet.querySelector('#tj-roofarea')?.value || '').trim();
+              const ratio = String(sheet.querySelector('#tj-ratio')?.value || '').trim();
+              const gridTime = String(sheet.querySelector('#tj-gridtime')?.value || '').trim();
+              const roofFiles = Array.from(sheet.querySelector('#tj-rooffiles')?.files || []);
               const note = String(sheet.querySelector('#tj-note').value || '').trim();
               const files = Array.from(sheet.querySelector('#tj-files')?.files || []);
               if (!name) return ui.toast('请填写姓名', 'err');
@@ -598,11 +643,12 @@ export async function renderTajian(ctx) {
               btn.disabled = true;
               const oldText = btn.textContent;
               try {
+                const allFiles = [...roofFiles, ...files];
                 const fileIds = [];
-                for (let k = 0; k < files.length; k += 1) {
-                  btn.textContent = `上传资料 ${k + 1}/${files.length}…`;
+                for (let k = 0; k < allFiles.length; k += 1) {
+                  btn.textContent = `上传资料 ${k + 1}/${allFiles.length}…`;
                   try {
-                    const up = await api.uploadFile(files[k]);
+                    const up = await api.uploadFile(allFiles[k]);
                     const rec = (up && up.files && up.files[0]) || up;
                     if (rec && rec.id) fileIds.push(rec.id);
                   } catch {
@@ -623,6 +669,14 @@ export async function renderTajian(ctx) {
 ${isQuote ? `装机容量：${cap || '（未填写）'}
 预算范围：${budget || '（未填写）'}
 期望合作模式：${modes.join('、') || '（未填写）'}
+是否有产权证：${propertyVal || '（未填写）'}
+变压器容量：${transformer || '（未填写）'}
+屋顶面积：${roofArea || '（未填写）'}
+屋顶照片：${roofFiles.length ? `${roofFiles.length} 张（见附件）` : '（未上传）'}
+协议电价：${price || '（未填写）'}
+上网方式：${gridModeVal || '（未填写）'}${gridModeVal === '余电上网' ? `（上网比例 ${ratio || '未填'}%）` : ''}
+期望并网时间：${gridTime || '（未填写）'}
+是否有储能需求：${storageVal || '（未填写）'}
 ` : ''}
 需求说明：
 ${note || '（未填写，可由商务电话沟通）'}

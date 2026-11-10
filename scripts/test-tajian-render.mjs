@@ -58,6 +58,7 @@ const checks = [
   ['合作/报价按钮分开', html.includes('tj-quote') && html.includes('tj-quote2')],
   ['合伙人入口', html.includes('申请成为合伙人')],
   ['报价表单专用字段', src.includes('tj-cap') && src.includes('tj-budget') && src.includes('tj-modes')],
+  ['报价扩展字段', src.includes('tj-property') && src.includes('tj-transformer') && src.includes('tj-rooffiles') && src.includes('tj-gridmode') && src.includes('tj-gridtime') && src.includes('tj-storage')],
   ['无下载入口', !/download=|下载资料/.test(html)],
 ];
 
