@@ -25,6 +25,14 @@ const PROFILE_DOC = [
   ['/static/tajian/case-pv2.jpg', '工商业光伏 · 简康新材料 928.26kWp'],
 ];
 
+const LICENSE_DOC = [['/static/tajian/license.jpg', '营业执照']];
+
+const BRANDS = [
+  '华为技术', '隆基绿能', '正泰集团', '天合富家', '晶澳光伏', '通威集团', '锦浪科技', '阳光能源',
+  '国家电投', '华能集团', '大唐集团', '中国电建', '中国能建', '中国交建', '物产中大', '新奥集团',
+  '西安热工', '海康威视', '杭州可再生能源行业协会',
+];
+
 const PPT_DOC = [
   ['/static/tajian/hero-poster.jpg', '塔建集团 & 新能源投资规划'],
   ['/static/tajian/village.jpg', '三泉王村 · 项目概况'],
@@ -325,6 +333,54 @@ export async function renderTajian(ctx) {
       </div>
     </div>
 
+    <!-- 06.5 萧山项目案例地图 -->
+    <div class="tj-section" id="tj-map">
+      <div class="tj-sec-head">
+        <div class="tj-sec-t">萧山项目案例分布</div>
+        <div class="tj-sec-d">整村光伏 · 村级微电网 · 工商业光伏 / 储能（示意图，非精确地理坐标）</div>
+      </div>
+      <div class="tj-card tj-map-card">
+        <svg class="tj-map" viewBox="0 0 360 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="萧山项目案例分布示意图">
+          <defs>
+            <linearGradient id="tjmapbg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#f2fbf7"/><stop offset="1" stop-color="#eaf3ff"/>
+            </linearGradient>
+          </defs>
+          <rect width="360" height="320" fill="url(#tjmapbg)" rx="14"/>
+          <path d="M58 96 Q92 42 168 40 Q250 36 296 88 Q330 130 312 196 Q296 268 210 282 Q120 296 74 236 Q42 188 58 96 Z"
+                fill="#dff2e8" stroke="#8fd5b6" stroke-width="2" stroke-dasharray="6 4"/>
+          <path d="M60 128 Q140 168 220 150 Q286 136 318 112" fill="none" stroke="#9cc7ea" stroke-width="6" opacity="0.7"/>
+          <text x="196" y="112" font-size="11" fill="#7d94ad">钱塘江</text>
+          <text x="150" y="46" font-size="11" fill="#6b859c">萧山区（示意）</text>
+          <!-- 城区工商业 -->
+          <a href="#tj-cases"><circle cx="150" cy="120" r="8" fill="#0b74ff" stroke="#fff" stroke-width="3"/>
+            <text x="163" y="118" font-size="11" font-weight="700" fill="#1d1d1f">萧山城区 · 工商业光伏/储能</text>
+            <text x="163" y="132" font-size="10" fill="#6b7a90">胜思诚讯 1799.655kWp · 简康 928.26kWp</text></a>
+          <!-- 瓜沥群力 -->
+          <a href="#tj-cases"><circle cx="252" cy="128" r="8" fill="#0e8f5f" stroke="#fff" stroke-width="3"/>
+            <text x="200" y="150" font-size="11" font-weight="700" fill="#1d1d1f">瓜沥镇 · 群力村</text>
+            <text x="200" y="164" font-size="10" fill="#6b7a90">整村光伏 1500kW</text></a>
+          <!-- 瓜沥官一 -->
+          <a href="#tj-cases"><circle cx="286" cy="98" r="8" fill="#0e8f5f" stroke="#fff" stroke-width="3"/>
+            <text x="236" y="88" font-size="11" font-weight="700" fill="#1d1d1f">瓜沥镇 · 官一村</text>
+            <text x="236" y="102" font-size="10" fill="#6b7a90">整村光伏 2000kW</text></a>
+          <!-- 义桥湘南 -->
+          <a href="#tj-cases"><circle cx="96" cy="228" r="8" fill="#0e8f5f" stroke="#fff" stroke-width="3"/>
+            <text x="40" y="250" font-size="11" font-weight="700" fill="#1d1d1f">义桥镇 · 湘南村</text>
+            <text x="40" y="264" font-size="10" fill="#6b7a90">整村光伏 2000kW</text></a>
+          <!-- 所前三泉王 -->
+          <a href="#tj-cases"><circle cx="196" cy="248" r="10" fill="#b45309" stroke="#fff" stroke-width="3"/>
+            <text x="210" y="244" font-size="11" font-weight="700" fill="#b45309">所前镇 · 三泉王村</text>
+            <text x="210" y="258" font-size="10" fill="#6b7a90">9.36MW 光伏 + 2MW/4MWh 储能 + 23 台充电桩</text></a>
+        </svg>
+        <div class="tj-map-legend">
+          <span><i style="background:#0b74ff"></i>工商业光伏 / 储能</span>
+          <span><i style="background:#0e8f5f"></i>整村光伏示范</span>
+          <span><i style="background:#b45309"></i>村级源网荷储充微电网</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 07 资料查看 -->
     <div class="tj-section" id="tj-docs">
       <div class="tj-sec-head">
@@ -332,6 +388,11 @@ export async function renderTajian(ctx) {
         <div class="tj-sec-d">点击查看（仅预览，不提供下载）</div>
       </div>
       <div class="tj-docs">
+        <button class="tj-doc" type="button" id="tj-doc-license">
+          <div class="tj-doc-ico">🪪</div>
+          <div class="tj-doc-body"><div class="tj-doc-t">营业执照</div><div class="tj-doc-d">杭州塔建新能源科技集团有限公司 · 可预览</div></div>
+          <span class="tj-doc-go">查看 ›</span>
+        </button>
         <button class="tj-doc" type="button" id="tj-doc-profile">
           <div class="tj-doc-ico">📘</div>
           <div class="tj-doc-body"><div class="tj-doc-t">塔建集团企业简介</div><div class="tj-doc-d">2026.10 版 · ${PROFILE_DOC.length} 页</div></div>
@@ -342,6 +403,19 @@ export async function renderTajian(ctx) {
           <div class="tj-doc-body"><div class="tj-doc-t">三泉王村源网荷储充一体化智慧微电网建设方案</div><div class="tj-doc-d">${PPT_DOC.length} 页 · 项目方案</div></div>
           <span class="tj-doc-go">查看 ›</span>
         </button>
+      </div>
+    </div>
+
+    <div class="tj-section" id="tj-brands">
+      <div class="tj-sec-head">
+        <div class="tj-sec-t">战略合作生态</div>
+        <div class="tj-sec-d">设备、投资、施工、运维等合作方（资料提供）</div>
+      </div>
+      <div class="tj-card">
+        <div class="tj-brands">
+          ${BRANDS.map((b) => `<span class="tj-brand">${ui.esc(b)}</span>`).join('')}
+        </div>
+        <div class="tiny dim mt8">以上合作方名单来自塔建集团企业简介；具体合作关系以各方协议为准。</div>
       </div>
     </div>
 
@@ -425,6 +499,7 @@ export async function renderTajian(ctx) {
         });
         paint();
       };
+      root.querySelector('#tj-doc-license')?.addEventListener('click', () => openDoc(LICENSE_DOC, '营业执照'));
       root.querySelector('#tj-doc-profile')?.addEventListener('click', () => openDoc(PROFILE_DOC, '塔建集团企业简介'));
       root.querySelector('#tj-doc-ppt')?.addEventListener('click', () => openDoc(PPT_DOC, '三泉河村微电网方案'));
       root.querySelectorAll('[data-tj-img]').forEach((btn) => {

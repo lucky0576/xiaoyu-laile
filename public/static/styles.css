@@ -3240,3 +3240,13 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .tj-viewer-img-wrap img { width: 100%; display: block; }
 .tj-viewer-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; }
 .tj-bar-img { border-radius: 10px; object-fit: cover; }
+
+
+/* 塔建地图 + 品牌生态 */
+.tj-map-card { padding: 10px; }
+.tj-map { width: 100%; height: auto; display: block; border-radius: 12px; }
+.tj-map-legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 6px 0; font-size: 11px; color: #5b6474; }
+.tj-map-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.tj-map-legend i { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
+.tj-brands { display: flex; flex-wrap: wrap; gap: 8px; }
+.tj-brand { padding: 5px 10px; border-radius: 8px; background: #f4f8fd; border: 1px solid #e2ebf7; font-size: 12px; color: #33465e; }

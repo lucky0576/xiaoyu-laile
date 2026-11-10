@@ -50,6 +50,10 @@ const checks = [
   ['申请合作按钮', html.includes('tj-apply') && html.includes('tj-apply2')],
   ['分享按钮', html.includes('tj-share')],
   ['图片资源存在', fs.existsSync(path.join(assets, 'company-cover.jpg')) && fs.existsSync(path.join(assets, 'village.jpg'))],
+  ['萧山案例地图', html.includes('tj-map') && html.includes('钱塘江') && html.includes('所前镇 · 三泉王村')],
+  ['营业执照资料', html.includes('tj-doc-license') && html.includes('营业执照')],
+  ['战略合作生态', html.includes('华为技术') && html.includes('隆基绿能') && html.includes('国家电投')],
+  ['营业执照图片存在', fs.existsSync(path.join(assets, 'license.jpg'))],
   ['无下载入口', !/download=|下载资料/.test(html)],
 ];
 
