@@ -710,8 +710,8 @@ export async function renderHome(ctx, query) {
     stats: statsHtml,
   };
   const DEFAULT_ORDER = [
-    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'projects', 'ecom',
-    'promos', 'rec', 'industries', 'metaverse', 'latest', 'cases', 'stats',
+    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'ecom',
+    'promos', 'rec', 'industries', 'latest', 'cases', 'stats',
   ];
   const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(
     (id) => SECTIONS[id],
