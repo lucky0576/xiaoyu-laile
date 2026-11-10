@@ -172,7 +172,8 @@ export async function renderTajian(ctx) {
         </div>
         <div class="row gap8 mt16" style="flex-wrap:wrap">
           <a class="btn btn-primary" href="#tj-business">看业务与合作</a>
-          <button class="btn btn-outline" id="tj-apply" type="button">🤝 申请合作 / 报价</button>
+          <button class="btn btn-outline" id="tj-apply" type="button">🤝 申请合作</button>
+          <button class="btn btn-outline" id="tj-quote" type="button">💰 获取报价</button>
           <button class="btn btn-outline" id="tj-share" type="button">↗ 分享专题</button>
         </div>
       </div>
@@ -434,8 +435,11 @@ export async function renderTajian(ctx) {
         <div class="tj-sec-t">08 申请合作 / 报价</div>
         <div class="tj-sec-d">工商业光伏、储能、整村微电网均可提交需求</div>
       </div>
-      <button class="btn btn-primary btn-block" id="tj-apply2" type="button" style="height:46px">提交合作需求</button>
-      <div class="tiny dim center mt8">提交后平台与塔建集团商务对接，提供踏勘与方案测算</div>
+      <div class="row gap8" style="flex-wrap:wrap">
+        <button class="btn btn-primary" id="tj-apply2" type="button" style="flex:1;min-width:130px;height:46px">🤝 申请合作</button>
+        <button class="btn btn-outline" id="tj-quote2" type="button" style="flex:1;min-width:130px;height:46px">💰 获取报价</button>
+      </div>
+      <div class="tiny dim center mt8">提交后平台与塔建集团商务对接，提供踏勘与方案报价</div>
     </div>
 
     <div class="bc-foot">
@@ -516,16 +520,17 @@ export async function renderTajian(ctx) {
       });
 
       /* 申请合作表单 */
-      const openApply = (preset) => {
+      const openApply = (preset, mode = 'coop') => {
         if (!isLoggedIn()) {
-          ui.toast('登录后才能提交合作需求', 'err');
+          ui.toast(mode === 'quote' ? '登录后才能获取报价' : '登录后才能提交合作需求', 'err');
           ctx.nav('#/login');
           return;
         }
-        const picked = new Set(preset ? [preset] : ['工商业光伏']);
+        const isQuote = mode === 'quote';
+        const picked = new Set(isQuote ? ['工商业光伏', '工商业储能'] : preset ? [preset] : ['工商业光伏']);
         ui.openSheet({
-          title: '申请合作 / 报价',
-          content: `<div class="tiny dim mb8">提交后平台与塔建集团商务会联系您，安排踏勘与方案测算。</div>
+          title: isQuote ? '获取报价' : '申请合作',
+          content: `<div class="tiny dim mb8">${isQuote ? '告诉我们项目情况，商务会提供投资模式与收益测算报价。' : '提交后平台与塔建集团商务会联系您，安排踏勘与方案测算。'}</div>
             <div class="field"><label>姓名 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-name" maxlength="30" placeholder="您的姓名"></div>
             <div class="field"><label>单位 / 公司 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-org" maxlength="80" placeholder="公司或单位名称"></div>
             <div class="field"><label>电话 <span style="color:#e74c3c">*</span></label><input class="input" id="tj-phone" maxlength="20" placeholder="手机号"></div>
@@ -580,8 +585,9 @@ export async function renderTajian(ctx) {
                 }
                 btn.textContent = '提交中…';
                 const dirText = [...picked].join('、') || '工商业光伏';
-                const text = `【塔建集团 · 新能源合作】杭州塔建新能源科技集团有限公司
+                const text = `【塔建集团 · ${isQuote ? '新能源报价' : '新能源合作'}】杭州塔建新能源科技集团有限公司
 
+申请类型：${isQuote ? '报价申请（投资 / EPC / 收益测算）' : '合作申请'}
 合作单位：${org}
 联系人：${name}
 电话：${phone}
@@ -626,8 +632,10 @@ ${note || '（未填写，可由商务电话沟通）'}
           },
         });
       };
-      root.querySelector('#tj-apply')?.addEventListener('click', () => openApply('工商业光伏'));
-      root.querySelector('#tj-apply2')?.addEventListener('click', () => openApply('工商业光伏'));
+      root.querySelector('#tj-apply')?.addEventListener('click', () => openApply('工商业光伏', 'coop'));
+      root.querySelector('#tj-apply2')?.addEventListener('click', () => openApply('工商业光伏', 'coop'));
+      root.querySelector('#tj-quote')?.addEventListener('click', () => openApply('工商业光伏', 'quote'));
+      root.querySelector('#tj-quote2')?.addEventListener('click', () => openApply('工商业光伏', 'quote'));
     },
   };
 }
