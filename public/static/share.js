@@ -25,6 +25,29 @@ function loadWxSdk() {
   return wxLoading;
 }
 
+/**
+ * 分享文字自动精简：去换行、取前 1~2 句、超长截断
+ * 默认 70 字，约海报 2~3 行
+ */
+export function shortenShareText(text, max = 70) {
+  let t = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!t) return '';
+  // 按句号/感叹号/问号/分号切句，取能放下的前几句
+  const parts = t.split(/[。！？!?；;]/).map((x) => x.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    let out = '';
+    for (const part of parts) {
+      if ((out + part).length > max) break;
+      out += `${part}。`;
+    }
+    t = out || `${parts[0]}。`;
+  }
+  if (t.length > max) t = `${t.slice(0, max - 1)}…`;
+  return t;
+}
+
 export function isWechatBrowser() {
   return /micromessenger/i.test(navigator.userAgent);
 }
@@ -456,6 +479,12 @@ export async function openShareSheet(listing) {
 
   const coverUrl = safeUrl(payload.imgUrl) || '';
 
+  // 分享文字：自动精简 + 允许用户手动修改
+  let shareDesc = shortenShareText(
+    payload.desc || listing.subtitle || listing.summary || listing.ai?.summary || '',
+    70,
+  );
+
   // 公众号接入状态：决定微信内转发卡片是否带自定义标题/封面
   let wxStatus = null;
   try {
@@ -468,7 +497,7 @@ export async function openShareSheet(listing) {
   const plainShareText = () => {
     const lines = [];
     lines.push(`【${payload.title || ''}】`);
-    if (payload.desc) lines.push(payload.desc);
+    if (shareDesc) lines.push(shareDesc);
 
     const bits = [];
     const city = listing.cities?.[0]?.name;
@@ -495,6 +524,10 @@ export async function openShareSheet(listing) {
 
   const content = `
     ${isWechatBrowser() ? `<div class="wx-tip">💚 <b>你在微信里</b>：选好形态后，点右上角「···」即可<b>发送给朋友</b>或<b>分享到朋友圈</b>，链接会自动带上标题、摘要和封面图。</div>` : ''}
+    <div class="field" style="margin-bottom:10px">
+      <label>分享文字 <span class="tiny dim">（可修改，建议 2 行以内）</span></label>
+      <textarea class="textarea" id="share-edit-desc" rows="3" maxlength="160">${esc(shareDesc)}</textarea>
+    </div>
     <div class="share-mode active" data-mode="wechat">
       <div class="ico">💚</div>
       <div class="grow">
@@ -532,6 +565,11 @@ export async function openShareSheet(listing) {
       const panel = sheet.querySelector('#share-panel');
       let mode = 'wechat';
       let posterCanvas = null;
+
+      // 分享文字输入框：改完立即用于海报 / 文案 / 复制
+      sheet.querySelector('#share-edit-desc')?.addEventListener('input', (e) => {
+        shareDesc = String(e.target.value || '').trim();
+      });
 
       const renderPanel = async () => {
         if (mode === 'wechat') {
@@ -574,7 +612,7 @@ export async function openShareSheet(listing) {
         } else if (mode === 'text') {
           panel.innerHTML = `<div class="field">
               <label>纯文字文案（可自由复制粘贴）</label>
-              <textarea class="input" id="share-plain" rows="10" readonly>${esc(plainShareText())}</textarea>
+              <textarea class="textarea" id="share-plain" rows="10">${esc(plainShareText())}</textarea>
             </div>
             <div class="row gap8 mt8">
               <button class="btn btn-primary grow" id="btn-copy-plain">复制文字</button>
@@ -590,8 +628,8 @@ export async function openShareSheet(listing) {
           try {
             posterCanvas = await renderPoster({
               title: payload.title,
-              subtitle: listing.subtitle || '',
-              summary: (listing.summary || listing.ai?.summary || '').slice(0, 120),
+              subtitle: shareDesc,
+              summary: '',
               qrText: service.qrUrl(payload.url, 360),
               coverUrl,
               meta: [listing.categoryName || '小鱼来了'],
@@ -613,7 +651,7 @@ export async function openShareSheet(listing) {
       };
 
       const bind = () => {
-        const wxText = () => `${payload.title}\n${payload.desc}\n${payload.url}`;
+        const wxText = () => `${payload.title}\n${shareDesc}\n${payload.url}`;
 
         panel.querySelector('#btn-wx-open')?.addEventListener('click', async () => {
           const ok = await copyText(wxText());
@@ -636,7 +674,8 @@ export async function openShareSheet(listing) {
         });
 
         panel.querySelector('#btn-copy-plain')?.addEventListener('click', async () => {
-          const ok = await copyText(plainShareText());
+          const ta = panel.querySelector('#share-plain');
+          const ok = await copyText((ta && ta.value) || plainShareText());
           service.recordShare(listing.id, 'text').catch(() => {});
           toast(ok ? '文字已复制，可粘贴到任意位置' : '复制失败，请手动选择文字', ok ? 'ok' : 'err');
         });
@@ -981,11 +1020,16 @@ export async function openInvestShare(plan = {}, quota = {}) {
 /* ------------------------------------------------------------------ */
 export async function openQuickShare({ title = '小鱼来了', desc = '', url = '', image = '', tag = '' } = {}) {
   const shareUrl = url || location.href;
-  const plainText = [title, desc].filter(Boolean).join('\n') + '\n' + shareUrl;
+  let shareText = shortenShareText(desc, 70);
+  const plainText = () => [title, shareText].filter(Boolean).join('\n') + '\n' + shareUrl;
 
   openSheet({
     title: '分享',
     content: `
+      <div class="field" style="margin-bottom:10px">
+        <label>分享文字 <span class="tiny dim">（可修改，建议 2 行以内）</span></label>
+        <textarea class="textarea" id="q-edit-desc" rows="3" maxlength="160">${esc(shareText)}</textarea>
+      </div>
       <div class="share-mode active" data-qmode="poster">
         <div class="ico">🖼️</div>
         <div class="grow">
@@ -1006,6 +1050,12 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
       let mode = 'poster';
       let posterCanvas = null;
 
+      sheet.querySelector('#q-edit-desc')?.addEventListener('input', (e) => {
+        shareText = String(e.target.value || '').trim();
+        const ta = panel.querySelector('#q-link-text');
+        if (ta) ta.value = plainText();
+      });
+
       const renderPanel = async () => {
         if (mode === 'poster') {
           panel.innerHTML = `<div class="poster-wrap"><div class="tiny dim">海报生成中…</div></div>
@@ -1018,7 +1068,7 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
             posterCanvas = await renderPoster({
               title,
               subtitle: tag,
-              summary: String(desc || '').slice(0, 120),
+              summary: shareText,
               qrText: service.qrUrl(shareUrl, 360),
               coverUrl: image,
               meta: [tag || '小鱼来了'],
@@ -1037,32 +1087,32 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
             toast(ok ? '图片已保存' : '保存失败，请长按图片保存', ok ? 'ok' : 'err');
           });
           panel.querySelector('#q-copy-poster-text')?.addEventListener('click', async () => {
-            const ok = await copyText(plainText);
+            const ok = await copyText(plainText());
             toast(ok ? '文字已复制' : '复制失败，请手动选择', ok ? 'ok' : 'err');
           });
         } else {
           panel.innerHTML = `<div class="field">
               <label>链接 + 文字</label>
-              <textarea class="input" id="q-link-text" rows="8" readonly>${esc(plainText)}</textarea>
+              <textarea class="input" id="q-link-text" rows="8" readonly>${esc(plainText())}</textarea>
             </div>
             <div class="row gap8 mt8">
               <button class="btn btn-primary grow" id="q-copy-link" type="button">复制文字与链接</button>
               <button class="btn grow" id="q-native" type="button">系统分享</button>
             </div>`;
           panel.querySelector('#q-copy-link')?.addEventListener('click', async () => {
-            const ok = await copyText(plainText);
+            const ok = await copyText(plainText());
             toast(ok ? '文字与链接已复制，可直接粘贴到微信' : '复制失败，请手动选择', ok ? 'ok' : 'err');
           });
           panel.querySelector('#q-native')?.addEventListener('click', async () => {
             if (navigator.share) {
               try {
-                await navigator.share({ title, text: desc, url: shareUrl });
+                await navigator.share({ title, text: shareText, url: shareUrl });
                 return;
               } catch {
                 /* 用户取消 */
               }
             }
-            const ok = await copyText(plainText);
+            const ok = await copyText(plainText());
             toast(ok ? '文字与链接已复制' : '复制失败', ok ? 'ok' : 'err');
           });
         }
@@ -1082,6 +1132,7 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
 }
 
 export default {
+  shortenShareText,
   openInviteShare,
   openInvestShare,
   openShareSheet,
