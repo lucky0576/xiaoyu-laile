@@ -505,7 +505,7 @@ export async function renderHome(ctx, query) {
   const industryHtml = `<div class="home-sec-head"><h2>热门行业</h2><a href="#/list/project">全部 ›</a></div>
     <div class="home-panel" style="padding:0">
       <div class="home-scroll">
-        ${industries.map((ind, i) => `<a class="home-tile" href="#/list/project?industry=${encodeURIComponent(ind.id)}">
+        ${industries.map((ind, i) => `<a class="home-tile" href="${ind.id === 'real-estate' ? '#/estate' : `#/list/project?industry=${encodeURIComponent(ind.id)}`}">
           <div class="art" style="background:${GRAD[i % GRAD.length]}">${ind.icon || '🏷️'}</div>
           <div class="t">${ui.esc(ind.name)}</div>
           <div class="d">${ui.esc(((ind.subs || []).slice(0, 3).map((x) => x.name).join(' · ')) || '查看项目')}</div>

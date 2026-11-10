@@ -69,6 +69,7 @@ const viewsBraincoCoop = lazyView(() => import('./views-brainco-coop.js'));
 const viewsMetaverse = lazyView(() => import('./views-metaverse.js'));
 const viewsOverseas = lazyView(() => import('./views-overseas.js'));
 const viewsLatest = lazyView(() => import('./views-latest.js'));
+const viewsEstate = lazyView(() => import('./views-estate.js'));
 const viewsAdminDrama = lazyView(() => import('./views-admin-drama.js'));
 
 const appEl = document.getElementById('app');
@@ -425,6 +426,8 @@ async function resolveView({ segs, query }) {
       return viewsAbout.renderAbout(ctx, query);
     case 'services':
       return viewsServices.renderServices(ctx, query);
+    case 'estate':
+      return viewsEstate.renderEstate(ctx, query);
     case 'latest':
       return viewsLatest.renderLatest(ctx, query);
     case 'overseas':
