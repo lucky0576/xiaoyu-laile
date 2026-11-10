@@ -2924,6 +2924,58 @@ ul { margin: 0; padding-left: 18px; }
 /* 防止个别页面内容撑出横向滚动，导致 hero 贴边裁切 */
 html, body { max-width: 100%; overflow-x: hidden; }
 
+
+/* ---------------- 出海 / 海外项目 ---------------- */
+.os-page { padding-bottom: 24px; }
+.os-hero {
+  padding: 22px 18px;
+  border-radius: 20px;
+  color: #fff;
+  background:
+    radial-gradient(120% 130% at 88% 12%, rgba(58, 214, 170, 0.28) 0%, rgba(58, 214, 170, 0) 58%),
+    linear-gradient(135deg, #06131f 0%, #0b2740 55%, #0d3b3a 100%);
+}
+.os-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9dffd9;
+  background: rgba(58, 214, 170, 0.16);
+  border: 1px solid rgba(58, 214, 170, 0.4);
+}
+.os-hero-t { margin-top: 10px; font-size: 22px; line-height: 1.35; font-weight: 900; }
+.os-hero-d { margin-top: 6px; font-size: 12.5px; color: rgba(255, 255, 255, 0.75); line-height: 1.8; }
+.os-hero-stats { display: flex; gap: 18px; margin-top: 14px; }
+.os-hero-stats b { display: block; font-size: 22px; font-weight: 900; color: #9dffd9; }
+.os-hero-stats span { font-size: 11px; color: rgba(255, 255, 255, 0.7); }
+.os-sec-head { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 2px 10px; }
+.os-sec-t { font-size: 16px; font-weight: 800; color: #1d1d1f; }
+.os-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 720px) { .os-grid { grid-template-columns: repeat(2, 1fr); } }
+.os-card {
+  display: block;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e8ecf3;
+  text-decoration: none;
+}
+.os-card:active { transform: scale(0.995); }
+.os-card-t { font-size: 14px; font-weight: 800; color: #1d1d1f; line-height: 1.5; }
+.os-card-d { margin-top: 4px; font-size: 12px; color: #6b7a90; line-height: 1.6; }
+.os-card-m { margin-top: 8px; display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: #8a94a6; }
+.os-card-price { color: #0b74ff; font-weight: 800; }
+.os-note {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f4fbf8;
+  border: 1px solid #cdeee0;
+  font-size: 12px;
+}
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
