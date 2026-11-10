@@ -111,25 +111,12 @@ export const INDUSTRIES = [
   },
   {
     id: 'real-estate',
-    name: '房产',
+    name: '地产',
     icon: '🏠',
     subs: [
-      { id: 'residential', name: '住宅开发' },
-      { id: 'commercial', name: '商业地产' },
-      { id: 'office', name: '写字楼' },
-      { id: 'industrial-park', name: '产业园区' },
-      { id: 'property-management', name: '物业管理' },
-      { id: 'second-hand', name: '二手房' },
-      { id: 'leasing', name: '房屋租赁' },
-      { id: 'land', name: '土地开发' },
-      { id: 'urban-renewal', name: '城市更新' },
-      { id: 'affordable-housing', name: '保障性住房' },
-      { id: 'decoration', name: '装修装饰' },
-      { id: 'intermediary', name: '房产中介' },
-      { id: 'parking', name: '车位车库' },
-      { id: 'hotel-property', name: '酒店物业' },
-      { id: 'logistics-property', name: '物流地产' },
-      { id: 'pension-property', name: '养老地产' }
+      { id: 'sale', name: '出售' },
+      { id: 'transfer', name: '转让' },
+      { id: 'financing', name: '融资' }
     ]
   },
   {

@@ -508,7 +508,7 @@ export async function renderHome(ctx, query) {
         ${industries.map((ind, i) => `<a class="home-tile" href="#/list/project?industry=${encodeURIComponent(ind.id)}">
           <div class="art" style="background:${GRAD[i % GRAD.length]}">${ind.icon || '🏷️'}</div>
           <div class="t">${ui.esc(ind.name)}</div>
-          <div class="d">${ui.esc((ind.subs || [])[0]?.name || '查看项目')}</div>
+          <div class="d">${ui.esc(((ind.subs || []).slice(0, 3).map((x) => x.name).join(' · ')) || '查看项目')}</div>
         </a>`).join('')}
       </div>
     </div>`;
