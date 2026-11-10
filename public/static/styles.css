@@ -3335,3 +3335,23 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .tjp-faq details { background: #fff; border: 1px solid #e8ecf3; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
 .tjp-faq summary { font-size: 13px; font-weight: 700; color: #1d1d1f; cursor: pointer; }
 .tjp-faq details div { margin-top: 6px; font-size: 12px; line-height: 1.75; color: #5b6474; }
+
+
+/* 合伙人测算器 / 邀请 / 后台列表 */
+.tjp-calc { background: #fff; border: 1px solid #e8ecf3; border-radius: 14px; padding: 14px; }
+.tjp-calc-out { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f7faff; border: 1px solid #e5eefb; }
+.tjp-calc-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 12px; color: #5b6474; }
+.tjp-calc-row b { color: #1d1d1f; }
+.tjp-calc-row b.hl { color: #b45309; font-size: 14px; }
+.tjp-invite-card { background: #fff; border: 1px solid #e8ecf3; border-radius: 14px; padding: 14px; }
+.tjp-invite-code { font-size: 14px; font-weight: 800; color: #0b74ff; letter-spacing: 0.03em; }
+.atp-page { padding-bottom: 24px; }
+.atp-list { background: #fff; border: 1px solid #e8ecf3; border-radius: 14px; overflow: hidden; }
+.atp-row { display: flex; gap: 10px; padding: 13px 14px; border-bottom: 1px solid #f1f4f9; text-decoration: none; }
+.atp-row:last-child { border-bottom: none; }
+.atp-main { flex: 1; min-width: 0; }
+.atp-t { font-size: 13px; font-weight: 700; color: #1d1d1f; line-height: 1.5; }
+.atp-m { margin-top: 3px; font-size: 11px; color: #8a94a6; }
+.atp-side { flex: none; display: flex; align-items: center; gap: 8px; }
+.atp-time { font-size: 10.5px; color: #8a94a6; }
+.atp-go { color: #c3ccda; }

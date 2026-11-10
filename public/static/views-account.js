@@ -2034,6 +2034,14 @@ export async function renderAdmin(ctx) {
         </div>
         <span class="dim">›</span>
       </a>
+      <a class="card card-pad mb12" href="#/admin-tajian-partners" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+        <div style="font-size:26px">🤝</div>
+        <div style="flex:1">
+          <div class="strong">塔建合伙人申请</div>
+          <div class="tiny dim">合伙人计划 / 专题页提交的合作与报价需求</div>
+        </div>
+        <span class="dim">›</span>
+      </a>
       <a class="card card-pad mb12" href="#/admin-home" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
         <div style="font-size:26px">🧩</div>
         <div style="flex:1">

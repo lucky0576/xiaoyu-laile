@@ -131,6 +131,31 @@ export async function renderTajianPartner(ctx, query) {
       </div>
     </div>
 
+    <div class="tjp-section" id="tjp-calc">
+      <div class="tjp-sec-t">分成测算器</div>
+      <div class="tjp-sec-d">输入项目规模，估算合伙人收益区间（示意，实际以协议为准）</div>
+      <div class="tjp-calc">
+        <div class="row gap8">
+          <div class="field grow"><label>项目类型</label>
+            <select class="input" id="tjp-calc-type">
+              <option value="pv">工商业光伏 EPC</option>
+              <option value="ess">工商业储能</option>
+              <option value="village">整村微电网</option>
+            </select>
+          </div>
+          <div class="field grow"><label>项目合同额（万元）</label><input class="input" id="tjp-calc-amount" type="number" min="0" step="1" placeholder="如：300"></div>
+        </div>
+        <div class="row gap8">
+          <div class="field grow"><label>分成比例（%）</label><input class="input" id="tjp-calc-rate" type="number" min="0" max="50" step="0.5" value="3"></div>
+          <div class="field grow"><label>装机容量（kW，选填）</label><input class="input" id="tjp-calc-cap" type="number" min="0" step="1" placeholder="如：800"></div>
+        </div>
+        <div class="tjp-calc-out" id="tjp-calc-out">
+          <div class="tiny dim">输入项目合同额与分成比例，自动估算分成；填装机容量可估算年发电收益。</div>
+        </div>
+        <div class="tiny dim mt8">测算仅为示意：分成比例由双方协议约定，发电收益受电价、利用小时、消纳等因素影响，平台不承诺固定收益。</div>
+      </div>
+    </div>
+
     <div class="tjp-section">
       <div class="tjp-sec-t">合作流程</div>
       <div class="tjp-flow">
@@ -147,6 +172,19 @@ export async function renderTajianPartner(ctx, query) {
         <details><summary>需要合伙人先投资吗？</summary><div>不需要。项目可采用塔建投资（业主零投资）、EPC、EMC 等多种模式；合伙人以资源和服务参与，无需垫资。若参与投资类项目，另行协商。</div></details>
         <details><summary>分成怎么结算？</summary><div>按项目类型与合同约定：居间费按项目回款结算，投资类按投资份额分享电站长期收益，工程 / 运维类按合同约定比例分成。具体以《合伙人合作协议》为准。</div></details>
         <details><summary>一个区域可以有几个城市合伙人？</summary><div>原则上每个区县 / 重点区域设 1 位城市合伙人，具体按区域资源与合作深度协商确定。</div></details>
+      </div>
+    </div>
+
+    <div class="tjp-section" id="tjp-invite">
+      <div class="tjp-sec-t">合伙人专属邀请</div>
+      <div class="tjp-sec-d">生成你的专属链接 / 海报，邀请同行成为合伙人</div>
+      <div class="tjp-invite-card">
+        <div class="tjp-invite-code" id="tjp-invite-code">登录后生成专属邀请码</div>
+        <div class="row gap8 mt10" style="flex-wrap:wrap">
+          <button class="btn btn-primary" id="tjp-invite-poster" type="button">🖼️ 生成邀请海报</button>
+          <button class="btn btn-outline" id="tjp-invite-copy" type="button">🔗 复制专属链接</button>
+        </div>
+        <div class="tiny dim mt8">专属链接会带上你的邀请码，对方提交合伙人申请时可识别来源。</div>
       </div>
     </div>
 
@@ -170,6 +208,66 @@ export async function renderTajianPartner(ctx, query) {
     showBack: true,
     mount(root) {
       const SHARE_URL = `${location.origin}/#/tajian-partner`;
+      const user = ctx.state.user;
+      const inviteCode = user ? String(user.id || '').slice(-8) : '';
+      const inviteUrl = inviteCode ? `${SHARE_URL}?ref=${encodeURIComponent(inviteCode)}` : SHARE_URL;
+
+      /* 专属邀请 */
+      const codeEl = root.querySelector('#tjp-invite-code');
+      if (codeEl) codeEl.textContent = inviteCode ? `专属邀请码：${inviteCode}` : '登录后生成专属邀请码';
+      root.querySelector('#tjp-invite-copy')?.addEventListener('click', async () => {
+        if (!user) {
+          ui.toast('登录后才能生成专属链接', 'err');
+          ctx.nav('#/login');
+          return;
+        }
+        const ok = await ui.copyText(inviteUrl);
+        ui.toast(ok ? '专属链接已复制' : inviteUrl, ok ? 'ok' : 'err');
+      });
+      root.querySelector('#tjp-invite-poster')?.addEventListener('click', async () => {
+        if (!user) {
+          ui.toast('登录后才能生成邀请海报', 'err');
+          ctx.nav('#/login');
+          return;
+        }
+        const m = await import('./share.js');
+        await m.openQuickShare({
+          title: `${user.nickname || user.company || '我'} 邀请你成为塔建集团合伙人`,
+          desc: '工商业光伏 · 储能 · 整村微电网：项目居间费 / 投资分成 / EPC 分成 / 运维收益',
+          url: inviteUrl,
+          image: '/static/tajian/company-cover.jpg',
+          tag: '合伙人邀请',
+        });
+      });
+
+      /* 分成测算器 */
+      const calcOut = root.querySelector('#tjp-calc-out');
+      const recalc = () => {
+        if (!calcOut) return;
+        const amount = Number(root.querySelector('#tjp-calc-amount')?.value || 0);
+        const rate = Number(root.querySelector('#tjp-calc-rate')?.value || 0);
+        const cap = Number(root.querySelector('#tjp-calc-cap')?.value || 0);
+        if (!amount && !cap) {
+          calcOut.innerHTML = '<div class="tiny dim">输入项目合同额与分成比例，自动估算分成；填装机容量可估算年发电收益。</div>';
+          return;
+        }
+        const split = amount > 0 ? amount * (rate / 100) : 0;
+        const hours = 1050;
+        const price = 0.55;
+        const annualKwh = cap * hours;
+        const annualIncome = (annualKwh * price) / 10000;
+        calcOut.innerHTML = `
+          <div class="tjp-calc-row"><span>项目合同额</span><b>${amount ? amount + ' 万元' : '—'}</b></div>
+          <div class="tjp-calc-row"><span>分成比例</span><b>${rate}%</b></div>
+          <div class="tjp-calc-row"><span>预估分成</span><b class="hl">${split ? split.toFixed(1) + ' 万元' : '—'}</b></div>
+          <div class="tjp-calc-row"><span>年发电量（按 ${hours}h 估算）</span><b>${cap ? (annualKwh / 10000).toFixed(1) + ' 万度' : '—'}</b></div>
+          <div class="tjp-calc-row"><span>年发电收益（按 ${price} 元/度）</span><b>${cap ? annualIncome.toFixed(1) + ' 万元' : '—'}</b></div>
+          <div class="tiny dim mt6">以上为示意测算，不含运维成本、税费与消纳限制。</div>`;
+      };
+      ['#tjp-calc-amount', '#tjp-calc-rate', '#tjp-calc-cap', '#tjp-calc-type'].forEach((sel) => {
+        root.querySelector(sel)?.addEventListener('input', recalc);
+        root.querySelector(sel)?.addEventListener('change', recalc);
+      });
       root.querySelector('#tjp-share')?.addEventListener('click', async () => {
         const m = await import('./share.js');
         await m.openQuickShare({
@@ -265,7 +363,7 @@ ${res || '（未填写，可由商务电话沟通）'}
                   api.form({
                     category: 'project',
                     title: `申请合伙人｜${org} · 塔建集团新能源`.slice(0, 80),
-                    subtitle: `${region} · ${org} · ${types} · 塔建集团合伙人申请`,
+                    subtitle: `${region} · ${org} · ${types} · 塔建集团合伙人申请${inviteCode ? ` · 邀请码 ${inviteCode}` : ''}`,
                     text,
                     type: '寻求合作',
                     durationDays: 180,

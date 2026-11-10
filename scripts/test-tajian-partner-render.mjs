@@ -38,6 +38,9 @@ const checks = [
   ['申请按钮', html.includes('tjp-apply') && html.includes('tjp-apply2')],
   ['分享按钮', html.includes('tjp-share')],
   ['返回专题', html.includes('href="#/tajian"')],
+  ['分成测算器', html.includes('tjp-calc') && html.includes('tjp-calc-amount') && html.includes('tjp-calc-rate')],
+  ['专属邀请码', html.includes('tjp-invite') && html.includes('tjp-invite-code') && html.includes('tjp-invite-poster')],
+  ['专属链接带 ref', src.includes('?ref=') && src.includes('邀请码')],
   ['未承诺固定收益', html.includes('不构成收益承诺') || html.includes('不承诺固定收益')],
 ];
 
