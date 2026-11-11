@@ -1279,11 +1279,17 @@ export async function renderList(ctx, params) {
       </div>
     </div>
 
-    <div class="chips scroll mb8">
-      <a class="chip ${!query.industry && !query.city && !query.type && !query.followedBy ? 'active' : ''}" href="${build({ industry: '', city: '', type: '', followedBy: '' })}">全部</a>
-      ${isLoggedIn() ? `<a class="chip ${query.followedBy ? 'active' : ''}" href="${build({ followedBy: query.followedBy ? '' : ctx.state.user?.id || 'me' })}">⭐ 我关注的</a>` : ''}
-      ${types.slice(0, 10).map((t) => `<a class="chip ${query.type === t.id ? 'active' : ''}" href="${build({ type: query.type === t.id ? '' : t.id })}">${ui.esc(t.name)}</a>`).join('')}
-    </div>
+    ${category === 'bidding'
+      ? `<div class="bid-tabs mb8">
+          <a class="bid-tab ${!query.type && !query.followedBy ? 'active' : ''}" href="${build({ type: '', followedBy: '' })}">全部</a>
+          ${isLoggedIn() ? `<a class="bid-tab ${query.followedBy ? 'active' : ''}" href="${build({ followedBy: query.followedBy ? '' : ctx.state.user?.id || 'me' })}">⭐ 我关注的</a>` : ''}
+          ${types.map((t) => `<a class="bid-tab ${query.type === t.id ? 'active' : ''}" href="${build({ type: query.type === t.id ? '' : t.id })}">${ui.esc(t.name)}</a>`).join('')}
+        </div>`
+      : `<div class="chips scroll mb8">
+          <a class="chip ${!query.industry && !query.city && !query.type && !query.followedBy ? 'active' : ''}" href="${build({ industry: '', city: '', type: '', followedBy: '' })}">全部</a>
+          ${isLoggedIn() ? `<a class="chip ${query.followedBy ? 'active' : ''}" href="${build({ followedBy: query.followedBy ? '' : ctx.state.user?.id || 'me' })}">⭐ 我关注的</a>` : ''}
+          ${types.slice(0, 10).map((t) => `<a class="chip ${query.type === t.id ? 'active' : ''}" href="${build({ type: query.type === t.id ? '' : t.id })}">${ui.esc(t.name)}</a>`).join('')}
+        </div>`}
 
     ${(res.facets?.industries || []).length ? `<div class="chips scroll mb8">
       ${res.facets.industries.slice(0, 14).map((i) => `<a class="chip soft ${query.industry === i.id ? 'active' : ''}" href="${build({ industry: query.industry === i.id ? '' : i.id })}">${ui.esc(i.name)} ${i.count}</a>`).join('')}
@@ -2222,6 +2228,11 @@ export async function renderDetail(ctx, params) {
               ? `<div class="warn-note mt8">📌 <b>资格要求：</b>${ui.esc(bd.qualification)}</div>`
               : ''
           }
+          ${
+            bd.bidDeadline
+              ? `<button class="btn btn-sm btn-primary mt10" id="bid-remind" type="button">⏰ 截止前 3 天提醒</button>`
+              : ''
+          }
           <div class="tiny dim mt8" style="line-height:1.7">
             ${listing.sourceName ? `来源：${ui.esc(listing.sourceName)}<br>` : ''}
             本页整理自政府公开公告，仅供检索参考；一切以政府网站原文为准，如与原文不一致以原文为准。
@@ -2617,6 +2628,91 @@ export async function renderDetail(ctx, params) {
     activeTab: listing.category,
     async mount(root) {
       const $ = (s) => root.querySelector(s);
+
+      /* ---------------- 招投标：截止前 3 天提醒 ---------------- */
+      const remindBtn = root.querySelector('#bid-remind');
+      if (remindBtn && listing.category === 'bidding') {
+        const bd = listing.bidding || {};
+        const deadline = bd.bidDeadline ? new Date(String(bd.bidDeadline).replace(' ', 'T')) : null;
+        const KEY = 'xyl_bid_reminders';
+        const loadAll = () => {
+          try {
+            const v = JSON.parse(localStorage.getItem(KEY) || '{}');
+            return v && typeof v === 'object' ? v : {};
+          } catch {
+            return {};
+          }
+        };
+        const setBtn = (on) => {
+          remindBtn.textContent = on ? '✅ 已设置提醒（截止前 3 天）' : '⏰ 截止前 3 天提醒';
+          remindBtn.classList.toggle('btn-primary', !on);
+        };
+        setBtn(Boolean(loadAll()[listing.id]));
+
+        remindBtn.addEventListener('click', () => {
+          if (!deadline || Number.isNaN(deadline.getTime())) {
+            ui.toast('该公告没有截止时间，无法设置提醒', 'err');
+            return;
+          }
+          const all = loadAll();
+          if (all[listing.id]) {
+            delete all[listing.id];
+            localStorage.setItem(KEY, JSON.stringify(all));
+            setBtn(false);
+            ui.toast('已取消提醒', 'ok');
+            return;
+          }
+          all[listing.id] = {
+            id: listing.id,
+            title: listing.title,
+            deadline: deadline.toISOString(),
+            createdAt: new Date().toISOString(),
+          };
+          localStorage.setItem(KEY, JSON.stringify(all));
+          setBtn(true);
+
+          // 生成 .ics：截止前 3 天上午 9:00 提醒
+          const remindAt = new Date(deadline.getTime() - 3 * 86400000);
+          remindAt.setHours(9, 0, 0, 0);
+          const pad = (n) => String(n).padStart(2, '0');
+          const fmt = (dt) =>
+            `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T` +
+            `${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}00Z`;
+          const ics = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//xiaoyu laile//bid reminder//CN',
+            'CALSCALE:GREGORIAN',
+            'BEGIN:VEVENT',
+            `UID:${listing.id}-remind@xiaoyulaile.online`,
+            `DTSTAMP:${fmt(new Date())}`,
+            `DTSTART:${fmt(remindAt)}`,
+            `DTEND:${fmt(new Date(remindAt.getTime() + 30 * 60000))}`,
+            `SUMMARY:${('投标截止提醒：' + (listing.title || '')).replace(/[\r\n]/g, ' ').slice(0, 100)}`,
+            'DESCRIPTION:距离投标截止还有 3 天，请检查投标文件、保证金与资质材料。',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT0M',
+            'ACTION:DISPLAY',
+            'DESCRIPTION:投标截止提醒',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+          ].join('\r\n');
+          try {
+            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${String(listing.title || '招投标').slice(0, 20)}-截止提醒.ics`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+            ui.toast('已设置提醒，并生成日历文件（可导入手机日历）', 'ok');
+          } catch {
+            ui.toast('已设置本地提醒；日历文件生成失败', 'err');
+          }
+        });
+      }
 
       /* ---------------- 附件查看授权 ---------------- */
       /* 文档预览：点「预览」在全屏翻页器里看，不再跳浏览器下载 */

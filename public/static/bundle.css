@@ -3361,6 +3361,32 @@ html, body { max-width: 100%; overflow-x: hidden; }
 /* 页内锚点跳转时给吸顶栏留出空间 */
 [id] { scroll-margin-top: 72px; }
 
+
+/* 招投标：筛选 tab */
+.bid-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 10px;
+  -webkit-overflow-scrolling: touch;
+}
+.bid-tab {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid #e8ecf3;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #5b6474;
+  text-decoration: none;
+}
+.bid-tab.active {
+  background: #0b74ff;
+  border-color: #0b74ff;
+  color: #fff;
+}
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）
