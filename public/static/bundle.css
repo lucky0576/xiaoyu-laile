@@ -3441,6 +3441,20 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .imgv-body img { max-width: 100%; height: auto; display: block; border-radius: 8px; }
 .imgv-tip { margin-top: 8px; color: rgba(255, 255, 255, 0.55); font-size: 11px; }
 
+
+/* 详情页：整个文件卡片可点击预览 */
+.file-card-open {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: zoom-in;
+}
+.file-card-open .file-card { width: 100%; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

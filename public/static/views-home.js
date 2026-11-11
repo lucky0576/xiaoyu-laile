@@ -2489,13 +2489,18 @@ export async function renderDetail(ctx, params) {
                       ${otherFiles
                         .map((f) => {
                           const canView = isDocPreviewable(f);
+                          const card = fileCardHtml({ ...f, url: withFileToken(f.url) }, { link: false });
+                          const btn = canView
+                            ? `<button class="btn btn-sm btn-primary docv-open" type="button" data-fid="${ui.esc(f.id)}" data-fname="${ui.esc(f.name || '文档')}">👁 在线预览</button>`
+                            : '';
                           return `<div class="file-row">
-                            ${fileCardHtml({ ...f, url: withFileToken(f.url) })}
                             ${
                               canView
-                                ? `<button class="btn btn-sm docv-open" type="button" data-fid="${ui.esc(f.id)}" data-fname="${ui.esc(f.name || '文档')}">👁 预览</button>`
-                                : ''
+                                ? `<button class="file-card-open docv-open" type="button" title="点击在线预览"
+                                     data-fid="${ui.esc(f.id)}" data-fname="${ui.esc(f.name || '文档')}">${card}</button>`
+                                : card
                             }
+                            ${btn}
                           </div>`;
                         })
                         .join('')}
