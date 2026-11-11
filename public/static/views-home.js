@@ -2474,9 +2474,11 @@ export async function renderDetail(ctx, params) {
                   ? `<div class="detail-block-imgs">${imgFiles
                       .map(
                         (f) =>
-                          `<a href="${ui.esc(ui.safeUrl(withFileToken(f.url)))}" target="_blank" rel="noopener" title="点击查看大图">
+                          `<button class="detail-img-open" type="button" title="点击查看大图"
+                            data-url="${ui.esc(ui.safeUrl(withFileToken(f.url)))}"
+                            data-name="${ui.esc(f.name || '图片')}">
                             <img src="${ui.esc(ui.safeUrl(withFileToken(f.url)))}" alt="${ui.esc(f.name || '')}" loading="lazy">
-                          </a>`,
+                          </button>`,
                       )
                       .join('')}</div>`
                   : ''
@@ -2724,6 +2726,36 @@ export async function renderDetail(ctx, params) {
 
         await loadStatus();
       }
+
+      /* ---------------- 图片附件：站内放大预览 ---------------- */
+      root.querySelectorAll('.detail-img-open').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const url = btn.dataset.url || '';
+          const name = btn.dataset.name || '图片';
+          if (!url) return;
+          const mask = document.createElement('div');
+          mask.className = 'imgv-mask';
+          mask.innerHTML = `<div class="imgv-head">
+              <span class="imgv-name">${ui.esc(name)}</span>
+              <button class="imgv-x" type="button" aria-label="关闭">✕</button>
+            </div>
+            <div class="imgv-body"><img src="${ui.esc(url)}" alt="${ui.esc(name)}"></div>
+            <div class="imgv-tip">双指/滚轮缩放；点空白处关闭</div>`;
+          document.body.appendChild(mask);
+          const close = () => mask.remove();
+          mask.querySelector('.imgv-x').addEventListener('click', close);
+          mask.addEventListener('click', (e) => {
+            if (e.target === mask) close();
+          });
+          document.addEventListener(
+            'keydown',
+            (e) => {
+              if (e.key === 'Escape') close();
+            },
+            { once: true },
+          );
+        });
+      });
 
       /* ---------------- 附件查看授权 ---------------- */
       /* 文档预览：点「预览」在全屏翻页器里看，不再跳浏览器下载 */

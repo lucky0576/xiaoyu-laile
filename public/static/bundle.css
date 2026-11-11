@@ -3387,6 +3387,60 @@ html, body { max-width: 100%; overflow-x: hidden; }
   color: #fff;
 }
 
+
+/* 详情页：图片附件站内放大预览 */
+.detail-img-open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  width: 100%;
+  height: 100%;
+}
+.detail-img-open img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.imgv-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: rgba(3, 8, 16, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.imgv-head {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.imgv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imgv-x {
+  flex: none;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+}
+.imgv-body {
+  max-width: 1200px;
+  max-height: 80vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.imgv-body img { max-width: 100%; height: auto; display: block; border-radius: 8px; }
+.imgv-tip { margin-top: 8px; color: rgba(255, 255, 255, 0.55); font-size: 11px; }
+
 /* ==== home.css ==== */
 /* ==========================================================================
    小鱼来了 — 首页（参照移动端 App 首页布局重做）

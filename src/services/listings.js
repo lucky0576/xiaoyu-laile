@@ -903,11 +903,41 @@ export async function updateListing(id, user, patch = {}) {
     'trade',
     'project',
     'bounty',
+    'bidding',
     'fileSecret',
+    'files',
+    'fileIds',
     'durationDays',
   ];
   const next = {};
   for (const k of allowed) if (patch[k] !== undefined) next[k] = patch[k];
+
+  /*
+   * 附件：编辑时前端会把「原有 + 新上传」的文件 id 一起提交。
+   * 之前 allowed 列表没有 files/fileIds，导致新上传的 Word/PDF 被静默丢弃，
+   * 发布页看起来上传成功、详情页却没有 —— 这里统一收口并校验归属。
+   */
+  if (patch.files !== undefined || patch.fileIds !== undefined) {
+    const raw = patch.files !== undefined ? patch.files : patch.fileIds;
+    const ids = Array.isArray(raw) ? raw.slice(0, 30).map((x) => String(x)) : [];
+    const valid = [];
+    for (const fid of ids) {
+      const f = db.collection('files').get(fid);
+      if (!f) continue;
+      // 只允许挂自己的文件、该信息原发布者的文件，或管理员操作
+      if (f.ownerId === user.id || f.ownerId === l.ownerId || user.isAdmin) valid.push(fid);
+    }
+    next.files = [...new Set(valid)];
+    // 主图被删掉时，自动换到剩余的第一张图片，避免封面指向不存在的文件
+    const coverStillThere = next.files.includes(l.coverId);
+    if (!coverStillThere) {
+      const firstImg = next.files
+        .map((fid) => db.collection('files').get(fid))
+        .find((f) => f && f.kind === 'image');
+      next.coverId = firstImg ? firstImg.id : '';
+    }
+  }
+  delete next.fileIds;
   // 项目字段要与原值合并，避免编辑时把未提交的资质/商务条件清空
   if (next.project && l.category === 'project') next.project = normalizeProject(next.project, l.project);
   // 贸易字段同样要合并，否则改一下付款方式就会把物资明细整片冲掉
