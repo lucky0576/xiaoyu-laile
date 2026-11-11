@@ -1274,6 +1274,7 @@ export async function renderList(ctx, params) {
       <h2 style="font-size:19px">${ui.esc(ctx.state.site?.categories?.find((c) => c.id === category)?.icon || '')} ${ui.esc(name)}信息</h2>
       <div class="row gap8" style="align-items:center">
         <span class="tiny dim">共 ${res.total} 条</span>
+        <a class="btn btn-sm btn-primary" href="#/publish?category=${category}">＋ 发布${ui.esc(name)}</a>
         ${isLoggedIn() ? '<button class="btn btn-sm" id="pick-toggle" type="button">☑ 转发</button>' : ''}
       </div>
     </div>
