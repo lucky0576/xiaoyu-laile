@@ -19,6 +19,7 @@ import { sweepOtps } from './src/services/auth.js';
 import chunksSvc from './src/services/chunks.js';
 import fileCleanupSvc from './src/services/file-cleanup.js';
 import backupSvc from './src/services/backup.js';
+import bidReminders from './src/services/bid-reminders.js';
 import { seedIfEmpty } from './scripts/seed.js';
 
 /*
@@ -81,6 +82,17 @@ function startJobs() {
   run('remind', () => ({ reminded: notifySvc.remindExpiring() }), 30 * 60_000);
   run('otp-sweep', () => ({ swept: sweepOtps() }), 60 * 60_000);
 
+  // 招投标邮箱提醒：每 10 分钟扫描一次到期提醒
+  run('bid-reminder', () => {
+    bidReminders
+      .sendDueBidReminders()
+      .then((r) => {
+        if (r.sent || r.failed) console.log('[job:bid-reminder]', r);
+      })
+      .catch((err) => console.warn('[job:bid-reminder] 失败:', err.message));
+    return {};
+  }, 10 * 60_000);
+
   // 新闻资讯：启动 90 秒后先抓一轮，之后每 3 小时刷新
   setTimeout(() => {
     newsSvc
@@ -112,6 +124,16 @@ function startJobs() {
   } catch {
     /* ignore */
   }
+
+  // 招投标邮箱提醒：启动 1 分钟后先扫一次（不阻塞启动）
+  setTimeout(() => {
+    bidReminders
+      .sendDueBidReminders()
+      .then((r) => {
+        if (r.sent || r.failed) console.log('[job:bid-reminder] 首轮', r);
+      })
+      .catch((err) => console.warn('[job:bid-reminder] 首轮失败:', err.message));
+  }, 60_000).unref?.();
 
   /*
    * 清理没人引用的上传文件。

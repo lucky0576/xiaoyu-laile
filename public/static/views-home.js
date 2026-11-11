@@ -2230,7 +2230,7 @@ export async function renderDetail(ctx, params) {
           }
           ${
             bd.bidDeadline
-              ? `<button class="btn btn-sm btn-primary mt10" id="bid-remind" type="button">⏰ 截止前 3 天提醒</button>`
+              ? `<button class="btn btn-sm btn-primary mt10" id="bid-remind" type="button">📧 邮箱提醒（截止前 3 天）</button>`
               : ''
           }
           <div class="tiny dim mt8" style="line-height:1.7">
@@ -2629,89 +2629,100 @@ export async function renderDetail(ctx, params) {
     async mount(root) {
       const $ = (s) => root.querySelector(s);
 
-      /* ---------------- 招投标：截止前 3 天提醒 ---------------- */
+      /* ---------------- 招投标：邮箱截止提醒 ---------------- */
       const remindBtn = root.querySelector('#bid-remind');
       if (remindBtn && listing.category === 'bidding') {
-        const bd = listing.bidding || {};
-        const deadline = bd.bidDeadline ? new Date(String(bd.bidDeadline).replace(' ', 'T')) : null;
-        const KEY = 'xyl_bid_reminders';
-        const loadAll = () => {
+        const EMAIL_KEY = 'xyl_bid_email';
+        let activeEmail = '';
+        const setBtn = () => {
+          remindBtn.textContent = activeEmail
+            ? `✅ 已设置邮箱提醒（${activeEmail}）`
+            : '📧 邮箱提醒（截止前 3 天）';
+          remindBtn.classList.toggle('btn-primary', !activeEmail);
+        };
+        const panel = document.createElement('div');
+        panel.className = 'mt8';
+        panel.hidden = true;
+        remindBtn.after(panel);
+
+        const showForm = () => {
+          const mine = ctx.state.user?.email || localStorage.getItem(EMAIL_KEY) || '';
+          panel.innerHTML = `<div class="tiny dim mb6">投标截止前 3 天，提醒会发到下面这个邮箱。</div>
+            <div class="row gap8">
+              <input class="input grow" id="bid-remind-email" type="email" maxlength="120" placeholder="your@email.com">
+              <button class="btn btn-sm btn-primary" id="bid-remind-submit" type="button">设置提醒</button>
+            </div>
+            <div class="tiny dim mt6">可随时取消；重复设置会覆盖原提醒。</div>`;
+          const input = panel.querySelector('#bid-remind-email');
+          input.value = mine;
+          panel.hidden = false;
+          panel.querySelector('#bid-remind-submit').addEventListener('click', async (ev) => {
+            const btn = ev.currentTarget;
+            const email = String(input.value || '').trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+              ui.toast('请输入正确的邮箱地址', 'err');
+              return;
+            }
+            btn.disabled = true;
+            btn.textContent = '提交中…';
+            try {
+              const r = await api.post(`/api/listings/${listing.id}/bid-reminder`, { email });
+              activeEmail = (r.reminder && r.reminder.email) || email;
+              localStorage.setItem(EMAIL_KEY, email);
+              setBtn();
+              panel.hidden = true;
+              ui.toast('已设置邮箱提醒，截止前 3 天发送', 'ok');
+            } catch (err) {
+              btn.disabled = false;
+              btn.textContent = '设置提醒';
+              ui.toast(err.message || '设置失败', 'err');
+            }
+          });
+        };
+
+        const loadStatus = async () => {
+          if (!isLoggedIn()) return;
+          const email = ctx.state.user?.email || localStorage.getItem(EMAIL_KEY) || '';
+          if (!email) return;
           try {
-            const v = JSON.parse(localStorage.getItem(KEY) || '{}');
-            return v && typeof v === 'object' ? v : {};
+            const r = await api.get(`/api/listings/${listing.id}/bid-reminder`, { email });
+            if (r.reminder) {
+              activeEmail = r.reminder.email || email;
+              setBtn();
+            }
           } catch {
-            return {};
+            /* 未登录/网络异常就按未设置显示 */
           }
         };
-        const setBtn = (on) => {
-          remindBtn.textContent = on ? '✅ 已设置提醒（截止前 3 天）' : '⏰ 截止前 3 天提醒';
-          remindBtn.classList.toggle('btn-primary', !on);
-        };
-        setBtn(Boolean(loadAll()[listing.id]));
 
-        remindBtn.addEventListener('click', () => {
-          if (!deadline || Number.isNaN(deadline.getTime())) {
-            ui.toast('该公告没有截止时间，无法设置提醒', 'err');
+        remindBtn.addEventListener('click', async () => {
+          if (!isLoggedIn()) {
+            ui.toast('请先登录再设置邮箱提醒', 'err');
+            ctx.nav('#/login');
             return;
           }
-          const all = loadAll();
-          if (all[listing.id]) {
-            delete all[listing.id];
-            localStorage.setItem(KEY, JSON.stringify(all));
-            setBtn(false);
-            ui.toast('已取消提醒', 'ok');
+          if (activeEmail) {
+            const ok = await ui.confirmDialog({
+              title: '取消提醒',
+              message: `取消发往 ${activeEmail} 的截止提醒？`,
+              okText: '取消提醒',
+              danger: true,
+            });
+            if (!ok) return;
+            try {
+              await api.del(`/api/listings/${listing.id}/bid-reminder`, { email: activeEmail });
+              activeEmail = '';
+              setBtn();
+              ui.toast('已取消邮箱提醒', 'ok');
+            } catch (err) {
+              ui.toast(err.message || '取消失败', 'err');
+            }
             return;
           }
-          all[listing.id] = {
-            id: listing.id,
-            title: listing.title,
-            deadline: deadline.toISOString(),
-            createdAt: new Date().toISOString(),
-          };
-          localStorage.setItem(KEY, JSON.stringify(all));
-          setBtn(true);
-
-          // 生成 .ics：截止前 3 天上午 9:00 提醒
-          const remindAt = new Date(deadline.getTime() - 3 * 86400000);
-          remindAt.setHours(9, 0, 0, 0);
-          const pad = (n) => String(n).padStart(2, '0');
-          const fmt = (dt) =>
-            `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T` +
-            `${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}00Z`;
-          const ics = [
-            'BEGIN:VCALENDAR',
-            'VERSION:2.0',
-            'PRODID:-//xiaoyu laile//bid reminder//CN',
-            'CALSCALE:GREGORIAN',
-            'BEGIN:VEVENT',
-            `UID:${listing.id}-remind@xiaoyulaile.online`,
-            `DTSTAMP:${fmt(new Date())}`,
-            `DTSTART:${fmt(remindAt)}`,
-            `DTEND:${fmt(new Date(remindAt.getTime() + 30 * 60000))}`,
-            `SUMMARY:${('投标截止提醒：' + (listing.title || '')).replace(/[\r\n]/g, ' ').slice(0, 100)}`,
-            'DESCRIPTION:距离投标截止还有 3 天，请检查投标文件、保证金与资质材料。',
-            'BEGIN:VALARM',
-            'TRIGGER:-PT0M',
-            'ACTION:DISPLAY',
-            'DESCRIPTION:投标截止提醒',
-            'END:VALARM',
-            'END:VEVENT',
-            'END:VCALENDAR',
-          ].join('\r\n');
-          try {
-            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `${String(listing.title || '招投标').slice(0, 20)}-截止提醒.ics`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-            ui.toast('已设置提醒，并生成日历文件（可导入手机日历）', 'ok');
-          } catch {
-            ui.toast('已设置本地提醒；日历文件生成失败', 'err');
-          }
+          showForm();
         });
+
+        await loadStatus();
       }
 
       /* ---------------- 附件查看授权 ---------------- */

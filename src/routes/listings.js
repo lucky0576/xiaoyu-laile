@@ -19,6 +19,7 @@ import biddingCollect from '../services/bidding-collect.js';
 import db from '../store/db.js';
 import { buildDocument } from '../services/documents.js';
 import casesSvc from '../services/cases.js';
+import bidReminders from '../services/bid-reminders.js';
 import filesecure from '../services/filesecure.js';
 
 const listings = () => db.collection('listings');
@@ -530,6 +531,33 @@ export default function registerListingRoutes(app) {
   /* ---------------------------------------------------------------- */
   /* 详情                                                              */
   /* ---------------------------------------------------------------- */
+  /* 招投标：邮箱截止提醒 */
+  app.get('/api/listings/:id/bid-reminder', (req, res) => {
+    const user = mustAuth(req);
+    const email = String(queryOf(req).email || user.email || '');
+    return data(res, {
+      reminder: bidReminders.listReminder({ listingId: req.params.id, email }),
+    });
+  });
+
+  app.post('/api/listings/:id/bid-reminder', (req, res) => {
+    const user = mustAuth(req);
+    rateLimit(`bid-remind:${user.id}`, 20, 60 * 60_000);
+    return data(res, {
+      reminder: bidReminders.createReminder({
+        user,
+        listingId: req.params.id,
+        email: req.body?.email,
+      }),
+    });
+  });
+
+  app.delete('/api/listings/:id/bid-reminder', (req, res) => {
+    const user = mustAuth(req);
+    const email = String(req.query?.email || user.email || '');
+    return data(res, bidReminders.cancelReminder({ user, listingId: req.params.id, email }));
+  });
+
   app.get('/api/listings/:id', (req, res) => {
     const viewer = authUser(req);
     let listing = listingsSvc.getListing(req.params.id);
