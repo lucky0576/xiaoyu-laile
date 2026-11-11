@@ -49,7 +49,7 @@ function biddingDeadline(listing) {
 export function listReminder({ listingId, email }) {
   const e = normalizeEmail(email);
   if (!e) return null;
-  const hit = cols().find(
+  const hit = cols().findOne(
     (r) => r.listingId === listingId && r.email === e && r.status === 'pending',
   );
   return publicReminder(hit);
@@ -73,7 +73,7 @@ export function createReminder({ user, listingId, email }) {
   // 已进入「截止前 3 天」窗口的，1 分钟后发送；否则按截止前 3 天发送
   const remindAtMs = Math.max(deadline.getTime() - REMIND_BEFORE_MS, now + 60_000);
 
-  const existing = cols().find(
+  const existing = cols().findOne(
     (r) => r.listingId === listingId && r.email === to && r.status === 'pending',
   );
   if (existing) {
@@ -109,7 +109,7 @@ export function createReminder({ user, listingId, email }) {
 export function cancelReminder({ user, listingId, email }) {
   const to = normalizeEmail(email || user?.email);
   if (!to) throw httpError(400, '缺少邮箱地址', 'bad_email');
-  const hit = cols().find(
+  const hit = cols().findOne(
     (r) => r.listingId === listingId && r.email === to && r.status === 'pending',
   );
   if (!hit) throw httpError(404, '没有找到可取消的提醒', 'not_found');
