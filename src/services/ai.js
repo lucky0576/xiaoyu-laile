@@ -12,6 +12,7 @@
 import settingsSvc, { effectiveAiConfig, effectiveAiBackup } from './settings.js';
 import { config } from '../config.js';
 import { kindOf, listFiles } from './files.js';
+import { recordAiUsage } from './ai-usage.js';
 
 /**
  * 是否接上了大模型。
@@ -661,6 +662,9 @@ async function callProvider(provider, messages, opts) {
   const timeoutMs = opts.timeoutMs || conf.timeoutMs || 60000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
+  const task = String(opts.task || 'chat');
+  const modelUsed = provider.model || conf.model;
   try {
     /*
      * 免 key 的公共通道经常默认用英文回答，
@@ -710,7 +714,29 @@ async function callProvider(provider, messages, opts) {
       e.code = 'ai_rate_limited';
       throw e;
     }
+    recordAiUsage({
+      task,
+      providerId: provider.id,
+      providerName: provider.name,
+      model: modelUsed,
+      ok: true,
+      usage: data?.usage || null,
+      latencyMs: Date.now() - startedAt,
+    });
     return text;
+  } catch (err) {
+    recordAiUsage({
+      task,
+      providerId: provider.id,
+      providerName: provider.name,
+      model: modelUsed,
+      ok: false,
+      usage: null,
+      latencyMs: Date.now() - startedAt,
+      errorCode: err.code || 'error',
+      errorMessage: String(err.message || err).slice(0, 200),
+    });
+    throw err;
   } finally {
     clearTimeout(timer);
   }
