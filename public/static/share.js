@@ -90,6 +90,37 @@ export async function setupWechatShare(listing) {
   }
 }
 
+/**
+ * 专题页微信内分享（公众号 JS-SDK）。
+ * 与详情页不同：专题页没有 listing.id，改用 /api/wechat/jsconfig 拿签名。
+ */
+export async function setupWechatTopicShare({ title = '小鱼来了', desc = '', url = location.href, image = '' } = {}) {
+  try {
+    const cfg = await service.wechatJsConfig(location.href.split('#')[0]);
+    if (!cfg || !cfg.signature || !cfg.appId) return false;
+    const wx = await loadWxSdk();
+    if (!wx) return false;
+    wx.config({
+      debug: false,
+      appId: cfg.appId,
+      timestamp: cfg.timestamp,
+      nonceStr: cfg.nonceStr,
+      signature: cfg.signature,
+      jsApiList: ['updateAppMessageShareData', 'updateTimelineShareData'],
+    });
+    const imgUrl = image ? new URL(image, location.origin).href : `${location.origin}/static/logo@2x.png`;
+    wx.ready(() => {
+      try {
+        wx.updateAppMessageShareData({ title, desc, link: url, imgUrl, success() {} });
+        wx.updateTimelineShareData({ title, link: url, imgUrl });
+      } catch { /* ignore */ }
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* 海报绘制                                                            */
 /* ------------------------------------------------------------------ */
