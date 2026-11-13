@@ -909,6 +909,8 @@ export async function updateListing(id, user, patch = {}) {
     'region',
     'sourceSite',
     'publishAt',
+    'shortVideoUrl',
+    'shortVideoFeedId',
     'event',
     'trade',
     'project',
