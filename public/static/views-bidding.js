@@ -209,6 +209,15 @@ export async function renderBidding(ctx, query = {}) {
       <div class="bz-hero-foot">最近更新：${ui.esc(lastAt ? fmtFull(lastAt) : '待采集')} · 来源：浙江各区县公共资源交易平台（公开公告）</div>
     </div>
 
+    <form class="bz-ai-search card" id="bz-ai-form">
+      <div class="bz-ai-title">🤖 AI 搜索招投标</div>
+      <div class="row gap8">
+        <input class="input grow" id="bz-ai-q" maxlength="80" placeholder="例如：淳安 道路工程 预算 500 万以上 / 余杭 医院 采购">
+        <button class="btn btn-primary" id="bz-ai-btn" type="submit" style="flex:none">AI 搜索</button>
+      </div>
+      <div class="tiny dim mt6" id="bz-ai-tip">用自然语言找公告；AI 不可用时自动退回关键词匹配</div>
+    </form>
+
     <div class="bz-filter card">
       <div class="bz-filter-row"><span class="bz-label">区域</span>
         <div class="chips scroll">
@@ -229,9 +238,9 @@ export async function renderBidding(ctx, query = {}) {
 
     <div class="bz-result-head">
       <div class="strong">${activeRegion ? ui.esc(activeRegion) : '浙江全省'} · ${activeType ? ui.esc(activeType) : '按项目分类'}</div>
-      <span class="tiny dim">${items.length} 条</span>
+      <span class="tiny dim" id="bz-count">${items.length} 条</span>
     </div>
-    ${groupHtml(items, activeType)}
+    <div id="bz-results">${groupHtml(items, activeType)}</div>
 
     <div class="bz-sources card">
       <div class="row between mb8">
@@ -255,5 +264,39 @@ export async function renderBidding(ctx, query = {}) {
     activeTab: '',
     showBack: true,
     noTab: true,
+    async mount(root) {
+      const form = root.querySelector('#bz-ai-form');
+      if (!form) return;
+      const input = root.querySelector('#bz-ai-q');
+      const btn = root.querySelector('#bz-ai-btn');
+      const tip = root.querySelector('#bz-ai-tip');
+      const results = root.querySelector('#bz-results');
+      const count = root.querySelector('#bz-count');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const q = String(input?.value || '').trim();
+        if (!q) return;
+        btn.disabled = true;
+        btn.textContent = 'AI 搜索中…';
+        tip.textContent = '正在检索全库招投标公告…';
+        try {
+          const r = await service.listingsAiSearch({ query: q, category: 'bidding' });
+          let list = (r.items || []).filter(
+            (x) => x && x.category === 'bidding' && ZJ_REGIONS.has(regionOf(x)) && !looksOld(x),
+          );
+          if (activeRegion) list = list.filter((x) => regionOf(x).includes(activeRegion));
+          if (activeType) list = list.filter((x) => typeOf(x) === activeType);
+          results.innerHTML = groupHtml(list, activeType);
+          count.textContent = `${list.length} 条`;
+          tip.textContent = `AI 搜索「${q}」：${list.length} 条` +
+            (r.mode === 'ai' ? ' · AI 语义匹配' : ' · 关键词匹配（AI 暂不可用）');
+        } catch (err) {
+          tip.textContent = err.message || 'AI 搜索失败，请稍后再试';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'AI 搜索';
+        }
+      });
+    },
   };
 }

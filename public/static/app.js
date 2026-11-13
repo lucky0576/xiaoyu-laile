@@ -772,6 +772,52 @@ function hideRouteProgress() {
   }
 }
 
+/* 专题页统一分享入口：图片+文字 / 文字+链接（走 share.js 的 openQuickShare） */
+const TOPIC_SHARE = {
+  tajian: { title: '塔建集团 · 工商业光伏与储能专题', desc: '70+ 整村光伏、9.36MW 微电网、2MW/4MWh 储能，看业务与合作。', image: '/static/tajian/company-cover.jpg' },
+  'tajian-partner': { title: '小鱼来了 · 合伙人计划', desc: '城市/行业/渠道合伙人，项目对接、客户入驻、算力消纳三条收益路径。', image: '/static/logo@2x.png' },
+  brainco: { title: '强脑科技 BrainCo · 脑机接口与具身智能专题', desc: '产品矩阵、高校解决方案、合作申请，进入专题看产品与报价。', image: '/static/brainco/brainco-logo.png' },
+  'brainco-coop': { title: '强脑科技 · 产业合作', desc: '脑机接口 + 具身智能产业合作与项目对接。', image: '/static/brainco/brainco-logo.png' },
+  metaverse: { title: '杭州上城区 · 产业元宇宙展厅', desc: '20 个真实项目展位、数字人讲解、3D 看项目。', image: '/static/logo@2x.png' },
+  estate: { title: '小鱼来了 · 地产专题', desc: '出售 / 转让 / 融资 地产信息聚合。', image: '/static/logo@2x.png' },
+  overseas: { title: '小鱼来了 · 出海专题', desc: '海外项目、跨境贸易、出海服务。', image: '/static/logo@2x.png' },
+  bidding: { title: '浙江招投标 · 专题', desc: '7 个区县公告，按项目分类，每周二/四更新，新闻播报短视频。', image: '/static/logo@2x.png' },
+  funds: { title: '小鱼来了 · 融资项目', desc: '真实项目融资需求与投资机构。', image: '/static/logo@2x.png' },
+  services: { title: '小鱼来了 · 企业服务', desc: 'AI 尽调报告、区域数据库、信息代运营、私有化部署，明码标价。', image: '/static/logo@2x.png' },
+  latest: { title: '小鱼来了 · 最新发布', desc: '项目、贸易、活动、招投标最新信息。', image: '/static/logo@2x.png' },
+  cases: { title: '小鱼来了 · 客户案例', desc: '塔建集团、强脑科技等产业方专题与项目案例。', image: '/static/logo@2x.png' },
+};
+
+function injectTopicShare() {
+  try {
+    document.querySelectorAll('.topic-share-fab').forEach((el) => el.remove());
+    const segs = String(location.hash || '').replace(/^#\/?/, '').split('?')[0].split('/');
+    const key = segs[0] || '';
+    const info = TOPIC_SHARE[key];
+    if (!info) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'topic-share-fab';
+    btn.innerHTML = '<span>↗</span> 分享';
+    btn.title = '分享这个专题';
+    btn.addEventListener('click', async () => {
+      try {
+        const m = await import('./share.js');
+        m.openQuickShare({
+          title: info.title,
+          desc: info.desc,
+          url: location.href.split('#')[0] + (location.hash || '#/home'),
+          image: info.image,
+          tag: '专题',
+        });
+      } catch (err) {
+        ui.toast(err.message || '分享失败', 'err');
+      }
+    });
+    document.body.appendChild(btn);
+  } catch { /* 分享按钮失败不影响页面 */ }
+}
+
 async function render() {
   if (rendering) return;
   rendering = true;
@@ -797,6 +843,7 @@ async function render() {
     appEl.innerHTML = html;
     bindShell(appEl);
     if (view.mount) await view.mount(appEl, route);
+    injectTopicShare();
     // 英文模式：渲染完成后统一翻译界面文案（内容数据仍是中文，见 i18n.js 说明）
     try {
       i18n.translateDom(appEl);
@@ -820,6 +867,7 @@ async function render() {
       if (st >= 500) return '服务器开小差了，请稍后再试';
       return '如果反复出现，请联系平台管理员';
     })();
+    document.querySelectorAll('.topic-share-fab').forEach((el) => el.remove());
     appEl.innerHTML = shell({
       title: '出错了',
       content: `<div class="page"><div class="card card-pad center">

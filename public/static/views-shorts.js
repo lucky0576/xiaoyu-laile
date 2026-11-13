@@ -15,7 +15,7 @@
 import { service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 100;
 
 export async function renderShorts(ctx, params) {
   const startId = params.id || '';

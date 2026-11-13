@@ -711,6 +711,7 @@ export async function renderHome(ctx, query) {
     brainco: braincoBarHtml,
     tajian: tajianBarHtml,
     projects: projectBarHtml,
+    bidding: biddingBarHtml,
     ecom: ecomBarHtml,
     promos: promoHtml,
     rec: `${loginStrip}${recHtml}`,
@@ -721,16 +722,22 @@ export async function renderHome(ctx, query) {
     stats: statsHtml,
   };
   const DEFAULT_ORDER = [
-    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'ecom',
+    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'bidding', 'ecom',
     'promos', 'rec', 'industries', 'latest', 'cases', 'stats',
   ];
   const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(
     (id) => SECTIONS[id],
   );
+  // 旧的自定义排序里没有招投标：插到「项目」下面、「电商」上面
+  if (!order.includes('bidding')) {
+    const pi = order.indexOf('projects');
+    const ei = order.indexOf('ecom');
+    const at = pi >= 0 ? pi + 1 : ei >= 0 ? ei : order.length;
+    order.splice(at, 0, 'bidding');
+  }
   const orderedSections = order.map((id) => SECTIONS[id]).join('\n');
 
   const html = `<div class="home-wrap">
-    ${biddingBarHtml}
     ${noticeHtml}
     ${shortHtml}
     ${aiBarHtml}

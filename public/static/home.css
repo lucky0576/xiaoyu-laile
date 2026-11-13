@@ -3653,3 +3653,30 @@ a.about-c-phone {
 .bz-region-sites a { color: #0B74FF; text-decoration: none; background: #EAF2FF; border-radius: 999px; padding: 3px 8px; }
 .bz-region-sites a:hover { background: #DCEBFF; }
 .bz-video-tag { display: inline-block; margin-bottom: 5px; font-size: 10px; font-weight: 700; color: #B45309; background: #FFF4DB; border-radius: 999px; padding: 2px 7px; }
+
+
+/* 专题页统一分享按钮 */
+.topic-share-fab {
+  position: fixed;
+  right: 14px;
+  bottom: 92px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0B74FF, #00B8A9);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 8px 22px rgba(11,116,255,.32);
+  cursor: pointer;
+}
+.topic-share-fab span { font-size: 15px; line-height: 1; }
+.topic-share-fab:active { transform: scale(.97); }
+
+/* 招投标 AI 搜索 */
+.bz-ai-search { margin-top: 12px; padding: 13px 14px; background: linear-gradient(135deg, #F4F8FF, #EAF6FF); border: 1px solid #DCE9FF; }
+.bz-ai-title { font-size: 13px; font-weight: 800; color: #0B1F3A; margin-bottom: 7px; }
