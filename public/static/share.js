@@ -510,11 +510,10 @@ export async function openShareSheet(listing) {
 
   const coverUrl = safeUrl(payload.imgUrl) || '';
 
-  // 分享文字：自动精简 + 允许用户手动修改
-  let shareDesc = shortenShareText(
+  // 分享文字：保留完整文案，不自动缩减；用户可自行修改
+  let shareDesc = String(
     payload.desc || listing.subtitle || listing.summary || listing.ai?.summary || '',
-    70,
-  );
+  ).trim();
 
   // 公众号接入状态：决定微信内转发卡片是否带自定义标题/封面
   let wxStatus = null;
@@ -556,8 +555,8 @@ export async function openShareSheet(listing) {
   const content = `
     ${isWechatBrowser() ? `<div class="wx-tip">💚 <b>你在微信里</b>：选好形态后，点右上角「···」即可<b>发送给朋友</b>或<b>分享到朋友圈</b>，链接会自动带上标题、摘要和封面图。</div>` : ''}
     <div class="field" style="margin-bottom:10px">
-      <label>分享文字 <span class="tiny dim">（可修改，建议 2 行以内）</span></label>
-      <textarea class="textarea" id="share-edit-desc" rows="3" maxlength="160">${esc(shareDesc)}</textarea>
+      <label>分享文字 <span class="tiny dim">（完整文案，可修改）</span></label>
+      <textarea class="textarea" id="share-edit-desc" rows="4" maxlength="2000">${esc(shareDesc)}</textarea>
     </div>
     <div class="share-mode active" data-mode="wechat">
       <div class="ico">💚</div>
@@ -653,7 +652,7 @@ export async function openShareSheet(listing) {
         } else if (mode === 'poster') {
           panel.innerHTML = `<div class="poster-wrap"><canvas id="poster-canvas"></canvas></div>
             <div class="field mt10"><label>海报文字 <span class="tiny dim">（可修改，改完自动重绘）</span></label>
-              <textarea class="textarea" id="share-poster-text" rows="2" maxlength="160">${esc(shareDesc)}</textarea>
+              <textarea class="textarea" id="share-poster-text" rows="4" maxlength="2000">${esc(shareDesc)}</textarea>
             </div>
             <div class="row gap8 mt8"><button class="btn btn-primary grow" id="btn-save">保存海报</button>
             <button class="btn grow" id="btn-copy-text">复制文案</button></div>
@@ -1069,15 +1068,15 @@ export async function openInvestShare(plan = {}, quota = {}) {
 /* ------------------------------------------------------------------ */
 export async function openQuickShare({ title = '小鱼来了', desc = '', url = '', image = '', tag = '' } = {}) {
   const shareUrl = url || location.href;
-  let shareText = shortenShareText(desc, 70);
+  let shareText = String(desc || '').trim();
   const plainText = () => [title, shareText].filter(Boolean).join('\n') + '\n' + shareUrl;
 
   openSheet({
     title: '分享',
     content: `
       <div class="field" style="margin-bottom:10px">
-        <label>分享文字 <span class="tiny dim">（可修改，建议 2 行以内）</span></label>
-        <textarea class="textarea" id="q-edit-desc" rows="3" maxlength="160">${esc(shareText)}</textarea>
+        <label>分享文字 <span class="tiny dim">（完整文案，可修改）</span></label>
+        <textarea class="textarea" id="q-edit-desc" rows="4" maxlength="2000">${esc(shareText)}</textarea>
       </div>
       <div class="share-mode active" data-qmode="poster">
         <div class="ico">🖼️</div>
@@ -1109,7 +1108,7 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
         if (mode === 'poster') {
           panel.innerHTML = `<div class="poster-wrap"><div class="tiny dim">海报生成中…</div></div>
             <div class="field mt10"><label>海报文字 <span class="tiny dim">（可修改，改完自动重绘）</span></label>
-              <textarea class="textarea" id="q-poster-text" rows="2" maxlength="160">${esc(shareText)}</textarea>
+              <textarea class="textarea" id="q-poster-text" rows="4" maxlength="2000">${esc(shareText)}</textarea>
             </div>
             <div class="row gap8 mt8">
               <button class="btn btn-primary grow" id="q-save" type="button">保存图片</button>
