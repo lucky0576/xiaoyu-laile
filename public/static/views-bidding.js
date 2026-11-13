@@ -104,7 +104,7 @@ function cardHtml(x) {
   const b = x.bidding || {};
   const region = regionOf(x);
   const type = typeOf(x);
-  const date = b.publishAt || x.publishedAt;
+  const date = b.publishAt || x.publishedAt || x.createdAt;
   const budget = b.budget || '';
   const deadline = b.bidDeadline || '';
   return `<a class="bz-card" href="#/detail/${ui.esc(x.id)}">
@@ -174,11 +174,11 @@ export async function renderBidding(ctx, query = {}) {
     const t = Date.parse(x.createdAt || x.publishedAt || '');
     return Number.isFinite(t) && t >= weekAgo;
   }).length;
-  const lastAt = all
-    .map((x) => x.bidding?.publishAt || x.publishedAt || x.createdAt || '')
-    .filter(Boolean)
-    .sort()
-    .slice(-1)[0];
+  const lastTs = all
+    .map((x) => Date.parse(x.bidding?.publishAt || x.publishedAt || x.createdAt || ''))
+    .filter((t) => Number.isFinite(t))
+    .sort((a, b) => b - a)[0];
+  const lastAt = lastTs ? new Date(lastTs).toISOString() : '';
 
   const html = `<div class="bz-page">
     <div class="bz-hero">
@@ -188,7 +188,7 @@ export async function renderBidding(ctx, query = {}) {
       <div class="bz-stats">
         <div class="bz-stat"><b>${all.length}</b><span>已收录公告</span></div>
         <div class="bz-stat"><b>${Object.keys(regionCounts).length}</b><span>覆盖区域</span></div>
-        <div class="bz-stat"><b>${recent}</b><span>近 7 天新增</span></div>
+        <div class="bz-stat"><b>${recent}</b><span>近 7 天更新</span></div>
         <div class="bz-stat"><b>2 次/周</b><span>更新频率</span></div>
       </div>
       <div class="bz-hero-foot">最近更新：${ui.esc(lastAt ? fmtFull(lastAt) : '待采集')} · 来源：浙江各区县公共资源交易平台（公开公告）</div>
