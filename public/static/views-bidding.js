@@ -24,6 +24,13 @@ const REGIONS = [
 
 const ZJ_REGIONS = new Set(REGIONS.map((r) => r.id).filter(Boolean));
 
+function looksOld(x) {
+  const text = `${x.bidding?.publishAt || ''} ${x.title || ''}`;
+  const years = text.match(/20\d{2}/g) || [];
+  const nowYear = new Date().getFullYear();
+  return years.some((y) => Number(y) < nowYear - 1);
+}
+
 function fmtShort(v) {
   if (!v) return '';
   const d = new Date(v);
@@ -148,7 +155,7 @@ function queryLink(region, type) {
 export async function renderBidding(ctx, query = {}) {
   const res = await service.listings({ category: 'bidding', pageSize: 100, sort: 'latest' }).catch(() => ({ items: [] }));
   const all = (res.items || []).filter(
-    (x) => x && x.category === 'bidding' && ZJ_REGIONS.has(regionOf(x)),
+    (x) => x && x.category === 'bidding' && ZJ_REGIONS.has(regionOf(x)) && !looksOld(x),
   );
   const activeRegion = String(query.region || '');
   const activeType = String(query.type || '');
