@@ -7085,7 +7085,8 @@ a.about-c-phone {
 .bz-source-note { font-size: 9.5px; color: var(--text-3); margin-top: 2px; }
 
 /* 首页横栏 */
-.bz-home-bar { position: relative; display: block; margin: 10px 0; padding: 14px 128px 14px 18px; border-radius: 16px; background: linear-gradient(120deg, #0B1F3A, #123A63 60%, #0B74FF); color: #fff; text-decoration: none; overflow: hidden; box-sizing: border-box; width: 100%; }
+.home-wrap { overflow-x: hidden; }
+.bz-home-bar { position: relative; display: block; margin: 10px 0; width: calc(100vw - 24px); max-width: 100%; padding: 14px 128px 14px 18px; border-radius: 16px; background: linear-gradient(120deg, #0B1F3A, #123A63 60%, #0B74FF); color: #fff; text-decoration: none; overflow: hidden; box-sizing: border-box; width: 100%; }
 .bz-home-left { min-width: 0; }
 .bz-home-badge { font-size: 10.5px; color: #9DC5FF; font-weight: 700; }
 .bz-home-t { font-size: 15px; font-weight: 800; margin: 4px 0 3px; line-height: 1.35; overflow-wrap: anywhere; }
