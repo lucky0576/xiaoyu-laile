@@ -746,6 +746,11 @@ export async function createListing({ user, body = {}, files = [] }) {
             place: clean(body.bidPlace || '').slice(0, 160),
             qualification: clean(body.qualification || '').slice(0, 600),
             contact: clean(body.bidContact || '').slice(0, 200),
+            /* 专题页分类：项目类型 + 来源区域 + 来源站点 + 发布时间 */
+            projectType: clean(body.projectType || body.bidProjectType || '').slice(0, 30),
+            region: clean(body.region || body.bidRegion || '').slice(0, 30),
+            sourceSite: clean(body.sourceSite || body.sourceName || '').slice(0, 60),
+            publishAt: clean(body.publishAt || body.bidPublishAt || '').slice(0, 40),
           }
         : null,
 
@@ -899,6 +904,10 @@ export async function updateListing(id, user, patch = {}) {
     // hideContact 不开放修改：平台强制隐藏联系方式
     'company',
     'coverId',
+    'projectType',
+    'region',
+    'sourceSite',
+    'publishAt',
     'event',
     'trade',
     'project',

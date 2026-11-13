@@ -20,6 +20,7 @@ import chunksSvc from './src/services/chunks.js';
 import fileCleanupSvc from './src/services/file-cleanup.js';
 import backupSvc from './src/services/backup.js';
 import bidReminders from './src/services/bid-reminders.js';
+import biddingZj from './src/services/bidding-zj.js';
 import { seedIfEmpty } from './scripts/seed.js';
 
 /*
@@ -92,6 +93,16 @@ function startJobs() {
       .catch((err) => console.warn('[job:bid-reminder] 失败:', err.message));
     return {};
   }, 10 * 60_000);
+
+  // 浙江招投标专题：每周一、周四 08:00 后自动采集（每 30 分钟检查一次是否到点）
+  run('bidding-zj', () => {
+    if (!biddingZj.isDue()) return {};
+    biddingZj
+      .collect({ limit: 8 })
+      .then((r) => console.log('[job:bidding-zj]', { scanned: r.scanned, created: r.created, skipped: r.skipped, failed: r.failed }))
+      .catch((err) => console.warn('[job:bidding-zj] 失败:', err.message));
+    return {};
+  }, 30 * 60_000);
 
   // 新闻资讯：启动 90 秒后先抓一轮，之后每 3 小时刷新
   setTimeout(() => {

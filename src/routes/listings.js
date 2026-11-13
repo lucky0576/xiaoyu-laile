@@ -16,6 +16,7 @@ import { generateAutoInfo } from '../services/auto-info.js';
 import notifySvc from '../services/notify.js';
 import ai from '../services/ai.js';
 import biddingCollect from '../services/bidding-collect.js';
+import biddingZj from '../services/bidding-zj.js';
 import db from '../store/db.js';
 import { buildDocument } from '../services/documents.js';
 import casesSvc from '../services/cases.js';
@@ -267,6 +268,29 @@ export default function registerListingRoutes(app) {
     } catch (err) {
       return fail(res, err.message || '采集失败', 500, 'collect_failed');
     }
+  });
+
+  /**
+   * 浙江招投标专题采集（管理员）。
+   * dryRun=1 只抓不落库；limit 为每个来源的条数上限。
+   */
+  app.post('/api/admin/bidding/collect-zj', async (req, res) => {
+    const user = requireAdmin(req);
+    const rl = rateLimit(`bidzj:${clientIp(req)}`, 3, 120_000);
+    if (!rl.ok) return fail(res, `别太频繁，${rl.retryAfter} 秒后再试`, 429, 'rate_limited');
+    const limit = Math.min(12, Math.max(2, Number(req.body?.limit) || 8));
+    const dryRun = String(req.body?.dryRun || '') === '1' || req.body?.dryRun === true;
+    try {
+      const report = await biddingZj.collect({ limit, dryRun });
+      return data(res, { ...report, dryRun, by: user.nickname || user.phone });
+    } catch (err) {
+      return fail(res, err.message || '浙江招投标采集失败', 500, 'collect_failed');
+    }
+  });
+
+  app.get('/api/admin/bidding/collect-zj/status', (req, res) => {
+    requireAdmin(req);
+    return data(res, { lastRun: biddingZj.lastRun() });
   });
 
   app.get('/api/my/listings', (req, res) => {
