@@ -128,6 +128,7 @@ export async function renderListingVideo({
    * 万一自动配图也失败，这里用纯色品牌底图兜底，保证短视频一定能生成。
    */
   const hasCover = Boolean(cover && cover.path && fs.existsSync(cover.path));
+  const isBidding = listing.category === 'bidding' || Boolean(listing.bidding);
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const tmpTitle = path.join(os.tmpdir(), `mkts-${stamp}.txt`);
@@ -152,7 +153,13 @@ export async function renderListingVideo({
 
   try {
     /* 标题分两段：主标题按 46px 折行，最多 4 行 */
-    const videoTitle = sanitize(title) || '小鱼来了';
+    let videoTitle = sanitize(title) || '小鱼来了';
+    if (isBidding) {
+      videoTitle = videoTitle
+        .replace(/[\u200b-\u200d\ufeff]/g, '')
+        .replace(/[（(]?(交易|招标|中标|更正|答疑|结果|采购|成交)公告[）)]?$/g, '')
+        .trim() || '招投标公告';
+    }
     const titleLines = wrapTitle(videoTitle, 46, W - 120);
     fs.writeFileSync(tmpTitle, titleLines.join('\n'), 'utf8');
 
@@ -167,7 +174,6 @@ export async function renderListingVideo({
     const metaLine = sanitize(metaParts.join(' · ')) || '小鱼来了 · 产业信息';
 
     /* ---------- 旁白（不提扫码，不带电话） ---------- */
-    const isBidding = listing.category === 'bidding' || Boolean(listing.bidding);
     let audioDuration = 0;
     let voiceApplied = false;
     let voiceAppliedGender = 'none';
@@ -232,7 +238,7 @@ export async function renderListingVideo({
       `[withtitle]drawtext=fontfile=${escPath(font)}:text='${(isBidding ? `${(listing.bidding || {}).region || ''} · ${(listing.bidding || {}).projectType || '招投标'}` : metaLine).replace(/'/g, '')}':fontcolor=white@0.85:fontsize=30:` +
         `x=(w-text_w)/2:y=h*0.30+h*0.20[t2]`,
       // 底部品牌条（无二维码、无联系方式）
-      `[t2]drawtext=fontfile=${escPath(font)}:text='小鱼来了 · 免费发布产业需求':fontcolor=white@0.92:fontsize=28:` +
+      `[t2]drawtext=fontfile=${escPath(font)}:text='${isBidding ? '小鱼来了 · 浙江招投标专题' : '小鱼来了 · 免费发布产业需求'}':fontcolor=white@0.92:fontsize=28:` +
         `box=1:boxcolor=black@0.5:boxborderw=16:x=(w-text_w)/2:y=h-220[out]`,
     ].join(';');
 
