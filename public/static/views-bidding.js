@@ -126,7 +126,7 @@ function cardHtml(x) {
       <span class="bz-tag">${ui.esc(type)}</span>
       ${region ? `<span class="bz-region">${ui.esc(region)}</span>` : ''}
       <span class="bz-date">${ui.esc(fmtShort(date))}</span>
-      <span class="bz-card-share" role="button" tabindex="0" data-share-id="${ui.esc(x.id)}" title="分享这条公告">↗</span>
+      <span class="bz-card-share" role="button" tabindex="0" data-share-id="${ui.esc(x.id)}" title="分享这条公告到微信" aria-label="分享到微信"><span class="wx-ic" aria-hidden="true"><i></i><i></i><i></i></span>微信</span>
     </div>
     ${x.shortVideoUrl ? '<div class="bz-video-tag">🎬 新闻播报</div>' : ''}
     <div class="bz-card-title">${ui.esc(x.title || '')}</div>
@@ -200,7 +200,10 @@ export async function renderBidding(ctx, query = {}) {
     <div class="bz-hero">
       <div class="bz-hero-badge">🏛 浙江招投标 · 专题</div>
       <h1 class="bz-hero-t">浙江招投标公告，按项目分类看</h1>
-      <div class="bz-hero-d">覆盖杭州上城、西湖、余杭、富阳、桐庐、淳安、建德等区县；每周一、周四自动采集更新。</div>
+      <div class="bz-hero-subrow">
+        <div class="bz-hero-d">覆盖杭州上城、西湖、余杭、富阳、桐庐、淳安、建德等区县；每周一、周四自动采集更新。</div>
+        <button class="bz-share-btn bz-share-hero" id="bz-share-topic" type="button"><span class="wx-ic" aria-hidden="true"><i></i><i></i><i></i></span>微信分享专题</button>
+      </div>
       <div class="bz-stats">
         <div class="bz-stat"><b>${all.length}</b><span>已收录公告</span></div>
         <div class="bz-stat"><b>${Object.keys(regionCounts).length}</b><span>覆盖区域</span></div>
@@ -208,7 +211,6 @@ export async function renderBidding(ctx, query = {}) {
         <div class="bz-stat"><b>2 次/周</b><span>更新频率</span></div>
       </div>
       <div class="bz-hero-foot">最近更新：${ui.esc(lastAt ? fmtFull(lastAt) : '待采集')} · 来源：浙江各区县公共资源交易平台（公开公告）</div>
-      <button class="bz-share-btn" id="bz-share-topic" type="button">↗ 分享专题 · 微信/图片</button>
     </div>
 
     <form class="bz-ai-search card" id="bz-ai-form">

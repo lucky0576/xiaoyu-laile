@@ -3683,7 +3683,16 @@ a.about-c-phone {
 
 
 /* 招投标分享 */
-.bz-card-share { margin-left: auto; flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #EAF2FF; color: #0B74FF; font-size: 14px; font-weight: 800; cursor: pointer; }
-.bz-card-share:hover { background: #DCEBFF; }
-.bz-share-btn { margin-top: 12px; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
-.bz-share-btn:hover { background: rgba(255,255,255,.2); }
+.bz-card-share { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 7px; border-radius: 999px; background: #07C160; color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.bz-card-share:hover { background: #06AD56; }
+.wx-ic { display: inline-flex; align-items: center; justify-content: center; gap: 2px; width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,.18); }
+.wx-ic i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; display: block; }
+.bz-hero-subrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-top: 8px; }
+.bz-hero-subrow .bz-hero-d { flex: 1; min-width: 0; margin: 0; }
+.bz-share-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,.45); background: linear-gradient(135deg, #07C160, #05A84F); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 6px 18px rgba(7,193,96,.28); }
+.bz-share-btn:hover { filter: brightness(1.05); }
+.bz-share-hero { margin-top: 2px; padding: 9px 16px; font-size: 12px; }
+@media (max-width: 720px) {
+  .bz-hero-subrow { flex-direction: column; align-items: flex-start; }
+  .bz-share-hero { width: 100%; justify-content: center; }
+}
