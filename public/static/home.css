@@ -3633,12 +3633,14 @@ a.about-c-phone {
 .bz-home-t { font-size: 15px; font-weight: 800; margin: 4px 0 3px; }
 .bz-home-d { font-size: 11px; color: #B8CBDE; }
 .bz-home-cta { display: inline-block; margin-top: 7px; font-size: 11.5px; font-weight: 700; color: #7FE3FF; }
-.bz-home-art { flex: none; width: 64px; height: 64px; border-radius: 16px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); display: grid; place-items: center; font-size: 26px; position: relative; }
-.bz-home-art span { position: absolute; right: 8px; bottom: 6px; font-size: 11px; font-weight: 800; color: #7FE3FF; }
+.bz-home-art { flex: none; width: 168px; min-height: 74px; border-radius: 14px; background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(0,194,178,.18)); border: 1px solid rgba(255,255,255,.24); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.bz-home-art b { font-size: 32px; line-height: 1.05; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.25); }
+.bz-home-art i { font-style: normal; font-size: 10px; letter-spacing: 4px; color: #7FE3FF; margin-top: 3px; }
 @media (max-width: 720px) {
   .bz-hero-t { font-size: 21px; }
   .bz-stats { grid-template-columns: repeat(2, 1fr); }
   .bz-list { grid-template-columns: 1fr; }
   .bz-source-grid { grid-template-columns: 1fr; }
-  .bz-home-art { display: none; }
+  .bz-home-art { display: flex; width: 108px; min-height: 62px; }
+  .bz-home-art b { font-size: 22px; letter-spacing: 1px; }
 }
