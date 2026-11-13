@@ -287,6 +287,13 @@ export async function renderBidding(ctx, query = {}) {
       } catch { /* ignore */ }
 
       const shareMod = await import('./share.js').catch(() => null);
+      // 微信内浏览器：配置右上角原生分享卡片（未接公众号时静默跳过）
+      shareMod?.setupWechatTopicShare?.({
+        title: '浙江招投标 · 7 区县公告',
+        desc: `已收录 ${all.length} 条公告，覆盖杭州 7 个区县，每周一/周四更新。`,
+        url: location.href,
+        image: '/static/logo@2x.png',
+      }).catch(() => {});
       const byId = new Map(all.map((x) => [x.id, x]));
       const shareTopic = () => {
         shareMod?.openQuickShare({

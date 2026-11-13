@@ -1170,6 +1170,7 @@ export default {
   openShareSheet,
   openQuickShare,
   setupWechatShare,
+  setupWechatTopicShare,
   renderPoster,
   downloadCanvas,
   isWechatBrowser,
