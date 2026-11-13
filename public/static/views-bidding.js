@@ -126,6 +126,7 @@ function cardHtml(x) {
       <span class="bz-tag">${ui.esc(type)}</span>
       ${region ? `<span class="bz-region">${ui.esc(region)}</span>` : ''}
       <span class="bz-date">${ui.esc(fmtShort(date))}</span>
+      <span class="bz-card-share" role="button" tabindex="0" data-share-id="${ui.esc(x.id)}" title="分享这条公告">↗</span>
     </div>
     ${x.shortVideoUrl ? '<div class="bz-video-tag">🎬 新闻播报</div>' : ''}
     <div class="bz-card-title">${ui.esc(x.title || '')}</div>
@@ -207,6 +208,7 @@ export async function renderBidding(ctx, query = {}) {
         <div class="bz-stat"><b>2 次/周</b><span>更新频率</span></div>
       </div>
       <div class="bz-hero-foot">最近更新：${ui.esc(lastAt ? fmtFull(lastAt) : '待采集')} · 来源：浙江各区县公共资源交易平台（公开公告）</div>
+      <button class="bz-share-btn" id="bz-share-topic" type="button">↗ 分享专题 · 微信/图片</button>
     </div>
 
     <form class="bz-ai-search card" id="bz-ai-form">
@@ -266,12 +268,62 @@ export async function renderBidding(ctx, query = {}) {
     noTab: true,
     async mount(root) {
       const form = root.querySelector('#bz-ai-form');
-      if (!form) return;
       const input = root.querySelector('#bz-ai-q');
       const btn = root.querySelector('#bz-ai-btn');
       const tip = root.querySelector('#bz-ai-tip');
       const results = root.querySelector('#bz-results');
       const count = root.querySelector('#bz-count');
+
+      // 微信/朋友圈分享：专题页和每条公告都走统一的「文字+链接 / 图片+文字」
+      try {
+        document.title = '浙江招投标 · 7 区县公告 | 小鱼来了';
+        let meta = document.querySelector('meta[name="description"]');
+        if (!meta) {
+          meta = document.createElement('meta');
+          meta.name = 'description';
+          document.head.appendChild(meta);
+        }
+        meta.setAttribute('content', '浙江 7 个区县公共资源交易公告，按项目分类，每周一/周四更新，支持 AI 搜索与分享。');
+      } catch { /* ignore */ }
+
+      const shareMod = await import('./share.js').catch(() => null);
+      const byId = new Map(all.map((x) => [x.id, x]));
+      const shareTopic = () => {
+        shareMod?.openQuickShare({
+          title: '浙江招投标 · 7 区县公告',
+          desc: `已收录 ${all.length} 条公告，覆盖上城、西湖、余杭、富阳、桐庐、淳安、建德等区县；每周一/周四更新。`,
+          url: location.href,
+          image: '/static/logo@2x.png',
+          tag: '浙江招投标',
+        });
+      };
+      const shareItem = (x) => {
+        if (!x) return;
+        const b = x.bidding || {};
+        const desc = [regionOf(x), typeOf(x), b.budget ? `预算 ${b.budget}` : '', b.bidDeadline ? `截止 ${b.bidDeadline}` : '']
+          .filter(Boolean)
+          .join(' · ');
+        shareMod?.openQuickShare({
+          title: `【浙江招投标】${x.title || '公告'}`,
+          desc: desc || '浙江公共资源交易公告',
+          url: `${location.origin}/#/detail/${x.id}`,
+          image: x.coverUrl || '/static/logo@2x.png',
+          tag: '招投标',
+        });
+      };
+      root.querySelector('#bz-share-topic')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        shareTopic();
+      });
+      root.addEventListener('click', (e) => {
+        const el = e.target.closest('[data-share-id]');
+        if (!el) return;
+        e.preventDefault();
+        e.stopPropagation();
+        shareItem(byId.get(String(el.dataset.shareId || '')));
+      });
+
+      if (!form) return;
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const q = String(input?.value || '').trim();

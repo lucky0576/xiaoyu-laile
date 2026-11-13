@@ -3680,3 +3680,10 @@ a.about-c-phone {
 /* 招投标 AI 搜索 */
 .bz-ai-search { margin-top: 12px; padding: 13px 14px; background: linear-gradient(135deg, #F4F8FF, #EAF6FF); border: 1px solid #DCE9FF; }
 .bz-ai-title { font-size: 13px; font-weight: 800; color: #0B1F3A; margin-bottom: 7px; }
+
+
+/* 招投标分享 */
+.bz-card-share { margin-left: auto; flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #EAF2FF; color: #0B74FF; font-size: 14px; font-weight: 800; cursor: pointer; }
+.bz-card-share:hover { background: #DCEBFF; }
+.bz-share-btn { margin-top: 12px; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.bz-share-btn:hover { background: rgba(255,255,255,.2); }
