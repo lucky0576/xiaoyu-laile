@@ -7086,15 +7086,15 @@ a.about-c-phone {
 
 /* 首页横栏 */
 .home-wrap { overflow-x: hidden; max-width: 100vw; }
-.bz-home-bar { position: relative; display: block; margin: 10px 0; width: calc(100vw - 24px); max-width: 100%; padding: 14px 128px 14px 18px; border-radius: 16px; background: linear-gradient(120deg, #0B1F3A, #123A63 60%, #0B74FF); color: #fff; text-decoration: none; overflow: hidden; box-sizing: border-box; }
+.bz-home-bar { position: relative; display: block; margin: 10px 0; width: calc(100vw - 24px); max-width: 100%; padding: 14px 166px 14px 18px; border-radius: 16px; background: linear-gradient(120deg, #0B1F3A, #123A63 60%, #0B74FF); color: #fff; text-decoration: none; overflow: hidden; box-sizing: border-box; }
 .bz-home-left { min-width: 0; }
 .bz-home-badge { font-size: 10.5px; color: #9DC5FF; font-weight: 700; }
 .bz-home-t { font-size: 15px; font-weight: 800; margin: 4px 0 3px; line-height: 1.35; overflow-wrap: anywhere; }
 .bz-home-d { font-size: 11px; color: #B8CBDE; line-height: 1.45; overflow-wrap: anywhere; }
 .bz-home-cta { display: inline-block; margin-top: 7px; font-size: 11.5px; font-weight: 700; color: #7FE3FF; }
-.bz-home-art { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); width: 64px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(0,194,178,.18)); border: 1px solid rgba(255,255,255,.24); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
-.bz-home-art b { font-size: 19px; line-height: 1; font-weight: 900; letter-spacing: 0; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.25); white-space: nowrap; }
-.bz-home-art i { font-style: normal; font-size: 8px; letter-spacing: 1px; color: #7FE3FF; margin-top: 3px; }
+.bz-home-art { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 138px; height: 70px; border-radius: 12px; background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(0,194,178,.18)); border: 1px solid rgba(255,255,255,.24); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+.bz-home-art b { font-size: 34px; line-height: 1; font-weight: 900; letter-spacing: 1px; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.25); white-space: nowrap; }
+.bz-home-art i { font-style: normal; font-size: 9px; letter-spacing: 4px; color: #7FE3FF; margin-top: 3px; }
 @media (max-width: 720px) {
   .bz-hero-t { font-size: 21px; }
   .bz-stats { grid-template-columns: repeat(2, 1fr); }
