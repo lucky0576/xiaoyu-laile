@@ -24,6 +24,20 @@ const REGIONS = [
 
 const ZJ_REGIONS = new Set(REGIONS.map((r) => r.id).filter(Boolean));
 
+/* 每个区县对应的公共资源交易官网（点击新窗口打开） */
+const REGION_SITES = {
+  '浙江省级': 'https://zfcg.czt.zj.gov.cn/site/category?parentId=600007&childrenCode=ZcyAnnouncement',
+  上城区: 'https://www.hzscsxy.com:8443/#/JYlist',
+  西湖区: 'https://www.zhaobide.com/Web/Partner_index?pid=a8b557ad-9cf8-4f67-bf3e-7cf5337c2166',
+  萧山区: 'https://www.xiaoshan.gov.cn/col/col1229181634/',
+  余杭区: 'https://www.yuhang.gov.cn/col/col1229374049/index.html',
+  临平区: 'https://xehome.lpqfpt.cn/jy?transactionMethod=0',
+  富阳区: 'https://www.fuyang.gov.cn/col/col1229429575/index.html',
+  桐庐县: 'https://tlztb.tonglu.gov.cn:18090/#/home_infolist?id=1011312667018792960',
+  淳安县: 'https://www.qdh.gov.cn/col/col1229356921/index.html',
+  建德市: 'https://www.jiande.gov.cn/col/col1229418005/zbggygdbzlm175/index.html',
+};
+
 function looksOld(x) {
   const text = `${x.bidding?.publishAt || ''} ${x.title || ''}`;
   const years = text.match(/20\d{2}/g) || [];
@@ -113,6 +127,7 @@ function cardHtml(x) {
       ${region ? `<span class="bz-region">${ui.esc(region)}</span>` : ''}
       <span class="bz-date">${ui.esc(fmtShort(date))}</span>
     </div>
+    ${x.shortVideoUrl ? '<div class="bz-video-tag">🎬 新闻播报</div>' : ''}
     <div class="bz-card-title">${ui.esc(x.title || '')}</div>
     <div class="bz-card-meta">
       ${budget ? `<span class="bz-budget">预算 ${ui.esc(budget)}</span>` : ''}
@@ -205,6 +220,11 @@ export async function renderBidding(ctx, query = {}) {
           ${TYPES.map((t) => `<a class="chip ${activeType === t.id ? 'active' : ''}" href="${queryLink(activeRegion, t.id)}">${t.name}</a>`).join('')}
         </div>
       </div>
+    </div>
+
+    <div class="bz-region-sites">
+      <span class="bz-region-sites-label">各区官网</span>
+      ${REGIONS.filter((r) => r.id && REGION_SITES[r.id]).map((r) => `<a href="${REGION_SITES[r.id]}" target="_blank" rel="noopener">${r.name} ↗</a>`).join('')}
     </div>
 
     <div class="bz-result-head">

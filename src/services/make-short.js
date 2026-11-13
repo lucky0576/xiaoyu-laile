@@ -167,15 +167,33 @@ export async function renderListingVideo({
     const metaLine = sanitize(metaParts.join(' · ')) || '小鱼来了 · 产业信息';
 
     /* ---------- 旁白（不提扫码，不带电话） ---------- */
+    const isBidding = listing.category === 'bidding' || Boolean(listing.bidding);
     let audioDuration = 0;
     let voiceApplied = false;
     let voiceAppliedGender = 'none';
     if (voice) {
       try {
         const ttsMod = await import('./tts.js');
-        const narration = sanitize(
-          [videoTitle, metaLine, '上小鱼来了，免费发布产业需求。'].filter(Boolean).join('。'),
-        ).replace(/。+/g, '。');
+        let narration;
+        if (isBidding) {
+          const b = listing.bidding || {};
+          const region = b.region || city || '浙江';
+          const shortTitle = String(videoTitle || '')
+            .replace(/^[^｜|]{1,8}[｜|]/, '')
+            .slice(0, 26);
+          const parts = [
+            `${region}招投标新闻`,
+            shortTitle,
+            b.budget ? `预算${b.budget}` : '',
+            b.bidDeadline ? `投标截止${b.bidDeadline}` : '',
+            '小鱼来了，产业信息播报。',
+          ];
+          narration = sanitize(parts.filter(Boolean).join('。')).replace(/。+/g, '。');
+        } else {
+          narration = sanitize(
+            [videoTitle, metaLine, '上小鱼来了，免费发布产业需求。'].filter(Boolean).join('。'),
+          ).replace(/。+/g, '。');
+        }
         const t = await ttsMod.synthesize(narration, { gender: voiceGender, seed: listing.id });
         if (t && t.path) {
           ttsFile = t.path;
@@ -193,18 +211,25 @@ export async function renderListingVideo({
      * 否则语音会被硬切掉半句。
      */
     const target = Math.max(Number(seconds) || DURATION, voiceApplied ? Math.ceil(audioDuration) + 1 : 0);
-    const total = Math.min(Math.max(target, 5), 90);
+    const total = Math.min(Math.max(target, 5), isBidding ? 10 : 90);
 
     const filter = [
       // 底图：铺满 + 轻微压暗；带标题的封面当底图时先重模糊，避免出现第二套字
       blurCover
         ? `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=28,eq=brightness=-0.2:saturation=0.9[bg]`
         : `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},eq=brightness=-0.08:saturation=0.92[bg]`,
+      // 新闻播报顶栏（招投标）
+      ...(isBidding
+        ? [
+            `[bg]drawtext=fontfile=${escPath(font)}:text='小鱼来了 · 新闻播报':fontcolor=white:fontsize=30:` +
+              `box=1:boxcolor=0xB45309@0.92:boxborderw=16:x=(w-text_w)/2:y=90[newstag]`,
+          ]
+        : []),
       // 标题（居中偏上）
-      `[bg]drawtext=fontfile=${escPath(font)}:textfile=${escPath(tmpTitle)}:fontcolor=white:fontsize=46:line_spacing=16:` +
+      `[${isBidding ? 'newstag' : 'bg'}]drawtext=fontfile=${escPath(font)}:textfile=${escPath(tmpTitle)}:fontcolor=white:fontsize=46:line_spacing=16:` +
         `box=1:boxcolor=black@0.42:boxborderw=26:x=(w-text_w)/2:y=h*0.30[withtitle]`,
-      // 城市 / 行业 小字
-      `[withtitle]drawtext=fontfile=${escPath(font)}:text='${metaLine.replace(/'/g, '')}':fontcolor=white@0.85:fontsize=30:` +
+      // 城市 / 行业 / 来源 小字
+      `[withtitle]drawtext=fontfile=${escPath(font)}:text='${(isBidding ? `${(listing.bidding || {}).region || ''} · ${(listing.bidding || {}).projectType || '招投标'}` : metaLine).replace(/'/g, '')}':fontcolor=white@0.85:fontsize=30:` +
         `x=(w-text_w)/2:y=h*0.30+h*0.20[t2]`,
       // 底部品牌条（无二维码、无联系方式）
       `[t2]drawtext=fontfile=${escPath(font)}:text='小鱼来了 · 免费发布产业需求':fontcolor=white@0.92:fontsize=28:` +
@@ -451,6 +476,12 @@ export async function makeShortForListing({ listing, user, baseUrl = '', seconds
     voiceGender: made.voiceGender || 'none',
     durationSec: made.duration,
   });
+  try {
+    db.collection('listings').update(listing.id, {
+      shortVideoUrl: (made.record && made.record.url) || '',
+      shortVideoFeedId: feed.id,
+    });
+  } catch { /* 不影响短视频本身 */ }
   return { feed, existed: false, voiceApplied: Boolean(made.voiceApplied), voiceGender: made.voiceGender || 'none', duration: made.duration };
 }
 

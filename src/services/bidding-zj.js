@@ -108,6 +108,12 @@ export async function collect({ limit = 8, dryRun = false } = {}) {
     }
   }
 
+  // 新入库的公告 → 后台逐条生成新闻播报短视频（8 秒、男声），不阻塞采集响应
+  const newIds = report.items.map((x) => x.id).filter(Boolean);
+  if (newIds.length) {
+    generateNewsVideos(newIds, admin).catch((err) => console.warn('[bidding-zj] 短视频批量生成失败:', err.message));
+  }
+
   const state = {
     id: STATE_ID,
     at: new Date().toISOString(),
@@ -124,6 +130,40 @@ export async function collect({ limit = 8, dryRun = false } = {}) {
   if (settings.get(STATE_ID)) settings.update(STATE_ID, state);
   else settings.insert(state);
   return report;
+}
+
+/**
+ * 为采集入库的招投标公告自动生成「新闻播报」短视频。
+ * 逐条串行，避免同时跑多个 ffmpeg/TTS 把服务器压满。
+ */
+async function generateNewsVideos(ids, admin) {
+  let ms;
+  try {
+    ms = await import('./make-short.js');
+  } catch (err) {
+    console.warn('[bidding-zj] 短视频模块不可用:', err.message);
+    return;
+  }
+  let ok = 0;
+  for (const id of ids) {
+    try {
+      const listing = listingsSvc.getListing(id);
+      if (!listing || listing.category !== 'bidding') continue;
+      const r = await ms.makeShortForListing({
+        listing,
+        user: admin,
+        baseUrl: 'https://xiaoyulaile.online',
+        seconds: 8,
+        voice: true,
+        voiceGender: 'male',
+      });
+      if (r && r.feed) ok += 1;
+      console.log(`[bidding-zj] 新闻短视频 ${id} -> ${r && r.duration ? r.duration + 's' : 'ok'}`);
+    } catch (err) {
+      console.warn(`[bidding-zj] 短视频失败 ${id}:`, err.message);
+    }
+  }
+  console.log(`[bidding-zj] 短视频完成 ${ok}/${ids.length}`);
 }
 
 /** 周一、周四 08:00（北京时间）之后跑；同一天只跑一次 */

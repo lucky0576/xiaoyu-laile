@@ -310,6 +310,7 @@ export function listingBrief(l) {
     contactName: maskContacts(String(l.contact?.name || '')).text,
     status: l.status,
     sourceName: l.sourceName || '',
+    shortVideoUrl: l.shortVideoUrl || '',
     publishedAt: l.publishedAt,
     expiresAt: l.expiresAt,
     createdAt: l.createdAt,

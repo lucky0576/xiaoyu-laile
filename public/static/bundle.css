@@ -7106,6 +7106,12 @@ a.about-c-phone {
   .bz-home-art i { font-size: 8px; letter-spacing: 2px; }
 }
 
+.bz-region-sites { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 10px 2px 4px; font-size: 11px; color: var(--text-2); }
+.bz-region-sites-label { font-weight: 700; color: var(--text); }
+.bz-region-sites a { color: #0B74FF; text-decoration: none; background: #EAF2FF; border-radius: 999px; padding: 3px 8px; }
+.bz-region-sites a:hover { background: #DCEBFF; }
+.bz-video-tag { display: inline-block; margin-bottom: 5px; font-size: 10px; font-weight: 700; color: #B45309; background: #FFF4DB; border-radius: 999px; padding: 2px 7px; }
+
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
