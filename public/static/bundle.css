@@ -7069,7 +7069,7 @@ a.about-c-phone {
 .bz-card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .bz-tag { font-size: 10px; color: #0B74FF; background: #EAF2FF; border-radius: 999px; padding: 2px 7px; font-weight: 700; }
 .bz-region { font-size: 10px; color: #1E7A46; background: #E8F7EE; border-radius: 999px; padding: 2px 7px; }
-.bz-date { margin-left: auto; font-size: 10px; color: var(--text-3); }
+.bz-date { margin-left: auto; font-size: 10px; color: var(--text-3); white-space: nowrap; flex: none; }
 .bz-card-title { font-size: 13.5px; font-weight: 700; line-height: 1.45; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .bz-card-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 8px; font-size: 10.5px; color: var(--text-3); }
 .bz-budget { color: #B45309; font-weight: 700; }

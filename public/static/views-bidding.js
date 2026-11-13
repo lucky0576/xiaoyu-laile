@@ -22,6 +22,29 @@ const REGIONS = [
   { id: '建德市', name: '建德市' },
 ];
 
+const ZJ_REGIONS = new Set(REGIONS.map((r) => r.id).filter(Boolean));
+
+function fmtShort(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (!Number.isNaN(d.getTime())) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  const m = String(v).match(/(\d{1,2})[-/.月](\d{1,2})/);
+  return m ? `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : String(v).slice(0, 10);
+}
+
+function fmtFull(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (!Number.isNaN(d.getTime())) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  return String(v).slice(0, 16);
+}
+
 const TYPES = [
   { id: '', name: '全部' },
   { id: '工程建设', name: '工程建设' },
@@ -81,7 +104,7 @@ function cardHtml(x) {
     <div class="bz-card-top">
       <span class="bz-tag">${ui.esc(type)}</span>
       ${region ? `<span class="bz-region">${ui.esc(region)}</span>` : ''}
-      <span class="bz-date">${ui.esc(fmtDate(date))}</span>
+      <span class="bz-date">${ui.esc(fmtShort(date))}</span>
     </div>
     <div class="bz-card-title">${ui.esc(x.title || '')}</div>
     <div class="bz-card-meta">
@@ -124,7 +147,9 @@ function queryLink(region, type) {
 
 export async function renderBidding(ctx, query = {}) {
   const res = await service.listings({ category: 'bidding', pageSize: 100, sort: 'latest' }).catch(() => ({ items: [] }));
-  const all = (res.items || []).filter((x) => x && x.category === 'bidding');
+  const all = (res.items || []).filter(
+    (x) => x && x.category === 'bidding' && ZJ_REGIONS.has(regionOf(x)),
+  );
   const activeRegion = String(query.region || '');
   const activeType = String(query.type || '');
 
@@ -139,7 +164,7 @@ export async function renderBidding(ctx, query = {}) {
   }
   const weekAgo = Date.now() - 7 * 86400_000;
   const recent = all.filter((x) => {
-    const t = Date.parse(x.bidding?.publishAt || x.publishedAt || x.createdAt || '');
+    const t = Date.parse(x.createdAt || x.publishedAt || '');
     return Number.isFinite(t) && t >= weekAgo;
   }).length;
   const lastAt = all
@@ -159,7 +184,7 @@ export async function renderBidding(ctx, query = {}) {
         <div class="bz-stat"><b>${recent}</b><span>近 7 天新增</span></div>
         <div class="bz-stat"><b>2 次/周</b><span>更新频率</span></div>
       </div>
-      <div class="bz-hero-foot">最近更新：${ui.esc(lastAt ? fmtDate(lastAt) : '待采集')} · 来源：浙江各区县公共资源交易平台（公开公告）</div>
+      <div class="bz-hero-foot">最近更新：${ui.esc(lastAt ? fmtFull(lastAt) : '待采集')} · 来源：浙江各区县公共资源交易平台（公开公告）</div>
     </div>
 
     <div class="bz-filter card">
