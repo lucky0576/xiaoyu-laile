@@ -791,6 +791,8 @@ const TOPIC_SHARE = {
 function injectTopicShare() {
   try {
     document.querySelectorAll('.topic-share-fab').forEach((el) => el.remove());
+    // 招投标页已有显眼的「微信分享专题」按钮，不再显示右下角通用分享
+    if (document.querySelector('#bz-share-topic')) return;
     const segs = String(location.hash || '').replace(/^#\/?/, '').split('?')[0].split('/');
     const key = segs[0] || '';
     const info = TOPIC_SHARE[key];
