@@ -70,6 +70,7 @@ const viewsMetaverse = lazyView(() => import('./views-metaverse.js'));
 const viewsOverseas = lazyView(() => import('./views-overseas.js'));
 const viewsLatest = lazyView(() => import('./views-latest.js'));
 const viewsEstate = lazyView(() => import('./views-estate.js'));
+const viewsBidding = lazyView(() => import('./views-bidding.js'));
 const viewsTajian = lazyView(() => import('./views-tajian.js'));
 const viewsTajianPartner = lazyView(() => import('./views-tajian-partner.js'));
 const viewsAdminTajianPartners = lazyView(() => import('./views-admin-tajian-partners.js'));
@@ -452,6 +453,8 @@ async function resolveView({ segs, query }) {
       return viewsTajian.renderTajian(ctx, query);
     case 'estate':
       return viewsEstate.renderEstate(ctx, query);
+    case 'bidding':
+      return viewsBidding.renderBidding(ctx, query);
     case 'latest':
       return viewsLatest.renderLatest(ctx, query);
     case 'overseas':

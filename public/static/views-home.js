@@ -637,6 +637,17 @@ export async function renderHome(ctx, query) {
   </div>`;
 
 
+  /* 浙江招投标横栏：放在发布信息下面 */
+  const biddingBarHtml = `<a class="bz-home-bar" href="#/bidding">
+    <div class="bz-home-left">
+      <div class="bz-home-badge">🏛 浙江招投标 · 每周两次更新</div>
+      <div class="bz-home-t">上城 · 西湖 · 余杭 · 富阳 · 桐庐 · 淳安 · 建德</div>
+      <div class="bz-home-d">按工程建设 / 货物采购 / 服务采购 / 产权交易分类，点开看预算、截止时间、原文</div>
+      <div class="bz-home-cta">进入招投标专题 ›</div>
+    </div>
+    <div class="bz-home-art">📑<span>浙</span></div>
+  </a>`;
+
   /* 产业元宇宙横栏：放在强脑科技（脑机接口）下面 */
   const metaverseBarHtml = `<a class="brainco-bar metaverse-bar" href="#/metaverse">
     <div class="brainco-bar-left">
@@ -694,6 +705,7 @@ export async function renderHome(ctx, query) {
    */
   const SECTIONS = {
     publish: publishBarHtml,
+    bidding: biddingBarHtml,
     grid: gridHtml,
     topic: topicHtml,
     events: eventQuickHtml,
@@ -710,12 +722,17 @@ export async function renderHome(ctx, query) {
     stats: statsHtml,
   };
   const DEFAULT_ORDER = [
-    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'ecom',
+    'publish', 'bidding', 'grid', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'ecom',
     'promos', 'rec', 'industries', 'latest', 'cases', 'stats',
   ];
   const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(
     (id) => SECTIONS[id],
   );
+  // 新增板块（如招投标）在旧的自定义排序里不存在时，自动插到「发布信息」后面
+  if (!order.includes('bidding')) {
+    const at = order.indexOf('publish');
+    order.splice(at >= 0 ? at + 1 : 0, 0, 'bidding');
+  }
   const orderedSections = order.map((id) => SECTIONS[id]).join('\n');
 
   const html = `<div class="home-wrap">
