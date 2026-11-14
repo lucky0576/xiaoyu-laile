@@ -83,6 +83,65 @@ SOURCES = [
     },
 ]
 
+CITY_SOURCES = [
+    {
+        "id": "wenzhou",
+        "name": "温州市公共资源交易",
+        "region": "温州市",
+        "url": "https://ggzyjy-eweb.wenzhou.gov.cn/col/col1229696276/index.html",
+        "kind": "anchors",
+        "href": r"/art/",
+        "keywords": ["招标", "采购", "交易", "公告", "工程", "项目", "发包", "拍卖", "招租"],
+    },
+    {
+        "id": "jiaxing",
+        "name": "嘉兴市公共资源交易",
+        "region": "嘉兴市",
+        "url": "https://jxszwsjb.jiaxing.gov.cn/col/col1229743506/index.html",
+        "kind": "anchors",
+        "href": r"/art/",
+        "keywords": ["招标", "采购", "交易", "公告", "工程", "项目", "发包", "拍卖", "招租"],
+    },
+    {
+        "id": "shaoxing",
+        "name": "绍兴市公共资源交易",
+        "region": "绍兴市",
+        "url": "https://ggb.sx.gov.cn/col/col1518854/index.html",
+        "kind": "anchors",
+        "href": r"/art/",
+        "keywords": ["招标", "采购", "交易", "公告", "工程", "项目", "发包", "拍卖", "招租"],
+    },
+    {
+        "id": "quzhou",
+        "name": "衢州市公共资源交易",
+        "region": "衢州市",
+        "url": "https://ggzy.qz.gov.cn/col/col1229683626/index.html",
+        "kind": "anchors",
+        "href": r"/art/",
+        "keywords": ["招标", "采购", "交易", "公告", "工程", "项目", "发包", "拍卖", "招租"],
+    },
+    {
+        "id": "zhoushan",
+        "name": "舟山市公共资源交易",
+        "region": "舟山市",
+        "url": "https://zsztb.zhoushan.gov.cn/col/col1229679798/index.html",
+        "kind": "anchors",
+        "href": r"/art/",
+        "keywords": ["招标", "采购", "交易", "公告", "工程", "项目", "发包", "拍卖", "招租"],
+    },
+    {
+        "id": "lishui",
+        "name": "丽水市公共资源交易",
+        "region": "丽水市",
+        "url": "https://lssggzy.lishui.gov.cn/col/col1229661790/index.html",
+        "kind": "anchors",
+        "href": r"/art/",
+        "keywords": ["招标", "采购", "交易", "公告", "工程", "项目", "发包", "拍卖", "招租"],
+    },
+]
+
+SOURCES = SOURCES + CITY_SOURCES
+
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -190,7 +249,10 @@ def collect_source(browser_ctx, src, limit):
                 href, text = a["href"], clean_text(a["text"])
                 if not re.search(src["href"], href):
                     continue
-                if any(k in text for k in ("首页", "网站", "平台", "中国政府", "浙江省", "登录", "无障碍", "隐私", "备案")):
+                if any(k in text for k in ("首页", "网站", "平台", "中国政府", "浙江省", "登录", "无障碍", "隐私", "备案", "网站地图")):
+                    continue
+                kws = src.get("keywords") or []
+                if kws and not any(k in text for k in kws):
                     continue
                 if href in seen:
                     continue
