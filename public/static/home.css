@@ -3696,3 +3696,9 @@ a.about-c-phone {
   .bz-hero-subrow { flex-direction: column; align-items: flex-start; }
   .bz-share-hero { width: 100%; justify-content: center; }
 }
+
+
+/* 资讯列表：转发按钮 */
+.news-card { position: relative; }
+.news-card-share { position: absolute; right: 34px; top: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 999px; background: #EAF2FF; color: #0B74FF; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+.news-card-share:hover { background: #DCEBFF; }

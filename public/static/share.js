@@ -8,6 +8,13 @@
 import { service } from './api.js';
 import { esc, toast, openSheet, copyText, safeUrl, showLoading, hideLoading } from './ui.js';
 
+/* 所有分享文案统一在末尾加小鱼来了宣传语 */
+const SLOGAN = '小鱼来了 · AI 驱动的产业互联网 B2B 电商平台｜让每一条好项目，都被对的人看见';
+function withSlogan(text) {
+  const t = String(text || '').trim();
+  return t.includes(SLOGAN) ? t : `${t}\n\n${SLOGAN}`;
+}
+
 /* ------------------------------------------------------------------ */
 /* 微信 JS-SDK                                                         */
 /* ------------------------------------------------------------------ */
@@ -548,7 +555,7 @@ export async function openShareSheet(listing) {
     }
 
     lines.push('');
-    lines.push('—— 小鱼来了｜让每一条好项目，都被对的人看见');
+    lines.push(SLOGAN);
     return lines.join('\n');
   };
 
@@ -826,6 +833,8 @@ export async function openInviteShare() {
     '',
     `👉 ${link}`,
     code ? `（邀请码 ${code}，注册后可直接发布信息）` : '（注册后可直接发布信息）',
+    '',
+    SLOGAN,
   ].join('\n');
 
   // 生成海报
@@ -969,6 +978,8 @@ export async function openInvestShare(plan = {}, quota = {}) {
     '',
     `👉 ${link}`,
     '（查看完整融资方案与认购规则）',
+    '',
+    SLOGAN,
   ]
     .filter((x) => x !== '')
     .join('\n');
@@ -1069,7 +1080,7 @@ export async function openInvestShare(plan = {}, quota = {}) {
 export async function openQuickShare({ title = '小鱼来了', desc = '', url = '', image = '', tag = '' } = {}) {
   const shareUrl = url || location.href;
   let shareText = String(desc || '').trim();
-  const plainText = () => [title, shareText].filter(Boolean).join('\n') + '\n' + shareUrl;
+  const plainText = () => withSlogan([title, shareText, shareUrl].filter(Boolean).join('\n'));
 
   openSheet({
     title: '分享',

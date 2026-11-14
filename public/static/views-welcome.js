@@ -31,6 +31,15 @@ export async function renderWelcome(ctx) {
   } catch {
     shorts = [];
   }
+  let bids = [];
+  try {
+    const r = await service.listings({ category: 'bidding', pageSize: 12, sort: 'latest' });
+    bids = (r.items || [])
+      .filter((x) => x && x.category === 'bidding' && x.bidding && x.bidding.region)
+      .slice(0, 5);
+  } catch {
+    bids = [];
+  }
   const lead = shorts[0];
   const leadVideo = lead && (lead.videoUrl || (lead.video && lead.video.url));
   const leadCover = lead && (lead.coverUrl || (lead.cover && lead.cover.url));
@@ -110,6 +119,28 @@ export async function renderWelcome(ctx) {
         ${['储能项目', '光伏 EPC', '政府招商', '融资项目']
           .map((k) => `<a class="aw-tag" href="#/list/project?q=${encodeURIComponent(k)}">${ui.esc(k)}</a>`)
           .join('')}
+      </div>
+    </section>
+
+    <!-- ②.5 浙江招投标：最新 5 条 -->
+    <section class="aw-card aw-bidding aw-rise" style="--d:270ms">
+      <div class="aw-card-head">
+        <span class="aw-card-title">浙江招投标</span>
+        <a class="aw-bidding-more" href="#/bidding">全部公告 ›</a>
+      </div>
+      <div class="aw-bidding-list">
+        ${
+          bids.length
+            ? bids
+                .map(
+                  (b) => `<a class="aw-bid" href="#/detail/${ui.esc(b.id)}">
+                    <span class="aw-bid-t">${ui.esc(b.title || '招投标公告')}</span>
+                    <span class="aw-bid-m">${ui.esc(b.bidding.region || '')} · ${ui.esc(b.bidding.projectType || '招投标')} · ${ui.esc((b.bidding.publishAt || b.publishedAt || b.createdAt || '').slice(5, 10))}</span>
+                  </a>`,
+                )
+                .join('')
+            : '<a class="aw-bid" href="#/bidding"><span class="aw-bid-t">暂无公告，进入专题查看</span></a>'
+        }
       </div>
     </section>
 

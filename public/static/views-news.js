@@ -57,6 +57,13 @@ function newsCard(n) {
       </div>
       ${(n.tags || []).length ? `<div class="news-tags">${tagsHtml(n.tags)}</div>` : ''}
     </div>
+    <span class="news-card-share" role="button" tabindex="0"
+      data-news-share
+      data-id="${ui.esc(n.id)}"
+      data-title="${ui.esc(n.title || '')}"
+      data-desc="${ui.esc(n.summary || '')}"
+      data-cover="${ui.esc(n.coverUrl || (n.cover && n.cover.url) || '')}"
+      title="转发这条资讯">↗ 转发</span>
     <span class="news-card-arrow">›</span>
   </a>`;
 }
@@ -68,22 +75,19 @@ function newsCard(n) {
  */
 async function shareNews(n) {
   const url = `${location.origin}/#/news/${n.id}`;
-  const payload = { title: n.title || '小鱼来了', text: n.summary || n.title || '', url };
-
-  if (navigator.share) {
-    try {
-      await navigator.share(payload);
-      return;
-    } catch (err) {
-      // 用户取消不算失败，不弹提示
-      if (err && err.name === 'AbortError') return;
-    }
+  try {
+    const m = await import('./share.js');
+    m.openQuickShare({
+      title: n.title || '小鱼来了',
+      desc: n.summary || n.briefText || String(n.text || '').slice(0, 300) || n.title || '',
+      url,
+      image: n.coverUrl || (n.cover && n.cover.url) || '',
+      tag: '新闻资讯',
+    });
+  } catch {
+    const cr = await copyToClipboard(`${n.title || '小鱼来了'}\n${url}`);
+    ui.toast(cr === 'ok' ? '链接已复制，粘到微信就行' : '复制失败，请长按地址手动复制', cr === 'ok' ? 'ok' : 'err');
   }
-
-  // copyToClipboard 内部已做多级兜底，返回 'ok' | 'manual' | 'fail'
-  const cr = await copyToClipboard(`${payload.title}\n${url}`);
-  const ok = cr === 'ok';
-  ui.toast(ok ? '链接已复制，粘到微信就行' : '复制失败，请长按地址手动复制', ok ? 'ok' : 'err');
 }
 
 /* ------------------------------------------------------------------ */
@@ -152,6 +156,23 @@ export async function renderNews(ctx, query = {}) {
       <div class="news-list">${body}</div>
     </div>`,
     mount(root) {
+      // 资讯卡片转发：点击不跳详情，直接打开分享
+      root.addEventListener('click', async (e) => {
+        const el = e.target.closest('[data-news-share]');
+        if (!el) return;
+        e.preventDefault();
+        e.stopPropagation();
+        let m = null;
+        try { m = await import('./share.js'); } catch { /* ignore */ }
+        m?.openQuickShare({
+          title: el.dataset.title || '小鱼来了',
+          desc: el.dataset.desc || '',
+          url: `${location.origin}/#/news/${el.dataset.id || ''}`,
+          image: el.dataset.cover || '',
+          tag: '新闻资讯',
+        });
+      });
+
       const form = root.querySelector('#news-search-form');
       if (form) {
         form.addEventListener('submit', (e) => {
@@ -399,10 +420,12 @@ export async function renderNewsDetail(ctx, { id }) {
       ${linkHtml}
     </div>`,
     async mount(root) {
+      /* 详情页分享：先绑，避免没有附件时直接 return 把分享也跳过 */
+      root.querySelector('#news-share')?.addEventListener('click', () => shareNews(n));
+
       /* 文档预览复用首页那套 /api/preview 翻页器 */
       const btns = root.querySelectorAll('.news-doc-open');
       if (!btns.length) return;
-      root.querySelector('#news-share')?.addEventListener('click', () => shareNews(n));
 
       let mod = null;
       try {
