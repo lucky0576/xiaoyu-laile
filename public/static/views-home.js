@@ -254,6 +254,9 @@ export async function renderHome(ctx, query) {
     { t: '招投标', d: '招标公告 · 中标结果 · 变更', art: '📑', href: '#/list/bidding', i: 6 },
     { t: '元宇宙展厅', d: '3D 看项目 · 强脑科技展位', art: '🌐', href: '#/metaverse', i: 7 },
     { t: '出海 / 海外项目', d: '海外项目 · 跨境贸易 · 出海服务', art: '🌏', href: '#/overseas', i: 8 },
+    { t: '创业补贴', d: '创业补贴 · 场地 · 人才 · 研发', art: '💰', href: '#/list/subsidy', i: 9 },
+    { t: '创业辅导', d: '商业模式 · 融资 · 申报 · 市场', art: '🧑‍🏫', href: '#/list/coach', i: 10 },
+    { t: '创业赛事', d: '创业大赛 · 创新赛 · 路演', art: '🏆', href: '#/list/contest', i: 11 },
   ];
   /* ---------------- 横栏：每条下面挂 5 条最新 ---------------- */
   /** 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前 */
@@ -595,7 +598,7 @@ export async function renderHome(ctx, query) {
       <span class="pb-ico">✍️</span>
       <span class="pb-txt">
         <span class="pb-t">发布信息</span>
-        <span class="pb-d">项目 · 活动 · 贸易 · 成果转化，AI 自动生成标题与解析</span>
+        <span class="pb-d">项目 · 活动 · 贸易 · 成果转化 · 补贴 · 辅导 · 赛事，AI 自动生成标题与解析</span>
       </span>
       <span class="pb-go">去发布 ›</span>
     </a>
@@ -605,6 +608,9 @@ export async function renderHome(ctx, query) {
         ['event', '活动', '🎪'],
         ['trade', '贸易', '🤝'],
         ['tech', '成果', '🔬'],
+        ['subsidy', '补贴', '💰'],
+        ['coach', '辅导', '🧑‍🏫'],
+        ['contest', '赛事', '🏆'],
         ['feed', '短视频', '🎬'],
         ['news', '新闻', '📰'],
       ]
@@ -642,7 +648,7 @@ export async function renderHome(ctx, query) {
     <div class="bz-home-left">
       <div class="bz-home-badge">🏛 浙江招投标 · 每周两次更新</div>
       <div class="bz-home-t">上城 · 西湖 · 余杭 · 富阳 · 桐庐 · 淳安 · 建德</div>
-      <div class="bz-home-d">按工程建设 / 货物采购 / 服务采购 / 产权交易分类，点开看预算、截止时间、原文</div>
+      <div class="bz-home-d">按工程建设 / 装修 / 货物采购 / 服务采购 / 信息服务 / 产权交易分类，点开看预算、截止时间、原文</div>
       <div class="bz-home-cta">进入招投标专题 ›</div>
     </div>
     <div class="bz-home-art" aria-hidden="true"><b>招投标</b><i>浙江</i></div>
