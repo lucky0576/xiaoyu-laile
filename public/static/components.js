@@ -62,6 +62,9 @@ const CATEGORY_ICONS = {
   trade: '🤝',
   tech: '🔬',
   bidding: '📑',
+  subsidy: '💰',
+  coach: '🧑‍🏫',
+  contest: '🏆',
   ecommerce: '🛒',
 };
 
@@ -72,6 +75,9 @@ const CATEGORY_NAMES = {
   trade: '贸易',
   tech: '科技成果转化',
   bidding: '招投标',
+  subsidy: '创业补贴',
+  coach: '辅导',
+  contest: '赛事',
   ecommerce: '电商',
 };
 
