@@ -1085,8 +1085,38 @@ export const TECH_TYPES = [
   { id: 'other', name: '其他', icon: '📌', desc: '以上未覆盖的其他成果转化形式' }
 ]
 
+/* ------------------------------------------------------------------ *
+ * 4.8 SUBSIDY / COACH / CONTEST —— 创业补贴、辅导、赛事
+ * ------------------------------------------------------------------ */
+
+export const SUBSIDY_TYPES = [
+  { id: 'startup-subsidy', name: '创业补贴', desc: '创业启动资金、开业补贴、一次性创业补贴' },
+  { id: 'venue-subsidy', name: '场地补贴', desc: '办公场地、园区工位、租金减免' },
+  { id: 'talent-subsidy', name: '人才补贴', desc: '人才引进、安家、生活与租房补贴' },
+  { id: 'rd-subsidy', name: '研发补贴', desc: '研发投入、科技项目、创新券补助' },
+  { id: 'other', name: '其他', desc: '以上未覆盖的补贴政策' },
+];
+
+export const COACH_TYPES = [
+  { id: 'business-model', name: '商业模式', desc: '商业模式梳理、定位与增长路径' },
+  { id: 'financing-coach', name: '融资辅导', desc: 'BP 打磨、路演、融资对接' },
+  { id: 'application-coach', name: '申报辅导', desc: '政策申报、资质与材料辅导' },
+  { id: 'market-coach', name: '市场拓展', desc: '渠道、客户与产业资源对接' },
+  { id: 'other', name: '其他', desc: '以上未覆盖的创业辅导' },
+];
+
+export const CONTEST_TYPES = [
+  { id: 'startup-contest', name: '创业大赛', desc: '创业创新大赛、行业赛、区域赛' },
+  { id: 'innovation-contest', name: '创新赛', desc: '技术创新、产品创新、场景创新赛' },
+  { id: 'roadshow', name: '路演', desc: '项目路演、投融资对接活动' },
+  { id: 'other', name: '其他', desc: '以上未覆盖的赛事' },
+];
+
 export const CATEGORIES = [
   { id: 'project', name: '项目', icon: '📁', desc: '投资 · 融资 · EPC · 招投标', types: PROJECT_TYPES },
+  { id: 'subsidy', name: '创业补贴', icon: '💰', desc: '创业补贴 · 场地 · 人才 · 研发', types: SUBSIDY_TYPES },
+  { id: 'coach', name: '辅导', icon: '🧑‍🏫', desc: '商业模式 · 融资 · 申报 · 市场', types: COACH_TYPES },
+  { id: 'contest', name: '赛事', icon: '🏆', desc: '创业大赛 · 创新赛 · 路演', types: CONTEST_TYPES },
   { id: 'bounty', name: '悬赏', icon: '🎯', desc: '技术 · 方案 · 资源 · 人才', types: BOUNTY_TYPES },
   {
     id: 'event',
