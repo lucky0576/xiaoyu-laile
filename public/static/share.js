@@ -420,8 +420,8 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
   // 底部左侧信息
   const bottomY = cardY + cardH - 30;
   ctx.fillStyle = '#93a1b5';
-  ctx.font = '22px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-  ctx.fillText('长按识别二维码 · 查看详情', padX, bottomY - 34);
+  ctx.font = '19px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillText('小鱼来了 · 让每一条好项目，都被对的人看见', padX, bottomY - 34);
   ctx.fillStyle = '#0b74ff';
   ctx.font = 'bold 24px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
   ctx.fillText(meta[0] || 'AI 信息发布平台', padX, bottomY - 2);
