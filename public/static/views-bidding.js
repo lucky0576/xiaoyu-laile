@@ -34,6 +34,10 @@ const REGIONS = [
 ];
 
 const ZJ_REGIONS = new Set(REGIONS.map((r) => r.id).filter(Boolean));
+/* 杭州区县单列，其他 10 个地级市单列，避免长横条里找不到 */
+const HZ_REGION_IDS = new Set(['', '浙江省级', '上城区', '西湖区', '萧山区', '余杭区', '临平区', '富阳区', '桐庐县', '淳安县', '建德市']);
+const HZ_REGIONS = REGIONS.filter((r) => HZ_REGION_IDS.has(r.id));
+const CITY_REGIONS = REGIONS.filter((r) => r.id && !HZ_REGION_IDS.has(r.id));
 
 /* 每个区县对应的公共资源交易官网（点击新窗口打开） */
 const REGION_SITES = {
@@ -258,7 +262,12 @@ export async function renderBidding(ctx, query = {}) {
     <div class="bz-filter card">
       <div class="bz-filter-row"><span class="bz-label">区域</span>
         <div class="chips scroll">
-          ${REGIONS.map((r) => `<a class="chip ${activeRegion === r.id ? 'active' : ''}" href="${queryLink(r.id, activeType)}">${r.name}${r.id && regionCounts[r.id] ? ` (${regionCounts[r.id]})` : ''}</a>`).join('')}
+          ${HZ_REGIONS.map((r) => `<a class="chip ${activeRegion === r.id ? 'active' : ''}" href="${queryLink(r.id, activeType)}">${r.name}${r.id && regionCounts[r.id] ? ` (${regionCounts[r.id]})` : ''}</a>`).join('')}
+        </div>
+      </div>
+      <div class="bz-filter-row"><span class="bz-label">地市</span>
+        <div class="chips scroll">
+          ${CITY_REGIONS.map((r) => `<a class="chip ${activeRegion === r.id ? 'active' : ''}" href="${queryLink(r.id, activeType)}">${r.name}${regionCounts[r.id] ? ` (${regionCounts[r.id]})` : ''}</a>`).join('')}
         </div>
       </div>
       <div class="bz-filter-row"><span class="bz-label">项目类型</span>
@@ -269,7 +278,7 @@ export async function renderBidding(ctx, query = {}) {
     </div>
 
     <div class="bz-region-sites">
-      <span class="bz-region-sites-label">各区官网</span>
+      <span class="bz-region-sites-label">各地官网</span>
       ${REGIONS.filter((r) => r.id && REGION_SITES[r.id]).map((r) => `<a href="${REGION_SITES[r.id]}" target="_blank" rel="noopener">${r.name} ↗</a>`).join('')}
     </div>
 
