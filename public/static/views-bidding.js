@@ -94,8 +94,10 @@ function fmtFull(v) {
 const TYPES = [
   { id: '', name: '全部' },
   { id: '工程建设', name: '工程建设' },
+  { id: '装修', name: '装修' },
   { id: '货物采购', name: '货物采购' },
   { id: '服务采购', name: '服务采购' },
+  { id: '信息服务', name: '信息服务' },
   { id: '产权交易', name: '产权交易' },
   { id: '其他', name: '其他' },
 ];
@@ -128,7 +130,11 @@ const SOURCES = [
 function inferType(x) {
   const t = `${x.title || ''} ${x.subtitle || ''}`;
   if (/产权|出让|转让|出租|拍卖|土地|房产|资产处置/.test(t)) return '产权交易';
-  if (/工程|施工|监理|勘察|设计|改造|修缮|装修|道路|水利|市政|绿化|建设|安装/.test(t)) return '工程建设';
+  // 装修类：优先于「工程建设」，避免被“改造/修缮/建设”吸走
+  if (/装修|装饰|室内装修|外立面|翻新|修缮工程|改造装修/.test(t)) return '装修';
+  // 信息服务类：系统/数据/软件/平台/网络/数字化服务
+  if (/信息服务|信息化|数据服务|软件开发|软件采购|平台运营|平台服务|网络服务|系统集成|数字化服务|信息系统/.test(t)) return '信息服务';
+  if (/工程|施工|监理|勘察|设计|改造|修缮|道路|水利|市政|绿化|建设|安装/.test(t)) return '工程建设';
   if (/采购|货物|设备|仪器|车辆|家具|食材|服装|物资|耗材/.test(t)) return '货物采购';
   if (/服务|物业|保洁|安保|运维|咨询|检测|评估|培训|活动|运营|维保/.test(t)) return '服务采购';
   return '其他';
@@ -139,7 +145,11 @@ function regionOf(x) {
 }
 
 function typeOf(x) {
-  return x.bidding?.projectType || inferType(x);
+  // 新增「装修 / 信息服务」后，旧数据里可能仍写着「工程建设 / 服务采购」；
+  // 标题能明确判断时优先用标题，老公告也能自动归到新分类。
+  const inferred = inferType(x);
+  if (inferred === '装修' || inferred === '信息服务') return inferred;
+  return x.bidding?.projectType || inferred;
 }
 
 function fmtDate(v) {
@@ -183,7 +193,7 @@ function groupHtml(items, activeType) {
     const t = typeOf(x);
     (groups[t] = groups[t] || []).push(x);
   }
-  const order = ['工程建设', '货物采购', '服务采购', '产权交易', '其他'];
+  const order = ['工程建设', '装修', '货物采购', '服务采购', '信息服务', '产权交易', '其他'];
   return order
     .filter((t) => groups[t]?.length)
     .map(
