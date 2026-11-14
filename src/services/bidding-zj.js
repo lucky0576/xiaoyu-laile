@@ -25,7 +25,7 @@ function runPython(limit) {
   return new Promise((resolve, reject) => {
     const p = spawn('python3', [SCRIPT, '--limit', String(limit), '--out', OUT], {
       cwd: ROOT,
-      timeout: 300000,
+      timeout: 900000,
     });
     let err = '';
     p.stderr.on('data', (d) => (err += String(d)));

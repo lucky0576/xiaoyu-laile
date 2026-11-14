@@ -368,7 +368,9 @@ def main():
             "Object.defineProperty(navigator,'languages',{get:()=>['zh-CN','zh']});"
         )
         for src in SOURCES:
-            res, items = collect_source(ctx, src, args.limit)
+            # 其他地市：每市只取最新 3 条，控制总时长（详情页较慢）
+            per_limit = min(args.limit, 3) if str(src.get("region", "")).endswith("市") else args.limit
+            res, items = collect_source(ctx, src, per_limit)
             sources.append(res)
             fresh = [it for it in items if not too_old(it.get("publishAt", ""))]
             res["count"] = len(fresh)
