@@ -130,6 +130,26 @@ CITY_SOURCES = [
         "keywords": ["招标", "采购", "交易", "公告", "工程", "项目", "发包", "拍卖", "招租"],
     },
     {
+        "id": "ningbo",
+        "name": "宁波市阳光采购服务平台",
+        "region": "宁波市",
+        "url": "https://ygcg.nbcqjy.org/list?type=2&class=2&noticeType=21",
+        "kind": "anchors",
+        "href": r"/detail\?bulletinId=",
+        "wait_ms": 10000,
+        "keywords": ["招标", "采购", "公告", "项目"],
+    },
+    {
+        "id": "huzhou",
+        "name": "湖州市公共资源交易",
+        "region": "湖州市",
+        "url": "https://ggzyjy.huzhou.gov.cn/jydtx/gcjs/zbgg/index.html",
+        "kind": "anchors",
+        "href": r"/art/",
+        "wait_ms": 3000,
+        "keywords": ["招标", "采购", "交易", "公告", "工程", "项目"],
+    },
+    {
         "id": "lishui",
         "name": "丽水市公共资源交易",
         "region": "丽水市",
@@ -237,7 +257,7 @@ def collect_source(browser_ctx, src, limit):
                 page.wait_for_timeout(2000)
         if last_err is not None and not page.url.startswith("http"):
             raise last_err
-        page.wait_for_timeout(6500)
+        page.wait_for_timeout(src.get("wait_ms", 6500))
         if src["kind"] == "anchors":
             anchors = page.eval_on_selector_all(
                 "a",

@@ -51,15 +51,15 @@ const REGION_SITES = {
   桐庐县: 'https://tlztb.tonglu.gov.cn:18090/#/home_infolist?id=1011312667018792960',
   淳安县: 'https://www.qdh.gov.cn/col/col1229356921/index.html',
   建德市: 'https://www.jiande.gov.cn/col/col1229418005/zbggygdbzlm175/index.html',
-  宁波市: 'https://jyxt.zwb.ningbo.gov.cn:4011/',
+  宁波市: 'https://ygcg.nbcqjy.org/list?type=2&class=2&noticeType=21',
   温州市: 'https://ggzyjy-eweb.wenzhou.gov.cn/col/col1229696276/index.html',
   嘉兴市: 'https://jxszwsjb.jiaxing.gov.cn/col/col1229743506/index.html',
-  湖州市: 'https://www.deqing.gov.cn/',
+  湖州市: 'https://ggzyjy.huzhou.gov.cn/jydtx/gcjs/zbgg/index.html',
   绍兴市: 'https://ggb.sx.gov.cn/col/col1518854/index.html',
   金华市: 'https://ggzyjy.jinhua.gov.cn/',
   衢州市: 'https://ggzy.qz.gov.cn/col/col1229683626/index.html',
   舟山市: 'https://zsztb.zhoushan.gov.cn/col/col1229679798/index.html',
-  台州市: 'https://tzztb.zjtz.gov.cn/',
+  台州市: 'https://ggzy.tzztb.zjtz.gov.cn/jyxx/trade_infor.html',
   丽水市: 'https://lssggzy.lishui.gov.cn/col/col1229661790/index.html',
 };
 
@@ -118,10 +118,10 @@ const SOURCES = [
   { name: '衢州市公共资源交易', region: '衢州市', url: 'https://ggzy.qz.gov.cn/col/col1229683626/index.html', status: '已接入' },
   { name: '舟山市公共资源交易', region: '舟山市', url: 'https://zsztb.zhoushan.gov.cn/col/col1229679798/index.html', status: '已接入' },
   { name: '丽水市公共资源交易', region: '丽水市', url: 'https://lssggzy.lishui.gov.cn/col/col1229661790/index.html', status: '已接入' },
-  { name: '宁波市公共资源交易', region: '宁波市', url: 'https://jyxt.zwb.ningbo.gov.cn:4011/', status: '待接入', note: '页面为政务中心入口，交易公告栏目需进一步定位' },
-  { name: '湖州市公共资源交易', region: '湖州市', url: 'https://www.deqing.gov.cn/', status: '待接入', note: '县区入口分散（德清/安吉/长兴）' },
+  { name: '宁波市阳光采购服务平台', region: '宁波市', url: 'https://ygcg.nbcqjy.org/list?type=2&class=2&noticeType=21', status: '已接入' },
+  { name: '湖州市公共资源交易', region: '湖州市', url: 'https://ggzyjy.huzhou.gov.cn/jydtx/gcjs/zbgg/index.html', status: '已接入' },
   { name: '金华市公共资源交易', region: '金华市', url: 'https://ggzyjy.jinhua.gov.cn/', status: '待接入', note: '原域名返回 410，需新入口' },
-  { name: '台州市公共资源交易', region: '台州市', url: 'https://tzztb.zjtz.gov.cn/', status: '待接入', note: '页面动态加载，需定位公告列表' },
+  { name: '台州市公共资源交易', region: '台州市', url: 'https://ggzy.tzztb.zjtz.gov.cn/jyxx/trade_infor.html', status: '待接入', note: '境外服务器访问该子域超时；主站请手动查看' },
   { name: '浙江省公共资源交易服务平台', region: '浙江省级', url: 'https://ggzy.zj.gov.cn/', status: '待接入', note: '全省汇聚入口，反爬 405' },
 ];
 
