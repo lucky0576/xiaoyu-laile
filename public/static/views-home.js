@@ -254,9 +254,7 @@ export async function renderHome(ctx, query) {
     { t: '招投标', d: '招标公告 · 中标结果 · 变更', art: '📑', href: '#/list/bidding', i: 6 },
     { t: '元宇宙展厅', d: '3D 看项目 · 强脑科技展位', art: '🌐', href: '#/metaverse', i: 7 },
     { t: '出海 / 海外项目', d: '海外项目 · 跨境贸易 · 出海服务', art: '🌏', href: '#/overseas', i: 8 },
-    { t: '创业补贴', d: '创业补贴 · 场地 · 人才 · 研发', art: '💰', href: '#/list/subsidy', i: 9 },
-    { t: '创业辅导', d: '商业模式 · 融资 · 申报 · 市场', art: '🧑‍🏫', href: '#/list/coach', i: 10 },
-    { t: '创业赛事', d: '创业大赛 · 创新赛 · 路演', art: '🏆', href: '#/list/contest', i: 11 },
+    { t: '创业服务', d: '创业补贴 · 辅导 · 赛事，一站看全', art: '🚀', href: '#/startup', i: 9 },
   ];
   /* ---------------- 横栏：每条下面挂 5 条最新 ---------------- */
   /** 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前 */
