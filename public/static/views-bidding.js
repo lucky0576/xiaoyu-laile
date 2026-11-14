@@ -281,8 +281,8 @@ export async function renderBidding(ctx, query = {}) {
 
     <div class="bz-sources card">
       <div class="row between mb8">
-        <div class="strong">📡 数据来源（10 个）</div>
-        <span class="tiny dim">已接入 7 个 · 待接入 2 个 · 仅通知 1 个</span>
+        <div class="strong">📡 数据来源（${SOURCES.length} 个）</div>
+        <span class="tiny dim">已接入 ${SOURCES.filter((x) => x.status === '已接入').length} 个 · 待接入 ${SOURCES.filter((x) => x.status === '待接入').length} 个 · 仅通知 ${SOURCES.filter((x) => x.status === '仅通知').length} 个</span>
       </div>
       <div class="bz-source-grid">
         ${SOURCES.map((s) => `<a class="bz-source" href="${ui.esc(s.url)}" target="_blank" rel="noopener">
