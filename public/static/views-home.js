@@ -1296,7 +1296,7 @@ export async function renderList(ctx, params) {
 
   const html = `<div class="page">
     <div class="row between mb12">
-      <h2 style="font-size:19px">${ui.esc(ctx.state.site?.categories?.find((c) => c.id === category)?.icon || '')} ${ui.esc(name)}信息</h2>
+      <h2 style="font-size:19px">${categoryIcon(category)} ${ui.esc(name)}信息</h2>
       <div class="row gap8" style="align-items:center">
         <span class="tiny dim">共 ${res.total} 条</span>
         <a class="btn btn-sm btn-primary" href="#/publish?category=${category}">＋ 发布${ui.esc(name)}</a>
