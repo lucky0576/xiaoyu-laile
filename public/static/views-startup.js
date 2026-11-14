@@ -91,6 +91,13 @@ export async function renderStartup(ctx, query = {}) {
     ),
   );
 
+  // 归集 OPC / 创业相关资讯（之前散落在新闻里的内容）
+  const opcNewsRes = await service.newsList({ q: 'OPC', size: 6 }).catch(() => ({ items: [] }));
+  let opcNews = (opcNewsRes.items || []).filter((n) => n && n.id);
+  if (!opcNews.length) {
+    const fallback = await service.newsList({ q: '创业', size: 6 }).catch(() => ({ items: [] }));
+    opcNews = (fallback.items || []).filter((n) => n && n.id);
+  }
   const pools = {};
   const counts = {};
   CATS.forEach((c, i) => {
@@ -162,6 +169,66 @@ export async function renderStartup(ctx, query = {}) {
       <div class="startup-hero-actions">
         ${CATS.map((c) => `<a class="startup-pub" href="#/publish?category=${c.id}">＋ 发布${c.name}</a>`).join('')}
       </div>
+    </section>
+
+    <section class="startup-opc">
+      <div class="startup-opc-head">
+        <div>
+          <div class="startup-opc-badge">🧭 上城区 OPC 陪跑 · 创业专区已归集</div>
+          <div class="startup-opc-t">一人公司（OPC）+ AI，把政策、赛事、投融资接到一起</div>
+        </div>
+        <a class="startup-opc-more" href="#/services">完整服务与报价 ›</a>
+      </div>
+      <div class="startup-opc-d">面向 AI 时代一人公司创业者：政策资金通道、创业赛事、投融资平台、业务梳理与对接，全部放在一个页面里。</div>
+      <div class="startup-opc-chips">
+        <span>OPC 专项资金 1 亿元/年</span>
+        <span>专项基金 10 亿元</span>
+        <span>创业担保贷最高 50 万</span>
+        <span>场景补助最高 300 万</span>
+        <span>山南投融汇撮合 20 亿元+</span>
+      </div>
+      <div class="startup-opc-grid">
+        <a class="startup-opc-card" href="#/services">
+          <div class="startup-opc-ico">🧭</div>
+          <div class="startup-opc-name">基础陪跑</div>
+          <div class="startup-opc-price">3,000 元 <span>一次性 · 2 周</span></div>
+          <div class="startup-opc-desc">摸清政策与资金入口，知道能拿哪些钱、差什么</div>
+        </a>
+        <a class="startup-opc-card" href="#/services">
+          <div class="startup-opc-ico">📐</div>
+          <div class="startup-opc-name">业务梳理</div>
+          <div class="startup-opc-price">5,000 元 <span>一次性 · 3 周</span></div>
+          <div class="startup-opc-desc">定位 / 客户 / 收入模型，讲清楚靠什么赚钱</div>
+        </a>
+        <a class="startup-opc-card" href="#/services">
+          <div class="startup-opc-ico">🚀</div>
+          <div class="startup-opc-name">推广与对接</div>
+          <div class="startup-opc-price">10,000 元 <span>一次性 · 6 周</span></div>
+          <div class="startup-opc-desc">业务推广、路演、投资人/政府对接，见到人或拿到钱</div>
+        </a>
+      </div>
+      <div class="startup-opc-links">
+        <a href="#/services">OPC 陪跑完整介绍</a>
+        <a href="/docs/创业辅导服务报价单-上城区OPC.xlsx" download>下载 OPC 报价单（Excel）</a>
+        <a href="#/contest">AI OPC 专项赛</a>
+        <a href="#/news?q=OPC">OPC 相关资讯</a>
+      </div>
+      ${
+        opcNews.length
+          ? `<div class="startup-opc-news">
+              <div class="startup-opc-news-t">OPC / 创业相关讯息</div>
+              ${opcNews
+                .slice(0, 5)
+                .map(
+                  (n) => `<a class="startup-opc-news-row" href="#/news/${ui.esc(n.id)}">
+                    <span>${ui.esc(n.title || '')}</span>
+                    <i>${ui.esc((n.publishedAt || '').slice(0, 10))}</i>
+                  </a>`,
+                )
+                .join('')}
+            </div>`
+          : ''
+      }
     </section>
 
     <div class="startup-stats">${statCards}</div>

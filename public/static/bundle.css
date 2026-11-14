@@ -7222,6 +7222,39 @@ a.about-c-phone {
   .startup-search { max-width: none; margin-left: 0; flex-basis: 100%; }
 }
 
+
+/* 创业专区：OPC 陪跑 + 历史讯息归集 */
+.startup-opc { margin: 14px 0; padding: 18px 20px 16px; border-radius: 18px; background: linear-gradient(135deg, #F7F3FF, #EEF6FF); border: 1px solid #DCE6FF; }
+.startup-opc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.startup-opc-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; background: #2A18A8; color: #fff; font-size: 10.5px; font-weight: 700; }
+.startup-opc-t { margin-top: 7px; font-size: 18px; font-weight: 800; color: #2A18A8; line-height: 1.4; }
+.startup-opc-more { flex: none; font-size: 12px; color: #0B74FF; font-weight: 700; text-decoration: none; }
+.startup-opc-d { margin-top: 7px; font-size: 12px; color: #4B5670; line-height: 1.6; }
+.startup-opc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+.startup-opc-chips span { padding: 4px 9px; border-radius: 999px; background: #fff; border: 1px solid #DCE6FF; color: #0B4FA8; font-size: 10.5px; }
+.startup-opc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.startup-opc-card { display: block; padding: 11px 12px; border-radius: 12px; background: rgba(255,255,255,.9); border: 1px solid #E1E8F5; text-decoration: none; color: inherit; }
+.startup-opc-card:hover { border-color: #0B74FF; }
+.startup-opc-ico { font-size: 20px; }
+.startup-opc-name { margin-top: 3px; font-size: 13px; font-weight: 800; color: #1D1D1F; }
+.startup-opc-price { margin: 3px 0; font-size: 13px; font-weight: 800; color: #C0392B; }
+.startup-opc-price span { font-size: 10px; font-weight: 500; color: #8A94A6; }
+.startup-opc-desc { font-size: 10.5px; color: #5B6675; line-height: 1.5; }
+.startup-opc-links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; }
+.startup-opc-links a { font-size: 11.5px; font-weight: 700; color: #0B74FF; text-decoration: none; }
+.startup-opc-news { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #D5E1F5; }
+.startup-opc-news-t { font-size: 11.5px; font-weight: 800; color: #2A18A8; margin-bottom: 5px; }
+.startup-opc-news-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid #EDF2FA; text-decoration: none; }
+.startup-opc-news-row:first-of-type { border-top: 0; }
+.startup-opc-news-row span { font-size: 11.5px; color: #2F3A4D; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.startup-opc-news-row i { flex: none; font-style: normal; font-size: 10px; color: #8A94A6; }
+@media (max-width: 720px) {
+  .startup-opc { padding: 14px 14px 12px; }
+  .startup-opc-t { font-size: 16px; }
+  .startup-opc-grid { grid-template-columns: 1fr; }
+  .startup-opc-head { flex-direction: column; }
+}
+
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
