@@ -1311,7 +1311,7 @@ export async function renderList(ctx, params) {
       : `<div class="chips scroll mb8">
           <a class="chip ${!query.industry && !query.city && !query.type && !query.followedBy ? 'active' : ''}" href="${build({ industry: '', city: '', type: '', followedBy: '' })}">全部</a>
           ${isLoggedIn() ? `<a class="chip ${query.followedBy ? 'active' : ''}" href="${build({ followedBy: query.followedBy ? '' : ctx.state.user?.id || 'me' })}">⭐ 我关注的</a>` : ''}
-          ${types.slice(0, 10).map((t) => `<a class="chip ${query.type === t.id ? 'active' : ''}" href="${build({ type: query.type === t.id ? '' : t.id })}">${ui.esc(t.name)}</a>`).join('')}
+          ${types.slice(0, 20).map((t) => `<a class="chip ${query.type === t.id ? 'active' : ''}" href="${build({ type: query.type === t.id ? '' : t.id })}">${ui.esc(t.name)}</a>`).join('')}
         </div>`}
 
     ${(res.facets?.industries || []).length ? `<div class="chips scroll mb8">
