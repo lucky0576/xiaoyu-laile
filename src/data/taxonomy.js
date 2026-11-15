@@ -963,7 +963,8 @@ export const PROJECT_TYPES = [
   { id: 'transfer', name: '出售转让', desc: '项目、股权、资产或经营权的整体或部分出售转让' },
   { id: 'recycle', name: '回收', desc: '设备、材料、资产的回收与再利用' },
   { id: 'labor', name: '劳务', desc: '劳务分包、人力派遣与作业队伍合作' },
-  { id: 'acquisition', name: '收购', desc: '收购标的公司股权或资产，取得控制权' }
+  { id: 'acquisition', name: '收购', desc: '收购标的公司股权或资产，取得控制权' },
+  { id: 'industry-attraction', name: '产业招商', desc: '政府 / 园区 / 国企发布招商项目，招引企业、资本与产业落地' }
 ]
 
 /* ------------------------------------------------------------------ *
