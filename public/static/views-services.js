@@ -10,6 +10,7 @@
 
 import * as ui from './ui.js';
 import { shareText, copyWithFeedback } from './clipboard.js';
+import { withSlogan } from './slogan.js';
 
 const PLANS = [
   {
@@ -506,7 +507,7 @@ export function renderServices(ctx) {
 
       const urlOf = (id) => `${location.origin}/#/services?p=${encodeURIComponent(id)}`;
       const textOf = (p) =>
-        `小鱼来了 · 企业服务｜${p.name}\n${p.price}（${p.priceNote}）\n${p.desc}\n${urlOf(p.id)}`;
+        withSlogan(`小鱼来了 · 企业服务｜${p.name}\n${p.price}（${p.priceNote}）\n${p.desc}\n${urlOf(p.id)}`);
 
       root.querySelectorAll('[data-share]').forEach((btn) => {
         btn.addEventListener('click', async (ev) => {
@@ -520,7 +521,7 @@ export function renderServices(ctx) {
            * 手机优先走系统分享（能直接发微信）；
            * 电脑或微信内置浏览器调不起来时，退回复制链接。
            */
-          const shared = await shareText({ title: `小鱼来了 · ${p.name}`, text: `【${p.name}】${p.price}｜${p.desc}`, url });
+          const shared = await shareText({ title: `小鱼来了 · ${p.name}`, text: withSlogan(`【${p.name}】${p.price}｜${p.desc}`), url });
           if (shared) return;
           await copyWithFeedback(text, { okText: '已复制，可直接发给对方' }, ui);
         });
