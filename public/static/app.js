@@ -4,6 +4,7 @@
 import { service, store, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import { installErrorReport } from './error-report.js';
+import { withSlogan } from './slogan.js';
 import * as i18n from './i18n.js';
 /*
  * 视图模块全部改成「按需加载」。
@@ -15,6 +16,31 @@ import * as i18n from './i18n.js';
  * 现在只静态加载首页（首屏必须），其余等你真的切到那个路由才去拉，
  * 用一个 Proxy 包成「看起来还是模块」的样子，调用处不用改。
  */
+/*
+ * 系统原生分享（navigator.share）统一追加宣传语。
+ * 各页面直接调 navigator.share 的地方很多，这里集中兜底，
+ * 避免以后新增页面又漏掉。
+ */
+function installNativeShareSlogan() {
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return;
+    const nativeShare = navigator.share.bind(navigator);
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      writable: true,
+      value: async (data = {}) => {
+        const next = { ...data };
+        // 只分享文件（例如海报）时不动；文字/链接分享统一加宣传语
+        if (!(next.files && next.files.length)) {
+          next.text = withSlogan(next.text || '');
+        }
+        return nativeShare(next);
+      },
+    });
+  } catch { /* 浏览器不允许改写时忽略 */ }
+}
+installNativeShareSlogan();
+
 const lazyView = (loader) =>
   new Proxy(
     {},

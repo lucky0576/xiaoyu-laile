@@ -98,7 +98,7 @@ export function copyFromElement(el) {
 export async function shareText({ title = '', text = '', url = '' } = {}) {
   if (!navigator.share) return false;
   try {
-    await navigator.share({ title, text, url });
+    await navigator.share({ title, text: withSlogan(text), url });
     return true;
   } catch (err) {
     // 用户取消也算「用过了」，不再提示复制失败

@@ -7,13 +7,7 @@
  */
 import { service } from './api.js';
 import { esc, toast, openSheet, copyText, safeUrl, showLoading, hideLoading } from './ui.js';
-
-/* 所有分享文案统一在末尾加小鱼来了宣传语 */
-const SLOGAN = '小鱼来了 · AI 驱动的产业互联网 B2B 电商平台｜让每一条好项目，都被对的人看见';
-function withSlogan(text) {
-  const t = String(text || '').trim();
-  return t.includes(SLOGAN) ? t : `${t}\n\n${SLOGAN}`;
-}
+import { SLOGAN, withSlogan } from './slogan.js';
 
 /* ------------------------------------------------------------------ */
 /* 微信 JS-SDK                                                         */
@@ -751,19 +745,19 @@ export async function openShareSheet(listing) {
           toast('海报已保存到相册/下载目录', 'ok');
         });
         panel.querySelector('#btn-copy-text')?.addEventListener('click', async () => {
-          const ok = await copyText(`${payload.title}\n${payload.desc}\n长按识别二维码查看详情 → ${payload.url}`);
+          const ok = await copyText(withSlogan(`${payload.title}\n${payload.desc}\n长按识别二维码查看详情 → ${payload.url}`));
           toast(ok ? '文案已复制' : '复制失败，请手动选择', ok ? 'ok' : 'err');
         });
         panel.querySelector('#btn-copy-link')?.addEventListener('click', async () => {
           const ta = panel.querySelector('#share-link-text');
-          const ok = await copyText((ta && ta.value) || `${payload.title}\n${shareDesc}\n${payload.url}`);
+          const ok = await copyText(withSlogan((ta && ta.value) || `${payload.title}\n${shareDesc}\n${payload.url}`));
           service.recordShare(listing.id, 'link').catch(() => {});
           toast(ok ? '链接与文案已复制' : '复制失败', ok ? 'ok' : 'err');
         });
         panel.querySelector('#btn-native')?.addEventListener('click', async () => {
           if (navigator.share) {
             try {
-              await navigator.share({ title: payload.title, text: payload.desc, url: payload.url });
+              await navigator.share({ title: payload.title, text: withSlogan(payload.desc || ''), url: payload.url });
             } catch { /* 用户取消 */ }
           } else {
             const ok = await copyText(payload.url);
@@ -1179,7 +1173,7 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
           panel.querySelector('#q-native')?.addEventListener('click', async () => {
             if (navigator.share) {
               try {
-                await navigator.share({ title, text: shareText, url: shareUrl });
+                await navigator.share({ title, text: withSlogan(shareText), url: shareUrl });
                 return;
               } catch {
                 /* 用户取消 */
