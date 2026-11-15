@@ -688,7 +688,7 @@ export async function openShareSheet(listing) {
           });
         } else {
           panel.innerHTML = `<div class="field"><label>文字 + 链接 <span class="tiny dim">（可直接修改）</span></label>
-              <textarea class="textarea" id="share-link-text" rows="8">${esc(`${payload.title}\n${shareDesc}\n${payload.url}`)}</textarea>
+              <textarea class="textarea" id="share-link-text" rows="8">${esc(withSlogan(`${payload.title}\n${shareDesc}\n${payload.url}`))}</textarea>
             </div>
             <div class="row gap8 mt12">
               <button class="btn btn-primary grow" id="btn-copy-link">复制文字与链接</button>
@@ -699,7 +699,7 @@ export async function openShareSheet(listing) {
       };
 
       const bind = () => {
-        const wxText = () => `${payload.title}\n${shareDesc}\n${payload.url}`;
+        const wxText = () => withSlogan(`${payload.title}\n${shareDesc}\n${payload.url}`);
 
         panel.querySelector('#btn-wx-open')?.addEventListener('click', async () => {
           const ok = await copyText(wxText());
