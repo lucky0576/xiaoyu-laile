@@ -256,7 +256,7 @@ export function buildSharePayload({ listing, baseUrl }) {
   if (bodySnippet) plainLines.push(bodySnippet);
 
   const bodyText = plainLines.join('\n');
-  const swipeTip = '—— 小鱼来了｜让每一条好项目，都被对的人看见';
+  const swipeTip = '—— 小鱼来了 · AI 驱动的产业互联网 B2B B2G平台｜让每一条好项目，都被对的人看见';
 
   return {
     url,

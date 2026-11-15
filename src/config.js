@@ -95,7 +95,7 @@ for (const d of [DATA_DIR, UPLOAD_DIR, TMP_DIR]) {
 
 export const config = {
   appName: env('APP_NAME', '小鱼来了'),
-  appSlogan: env('APP_SLOGAN', '让每一条好项目，都被对的人看见'),
+  appSlogan: env('APP_SLOGAN', '小鱼来了 · AI 驱动的产业互联网 B2B B2G平台｜让每一条好项目，都被对的人看见'),
 
   host: env('HOST', '0.0.0.0'),
   port: num('PORT', 8787),

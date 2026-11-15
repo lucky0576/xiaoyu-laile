@@ -149,7 +149,7 @@ h1{font-size:20px;line-height:1.45;margin:0 0 10px;font-weight:800;word-break:br
     <a class="cta" href="${cta}">${esc(ctaText)} ›</a>
     <a class="sub" href="/">打开小鱼来了首页</a>
   </div>
-  <div class="foot">小鱼来了 · 让每一条好项目，都被对的人看见</div>
+  <div class="foot">小鱼来了 · AI 驱动的产业互联网 B2B B2G平台｜让每一条好项目，都被对的人看见</div>
 </div>
 </body>
 </html>`;

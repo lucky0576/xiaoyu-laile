@@ -411,11 +411,12 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
     }
   } catch { /* ignore */ }
 
-  // 底部左侧信息
+  // 底部左侧信息：统一宣传语（两行放得下，不裁切）
   const bottomY = cardY + cardH - 30;
   ctx.fillStyle = '#93a1b5';
-  ctx.font = '19px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-  ctx.fillText('小鱼来了 · 让每一条好项目，都被对的人看见', padX, bottomY - 34);
+  ctx.font = '15px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+  const sloganLines = wrapText(ctx, SLOGAN, W - padX * 2, 2);
+  sloganLines.forEach((line, i) => ctx.fillText(line, padX, bottomY - 58 + i * 21));
   ctx.fillStyle = '#0b74ff';
   ctx.font = 'bold 24px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
   ctx.fillText(meta[0] || 'AI 信息发布平台', padX, bottomY - 2);
