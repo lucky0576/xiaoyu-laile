@@ -3796,3 +3796,29 @@ a.about-c-phone {
   .startup-opc-grid { grid-template-columns: 1fr; }
   .startup-opc-head { flex-direction: column; }
 }
+
+
+/* 招投标：杭州各区细则 + 助手软件 */
+.bz-rules-card { margin-top: 12px; border: 1px solid #DCE9FF; border-radius: 14px; background: #F8FBFF; padding: 12px 14px; }
+.bz-rules-card summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; cursor: pointer; font-weight: 800; font-size: 14px; color: #0B1F3A; outline: none; }
+.bz-rules-card summary::-webkit-details-marker { display: none; }
+.bz-rules-card summary::before { content: '＋'; color: #0B74FF; font-weight: 800; }
+.bz-rules-card[open] summary::before { content: '－'; }
+.bz-rules-hint { font-size: 10.5px; font-weight: 500; color: #5B6675; }
+.bz-rules-note { margin-top: 9px; font-size: 10.5px; color: #8A94A6; }
+.bz-rules-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.bz-rule { background: #fff; border: 1px solid #E4ECF8; border-radius: 10px; padding: 9px 11px; }
+.bz-rule-head { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #2A18A8; margin-bottom: 4px; }
+.bz-rule-ico { font-size: 14px; }
+.bz-rule ul { margin: 0; padding-left: 17px; }
+.bz-rule li { font-size: 10.5px; color: #4B5670; line-height: 1.55; margin: 2px 0; }
+.bz-assistant-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: linear-gradient(135deg, #2A18A8, #0B74FF); color: #fff; }
+.bz-assistant-t { font-size: 14px; font-weight: 800; }
+.bz-assistant-d { margin-top: 3px; font-size: 10.5px; color: #CFE2FF; line-height: 1.5; max-width: 560px; }
+.bz-assistant-buy { text-align: right; }
+.bz-assistant-price { font-size: 16px; font-weight: 800; color: #FFE08A; }
+.bz-assistant-btn { display: inline-block; margin-top: 6px; padding: 6px 12px; border-radius: 999px; background: #fff; color: #2A18A8; font-size: 11px; font-weight: 800; text-decoration: none; }
+@media (max-width: 720px) {
+  .bz-rules-grid { grid-template-columns: 1fr; }
+  .bz-assistant-buy { text-align: left; }
+}

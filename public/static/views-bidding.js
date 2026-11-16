@@ -104,6 +104,63 @@ const TYPES = [
   { id: '其他', name: '其他' },
 ];
 
+/* 杭州各区招投标操作细则（用户提供的实务经验，投标前核对官方最新通知） */
+const HZ_BID_RULES = [
+  {
+    district: '萧山',
+    icon: '🏗️',
+    items: [
+      'CA 锁 + 品茗软件锁',
+      '有保证金的项目人工操作，每周上传一次汇票',
+      '动态核查每周一更新，社保每月更新',
+    ],
+  },
+  {
+    district: '余杭',
+    icon: '🏗️',
+    items: [
+      '项目经理 + 施工员 + 安全员都要备案，需 2 个工作日',
+      '动态核查每周一更新，社保每月更新',
+    ],
+  },
+  {
+    district: '临平',
+    icon: '🏗️',
+    items: [
+      '项目经理 + 施工员 + 安全员都要备案，需 2 个工作日',
+      '动态核查每周一更新，社保每 5 个工作日更新',
+    ],
+  },
+  {
+    district: '滨江',
+    icon: '🏢',
+    items: [
+      '登录要扫码或法人锁',
+      '易滨通走浙里办扫码或法人锁',
+      '有法人锁免扫码；没有则做标书、签到都要扫码',
+      '有保证金项目手动上传；线下保函需填信息，线上保函扫码后选类型',
+    ],
+  },
+  {
+    district: '富阳',
+    icon: '🏢',
+    items: [
+      '项目经理需备案',
+      '所有投标文件资料都要盖章版',
+      '社保要投标当日的并盖章',
+      '声明函、中小企业承诺书要盖实体公章并签字',
+    ],
+  },
+  {
+    district: '临安',
+    icon: '🏢',
+    items: [
+      '动态核查有时要盖章版',
+      '有保证金的项目人工操作，每周上传一次',
+    ],
+  },
+];
+
 const SOURCES = [
   { name: '浙江政府采购网', region: '浙江省级', url: 'https://zfcg.czt.zj.gov.cn/site/category?parentId=600007&childrenCode=ZcyAnnouncement', status: '已接入', note: '官方 API，每个工作日采集最新 100 条' },
   { name: '上城区公共资源交易', region: '上城区', url: 'https://www.hzscsxy.com:8443/#/JYlist', status: '已接入' },
@@ -270,6 +327,32 @@ export async function renderBidding(ctx, query = {}) {
       </div>
       <div class="tiny dim mt6" id="bz-ai-tip">用自然语言找公告；AI 不可用时自动退回关键词匹配</div>
     </form>
+
+    <details class="bz-rules-card" id="bz-rules">
+      <summary>
+        <span>📋 杭州各区招投标细则</span>
+        <span class="bz-rules-hint">CA 锁 / 人员备案 / 动态核查 / 社保 / 保证金 · 投标前必看</span>
+      </summary>
+      <div class="bz-rules-note">以下为一线操作经验整理，具体以各区交易中心及招标文件最新通知为准。</div>
+      <div class="bz-rules-grid">
+        ${HZ_BID_RULES.map(
+          (r) => `<div class="bz-rule">
+            <div class="bz-rule-head"><span class="bz-rule-ico">${r.icon}</span><b>${ui.esc(r.district)}</b></div>
+            <ul>${r.items.map((x) => `<li>${ui.esc(x)}</li>`).join('')}</ul>
+          </div>`,
+        ).join('')}
+      </div>
+      <div class="bz-assistant-cta">
+        <div class="bz-assistant-main">
+          <div class="bz-assistant-t">📑 招投标助手软件</div>
+          <div class="bz-assistant-d">把各区细则、材料清单、动态核查与保证金节点放进一套工具里，少跑一趟、少废一次标。</div>
+        </div>
+        <div class="bz-assistant-buy">
+          <div class="bz-assistant-price">10,000 元 / 年</div>
+          <a class="bz-assistant-btn" href="#/services?p=bid-assistant">了解 / 购买 ›</a>
+        </div>
+      </div>
+    </details>
 
     <div class="bz-filter card">
       <div class="bz-filter-row"><span class="bz-label">区域</span>
