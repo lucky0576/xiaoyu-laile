@@ -367,7 +367,7 @@ export async function renderBidding(ctx, query = {}) {
       <div class="bz-soft-main">
         <div class="bz-soft-video">
           <video controls preload="metadata" playsinline poster="/docs/bid-software-poster.jpg">
-            <source src="/docs/bid-software-intro.mp4" type="video/mp4">
+            <source src="/docs/bid-software-intro-safe.mp4" type="video/mp4">
           </video>
           <div class="bz-soft-video-cap">49 秒演示 · AI 自动投标操作</div>
         </div>
