@@ -21,7 +21,10 @@
 import argparse
 import json
 import re
+import ssl
 import sys
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone, timedelta
 
 from playwright.sync_api import sync_playwright
@@ -160,7 +163,16 @@ CITY_SOURCES = [
     },
 ]
 
-SOURCES = SOURCES + CITY_SOURCES
+ZFCG_SOURCE = {
+    "id": "zhejiang-zfcg",
+    "name": "浙江政府采购网",
+    "region": "浙江省级",
+    "url": "https://zfcg.czt.zj.gov.cn/site/category?parentId=600007&childrenCode=ZcyAnnouncement",
+    "api": "https://zfcg.czt.zj.gov.cn/portal/category",
+    "kind": "zfcg_api",
+}
+
+SOURCES = SOURCES + CITY_SOURCES + [ZFCG_SOURCE]
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -245,7 +257,147 @@ def detail_of(page, url):
         return "", ""
 
 
+CITY_PREFIX = {
+    "3301": "杭州市",
+    "3302": "宁波市",
+    "3303": "温州市",
+    "3304": "嘉兴市",
+    "3305": "湖州市",
+    "3306": "绍兴市",
+    "3307": "金华市",
+    "3308": "衢州市",
+    "3309": "舟山市",
+    "3310": "台州市",
+    "3311": "丽水市",
+}
+
+# 页面已单列的杭州区县；其余杭州区县归到「杭州市」
+HZ_DISTRICTS = {
+    "上城区", "西湖区", "萧山区", "余杭区", "临平区",
+    "富阳区", "桐庐县", "淳安县", "建德市",
+}
+
+
+def zfcg_region(row):
+    """浙江政府采购 API 的区县名映射到页面现有区域。"""
+    name = clean_text(row.get("districtName"))
+    if name in HZ_DISTRICTS:
+        return name
+    code = str(row.get("districtCode") or "")
+    if code[:4] == "3301":
+        return "杭州市"
+    return CITY_PREFIX.get(code[:4], "浙江省级")
+
+
+def zfcg_date(row):
+    ts = row.get("publishDate")
+    try:
+        dt = datetime.fromtimestamp(float(ts) / 1000, tz=timezone(timedelta(hours=8)))
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
+def collect_zfcg_api(src, limit):
+    """浙江政府采购网：直接 POST /portal/category，拉最新 100 条。"""
+    result = {
+        "id": src["id"],
+        "name": src["name"],
+        "region": src["region"],
+        "url": src["url"],
+        "status": "ok",
+        "count": 0,
+        "error": "",
+    }
+    items = []
+    try:
+        payload = {"pageNo": 1, "pageSize": 100, "categoryCode": "ZcyAnnouncement"}
+        req = urllib.request.Request(
+            src["api"],
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/plain, */*",
+                "User-Agent": UA,
+                "Referer": src["url"],
+                "Origin": "https://zfcg.czt.zj.gov.cn",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=40) as resp:
+                raw = json.loads(resp.read().decode("utf-8"))
+        except ssl.SSLError:
+            with urllib.request.urlopen(req, timeout=40, context=ssl._create_unverified_context()) as resp:
+                raw = json.loads(resp.read().decode("utf-8"))
+
+        rows = (((raw.get("result") or {}).get("data") or {}).get("data")) or []
+        for row in rows:
+            title = clean_text(row.get("title"))
+            if not title or "框架协议成交结果汇总公告发布的说明" in title:
+                continue
+            date = zfcg_date(row)
+            if too_old(date):
+                continue
+            region = zfcg_region(row)
+            article_id = str(row.get("articleId") or "")
+            link = "https://zfcg.czt.zj.gov.cn/site/detail?parentId=600007&articleId=" + urllib.parse.quote(article_id, safe="")
+            project_name = clean_text(row.get("projectName"))
+            buyer = clean_text(row.get("purchaseName"))
+            method = clean_text(row.get("procurementMethod"))
+            catalog = clean_text(row.get("gpCatalogName"))
+            ann_type = clean_text(row.get("announcementType"))
+            budget_price = row.get("budgetPrice")
+            budget = ""
+            if budget_price not in (None, "", 0):
+                try:
+                    budget = f"{float(budget_price):,.2f} 元"
+                except Exception:
+                    budget = f"{budget_price} 元"
+            bid_open = clean_text(row.get("bidOpeningTime"))
+            category_text = " ".join([title, project_name, catalog, ann_type])
+            text = "\n".join(
+                [
+                    f"来源：浙江政府采购网（{region}）",
+                    f"公告标题：{title}",
+                    f"项目名称：{project_name or '见公告'}",
+                    f"采购人：{buyer or '见公告'}",
+                    f"采购方式：{method or '见公告'}",
+                    f"公告类型：{ann_type or '见公告'}",
+                    f"预算金额：{budget or '见公告'}",
+                    f"开标时间：{bid_open or '见公告'}",
+                    f"发布时间：{date}",
+                    f"原文链接：{link}",
+                ]
+            )
+            items.append(
+                {
+                    "title": title,
+                    "link": link,
+                    "text": text,
+                    "region": region,
+                    "sourceName": "浙江政府采购网",
+                    "sourceSite": "浙江政府采购网",
+                    "publishAt": date,
+                    "budget": budget,
+                    "bidDeadline": "",
+                    "tenderer": buyer,
+                    "projectType": classify(category_text),
+                    "tags": tags_of(title + " " + category_text),
+                }
+            )
+            if len(items) >= 100:
+                break
+        result["count"] = len(items)
+    except Exception as e:
+        result["status"] = "error"
+        result["error"] = f"{type(e).__name__}: {str(e)[:180]}"
+    return result, items
+
+
 def collect_source(browser_ctx, src, limit):
+    if src.get("kind") == "zfcg_api":
+        return collect_zfcg_api(src, limit)
     page = browser_ctx.new_page()
     page.set_default_timeout(20000)
     result = {"id": src["id"], "name": src["name"], "region": src["region"], "url": src["url"], "status": "ok", "count": 0, "error": ""}

@@ -4,7 +4,7 @@
  * 由 scripts/zj-bidding-collect.py 用 Playwright 抓取浙江 7 个区县/平台的最新公告，
  * 本服务负责：跑脚本 → 去重 → 落库 → 发布。
  *
- * 采集频率：每周两次（周一 / 周四 08:00 后），由 server.js 定时任务调用。
+ * 采集频率：每个工作日（周一至周五 08:00 后），由 server.js 定时任务调用。
  */
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -166,13 +166,13 @@ async function generateNewsVideos(ids, admin) {
   console.log(`[bidding-zj] 短视频完成 ${ok}/${ids.length}`);
 }
 
-/** 周一、周四 08:00（北京时间）之后跑；同一天只跑一次 */
+/** 周一至周五 08:00（北京时间）之后跑；同一天只跑一次 */
 export function isDue(now = new Date()) {
   const bj = new Date(now.getTime() + 8 * 3600_000);
   const day = bj.getUTCDay(); // 0 Sun ... 4 Thu
   const hour = bj.getUTCHours();
   const dateKey = bj.toISOString().slice(0, 10);
-  if (![1, 4].includes(day) || hour < 8) return false;
+  if (![1, 2, 3, 4, 5].includes(day) || hour < 8) return false;
   const st = lastRun();
   const lastKey = st && st.at ? new Date(new Date(st.at).getTime() + 8 * 3600_000).toISOString().slice(0, 10) : '';
   return lastKey !== dateKey;

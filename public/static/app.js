@@ -810,7 +810,7 @@ const TOPIC_SHARE = {
   metaverse: { title: '杭州上城区 · 产业元宇宙展厅', desc: '20 个真实项目展位、数字人讲解、3D 看项目。', image: '/static/logo@2x.png' },
   estate: { title: '小鱼来了 · 地产专题', desc: '出售 / 转让 / 融资 地产信息聚合。', image: '/static/logo@2x.png' },
   overseas: { title: '小鱼来了 · 出海专题', desc: '海外项目、跨境贸易、出海服务。', image: '/static/logo@2x.png' },
-  bidding: { title: '浙江招投标 · 专题', desc: '7 个区县公告，按项目分类，每周二/四更新，新闻播报短视频。', image: '/static/logo@2x.png' },
+  bidding: { title: '浙江招投标 · 专题', desc: '浙江政府采购 + 各地市公告，每个工作日更新，新闻播报短视频。', image: '/static/logo@2x.png' },
   startup: { title: '创业服务专区 · 补贴/辅导/赛事', desc: '创业补贴、创业辅导、创业赛事一站看全，按分类查找与发布。', image: '/static/logo@2x.png' },
   funds: { title: '小鱼来了 · 融资项目', desc: '真实项目融资需求与投资机构。', image: '/static/logo@2x.png' },
   services: { title: '小鱼来了 · 企业服务', desc: 'AI 尽调报告、区域数据库、信息代运营、私有化部署，明码标价。', image: '/static/logo@2x.png' },
