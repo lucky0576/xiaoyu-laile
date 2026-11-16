@@ -345,7 +345,7 @@ export async function renderBidding(ctx, query = {}) {
       <div class="bz-rules-pending">上城、拱墅、西湖、钱塘的细则待补充；<a href="#/contact-us?topic=consult&about=我想补充杭州上城/拱墅/西湖/钱塘招投标细则" style="color:#B45309;font-weight:700">提交你所在区的实操细则 ›</a></div>
       <div class="bz-assistant-cta">
         <div class="bz-assistant-main">
-          <div class="bz-assistant-t">📑 AI自动化招投标助手</div>
+          <div class="bz-assistant-t">📑 AI自动化招投标助手（400万以下）</div>
           <div class="bz-assistant-d">小额交易 400 万以下：自动寻标、读标、匹配资质、编制/核查标书、读取 CA 完成投标。</div>
         </div>
         <div class="bz-assistant-buy">
@@ -358,7 +358,7 @@ export async function renderBidding(ctx, query = {}) {
     <section class="bz-soft-intro">
       <div class="bz-soft-head">
         <div>
-          <div class="bz-soft-badge">📑 AI自动化招投标助手</div>
+          <div class="bz-soft-badge">📑 AI自动化招投标助手 · 400万以下</div>
           <div class="bz-soft-t">小额交易（400 万以下），从找标到投标交给 AI</div>
           <div class="bz-soft-d">自主阅读招标文件、匹配资质业绩、编制与核查标书、读取 CA 锁完成投标操作；聚焦 400 万元以下小额项目。</div>
         </div>

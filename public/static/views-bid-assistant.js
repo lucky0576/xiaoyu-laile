@@ -34,7 +34,7 @@ function contactHref(about) {
 export async function renderBidAssistant() {
   const html = `<div class="page ba-page">
     <section class="ba-hero">
-      <div class="ba-badge">📑 AI 自动化招投标助手 · 年费版</div>
+      <div class="ba-badge">📑 AI自动化招投标助手（小额交易400万以下）</div>
       <h1 class="ba-title">AI自动化招投标助手</h1>
       <div class="ba-sub">专注小额交易（400 万元以下）：AI 自动寻标、读标、匹配资质业绩、编制与核查标书、读取 CA 完成投标操作。</div>
       <div class="ba-price-row">
@@ -121,7 +121,7 @@ export async function renderBidAssistant() {
   </div>`;
 
   return {
-    title: 'AI自动化招投标助手',
+    title: 'AI自动化招投标助手（小额交易400万以下）',
     content: html,
     activeTab: '',
     showBack: true,
