@@ -345,8 +345,8 @@ export async function renderBidding(ctx, query = {}) {
       <div class="bz-rules-pending">上城、拱墅、西湖、钱塘的细则待补充；<a href="#/contact-us?topic=consult&about=我想补充杭州上城/拱墅/西湖/钱塘招投标细则" style="color:#B45309;font-weight:700">提交你所在区的实操细则 ›</a></div>
       <div class="bz-assistant-cta">
         <div class="bz-assistant-main">
-          <div class="bz-assistant-t">📑 招投标助手软件</div>
-          <div class="bz-assistant-d">把各区细则、材料清单、动态核查与保证金节点放进一套工具里，少跑一趟、少废一次标。</div>
+          <div class="bz-assistant-t">📑 AI自动化招投标助手</div>
+          <div class="bz-assistant-d">小额交易 400 万以下：自动寻标、读标、匹配资质、编制/核查标书、读取 CA 完成投标。</div>
         </div>
         <div class="bz-assistant-buy">
           <div class="bz-assistant-price">10,000 元 / 年</div>
@@ -358,9 +358,9 @@ export async function renderBidding(ctx, query = {}) {
     <section class="bz-soft-intro">
       <div class="bz-soft-head">
         <div>
-          <div class="bz-soft-badge">📑 招投标软件</div>
-          <div class="bz-soft-t">从找标、做标到投标，交给 AI</div>
-          <div class="bz-soft-d">自主阅读招标文件、匹配资质业绩、编制与核查标书、读取 CA 锁完成投标操作。</div>
+          <div class="bz-soft-badge">📑 AI自动化招投标助手</div>
+          <div class="bz-soft-t">小额交易（400 万以下），从找标到投标交给 AI</div>
+          <div class="bz-soft-d">自主阅读招标文件、匹配资质业绩、编制与核查标书、读取 CA 锁完成投标操作；聚焦 400 万元以下小额项目。</div>
         </div>
         <a class="bz-soft-buy" href="#/bid-assistant">10,000 元/年 · 了解 / 购买 ›</a>
       </div>
@@ -374,10 +374,10 @@ export async function renderBidding(ctx, query = {}) {
         <div class="bz-soft-points">
           <div class="bz-soft-point"><b>个性寻标</b><span>自主阅读招标公告（含 PDF、压缩包），提炼资质/人员要求，精准匹配可投项目。</span></div>
           <div class="bz-soft-point"><b>资质管理</b><span>智能管理企业资质，匹配资信与业绩，编制投标文件，自主审查文件格式。</span></div>
-          <div class="bz-soft-point"><b>小额直投</b><span>自主下载招标文件、评估可行性、匹配企业资料，完成报名、投标、开标。</span></div>
+          <div class="bz-soft-point"><b>小额直投（400 万以下）</b><span>自主下载招标文件、评估可行性、匹配企业资料，完成报名、投标、开标。</span></div>
         </div>
       </div>
-      <div class="bz-soft-pains"><b>解决痛点：</b>找标耗人、漏标、资质匹配慢；标书反复改、格式易错；多系统 CA 锁冲突、反复登录上传、开标跑现场。</div>
+      <div class="bz-soft-pains"><b>解决痛点：</b>400 万以下项目流程一样重、人工投不划算；找标读标耗人、易漏标；标书反复改、格式易错；多系统 CA 锁冲突、反复登录上传、开标跑现场。</div>
     </section>
 
     <div class="bz-filter card">

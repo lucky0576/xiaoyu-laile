@@ -1,5 +1,5 @@
 /**
- * 招投标助手软件 · 独立购买/介绍页
+ * AI 自动化招投标助手（小额交易 400 万以下）· 独立购买/介绍页
  * 路由：#/bid-assistant
  *
  * 产品：一套 10,000 元/年；页面不直接收款，提交购买意向后由负责人联系开通。
@@ -34,40 +34,40 @@ function contactHref(about) {
 export async function renderBidAssistant() {
   const html = `<div class="page ba-page">
     <section class="ba-hero">
-      <div class="ba-badge">📑 招投标助手 · 年费版</div>
-      <h1 class="ba-title">招投标助手软件</h1>
-      <div class="ba-sub">杭州各区细则、材料清单、动态核查与保证金节点，放进一套工具里。</div>
+      <div class="ba-badge">📑 AI 自动化招投标助手 · 年费版</div>
+      <h1 class="ba-title">AI自动化招投标助手</h1>
+      <div class="ba-sub">专注小额交易（400 万元以下）：AI 自动寻标、读标、匹配资质业绩、编制与核查标书、读取 CA 完成投标操作。</div>
       <div class="ba-price-row">
         <div class="ba-price">${PRICE}</div>
         <div class="ba-price-note">一套 · 年费 · 含上线配置与培训</div>
       </div>
       <div class="ba-actions">
-        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【招投标助手软件】一套 10,000 元/年')}">立即咨询购买</a>
+        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【AI自动化招投标助手（小额交易400万以下）】一套 10,000 元/年')}">立即咨询购买</a>
         <a class="ba-btn" href="#/bidding">先看浙江招投标专题 ›</a>
       </div>
       <div class="ba-hero-note">政策与平台规则以各区交易中心、招标文件最新通知为准；软件交付范围以合同为准。</div>
     </section>
 
     <section class="ba-section ba-video-section">
-      <div class="ba-section-t">先看 49 秒演示</div>
+      <div class="ba-section-t">先看 49 秒演示 · 小额交易自动投标</div>
       <div class="ba-video-wrap">
         <video controls preload="metadata" playsinline poster="/docs/bid-software-poster.jpg">
           <source src="/docs/bid-software-intro.mp4" type="video/mp4">
         </video>
       </div>
       <div class="ba-tech">
-        <div><b>① 标讯检索 + 多格式解析</b><span>直接读 PDF、压缩包；去重、分类、打分，推送高匹配标讯。</span></div>
-        <div><b>② 资质 + 评标 + 标书核查</b><span>匹配资信业绩、模拟评分、一键导出最佳资信、智能撰写与核查标书。</span></div>
-        <div><b>③ 读取 CA + 自主操作投标</b><span>读取 CA 锁信息、打开网页/登录/上传标书、签到与结果查询。</span></div>
+        <div><b>① 标讯检索 + 多格式解析</b><span>直接读 PDF、压缩包；按资质/业务偏好筛选 400 万以下小额项目，去重、分类、打分。</span></div>
+        <div><b>② 资质 + 评标 + 标书核查</b><span>匹配资信业绩、模拟评分、一键导出最佳资信；按格式撰写标书，做资格性/响应性/形式性核查。</span></div>
+        <div><b>③ 读取 CA + 自主操作投标</b><span>读取 CA 锁信息、打开网页/登录/上传标书、签到与结果查询，减少多系统锁冲突。</span></div>
       </div>
     </section>
 
     <section class="ba-section">
       <div class="ba-section-t">为什么需要它</div>
       <div class="ba-pains">
-        <div><b>① 各区规则不一样</b><span>CA 锁、品茗锁、人员备案、社保、保证金，每个区都有一套。</span></div>
-        <div><b>② 节点容易漏</b><span>备案 2 个工作日、动态核查周一、社保按月，错过就废标。</span></div>
-        <div><b>③ 材料反复改</b><span>盖章版、实体章、保函类型，投标前才发现少一项。</span></div>
+        <div><b>① 小额项目流程一样重</b><span>400 万以下项目金额不大，但找标、读标、备案、做标、投标一样不少，人工投不划算。</span></div>
+        <div><b>② 找标和读标耗人</b><span>公告分散、附件是 PDF/压缩包，资质和人员要求要逐条对，容易漏标。</span></div>
+        <div><b>③ 标书和 CA 易错</b><span>格式审查、盖章、社保、保函、多系统 CA 锁，投标前才发现少一项。</span></div>
       </div>
     </section>
 
@@ -92,7 +92,7 @@ export async function renderBidAssistant() {
     <section class="ba-section">
       <div class="ba-section-t">适合谁</div>
       <div class="ba-who">
-        <span>施工企业</span><span>服务商</span><span>货物供应商</span><span>经常投杭州各区项目</span><span>没有专职投标团队的小企业</span>
+        <span>施工企业</span><span>服务商</span><span>货物供应商</span><span>经常投 400 万以下小额项目</span><span>没有专职投标团队的小企业</span>
       </div>
     </section>
 
@@ -106,13 +106,14 @@ export async function renderBidAssistant() {
       </div>
       <div class="ba-cta">
         <div><div class="ba-cta-t">一套 ${PRICE}</div><div class="ba-cta-d">先提交需求，负责人 1 个工作日内联系</div></div>
-        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【招投标助手软件】一套 10,000 元/年')}">立即咨询购买</a>
+        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【AI自动化招投标助手（小额交易400万以下）】一套 10,000 元/年')}">立即咨询购买</a>
       </div>
     </section>
 
     <section class="ba-section ba-faq">
       <div class="ba-section-t">常见问题</div>
       <details><summary>能直接在线付款吗？</summary><div>目前提交意向后由负责人确认需求、开票并安排付款与开通；不在页面直接收款。</div></details>
+      <details><summary>只支持 400 万以下吗？</summary><div>产品定位是 400 万元以下小额交易；超过该金额或特殊类型项目，先按招标文件与平台规则做可行性评估，再决定是否使用。</div></details>
       <details><summary>包含几个账号？</summary><div>按“一套软件/一个使用主体”交付；具体账号数与交付范围在合同中确认。</div></details>
       <details><summary>其他区细则什么时候补？</summary><div>上城、拱墅、西湖、钱塘等区的细则需要实操版本核验后补充，不编造；可先提交你所在区的规则。</div></details>
       <details><summary>规则会变吗？</summary><div>会。各区交易中心、招标文件可能调整，软件内规则会标注更新日期；投标前仍以官方最新通知为准。</div></details>
@@ -120,7 +121,7 @@ export async function renderBidAssistant() {
   </div>`;
 
   return {
-    title: '招投标助手软件',
+    title: 'AI自动化招投标助手',
     content: html,
     activeTab: '',
     showBack: true,
