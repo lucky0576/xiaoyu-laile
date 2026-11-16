@@ -48,6 +48,20 @@ export async function renderBidAssistant() {
       <div class="ba-hero-note">政策与平台规则以各区交易中心、招标文件最新通知为准；软件交付范围以合同为准。</div>
     </section>
 
+    <section class="ba-section ba-video-section">
+      <div class="ba-section-t">先看 49 秒演示</div>
+      <div class="ba-video-wrap">
+        <video controls preload="metadata" playsinline poster="/docs/bid-software-poster.jpg">
+          <source src="/docs/bid-software-intro.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div class="ba-tech">
+        <div><b>① 标讯检索 + 多格式解析</b><span>直接读 PDF、压缩包；去重、分类、打分，推送高匹配标讯。</span></div>
+        <div><b>② 资质 + 评标 + 标书核查</b><span>匹配资信业绩、模拟评分、一键导出最佳资信、智能撰写与核查标书。</span></div>
+        <div><b>③ 读取 CA + 自主操作投标</b><span>读取 CA 锁信息、打开网页/登录/上传标书、签到与结果查询。</span></div>
+      </div>
+    </section>
+
     <section class="ba-section">
       <div class="ba-section-t">为什么需要它</div>
       <div class="ba-pains">

@@ -355,6 +355,31 @@ export async function renderBidding(ctx, query = {}) {
       </div>
     </details>
 
+    <section class="bz-soft-intro">
+      <div class="bz-soft-head">
+        <div>
+          <div class="bz-soft-badge">📑 招投标软件</div>
+          <div class="bz-soft-t">从找标、做标到投标，交给 AI</div>
+          <div class="bz-soft-d">自主阅读招标文件、匹配资质业绩、编制与核查标书、读取 CA 锁完成投标操作。</div>
+        </div>
+        <a class="bz-soft-buy" href="#/bid-assistant">10,000 元/年 · 了解 / 购买 ›</a>
+      </div>
+      <div class="bz-soft-main">
+        <div class="bz-soft-video">
+          <video controls preload="metadata" playsinline poster="/docs/bid-software-poster.jpg">
+            <source src="/docs/bid-software-intro.mp4" type="video/mp4">
+          </video>
+          <div class="bz-soft-video-cap">49 秒演示 · AI 自动投标操作</div>
+        </div>
+        <div class="bz-soft-points">
+          <div class="bz-soft-point"><b>个性寻标</b><span>自主阅读招标公告（含 PDF、压缩包），提炼资质/人员要求，精准匹配可投项目。</span></div>
+          <div class="bz-soft-point"><b>资质管理</b><span>智能管理企业资质，匹配资信与业绩，编制投标文件，自主审查文件格式。</span></div>
+          <div class="bz-soft-point"><b>小额直投</b><span>自主下载招标文件、评估可行性、匹配企业资料，完成报名、投标、开标。</span></div>
+        </div>
+      </div>
+      <div class="bz-soft-pains"><b>解决痛点：</b>找标耗人、漏标、资质匹配慢；标书反复改、格式易错；多系统 CA 锁冲突、反复登录上传、开标跑现场。</div>
+    </section>
+
     <div class="bz-filter card">
       <div class="bz-filter-row"><span class="bz-label">区域</span>
         <div class="chips scroll">

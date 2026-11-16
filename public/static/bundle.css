@@ -7331,6 +7331,32 @@ a.about-c-phone {
   .ba-steps { grid-template-columns: repeat(2, 1fr); }
 }
 
+
+/* 招投标软件介绍（视频 + 功能 + 痛点） */
+.bz-soft-intro { margin-top: 12px; padding: 16px; background: #fff; border: 1px solid #DCE9FF; border-radius: 16px; }
+.bz-soft-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+.bz-soft-badge { display: inline-flex; padding: 3px 9px; border-radius: 999px; background: #EAF2FF; color: #0B4FA8; font-size: 10.5px; font-weight: 700; }
+.bz-soft-t { margin-top: 7px; font-size: 19px; font-weight: 800; color: #0B1F3A; }
+.bz-soft-d { margin-top: 4px; font-size: 11px; color: #5B6675; line-height: 1.55; }
+.bz-soft-buy { flex: none; display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; background: linear-gradient(135deg, #2A18A8, #0B74FF); color: #fff; font-size: 11.5px; font-weight: 800; text-decoration: none; }
+.bz-soft-main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+.bz-soft-video video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #0B1F3A; border-radius: 10px; }
+.bz-soft-video-cap { margin-top: 4px; font-size: 9.5px; color: #8A94A6; }
+.bz-soft-points { display: flex; flex-direction: column; gap: 7px; }
+.bz-soft-point { padding: 8px 10px; border-radius: 9px; background: #F7F9FC; border: 1px solid #E7ECF5; }
+.bz-soft-point b { display: block; font-size: 11.5px; color: #2A18A8; margin-bottom: 2px; }
+.bz-soft-point span { font-size: 10px; color: #5B6675; line-height: 1.5; }
+.bz-soft-pains { margin-top: 10px; padding: 7px 10px; border-radius: 8px; background: #FFF8E8; border: 1px solid #FFE2A8; color: #8A5A00; font-size: 10.5px; line-height: 1.5; }
+@media (max-width: 720px) { .bz-soft-main { grid-template-columns: 1fr; } }
+
+/* 助手软件页视频 */
+.ba-video-wrap video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #0B1F3A; border-radius: 12px; margin-top: 10px; }
+.ba-tech { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.ba-tech div { background: #F7F9FC; border: 1px solid #E7ECF5; border-radius: 10px; padding: 9px 10px; }
+.ba-tech b { display: block; font-size: 11.5px; color: #2A18A8; margin-bottom: 3px; }
+.ba-tech span { font-size: 10.5px; color: #5B6675; line-height: 1.55; }
+@media (max-width: 720px) { .ba-tech { grid-template-columns: 1fr; } }
+
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播
