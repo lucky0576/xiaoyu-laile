@@ -7281,6 +7281,56 @@ a.about-c-phone {
   .bz-assistant-buy { text-align: left; }
 }
 
+
+/* 招投标助手软件独立页 */
+.bz-rules-pending { margin-top: 9px; font-size: 10.5px; color: #B45309; background: #FFF8E8; border: 1px solid #FFE2A8; border-radius: 8px; padding: 7px 10px; line-height: 1.5; }
+.ba-page { max-width: 1040px; margin: 0 auto; }
+.ba-hero { position: relative; overflow: hidden; border-radius: 20px; padding: 26px 26px 22px; background: linear-gradient(135deg, #0B1F3A 0%, #2A18A8 52%, #0B74FF 100%); color: #fff; }
+.ba-badge { display: inline-flex; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.14); font-size: 11px; font-weight: 700; color: #CFE2FF; }
+.ba-title { margin: 10px 0 6px; font-size: 30px; font-weight: 800; line-height: 1.25; }
+.ba-sub { font-size: 13px; color: #D6E6FF; line-height: 1.6; max-width: 680px; }
+.ba-price-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin: 14px 0 12px; }
+.ba-price { font-size: 28px; font-weight: 800; color: #FFE08A; }
+.ba-price-note { font-size: 11px; color: #BBD4F5; }
+.ba-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.ba-btn { display: inline-flex; align-items: center; justify-content: center; padding: 9px 16px; border-radius: 999px; font-size: 12px; font-weight: 800; text-decoration: none; color: #fff; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.12); }
+.ba-btn-primary { background: #fff; color: #2A18A8; border-color: #fff; }
+.ba-hero-note { margin-top: 11px; font-size: 10px; color: #A8C7E8; line-height: 1.5; }
+.ba-section { margin-top: 14px; padding: 17px 18px; background: #fff; border: 1px solid #E7ECF5; border-radius: 16px; }
+.ba-section-t { font-size: 16px; font-weight: 800; color: #0B1F3A; }
+.ba-section-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ba-link { font-size: 11px; color: #0B74FF; text-decoration: none; }
+.ba-pains, .ba-features, .ba-districts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 11px; }
+.ba-pains div, .ba-feature, .ba-district { background: #F7F9FC; border: 1px solid #E7ECF5; border-radius: 12px; padding: 11px 12px; }
+.ba-pains b { display: block; font-size: 12px; color: #2A18A8; margin-bottom: 3px; }
+.ba-pains span { font-size: 10.5px; color: #5B6675; line-height: 1.55; }
+.ba-feature { display: flex; gap: 8px; align-items: flex-start; }
+.ba-f-ico { font-size: 18px; line-height: 1.3; }
+.ba-f-t { font-size: 12px; font-weight: 800; color: #1D1D1F; margin-bottom: 2px; }
+.ba-f-d { font-size: 10.5px; color: #5B6675; line-height: 1.55; }
+.ba-district b { display: block; font-size: 12px; color: #2A18A8; margin-bottom: 3px; }
+.ba-district ul { margin: 0; padding-left: 16px; }
+.ba-district li { font-size: 10.5px; color: #5B6675; line-height: 1.5; margin: 2px 0; }
+.ba-pending { margin-top: 10px; padding: 7px 10px; border-radius: 8px; background: #FFF8E8; border: 1px solid #FFE2A8; color: #B45309; font-size: 10.5px; line-height: 1.5; }
+.ba-who { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.ba-who span { padding: 5px 10px; border-radius: 999px; background: #EAF2FF; color: #0B4FA8; font-size: 11px; }
+.ba-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 11px 0; }
+.ba-steps div { display: flex; align-items: center; gap: 7px; background: #F7F9FC; border: 1px solid #E7ECF5; border-radius: 10px; padding: 9px 10px; }
+.ba-steps b { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #2A18A8; color: #fff; font-size: 11px; }
+.ba-steps span { font-size: 10.5px; color: #2F3A4D; }
+.ba-cta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; padding: 13px 14px; border-radius: 12px; background: linear-gradient(135deg, #2A18A8, #0B74FF); color: #fff; }
+.ba-cta-t { font-size: 15px; font-weight: 800; color: #FFE08A; }
+.ba-cta-d { margin-top: 3px; font-size: 10.5px; color: #CFE2FF; }
+.ba-faq details { margin-top: 8px; border-top: 1px dashed #E7ECF5; padding-top: 8px; }
+.ba-faq details:first-of-type { border-top: 0; padding-top: 0; }
+.ba-faq summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #2F3A4D; }
+.ba-faq details > div { margin-top: 5px; font-size: 10.5px; color: #5B6675; line-height: 1.6; }
+@media (max-width: 720px) {
+  .ba-title { font-size: 24px; }
+  .ba-pains, .ba-features, .ba-districts { grid-template-columns: 1fr; }
+  .ba-steps { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ==== live.css ==== */
 /* ==========================================================================
    小鱼来了 — 短视频与直播

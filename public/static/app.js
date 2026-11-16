@@ -98,6 +98,7 @@ const viewsLatest = lazyView(() => import('./views-latest.js'));
 const viewsEstate = lazyView(() => import('./views-estate.js'));
 const viewsBidding = lazyView(() => import('./views-bidding.js'));
 const viewsStartup = lazyView(() => import('./views-startup.js'));
+const viewsBidAssistant = lazyView(() => import('./views-bid-assistant.js'));
 const viewsTajian = lazyView(() => import('./views-tajian.js'));
 const viewsTajianPartner = lazyView(() => import('./views-tajian-partner.js'));
 const viewsAdminTajianPartners = lazyView(() => import('./views-admin-tajian-partners.js'));
@@ -484,6 +485,8 @@ async function resolveView({ segs, query }) {
       return viewsBidding.renderBidding(ctx, query);
     case 'startup':
       return viewsStartup.renderStartup(ctx, query);
+    case 'bid-assistant':
+      return viewsBidAssistant.renderBidAssistant(ctx, query);
     case 'latest':
       return viewsLatest.renderLatest(ctx, query);
     case 'overseas':
@@ -812,6 +815,7 @@ const TOPIC_SHARE = {
   overseas: { title: '小鱼来了 · 出海专题', desc: '海外项目、跨境贸易、出海服务。', image: '/static/logo@2x.png' },
   bidding: { title: '浙江招投标 · 专题', desc: '浙江政府采购 + 各地市公告，每个工作日更新，新闻播报短视频。', image: '/static/logo@2x.png' },
   startup: { title: '创业服务专区 · 补贴/辅导/赛事', desc: '创业补贴、创业辅导、创业赛事一站看全，按分类查找与发布。', image: '/static/logo@2x.png' },
+  'bid-assistant': { title: '招投标助手软件 · 10,000 元/年', desc: '杭州各区投标细则、材料清单、动态核查与保证金节点，一套软件搞定。', image: '/static/logo@2x.png' },
   funds: { title: '小鱼来了 · 融资项目', desc: '真实项目融资需求与投资机构。', image: '/static/logo@2x.png' },
   services: { title: '小鱼来了 · 企业服务', desc: 'AI 尽调报告、区域数据库、信息代运营、私有化部署，明码标价。', image: '/static/logo@2x.png' },
   latest: { title: '小鱼来了 · 最新发布', desc: '项目、贸易、活动、招投标最新信息。', image: '/static/logo@2x.png' },

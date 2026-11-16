@@ -342,6 +342,7 @@ export async function renderBidding(ctx, query = {}) {
           </div>`,
         ).join('')}
       </div>
+      <div class="bz-rules-pending">上城、拱墅、西湖、钱塘的细则待补充；如果你有实操版本，欢迎提交核验后补入。</div>
       <div class="bz-assistant-cta">
         <div class="bz-assistant-main">
           <div class="bz-assistant-t">📑 招投标助手软件</div>
@@ -349,7 +350,7 @@ export async function renderBidding(ctx, query = {}) {
         </div>
         <div class="bz-assistant-buy">
           <div class="bz-assistant-price">10,000 元 / 年</div>
-          <a class="bz-assistant-btn" href="#/services?p=bid-assistant">了解 / 购买 ›</a>
+          <a class="bz-assistant-btn" href="#/bid-assistant">了解 / 购买 ›</a>
         </div>
       </div>
     </details>
