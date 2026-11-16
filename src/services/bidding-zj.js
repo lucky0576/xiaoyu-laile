@@ -110,8 +110,11 @@ export async function collect({ limit = 8, dryRun = false } = {}) {
 
   // 新入库的公告 → 后台逐条生成新闻播报短视频（8 秒、男声），不阻塞采集响应
   const newIds = report.items.map((x) => x.id).filter(Boolean);
-  if (newIds.length) {
-    generateNewsVideos(newIds, admin).catch((err) => console.warn('[bidding-zj] 短视频批量生成失败:', err.message));
+  // 每天公告量可能很大（浙江政府采购单次可到 100 条），
+  // 只给最新 20 条生成新闻播报视频，避免 TTS/ffmpeg 长时间占满服务器。
+  const videoIds = newIds.slice(0, 20);
+  if (videoIds.length) {
+    generateNewsVideos(videoIds, admin).catch((err) => console.warn('[bidding-zj] 短视频批量生成失败:', err.message));
   }
 
   const state = {
