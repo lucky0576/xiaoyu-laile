@@ -328,7 +328,7 @@ export async function renderBidding(ctx, query = {}) {
       <div class="tiny dim mt6" id="bz-ai-tip">用自然语言找公告；AI 不可用时自动退回关键词匹配</div>
     </form>
 
-    <details class="bz-rules-card" id="bz-rules">
+    <details class="bz-rules-card" id="bz-rules" open>
       <summary>
         <span>📋 杭州各区招投标细则</span>
         <span class="bz-rules-hint">CA 锁 / 人员备案 / 动态核查 / 社保 / 保证金 · 投标前必看</span>
