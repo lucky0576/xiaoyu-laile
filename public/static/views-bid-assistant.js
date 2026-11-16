@@ -72,7 +72,7 @@ export async function renderBidAssistant() {
       <div class="ba-districts">
         ${DISTRICTS.map((d) => `<div class="ba-district"><b>${ui.esc(d.name)}</b><ul>${d.items.map((x) => `<li>${ui.esc(x)}</li>`).join('')}</ul></div>`).join('')}
       </div>
-      <div class="ba-pending">上城、拱墅、西湖、钱塘的细则待补充；如果你有实操版本，欢迎提交，我们核验后补进软件。</div>
+      <div class="ba-pending">上城、拱墅、西湖、钱塘的细则待补充；<a href="#/contact-us?topic=consult&about=我想补充杭州上城/拱墅/西湖/钱塘招投标细则" style="color:#B45309;font-weight:700">提交你所在区的实操细则 ›</a></div>
     </section>
 
     <section class="ba-section">

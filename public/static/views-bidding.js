@@ -342,7 +342,7 @@ export async function renderBidding(ctx, query = {}) {
           </div>`,
         ).join('')}
       </div>
-      <div class="bz-rules-pending">上城、拱墅、西湖、钱塘的细则待补充；如果你有实操版本，欢迎提交核验后补入。</div>
+      <div class="bz-rules-pending">上城、拱墅、西湖、钱塘的细则待补充；<a href="#/contact-us?topic=consult&about=我想补充杭州上城/拱墅/西湖/钱塘招投标细则" style="color:#B45309;font-weight:700">提交你所在区的实操细则 ›</a></div>
       <div class="bz-assistant-cta">
         <div class="bz-assistant-main">
           <div class="bz-assistant-t">📑 招投标助手软件</div>
