@@ -34,18 +34,18 @@ function contactHref(about) {
 export async function renderBidAssistant() {
   const html = `<div class="page ba-page">
     <section class="ba-hero">
-      <div class="ba-badge">📑 AI自动化招投标助手（小额交易400万以下）</div>
+      <div class="ba-badge">📑 AI自动化招投标助手（小额交易400万以下 · 仅限杭州）</div>
       <h1 class="ba-title">AI自动化招投标助手</h1>
-      <div class="ba-sub">专注小额交易（400 万元以下）：AI 自动寻标、读标、匹配资质业绩、编制与核查标书、读取 CA 完成投标操作。</div>
+      <div class="ba-sub">仅限杭州区域，专注小额交易（400 万元以下）：AI 自动寻标、读标、匹配资质业绩、编制与核查标书、读取 CA 完成投标操作。</div>
       <div class="ba-price-row">
         <div class="ba-price">${PRICE}</div>
-        <div class="ba-price-note">一套 · 年费 · 含上线配置与培训</div>
+        <div class="ba-price-note">仅限杭州 · 一套 · 年费 · 含上线配置与培训</div>
       </div>
       <div class="ba-actions">
-        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【AI自动化招投标助手（小额交易400万以下）】一套 10,000 元/年')}">立即咨询购买</a>
+        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【AI自动化招投标助手（小额交易400万以下·仅限杭州）】一套 10,000 元/年')}">立即咨询购买</a>
         <a class="ba-btn" href="#/bidding">先看浙江招投标专题 ›</a>
       </div>
-      <div class="ba-hero-note">政策与平台规则以各区交易中心、招标文件最新通知为准；软件交付范围以合同为准。</div>
+      <div class="ba-hero-note">当前仅服务杭州区域；政策与平台规则以各区交易中心、招标文件最新通知为准，软件交付范围以合同为准。</div>
     </section>
 
     <section class="ba-section ba-video-section">
@@ -63,9 +63,9 @@ export async function renderBidAssistant() {
     </section>
 
     <section class="ba-section">
-      <div class="ba-section-t">为什么需要它</div>
+      <div class="ba-section-t">为什么杭州企业需要它</div>
       <div class="ba-pains">
-        <div><b>① 小额项目流程一样重</b><span>400 万以下项目金额不大，但找标、读标、备案、做标、投标一样不少，人工投不划算。</span></div>
+        <div><b>① 杭州小额项目流程一样重</b><span>400 万以下项目金额不大，但找标、读标、备案、做标、投标一样不少，人工投不划算。</span></div>
         <div><b>② 找标和读标耗人</b><span>公告分散、附件是 PDF/压缩包，资质和人员要求要逐条对，容易漏标。</span></div>
         <div><b>③ 标书和 CA 易错</b><span>格式审查、盖章、社保、保函、多系统 CA 锁，投标前才发现少一项。</span></div>
       </div>
@@ -92,7 +92,7 @@ export async function renderBidAssistant() {
     <section class="ba-section">
       <div class="ba-section-t">适合谁</div>
       <div class="ba-who">
-        <span>施工企业</span><span>服务商</span><span>货物供应商</span><span>经常投 400 万以下小额项目</span><span>没有专职投标团队的小企业</span>
+        <span>仅限杭州</span><span>施工企业</span><span>服务商</span><span>货物供应商</span><span>经常投 400 万以下小额项目</span><span>没有专职投标团队的小企业</span>
       </div>
     </section>
 
@@ -106,14 +106,14 @@ export async function renderBidAssistant() {
       </div>
       <div class="ba-cta">
         <div><div class="ba-cta-t">一套 ${PRICE}</div><div class="ba-cta-d">先提交需求，负责人 1 个工作日内联系</div></div>
-        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【AI自动化招投标助手（小额交易400万以下）】一套 10,000 元/年')}">立即咨询购买</a>
+        <a class="ba-btn ba-btn-primary" href="${contactHref('我想购买【AI自动化招投标助手（小额交易400万以下·仅限杭州）】一套 10,000 元/年')}">立即咨询购买</a>
       </div>
     </section>
 
     <section class="ba-section ba-faq">
       <div class="ba-section-t">常见问题</div>
       <details><summary>能直接在线付款吗？</summary><div>目前提交意向后由负责人确认需求、开票并安排付款与开通；不在页面直接收款。</div></details>
-      <details><summary>只支持 400 万以下吗？</summary><div>产品定位是 400 万元以下小额交易；超过该金额或特殊类型项目，先按招标文件与平台规则做可行性评估，再决定是否使用。</div></details>
+      <details><summary>只支持杭州吗？</summary><div>当前仅限杭州区域。江苏及浙江其他地市的招投标规则不同，不直接套用；如需其他城市，先单独评估。</div></details><details><summary>只支持 400 万以下吗？</summary><div>产品定位是 400 万元以下小额交易；超过该金额或特殊类型项目，先按招标文件与平台规则做可行性评估，再决定是否使用。</div></details>
       <details><summary>包含几个账号？</summary><div>按“一套软件/一个使用主体”交付；具体账号数与交付范围在合同中确认。</div></details>
       <details><summary>其他区细则什么时候补？</summary><div>上城、拱墅、西湖、钱塘等区的细则需要实操版本核验后补充，不编造；可先提交你所在区的规则。</div></details>
       <details><summary>规则会变吗？</summary><div>会。各区交易中心、招标文件可能调整，软件内规则会标注更新日期；投标前仍以官方最新通知为准。</div></details>
@@ -121,7 +121,7 @@ export async function renderBidAssistant() {
   </div>`;
 
   return {
-    title: 'AI自动化招投标助手（小额交易400万以下）',
+    title: 'AI自动化招投标助手（小额交易400万以下 · 仅限杭州）',
     content: html,
     activeTab: '',
     showBack: true,
