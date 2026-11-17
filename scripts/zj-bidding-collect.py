@@ -501,6 +501,12 @@ def collect_jsggzy_api(src, limit):
                     continue
                 seen.add(link)
                 region = js_region(row)
+                project_type = classify(title + " " + category)
+                # 过滤土地/产权/招租类，不进入招投标专题
+                if project_type == "产权交易" or re.search(
+                    r"土地使用权|挂牌出让|招租|出租|产权|矿业权|林权|海域使用权", title + " " + category
+                ):
+                    continue
                 content = strip_html(row.get("content"))
                 budget_m = BUDGET_RE.search(content)
                 budget = budget_m.group(1).replace(" ", "") if budget_m else ""
@@ -532,7 +538,7 @@ def collect_jsggzy_api(src, limit):
                     "budget": budget,
                     "bidDeadline": deadline,
                     "tenderer": tenderer,
-                    "projectType": classify(title + " " + category),
+                    "projectType": project_type,
                     "tags": tags_of(title + " " + category + " " + content[:300]),
                 })
                 if len(items) >= 80:
