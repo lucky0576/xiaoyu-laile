@@ -816,7 +816,7 @@ const TOPIC_SHARE = {
   metaverse: { title: '杭州上城区 · 产业元宇宙展厅', desc: '20 个真实项目展位、数字人讲解、3D 看项目。', image: '/static/logo@2x.png' },
   estate: { title: '小鱼来了 · 地产专题', desc: '出售 / 转让 / 融资 地产信息聚合。', image: '/static/logo@2x.png' },
   overseas: { title: '小鱼来了 · 出海专题', desc: '海外项目、跨境贸易、出海服务。', image: '/static/logo@2x.png' },
-  bidding: { title: '浙江招投标 · 专题', desc: '浙江政府采购 + 各地市公告，每天更新，新闻播报短视频。', image: '/static/logo@2x.png' },
+  bidding: { title: '浙江 · 江苏招投标 · 专题', desc: '浙江 + 江苏政府采购与各地市公告，每天更新，新闻播报短视频。', image: '/static/logo@2x.png' },
   startup: { title: '创业服务专区 · 补贴/辅导/赛事', desc: '创业补贴、创业辅导、创业赛事一站看全，按分类查找与发布。', image: '/static/logo@2x.png' },
   'bid-assistant': { title: 'AI自动化招投标助手 · 10,000 元/年', desc: '专注 400 万以下小额交易：自动寻标、读标、做标、核查与 CA 投标操作。', image: '/static/logo@2x.png' },
   card: { title: '卢云 · 小鱼来了', desc: '小鱼来了创始人兼 CEO 卢云的电子名片。', image: '/static/logo@2x.png' },

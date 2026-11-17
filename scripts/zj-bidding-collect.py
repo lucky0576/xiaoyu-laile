@@ -172,7 +172,16 @@ ZFCG_SOURCE = {
     "kind": "zfcg_api",
 }
 
-SOURCES = SOURCES + CITY_SOURCES + [ZFCG_SOURCE]
+JIANGSU_SOURCE = {
+    "id": "jiangsu-jsggzy",
+    "name": "江苏省公共资源交易网",
+    "region": "江苏省级",
+    "url": "https://jsggzy.jszwfw.gov.cn/jyxx/tradeInfonew.html",
+    "api": "https://jsggzy.jszwfw.gov.cn/inteligentsearch/rest/esinteligentsearch/getFullTextDataNew",
+    "kind": "jsggzy_api",
+}
+
+SOURCES = SOURCES + CITY_SOURCES + [ZFCG_SOURCE, JIANGSU_SOURCE]
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -395,9 +404,153 @@ def collect_zfcg_api(src, limit):
     return result, items
 
 
+JS_CITY_KEYS = [
+    ("南京", "南京市"), ("无锡", "无锡市"), ("徐州", "徐州市"),
+    ("常州", "常州市"), ("苏州", "苏州市"), ("南通", "南通市"),
+    ("连云港", "连云港市"), ("淮安", "淮安市"), ("盐城", "盐城市"),
+    ("扬州", "扬州市"), ("镇江", "镇江市"), ("泰州", "泰州市"),
+    ("宿迁", "宿迁市"),
+]
+
+JS_EXCLUDE_CATEGORY = (
+    "招租", "出租", "产权", "土地", "矿业", "药品", "耗材",
+    "林权", "海域", "排污", "碳排放", "转让", "挂牌",
+)
+
+
+def js_region(row):
+    """江苏公告归属：优先看发布平台/来源字段，再看标题。"""
+    for field in ("fieldvalue", "zhuanzai", "zhuanzainew"):
+        text = clean_text(row.get(field))
+        for key, city in JS_CITY_KEYS:
+            if key in text:
+                return city
+    title = clean_text(row.get("title") or row.get("titlenew"))
+    for key, city in JS_CITY_KEYS:
+        if key in title:
+            return city
+    return "江苏省级"
+
+
+def strip_html(text):
+    text = re.sub(r"<script.*?</script>|<style.*?</style>", " ", str(text or ""), flags=re.S | re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"&nbsp;|&#160;", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def collect_jsggzy_api(src, limit):
+    """江苏省公共资源交易网：分页取最新公告，过滤产权/招租类。"""
+    result = {
+        "id": src["id"], "name": src["name"], "region": src["region"],
+        "url": src["url"], "status": "ok", "count": 0, "error": "",
+    }
+    items = []
+    seen = set()
+    try:
+        base = {
+            "token": "", "pn": 0, "rn": 10, "sdt": "", "edt": "",
+            "wd": "", "inc_wd": "", "exc_wd": "",
+            "fields": "title;zhuanzainew;categorynum;zhuanzai;webdate",
+            "cnum": "001", "sort": '{"infodatepx":"0"}', "ssort": "title",
+            "cl": 200, "terminal": "", "time": None, "highlights": "title",
+            "statistics": None, "unionCondition": None, "opCondition": None,
+            "opType": 0, "accuracy": "", "noParticiple": "1",
+            "searchRange": None, "isBusiness": "1",
+            "condition": [{"fieldName": "categorynum", "isLike": True, "likeType": 2, "equal": "003"}],
+        }
+        for page in range(8):
+            payload = dict(base)
+            payload["pn"] = page * 10
+            req = urllib.request.Request(
+                src["api"],
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json;charset=utf-8",
+                    "Accept": "application/json, text/plain, */*",
+                    "User-Agent": UA,
+                    "Referer": src["url"],
+                    "Origin": "https://jsggzy.jszwfw.gov.cn",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=40) as resp:
+                    raw = json.loads(resp.read().decode("utf-8"))
+            except ssl.SSLError:
+                with urllib.request.urlopen(req, timeout=40, context=ssl._create_unverified_context()) as resp:
+                    raw = json.loads(resp.read().decode("utf-8"))
+            rows = (((raw.get("result") or {}).get("records")) or [])
+            if not rows:
+                break
+            for row in rows:
+                category = clean_text(row.get("categoryname"))
+                if any(x in category for x in JS_EXCLUDE_CATEGORY):
+                    continue
+                title = clean_text(row.get("title") or row.get("titlenew"))
+                if not title:
+                    continue
+                date = clean_text(row.get("infodateformat") or row.get("infodatepx"))[:10]
+                if too_old(date):
+                    continue
+                linkurl = clean_text(row.get("linkurl"))
+                if not linkurl:
+                    continue
+                link = linkurl if linkurl.startswith("http") else "https://jsggzy.jszwfw.gov.cn" + linkurl
+                if link in seen:
+                    continue
+                seen.add(link)
+                region = js_region(row)
+                content = strip_html(row.get("content"))
+                budget_m = BUDGET_RE.search(content)
+                budget = budget_m.group(1).replace(" ", "") if budget_m else ""
+                deadline_m = DEADLINE_RE.search(content)
+                deadline = deadline_m.group(1)[:40] if deadline_m else ""
+                tenderer_m = TENDERER_RE.search(content)
+                tenderer = tenderer_m.group(1).strip() if tenderer_m else ""
+                text = "\n".join([
+                    f"来源：江苏省公共资源交易网（{region}）",
+                    f"公告标题：{title}",
+                    f"公告类型：{category or '见公告'}",
+                    f"发布平台：{clean_text(row.get('zhuanzainew') or row.get('zhuanzai')) or '江苏省公共资源交易网'}",
+                    f"发布时间：{date}",
+                    f"预算/限价：{budget or '公告未列明'}",
+                    f"截止时间：{deadline or '见公告'}",
+                    f"招标/采购人：{tenderer or '见公告'}",
+                    f"原文链接：{link}",
+                    "",
+                    content[:3000],
+                ])
+                items.append({
+                    "title": title,
+                    "link": link,
+                    "text": text,
+                    "region": region,
+                    "sourceName": "江苏省公共资源交易网",
+                    "sourceSite": "江苏省公共资源交易网",
+                    "publishAt": date,
+                    "budget": budget,
+                    "bidDeadline": deadline,
+                    "tenderer": tenderer,
+                    "projectType": classify(title + " " + category),
+                    "tags": tags_of(title + " " + category + " " + content[:300]),
+                })
+                if len(items) >= 80:
+                    break
+            if len(items) >= 80:
+                break
+        result["count"] = len(items)
+    except Exception as e:
+        result["status"] = "error"
+        result["error"] = f"{type(e).__name__}: {str(e)[:180]}"
+    return result, items
+
+
 def collect_source(browser_ctx, src, limit):
     if src.get("kind") == "zfcg_api":
         return collect_zfcg_api(src, limit)
+    if src.get("kind") == "jsggzy_api":
+        return collect_jsggzy_api(src, limit)
     page = browser_ctx.new_page()
     page.set_default_timeout(20000)
     result = {"id": src["id"], "name": src["name"], "region": src["region"], "url": src["url"], "status": "ok", "count": 0, "error": ""}

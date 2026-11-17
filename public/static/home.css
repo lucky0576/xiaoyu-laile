@@ -3946,3 +3946,12 @@ a.about-c-phone {
   .bc-strip { margin: 0 -18px; padding: 8px 18px; font-size: 8.5px; }
   .bc-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+
+/* 江苏规则速览 */
+.bz-js-rules { border-color: #FFE2A8; background: #FFFDF6; }
+.bz-js-rule-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.bz-js-rule-grid div { background: #fff; border: 1px solid #F1E2BE; border-radius: 9px; padding: 9px 10px; }
+.bz-js-rule-grid b { display: block; font-size: 11.5px; color: #8A5A00; margin-bottom: 2px; }
+.bz-js-rule-grid span { display: block; font-size: 10px; color: #5B6675; line-height: 1.55; }
+@media (max-width: 640px) { .bz-js-rule-grid { grid-template-columns: 1fr; } }

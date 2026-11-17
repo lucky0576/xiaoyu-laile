@@ -1,7 +1,7 @@
 /**
  * 招投标专题页（#/bidding）
  *
- * 浙江区域聚合：按区域 / 项目类型筛选，按项目类型分组展示。
+ * 浙江 + 江苏区域聚合：按区域 / 项目类型筛选，按项目类型分组展示。
  * 数据由 scripts/zj-bidding-collect.py 每天采集。
  */
 
@@ -32,13 +32,30 @@ const REGIONS = [
   { id: '舟山市', name: '舟山市' },
   { id: '台州市', name: '台州市' },
   { id: '丽水市', name: '丽水市' },
+  /* 江苏 */
+  { id: '江苏省级', name: '江苏省级' },
+  { id: '南京市', name: '南京市' },
+  { id: '无锡市', name: '无锡市' },
+  { id: '徐州市', name: '徐州市' },
+  { id: '常州市', name: '常州市' },
+  { id: '苏州市', name: '苏州市' },
+  { id: '南通市', name: '南通市' },
+  { id: '连云港市', name: '连云港市' },
+  { id: '淮安市', name: '淮安市' },
+  { id: '盐城市', name: '盐城市' },
+  { id: '扬州市', name: '扬州市' },
+  { id: '镇江市', name: '镇江市' },
+  { id: '泰州市', name: '泰州市' },
+  { id: '宿迁市', name: '宿迁市' },
 ];
 
-const ZJ_REGIONS = new Set(REGIONS.map((r) => r.id).filter(Boolean));
-/* 杭州区县单列，其他 10 个地级市单列，避免长横条里找不到 */
+const ALL_REGION_IDS = new Set(REGIONS.map((r) => r.id).filter(Boolean));
+/* 杭州区县单列；浙江其他 10 市单列；江苏 13 市单列 */
 const HZ_REGION_IDS = new Set(['', '浙江省级', '杭州市', '上城区', '西湖区', '萧山区', '余杭区', '临平区', '富阳区', '桐庐县', '淳安县', '建德市']);
+const JS_REGION_IDS = new Set(['江苏省级', '南京市', '无锡市', '徐州市', '常州市', '苏州市', '南通市', '连云港市', '淮安市', '盐城市', '扬州市', '镇江市', '泰州市', '宿迁市']);
 const HZ_REGIONS = REGIONS.filter((r) => HZ_REGION_IDS.has(r.id));
-const CITY_REGIONS = REGIONS.filter((r) => r.id && !HZ_REGION_IDS.has(r.id));
+const JS_REGIONS = REGIONS.filter((r) => JS_REGION_IDS.has(r.id));
+const CITY_REGIONS = REGIONS.filter((r) => r.id && !HZ_REGION_IDS.has(r.id) && !JS_REGION_IDS.has(r.id));
 
 /* 每个区县对应的公共资源交易官网（点击新窗口打开） */
 const REGION_SITES = {
@@ -63,6 +80,20 @@ const REGION_SITES = {
   舟山市: 'https://zsztb.zhoushan.gov.cn/col/col1229679798/index.html',
   台州市: 'https://ggzy.tzztb.zjtz.gov.cn/jyxx/trade_infor.html',
   丽水市: 'https://lssggzy.lishui.gov.cn/col/col1229661790/index.html',
+  江苏省级: 'https://jsggzy.jszwfw.gov.cn/',
+  南京市: 'https://njggzy.nanjing.gov.cn/njweb/',
+  无锡市: 'https://ggzyjy.wuxi.gov.cn/',
+  徐州市: 'https://ggzy.zwb.xz.gov.cn/',
+  常州市: 'https://ggzy.changzhou.gov.cn/',
+  苏州市: 'https://szggzy.jszwfw.gov.cn/',
+  南通市: 'https://ggzyjy.nantong.gov.cn/',
+  连云港市: 'https://ggzy.lyg.gov.cn/',
+  淮安市: 'https://ggzy.huaian.gov.cn/',
+  盐城市: 'https://ycggzy.jszwfw.gov.cn/',
+  扬州市: 'https://ggzyjyzx.yangzhou.gov.cn/',
+  镇江市: 'https://ggzy.zhenjiang.gov.cn/',
+  泰州市: 'https://ggzy.taizhou.gov.cn/',
+  宿迁市: 'https://ggzy.sqzwfw.gov.cn/',
 };
 
 function looksOld(x) {
@@ -162,7 +193,27 @@ const HZ_BID_RULES = [
 ];
 
 const SOURCES = [
-  { name: '浙江政府采购网', region: '浙江省级', url: 'https://zfcg.czt.zj.gov.cn/site/category?parentId=600007&childrenCode=ZcyAnnouncement', status: '已接入', note: '官方 API，每天采集最新 100 条' },
+  { name: '浙江政府采购网', region: '浙江省级', url: 'https://zfcg.czt.zj.gov.cn/site/category?parentId=600007&childrenCode=ZcyAnnouncement', status: '已接入', note: '官方 API，每天采集最新 100 条' },  /* 江苏：省级枢纽 + 13 个设区市 + 重点县区/专项 */
+  { name: '江苏省公共资源交易网', region: '江苏省级', url: 'https://jsggzy.jszwfw.gov.cn/', status: '已接入', note: '官方 API，每天采集最新公告' },
+  { name: '江苏省政府采购网', region: '江苏省级', url: 'http://www.ccgp-jiangsu.gov.cn/', status: '待接入', note: '入口已核验，采集待接入' },
+  { name: '江苏招标采购服务平台', region: '江苏省级', url: 'https://www.jszbcg.com/', status: '待接入', note: '国企采购补充源' },
+  { name: '南京市公共资源交易平台', region: '南京市', url: 'https://njggzy.nanjing.gov.cn/njweb/', status: '待接入', note: '入口已核验' },
+  { name: '无锡市公共资源交易中心', region: '无锡市', url: 'https://ggzyjy.wuxi.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '徐州市公共资源交易平台', region: '徐州市', url: 'https://ggzy.zwb.xz.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '常州市公共资源交易网', region: '常州市', url: 'https://ggzy.changzhou.gov.cn/', status: '待接入', note: '武进区另有独立平台' },
+  { name: '苏州市公共资源交易平台', region: '苏州市', url: 'https://szggzy.jszwfw.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '南通市公共资源交易网', region: '南通市', url: 'https://ggzyjy.nantong.gov.cn/', status: '待接入', note: '海安/启东/苏锡通另有平台' },
+  { name: '连云港市公共资源交易平台', region: '连云港市', url: 'https://ggzy.lyg.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '淮安市公共资源交易网', region: '淮安市', url: 'https://ggzy.huaian.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '盐城市公共资源交易平台', region: '盐城市', url: 'https://ycggzy.jszwfw.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '扬州市公共资源交易中心', region: '扬州市', url: 'https://ggzyjyzx.yangzhou.gov.cn/', status: '待接入', note: '含国企采购栏目' },
+  { name: '镇江市公共资源交易中心', region: '镇江市', url: 'https://ggzy.zhenjiang.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '泰州市公共资源交易网', region: '泰州市', url: 'https://ggzy.taizhou.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '宿迁市公共资源交易网', region: '宿迁市', url: 'https://ggzy.sqzwfw.gov.cn/', status: '待接入', note: '入口已核验' },
+  { name: '海安市限额以下公共资源交易平台', region: '南通市', url: 'http://xeyxjy.haian.gov.cn/', status: '待接入', note: '限额以下独发源' },
+  { name: '武进区限额以下项目交易平台', region: '常州市', url: 'http://ggzyjy.wj.gov.cn/BREpointSSO', status: '待接入', note: '限额以下独立系统' },
+  { name: '苏锡通园区限额以下平台', region: '南通市', url: 'http://ggzyjy.stpac.gov.cn/', status: '待接入', note: '园区限额以下项目' },
+  { name: '苏服采（江苏服务类网上商城）', region: '江苏省级', url: 'https://js.fwgov.cn/', status: '待接入', note: '100 万以下服务/工程' },
   { name: '上城区公共资源交易', region: '上城区', url: 'https://www.hzscsxy.com:8443/#/JYlist', status: '已接入' },
   { name: '西湖区公共资源交易（建易）', region: '西湖区', url: 'https://www.zhaobide.com/Web/Partner_index?pid=a8b557ad-9cf8-4f67-bf3e-7cf5337c2166', status: '已接入' },
   { name: '萧山区公共资源交易', region: '萧山区', url: 'https://www.xiaoshan.gov.cn/col/col1229181634/', status: '仅通知', note: '该栏目是通知公告，交易公告在另一平台' },
@@ -277,7 +328,7 @@ function queryLink(region, type) {
 export async function renderBidding(ctx, query = {}) {
   const res = await service.listings({ category: 'bidding', pageSize: 100, sort: 'latest' }).catch(() => ({ items: [] }));
   const all = (res.items || []).filter(
-    (x) => x && x.category === 'bidding' && ZJ_REGIONS.has(regionOf(x)) && !looksOld(x),
+    (x) => x && x.category === 'bidding' && ALL_REGION_IDS.has(regionOf(x)) && !looksOld(x),
   );
   const activeRegion = String(query.region || '');
   const activeType = String(query.type || '');
@@ -305,9 +356,9 @@ export async function renderBidding(ctx, query = {}) {
   const html = `<div class="bz-page">
     <div class="bz-hero">
       <div class="bz-hero-badge">🏛 浙江招投标 · 专题</div>
-      <h1 class="bz-hero-t">浙江招投标公告，按项目分类看</h1>
+      <h1 class="bz-hero-t">浙江 / 江苏招投标公告，按项目分类看</h1>
       <div class="bz-hero-subrow">
-        <div class="bz-hero-d">覆盖杭州 7 个区县，以及宁波、温州、嘉兴、湖州、绍兴、金华、衢州、舟山、台州、丽水 10 个地级市；每天 08:00 后自动采集更新。</div>
+        <div class="bz-hero-d">覆盖浙江 15 个区域 + 江苏 13 个设区市；每天 08:00 后自动采集更新。</div>
         <button class="bz-share-btn bz-share-hero" id="bz-share-topic" type="button"><span class="wx-ic" aria-hidden="true"><i></i><i></i><i></i></span>微信分享专题</button>
       </div>
       <div class="bz-stats">
@@ -380,6 +431,20 @@ export async function renderBidding(ctx, query = {}) {
       <div class="bz-soft-pains"><b>解决痛点：</b>400 万以下项目流程一样重、人工投不划算；找标读标耗人、易漏标；标书反复改、格式易错；多系统 CA 锁冲突、反复登录上传、开标跑现场。</div>
     </section>
 
+    <details class="bz-rules-card bz-js-rules" open>
+      <summary>
+        <span>📌 江苏小额交易规则</span>
+        <span class="bz-rules-hint">施工 400 万 / 货物 200 万 / 服务 100 万 · 苏服采 · 禁止抽签</span>
+      </summary>
+      <div class="bz-js-rule-grid">
+        <div><b>依法必招</b><span>施工 ≥400 万、货物 ≥200 万、服务 ≥100 万，进公共资源交易平台。</span></div>
+        <div><b>政府采购</b><span>分散采购限额统一 100 万；100 万以下走苏服采商城或内控自行组织。</span></div>
+        <div><b>定标方式</b><span>合理低价 / 经评审最低价 / 综合评分；不得抽签摇号直接确定中标候选人。</span></div>
+        <div><b>准入与到场</b><span>多地须先入预选承包商名录；部分要求授权委托人本人到场、社保连续核验。</span></div>
+      </div>
+      <div class="bz-rules-note">按台账整理，具体以官方文件和各项目招标文件为准；浙江的抽签口径不能直接套用到江苏。</div>
+    </details>
+
     <div class="bz-filter card">
       <div class="bz-filter-row"><span class="bz-label">区域</span>
         <div class="chips scroll">
@@ -391,7 +456,12 @@ export async function renderBidding(ctx, query = {}) {
           ${CITY_REGIONS.map((r) => `<a class="chip ${activeRegion === r.id ? 'active' : ''}" href="${queryLink(r.id, activeType)}">${r.name}${regionCounts[r.id] ? ` (${regionCounts[r.id]})` : ''}</a>`).join('')}
         </div>
       </div>
-      <div class="bz-filter-row"><span class="bz-label">项目类型</span>
+      <div class="bz-filter-row"><span class="bz-label">江苏</span>
+      <div class="chips scroll">
+        ${JS_REGIONS.map((r) => `<a class="chip ${activeRegion === r.id ? 'active' : ''}" href="${queryLink(r.id, activeType)}">${r.name}${regionCounts[r.id] ? ` (${regionCounts[r.id]})` : ''}</a>`).join('')}
+      </div>
+    </div>
+    <div class="bz-filter-row"><span class="bz-label">项目类型</span>
         <div class="chips scroll">
           ${TYPES.map((t) => `<a class="chip ${activeType === t.id ? 'active' : ''}" href="${queryLink(activeRegion, t.id)}">${t.name}</a>`).join('')}
         </div>
@@ -448,14 +518,14 @@ export async function renderBidding(ctx, query = {}) {
           meta.name = 'description';
           document.head.appendChild(meta);
         }
-        meta.setAttribute('content', '浙江 7 个区县公共资源交易公告，按项目分类，每天更新，支持 AI 搜索与分享。');
+        meta.setAttribute('content', '浙江、江苏招投标公告，按项目分类，每天更新，支持 AI 搜索与分享。');
       } catch { /* ignore */ }
 
       const shareMod = await import('./share.js').catch(() => null);
       // 微信内浏览器：配置右上角原生分享卡片（未接公众号时静默跳过）
       shareMod?.setupWechatTopicShare?.({
         title: '浙江招投标 · 7 区县公告',
-        desc: `已收录 ${all.length} 条公告，覆盖杭州 7 个区县及浙江其他地市，每天更新。`,
+        desc: `已收录 ${all.length} 条公告，覆盖浙江 15 个区域 + 江苏 13 个设区市，每天更新。`,
         url: location.href,
         image: '/static/logo@2x.png',
       }).catch(() => {});
@@ -463,7 +533,7 @@ export async function renderBidding(ctx, query = {}) {
       const shareTopic = () => {
         shareMod?.openQuickShare({
           title: '浙江招投标 · 7 区县公告',
-          desc: `已收录 ${all.length} 条公告，覆盖上城、西湖、余杭、富阳、桐庐、淳安、建德等区县；每天更新。`,
+          desc: `已收录 ${all.length} 条公告，覆盖杭州区县、浙江其他地市及江苏 13 个设区市；每天更新。`,
           url: location.href,
           image: '/static/logo@2x.png',
           tag: '浙江招投标',
@@ -506,7 +576,7 @@ export async function renderBidding(ctx, query = {}) {
         try {
           const r = await service.listingsAiSearch({ query: q, category: 'bidding' });
           let list = (r.items || []).filter(
-            (x) => x && x.category === 'bidding' && ZJ_REGIONS.has(regionOf(x)) && !looksOld(x),
+            (x) => x && x.category === 'bidding' && ALL_REGION_IDS.has(regionOf(x)) && !looksOld(x),
           );
           if (activeRegion) list = list.filter((x) => regionOf(x).includes(activeRegion));
           if (activeType) list = list.filter((x) => typeOf(x) === activeType);
