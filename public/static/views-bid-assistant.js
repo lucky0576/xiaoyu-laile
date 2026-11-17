@@ -52,7 +52,7 @@ export async function renderBidAssistant() {
       <div class="ba-section-t">先看 49 秒演示 · 小额交易自动投标</div>
       <div class="ba-video-wrap">
         <video controls preload="metadata" playsinline poster="/docs/bid-software-poster.jpg">
-          <source src="/docs/bid-software-intro-safe.mp4" type="video/mp4">
+          <source src="/docs/bid-software-intro-blur.mp4" type="video/mp4">
         </video>
       </div>
       <div class="ba-tech">
