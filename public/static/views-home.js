@@ -644,7 +644,7 @@ export async function renderHome(ctx, query) {
   /* 浙江招投标横栏：放在发布信息下面 */
   const biddingBarHtml = `<a class="bz-home-bar" href="#/bidding">
     <div class="bz-home-left">
-      <div class="bz-home-badge">🏛 浙江招投标 · 每个工作日更新</div>
+      <div class="bz-home-badge">🏛 浙江招投标 · 每天更新</div>
       <div class="bz-home-t">上城 · 西湖 · 余杭 · 富阳 · 桐庐 · 淳安 · 建德</div>
       <div class="bz-home-d">按工程建设 / 装修 / 货物采购 / 服务采购 / 信息服务 / 产权交易分类，点开看预算、截止时间、原文</div>
       <div class="bz-home-cta">进入招投标专题 ›</div>

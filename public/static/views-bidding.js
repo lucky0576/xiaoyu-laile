@@ -2,7 +2,7 @@
  * 招投标专题页（#/bidding）
  *
  * 浙江区域聚合：按区域 / 项目类型筛选，按项目类型分组展示。
- * 数据由 scripts/zj-bidding-collect.py 每个工作日采集。
+ * 数据由 scripts/zj-bidding-collect.py 每天采集。
  */
 
 import * as ui from './ui.js';
@@ -162,7 +162,7 @@ const HZ_BID_RULES = [
 ];
 
 const SOURCES = [
-  { name: '浙江政府采购网', region: '浙江省级', url: 'https://zfcg.czt.zj.gov.cn/site/category?parentId=600007&childrenCode=ZcyAnnouncement', status: '已接入', note: '官方 API，每个工作日采集最新 100 条' },
+  { name: '浙江政府采购网', region: '浙江省级', url: 'https://zfcg.czt.zj.gov.cn/site/category?parentId=600007&childrenCode=ZcyAnnouncement', status: '已接入', note: '官方 API，每天采集最新 100 条' },
   { name: '上城区公共资源交易', region: '上城区', url: 'https://www.hzscsxy.com:8443/#/JYlist', status: '已接入' },
   { name: '西湖区公共资源交易（建易）', region: '西湖区', url: 'https://www.zhaobide.com/Web/Partner_index?pid=a8b557ad-9cf8-4f67-bf3e-7cf5337c2166', status: '已接入' },
   { name: '萧山区公共资源交易', region: '萧山区', url: 'https://www.xiaoshan.gov.cn/col/col1229181634/', status: '仅通知', note: '该栏目是通知公告，交易公告在另一平台' },
@@ -245,7 +245,7 @@ function cardHtml(x) {
 }
 
 function groupHtml(items, activeType) {
-  if (!items.length) return ui.emptyState('📭', '该筛选下暂无公告', '<div class="tiny dim mt8">每个工作日 08:00 后自动更新；也可先看其他区域/类型</div>');
+  if (!items.length) return ui.emptyState('📭', '该筛选下暂无公告', '<div class="tiny dim mt8">每天 08:00 后自动更新；也可先看其他区域/类型</div>');
   if (activeType) return `<div class="bz-list">${items.map(cardHtml).join('')}</div>`;
   const groups = {};
   for (const x of items) {
@@ -307,14 +307,14 @@ export async function renderBidding(ctx, query = {}) {
       <div class="bz-hero-badge">🏛 浙江招投标 · 专题</div>
       <h1 class="bz-hero-t">浙江招投标公告，按项目分类看</h1>
       <div class="bz-hero-subrow">
-        <div class="bz-hero-d">覆盖杭州 7 个区县，以及宁波、温州、嘉兴、湖州、绍兴、金华、衢州、舟山、台州、丽水 10 个地级市；每个工作日（周一至周五）08:00 后自动采集更新。</div>
+        <div class="bz-hero-d">覆盖杭州 7 个区县，以及宁波、温州、嘉兴、湖州、绍兴、金华、衢州、舟山、台州、丽水 10 个地级市；每天 08:00 后自动采集更新。</div>
         <button class="bz-share-btn bz-share-hero" id="bz-share-topic" type="button"><span class="wx-ic" aria-hidden="true"><i></i><i></i><i></i></span>微信分享专题</button>
       </div>
       <div class="bz-stats">
         <div class="bz-stat"><b>${all.length}</b><span>已收录公告</span></div>
         <div class="bz-stat"><b>${Object.keys(regionCounts).length}</b><span>覆盖区域</span></div>
         <div class="bz-stat"><b>${recent}</b><span>近 7 天更新</span></div>
-        <div class="bz-stat"><b>工作日</b><span>更新频率</span></div>
+        <div class="bz-stat"><b>每天</b><span>更新频率</span></div>
       </div>
       <div class="bz-hero-foot">最近更新：${ui.esc(lastAt ? fmtFull(lastAt) : '待采集')} · 来源：浙江各区县公共资源交易平台（公开公告）</div>
     </div>
@@ -448,14 +448,14 @@ export async function renderBidding(ctx, query = {}) {
           meta.name = 'description';
           document.head.appendChild(meta);
         }
-        meta.setAttribute('content', '浙江 7 个区县公共资源交易公告，按项目分类，每个工作日更新，支持 AI 搜索与分享。');
+        meta.setAttribute('content', '浙江 7 个区县公共资源交易公告，按项目分类，每天更新，支持 AI 搜索与分享。');
       } catch { /* ignore */ }
 
       const shareMod = await import('./share.js').catch(() => null);
       // 微信内浏览器：配置右上角原生分享卡片（未接公众号时静默跳过）
       shareMod?.setupWechatTopicShare?.({
         title: '浙江招投标 · 7 区县公告',
-        desc: `已收录 ${all.length} 条公告，覆盖杭州 7 个区县及浙江其他地市，每个工作日更新。`,
+        desc: `已收录 ${all.length} 条公告，覆盖杭州 7 个区县及浙江其他地市，每天更新。`,
         url: location.href,
         image: '/static/logo@2x.png',
       }).catch(() => {});
@@ -463,7 +463,7 @@ export async function renderBidding(ctx, query = {}) {
       const shareTopic = () => {
         shareMod?.openQuickShare({
           title: '浙江招投标 · 7 区县公告',
-          desc: `已收录 ${all.length} 条公告，覆盖上城、西湖、余杭、富阳、桐庐、淳安、建德等区县；每个工作日更新。`,
+          desc: `已收录 ${all.length} 条公告，覆盖上城、西湖、余杭、富阳、桐庐、淳安、建德等区县；每天更新。`,
           url: location.href,
           image: '/static/logo@2x.png',
           tag: '浙江招投标',

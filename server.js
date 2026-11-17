@@ -94,7 +94,7 @@ function startJobs() {
     return {};
   }, 10 * 60_000);
 
-  // 浙江招投标专题：每个工作日 08:00 后自动采集（每 30 分钟检查一次是否到点）
+  // 浙江招投标专题：每天 08:00 后自动采集（每 30 分钟检查一次是否到点）
   run('bidding-zj', () => {
     if (!biddingZj.isDue()) return {};
     biddingZj
