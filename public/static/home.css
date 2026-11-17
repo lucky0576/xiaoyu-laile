@@ -3915,6 +3915,8 @@ a.about-c-phone {
 .bc-company { margin-top: 4px; font-size: 11px; color: #CFE2FF; }
 .bc-tagline { margin-top: 18px; font-size: 15px; font-weight: 700; color: #fff; line-height: 1.5; }
 .bc-slogan { margin-top: 3px; font-size: 11px; color: #A8C7E8; }
+.bc-bio { margin-top: 10px; max-width: 520px; font-size: 11px; color: #B9D4F2; line-height: 1.55; }
+.bc-ci { display: inline-block; width: 30px; color: #9CC8FF; font-size: 10px; font-weight: 700; }
 .bc-foot { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 14px 0 16px; border-top: 1px solid rgba(255,255,255,.14); }
 .bc-contacts { display: flex; flex-direction: column; gap: 6px; }
 .bc-contacts a { color: #E8F2FF; text-decoration: none; font-size: 12px; line-height: 1.4; }
@@ -3938,6 +3940,7 @@ a.about-c-phone {
   .bc-tagline { font-size: 13px; }
   .bc-foot { align-items: center; }
   .bc-contacts a { font-size: 11px; }
+  .bc-ci { width: 28px; }
   .bc-qr { width: 86px; }
   .bc-qr img { width: 74px; height: 74px; }
   .bc-strip { margin: 0 -18px; padding: 8px 18px; font-size: 8.5px; }

@@ -88,25 +88,26 @@ export async function renderCard() {
         </div>
         <div class="bc-tagline">AI 驱动的产业互联网 B2B / B2G 平台</div>
         <div class="bc-slogan">让每一条好项目，都被对的人看见</div>
+        <div class="bc-bio">专注产业互联网与 AI 应用，连接项目、资金、服务商与政府园区。</div>
         <div class="bc-foot">
           <div class="bc-contacts">
-            <a href="tel:${TEL}">📱 ${TEL}</a>
-            <a href="mailto:${EMAIL}">✉️ ${EMAIL}</a>
-            <a href="https://xiaoyulaile.online" target="_blank" rel="noopener">🌐 xiaoyulaile.online</a>
+            <a href="tel:${TEL}"><span class="bc-ci">电话</span>${TEL}</a>
+            <a href="mailto:${EMAIL}"><span class="bc-ci">邮箱</span>${EMAIL}</a>
+            <a href="https://xiaoyulaile.online" target="_blank" rel="noopener"><span class="bc-ci">网址</span>xiaoyulaile.online</a>
           </div>
           <div class="bc-qr">
             <img src="/static/card-qr.png" alt="扫码打开电子名片">
             <span>扫码看名片</span>
           </div>
         </div>
-        <div class="bc-strip">杭州 · 上城区　|　产业信息 · AI 内容 · 项目对接</div>
+        <div class="bc-strip">杭州　|　产业信息 · AI 内容 · 项目对接</div>
       </div>
 
       <div class="bc-actions">
-        <a class="bc-btn bc-btn-main" href="tel:${TEL}">📞 打电话</a>
-        <button class="bc-btn" type="button" data-card="copy">✉️ 复制邮箱</button>
-        <button class="bc-btn" type="button" data-card="vcard">📇 保存到通讯录</button>
-        <button class="bc-btn" type="button" data-card="share">📤 分享名片</button>
+        <a class="bc-btn bc-btn-main" href="tel:${TEL}">打电话</a>
+        <button class="bc-btn" type="button" data-card="copy">复制邮箱</button>
+        <button class="bc-btn" type="button" data-card="vcard">保存到通讯录</button>
+        <button class="bc-btn" type="button" data-card="share">分享名片</button>
       </div>
       <div class="bc-hint">保存到通讯录后，微信/手机通讯录可直接拨号、发邮件。</div>
     </div>
