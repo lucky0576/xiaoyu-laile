@@ -355,7 +355,7 @@ export async function renderBidding(ctx, query = {}) {
 
   const html = `<div class="bz-page">
     <div class="bz-hero">
-      <div class="bz-hero-badge">🏛 浙江招投标 · 专题</div>
+      <div class="bz-hero-badge">🏛 浙江 · 江苏招投标 · 专题</div>
       <h1 class="bz-hero-t">浙江 / 江苏招投标公告，按项目分类看</h1>
       <div class="bz-hero-subrow">
         <div class="bz-hero-d">覆盖浙江 15 个区域 + 江苏 13 个设区市；每天 08:00 后自动采集更新。</div>
@@ -496,7 +496,7 @@ export async function renderBidding(ctx, query = {}) {
   </div>`;
 
   return {
-    title: '浙江招投标',
+    title: '浙江 · 江苏招投标',
     content: html,
     activeTab: '',
     showBack: true,
@@ -511,7 +511,7 @@ export async function renderBidding(ctx, query = {}) {
 
       // 微信/朋友圈分享：专题页和每条公告都走统一的「文字+链接 / 图片+文字」
       try {
-        document.title = '浙江招投标 · 7 区县公告 | 小鱼来了';
+        document.title = '浙江 · 江苏招投标公告 | 小鱼来了';
         let meta = document.querySelector('meta[name="description"]');
         if (!meta) {
           meta = document.createElement('meta');
@@ -524,7 +524,7 @@ export async function renderBidding(ctx, query = {}) {
       const shareMod = await import('./share.js').catch(() => null);
       // 微信内浏览器：配置右上角原生分享卡片（未接公众号时静默跳过）
       shareMod?.setupWechatTopicShare?.({
-        title: '浙江招投标 · 7 区县公告',
+        title: '浙江 · 江苏招投标公告',
         desc: `已收录 ${all.length} 条公告，覆盖浙江 15 个区域 + 江苏 13 个设区市，每天更新。`,
         url: location.href,
         image: '/static/logo@2x.png',
@@ -532,11 +532,11 @@ export async function renderBidding(ctx, query = {}) {
       const byId = new Map(all.map((x) => [x.id, x]));
       const shareTopic = () => {
         shareMod?.openQuickShare({
-          title: '浙江招投标 · 7 区县公告',
+          title: '浙江 · 江苏招投标公告',
           desc: `已收录 ${all.length} 条公告，覆盖杭州区县、浙江其他地市及江苏 13 个设区市；每天更新。`,
           url: location.href,
           image: '/static/logo@2x.png',
-          tag: '浙江招投标',
+          tag: '浙江 · 江苏招投标',
         });
       };
       const shareItem = (x) => {
@@ -546,7 +546,7 @@ export async function renderBidding(ctx, query = {}) {
           .filter(Boolean)
           .join(' · ');
         shareMod?.openQuickShare({
-          title: `【浙江招投标】${x.title || '公告'}`,
+          title: `【浙江 · 江苏招投标】${x.title || '公告'}`,
           desc: desc || '浙江公共资源交易公告',
           url: `${location.origin}/#/detail/${x.id}`,
           image: x.coverUrl || '/static/logo@2x.png',
