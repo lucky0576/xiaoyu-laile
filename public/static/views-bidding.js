@@ -128,6 +128,11 @@ const TYPES = [
   { id: '', name: '全部' },
   { id: '工程建设', name: '工程建设' },
   { id: '装修', name: '装修' },
+  { id: '公路', name: '公路' },
+  { id: '风力', name: '风力' },
+  { id: '光伏', name: '光伏' },
+  { id: '水电', name: '水电' },
+  { id: '算力', name: '算力' },
   { id: '货物采购', name: '货物采购' },
   { id: '服务采购', name: '服务采购' },
   { id: '信息服务', name: '信息服务' },
@@ -309,7 +314,7 @@ function groupHtml(items, activeType) {
     const t = typeOf(x);
     (groups[t] = groups[t] || []).push(x);
   }
-  const order = ['工程建设', '装修', '货物采购', '服务采购', '信息服务', '产权交易', '其他'];
+  const order = ['工程建设', '装修', '公路', '风力', '光伏', '水电', '算力', '货物采购', '服务采购', '信息服务', '产权交易', '其他'];
   return order
     .filter((t) => groups[t]?.length)
     .map(

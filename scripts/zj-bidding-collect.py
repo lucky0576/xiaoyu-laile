@@ -197,6 +197,16 @@ def classify(text):
     t = str(text or "")
     if re.search(r"产权|出让|转让|出租|拍卖|土地|房产|店面|商铺|资产处置", t):
         return "产权交易"
+    if re.search(r"公路|高速公路|国道|省道|县道|路面|路基|桥梁|隧道", t):
+        return "公路"
+    if re.search(r"风力|风电|风电场|风机|海上风电", t):
+        return "风力"
+    if re.search(r"光伏|分布式光伏|光伏电站|光伏组件|光伏发电|农光互补|渔光互补", t):
+        return "光伏"
+    if re.search(r"水电|水电站|水力发电|抽水蓄能|水轮机|水电机组", t):
+        return "水电"
+    if re.search(r"算力|智算|超算|数据中心|计算中心|GPU|服务器集群|人工智能计算", t):
+        return "算力"
     if re.search(r"装修|装饰|室内装修|外立面|翻新|修缮工程|改造装修", t):
         return "装修"
     if re.search(r"信息服务|信息化|数据服务|软件开发|软件采购|平台运营|平台服务|网络服务|系统集成|数字化服务|信息系统", t):

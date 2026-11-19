@@ -646,7 +646,7 @@ export async function renderHome(ctx, query) {
     <div class="bz-home-left">
       <div class="bz-home-badge">🏛 浙江 · 江苏招投标 · 每天更新</div>
       <div class="bz-home-t">上城 · 西湖 · 余杭 · 富阳 · 桐庐 · 淳安 · 建德</div>
-      <div class="bz-home-d">按工程建设 / 装修 / 货物采购 / 服务采购 / 信息服务 / 产权交易分类，点开看预算、截止时间、原文</div>
+      <div class="bz-home-d">按工程建设 / 公路 / 风力 / 光伏 / 水电 / 算力 / 装修 / 货物采购 / 服务采购分类，点开看预算、截止时间、原文</div>
       <div class="bz-home-cta">进入招投标专题 ›</div>
     </div>
     <div class="bz-home-art" aria-hidden="true"><b>招投标</b><i>浙江</i></div>
