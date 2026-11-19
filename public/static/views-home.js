@@ -707,6 +707,15 @@ export async function renderHome(ctx, query) {
    * 它和下面的短视频区其实是同一批内容，重复展示；
    * 现在把短视频区整体提到最上面，取代轮播的位置。
    */
+  const honorBarHtml = `<a class="honor-home-bar" href="#/about">
+    <div class="honor-home-mark">AWARD</div>
+    <div class="honor-home-body">
+      <b>2026 杭州市电子商务创新创业大赛 · 三等奖</b>
+      <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
+    </div>
+    <div class="honor-home-cta">查看荣誉 ›</div>
+  </a>`;
+
   const SECTIONS = {
     publish: publishBarHtml,
     grid: gridHtml,
@@ -727,7 +736,7 @@ export async function renderHome(ctx, query) {
     stats: statsHtml,
   };
   const DEFAULT_ORDER = [
-    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'bidding', 'ecom',
+    'publish', 'grid', 'honor', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'bidding', 'ecom',
     'promos', 'rec', 'industries', 'latest', 'cases', 'stats',
   ];
   const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(
@@ -739,6 +748,10 @@ export async function renderHome(ctx, query) {
     const ei = order.indexOf('ecom');
     const at = pi >= 0 ? pi + 1 : ei >= 0 ? ei : order.length;
     order.splice(at, 0, 'bidding');
+  }
+  if (!order.includes('honor')) {
+    const gi = order.indexOf('grid');
+    order.splice(gi >= 0 ? gi + 1 : 0, 0, 'honor');
   }
   const orderedSections = order.map((id) => SECTIONS[id]).join('\n');
 
