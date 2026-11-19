@@ -82,6 +82,25 @@ export function renderAbout(ctx, query) {
       ).join('')}
     </div>
 
+    <div class="card card-pad mt12" id="about-honor">
+      <div class="strong mb8">🏆 荣誉与资质</div>
+      <div class="about-honor">
+        <div class="about-honor-media">
+          <img class="about-honor-cert" src="/static/honor/cert.jpg" alt="2026 杭州市电子商务创新创业大赛三等奖证书" loading="lazy">
+          <img class="about-honor-trophy" src="/static/honor/trophy.jpg" alt="2026 杭州市电子商务创新创业大赛奖杯" loading="lazy">
+        </div>
+        <div class="about-honor-body">
+          <div class="about-honor-date">2026.11</div>
+          <div class="about-honor-title">2026 年杭州市电子商务创新创业大赛</div>
+          <div class="about-honor-prize">总决赛 三等奖</div>
+          <div class="about-honor-sub">“最具发展潜力项目”三等奖</div>
+          <div class="about-honor-meta">指导单位：浙江省商务厅　·　主办单位：杭州市商务局</div>
+          <div class="about-honor-chip">杭州 AI 创新力量申报 · 官方获奖</div>
+        </div>
+      </div>
+      <div class="tiny dim mt10">证书与奖杯实拍；获奖主体为「小鱼来了」。</div>
+    </div>
+
     <div class="card card-pad mt12">
       <div class="strong mb8">🧩 合作方式</div>
       <div class="small muted" style="line-height:1.8">

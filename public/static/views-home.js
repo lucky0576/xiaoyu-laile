@@ -716,6 +716,7 @@ export async function renderHome(ctx, query) {
     tajian: tajianBarHtml,
     projects: projectBarHtml,
     bidding: biddingBarHtml,
+    honor: honorBarHtml,
     ecom: ecomBarHtml,
     promos: promoHtml,
     rec: `${loginStrip}${recHtml}`,
