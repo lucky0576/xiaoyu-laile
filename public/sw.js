@@ -16,7 +16,7 @@
  *   4. SW 自身用 updateViaCache:'none' 注册，改完立刻生效
  */
 
-const VERSION = 'xyll-v64';
+const VERSION = 'xyll-v65';
 const STATIC_CACHE = VERSION + '-static';
 const META_CACHE = 'xyll-meta';
 const BUILD_KEY = '/__xyll_build';

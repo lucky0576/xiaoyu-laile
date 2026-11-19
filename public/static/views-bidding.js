@@ -251,6 +251,12 @@ const SOURCES = [
 function inferType(x) {
   const t = `${x.title || ''} ${x.subtitle || ''}`;
   if (/产权|出让|转让|出租|拍卖|土地|房产|资产处置/.test(t)) return '产权交易';
+  // 细分基础设施：优先于「工程建设」，避免被“施工/建设/EPC”吸走
+  if (/公路|高速公路|国道|省道|县道|路面|路基|桥梁|隧道/.test(t)) return '公路';
+  if (/风力|风电|风电场|风机|海上风电/.test(t)) return '风力';
+  if (/光伏|分布式光伏|光伏电站|光伏组件|光伏发电|农光互补|渔光互补/.test(t)) return '光伏';
+  if (/水电|水电站|水力发电|抽水蓄能|水轮机|水电机组/.test(t)) return '水电';
+  if (/算力|智算|超算|数据中心|计算中心|GPU|服务器集群|人工智能计算/.test(t)) return '算力';
   // 装修类：优先于「工程建设」，避免被“改造/修缮/建设”吸走
   if (/装修|装饰|室内装修|外立面|翻新|修缮工程|改造装修/.test(t)) return '装修';
   // 信息服务类：系统/数据/软件/平台/网络/数字化服务
@@ -269,7 +275,7 @@ function typeOf(x) {
   // 新增「装修 / 信息服务」后，旧数据里可能仍写着「工程建设 / 服务采购」；
   // 标题能明确判断时优先用标题，老公告也能自动归到新分类。
   const inferred = inferType(x);
-  if (inferred === '装修' || inferred === '信息服务') return inferred;
+  if (['装修', '信息服务', '公路', '风力', '光伏', '水电', '算力'].includes(inferred)) return inferred;
   return x.bidding?.projectType || inferred;
 }
 
@@ -337,8 +343,19 @@ function queryLink(region, type) {
 }
 
 export async function renderBidding(ctx, query = {}) {
-  const res = await service.listings({ category: 'bidding', pageSize: 100, sort: 'latest' }).catch(() => ({ items: [] }));
-  const all = (res.items || []).filter(
+  // 类型筛选要覆盖全部公告，不能只筛最新 100 条；分页拉取（单页上限 100）。
+  let biddingItems = [];
+  let totalPages = 1;
+  try {
+    const first = await service.listings({ category: 'bidding', pageSize: 100, page: 1, sort: 'latest' });
+    biddingItems = first.items || [];
+    totalPages = Math.min(Number(first.pages) || 1, 10);
+    for (let p = 2; p <= totalPages; p += 1) {
+      const r = await service.listings({ category: 'bidding', pageSize: 100, page: p, sort: 'latest' });
+      biddingItems.push(...(r.items || []));
+    }
+  } catch {}
+  const all = biddingItems.filter(
     (x) => x && x.category === 'bidding' && ALL_REGION_IDS.has(regionOf(x)) && !looksOld(x),
   );
   const activeRegion = String(query.region || '');
