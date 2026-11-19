@@ -63,6 +63,15 @@ export async function renderWelcome(ctx) {
       让每一条好项目，都被对的人看见。
     </p>
 
+    <a class="honor-home-bar aw-rise" style="--d:160ms" href="#/about">
+      <div class="honor-home-mark">AWARD</div>
+      <div class="honor-home-body">
+        <b>2026 杭州市电子商务创新创业大赛 · 三等奖</b>
+        <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
+      </div>
+      <div class="honor-home-cta">查看荣誉 ›</div>
+    </a>
+
     <!-- ① 短视频：5 秒预览 -->
     <section class="aw-video aw-rise" style="--d:180ms">
       <div class="aw-video-frame">
@@ -125,7 +134,7 @@ export async function renderWelcome(ctx) {
     <!-- ②.5 浙江招投标：最新 5 条 -->
     <section class="aw-card aw-bidding aw-rise" style="--d:270ms">
       <div class="aw-card-head">
-        <span class="aw-card-title">浙江招投标</span>
+        <span class="aw-card-title">浙江 / 江苏招投标</span>
         <a class="aw-bidding-more" href="#/bidding">全部公告 ›</a>
       </div>
       <div class="aw-bidding-list">
