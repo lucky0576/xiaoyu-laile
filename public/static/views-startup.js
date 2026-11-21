@@ -211,6 +211,8 @@ export async function renderStartup(ctx, query = {}) {
         <a href="#/services">OPC 陪跑完整介绍</a>
         <a href="/docs/创业辅导服务报价单-上城区OPC.xlsx" download>下载 OPC 报价单（Excel）</a>
         <a href="#/contest">AI OPC 专项赛</a>
+        <a href="/docs/OPC-cooperation-2026.pdf" download="小鱼来了-OPC社区合作方案.pdf">OPC 社区合作方案（PDF）</a>
+        <a href="#/contact-us?topic=consult&about=OPC社区合作">申请 OPC 社区合作</a>
         <a href="#/news?q=OPC">OPC 相关资讯</a>
       </div>
       ${
