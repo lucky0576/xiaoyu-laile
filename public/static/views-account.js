@@ -1389,6 +1389,20 @@ export async function renderProfile(ctx) {
     </div>
 
     <div class="card card-pad mt12">
+      <div class="strong mb8">🔔 我关注的行业与地区</div>
+      <div class="tiny dim mb12">设置后，只有匹配你兴趣的新项目才会推送给你。不设置就收不到新项目通知（可以随时去「项目」页浏览全部）。</div>
+      <div class="tiny dim mb6">行业（可多选）</div>
+      <div class="chips" id="pf-ind-chips"></div>
+      <div class="tiny dim mt12 mb6">地区（可多选，不选表示不限地区）</div>
+      <div class="chips" id="pf-city-chips"></div>
+      <div class="row gap8 mt8">
+        <input class="input grow" id="pf-city-add" list="pf-city-options" placeholder="搜索城市或省份后添加，如 杭州">
+        <button class="btn btn-sm btn-outline" id="pf-city-add-btn" type="button">添加</button>
+      </div>
+      <datalist id="pf-city-options"></datalist>
+    </div>
+
+    <div class="card card-pad mt12">
       <div class="strong mb12">通知偏好</div>
       ${[
         ['notifyNewProjects', '平台有新项目上线时通知我'],
@@ -1544,6 +1558,92 @@ export async function renderProfile(ctx) {
         }
       });
 
+      /* ---------------- 兴趣：行业 / 地区 ---------------- */
+      const selectedInds = new Set(u.industryIds || []);
+      const selectedCities = new Set(u.cityIds || []);
+
+      // 城市下拉：省级 + 市/区，value 用名称方便搜索
+      const cityIndex = new Map();
+      for (const p of cities) {
+        cityIndex.set(`${p.name}（全省）`, p.id);
+        for (const c of (p.cities || [])) {
+          if (!cityIndex.has(c.name)) cityIndex.set(c.name, c.id);
+        }
+      }
+      const cityNameOf = (id) => {
+        for (const [name, cid] of cityIndex) if (cid === id) return name.replace('（全省）', '');
+        return id;
+      };
+
+      const renderIndChips = () => {
+        const box = $('#pf-ind-chips');
+        if (!box) return;
+        box.innerHTML = industries
+          .map((i) => `<button type="button" class="chip ${selectedInds.has(i.id) ? 'active' : ''}" data-ind="${ui.esc(i.id)}">${i.icon || ''}${ui.esc(i.name)}</button>`)
+          .join('');
+      };
+      const renderCityChips = () => {
+        const box = $('#pf-city-chips');
+        if (!box) return;
+        if (!selectedCities.size) {
+          box.innerHTML = '<span class="tiny dim">未选择（不限地区）</span>';
+          return;
+        }
+        box.innerHTML = [...selectedCities]
+          .map((id) => `<button type="button" class="chip active" data-city="${ui.esc(id)}">${ui.esc(cityNameOf(id))} ✕</button>`)
+          .join('');
+      };
+
+      renderIndChips();
+      renderCityChips();
+
+      // 下拉选项
+      const dl = $('#pf-city-options');
+      if (dl) {
+        dl.innerHTML = [...cityIndex.keys()].map((n) => `<option value="${ui.esc(n)}">`).join('');
+      }
+
+      $('#pf-ind-chips')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-ind]');
+        if (!btn) return;
+        const id = btn.dataset.ind;
+        if (selectedInds.has(id)) selectedInds.delete(id);
+        else selectedInds.add(id);
+        renderIndChips();
+      });
+
+      $('#pf-city-chips')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-city]');
+        if (!btn) return;
+        selectedCities.delete(btn.dataset.city);
+        renderCityChips();
+      });
+
+      const addCity = () => {
+        const inp = $('#pf-city-add');
+        if (!inp) return;
+        const raw = (inp.value || '').trim();
+        if (!raw) return;
+        // 支持「杭州」和「浙江省（全省）」两种写法
+        let id = cityIndex.get(raw);
+        if (!id) {
+          for (const [name, cid] of cityIndex) {
+            if (name.includes(raw) || raw.includes(name.replace('（全省）', ''))) { id = cid; break; }
+          }
+        }
+        if (!id) {
+          ui.toast('没找到这个城市，试试输入「杭州」或「浙江省」', 'err');
+          return;
+        }
+        selectedCities.add(id);
+        inp.value = '';
+        renderCityChips();
+      };
+      $('#pf-city-add-btn')?.addEventListener('click', addCity);
+      $('#pf-city-add')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addCity(); }
+      });
+
       $('#pf-save').addEventListener('click', async () => {
         const settings = {};
         root.querySelectorAll('[data-setting]').forEach((el) => {
@@ -1561,6 +1661,8 @@ export async function renderProfile(ctx) {
           wechatId: $('#pf-wechatId').value.trim(),
           email: $('#pf-email').value.trim(),
           website: $('#pf-website').value.trim(),
+          industryIds: [...selectedInds],
+          cityIds: [...selectedCities],
           settings,
         };
         try {

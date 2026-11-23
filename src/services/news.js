@@ -17,7 +17,7 @@ import crypto from 'node:crypto';
 import db, { newId } from '../store/db.js';
 import { NEWS_SOURCES, NEWS_TAGS } from '../data/news-sources.js';
 import { fetchWebpage, fetchHtml } from '../lib/webpage.js';
-import { notifyMany } from './notify.js';
+import { notify, notifyMany } from './notify.js';
 
 const news = () => db.collection('news');
 
@@ -411,13 +411,41 @@ export async function refresh({ maxPerSource = 6, maxTotal = 24, maxAgeDays = 12
   return stat;
 }
 
-/** 把最新一批还没推送过的新闻发给匹配的用户 */
-export async function pushLatest({ limit = 5 } = {}) {
+/**
+ * 新闻推送 —— 每日摘要（2026-11 改造）
+ *
+ * 原来是「每条新闻推一次」，实测 30 天产生 269,337 条通知
+ * （322 个用户 × 每条新闻），把 notifications.json 撑到 268MB，
+ * Node 内存 462MB，服务被 OOM 反复杀掉。
+ *
+ * 现在改成：把这一批还没推的新闻合成 **一条摘要** 推给每个用户。
+ *   - 一天推 1 次，而不是 70 次
+ *   - 用户设了 industryIds 的，优先展示匹配的资讯
+ *   - 正文只放前 5 条标题，点进去看全部
+ *
+ * 通知量：从「用户数 × 新闻数」降到「用户数」，约降 95%+。
+ */
+/** 每日摘要的节流状态（存在 settings 集合里） */
+const DIGEST_STATE_ID = 'news_digest';
+/** 两次摘要之间至少间隔多久（小时）—— 刷新每 3 小时跑一次，但摘要一天只发一次 */
+const DIGEST_MIN_GAP_HOURS = 20;
+
+export async function pushDigest({ maxItems = 30, topN = 5, force = false } = {}) {
+  // 一天只发一次摘要：新闻每 3 小时刷新一次，但推送要按天节流
+  const settings = db.collection('settings');
+  const state = settings.get(DIGEST_STATE_ID);
+  if (!force && state && state.lastAt) {
+    const gapMs = Date.now() - Date.parse(state.lastAt);
+    if (gapMs < DIGEST_MIN_GAP_HOURS * 3600_000) {
+      return 0; // 今天已经推过了
+    }
+  }
+
   const store = news();
   const pending = store
     .find((n) => !n.pushedAt)
-    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))
-    .slice(0, limit);
+    .sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')))
+    .slice(0, maxItems);
 
   if (!pending.length) return 0;
 
@@ -428,28 +456,44 @@ export async function pushLatest({ limit = 5 } = {}) {
   if (!interested.length) return 0;
 
   let sent = 0;
-  for (const item of pending) {
-    const targets = [];
-    for (const u of interested) {
-      // 用户关注了这些行业中的任一 → 推送；没设行业则全推
-      const follow = Array.isArray(u.followTags) && u.followTags.length ? u.followTags : null;
-      if (follow && !item.tags.some((t) => follow.includes(t))) continue;
-      targets.push(u.id);
-    }
-    if (!targets.length) continue;
+  for (const u of interested) {
+    // 用户设了行业兴趣 → 优先展示匹配的；一条都没匹配上就退回全部最新
+    const mine = (u.industryIds || []).length
+      ? pending.filter((n) => (n.tags || []).some((t) => u.industryIds.includes(t)))
+      : [];
+    const list = (mine.length ? mine : pending).slice(0, topN);
+    if (!list.length) continue;
 
-    notifyMany(targets, {
+    const lines = list.map((n, i) => `${i + 1}. ${String(n.title || '').slice(0, 60)}`).join('\n');
+    const total = pending.length;
+
+    notify({
       type: 'news',
-      title: `📰 ${item.title}`.slice(0, 120),
-      body: item.summary || '',
-      link: `#/news/${item.id}`,
-      meta: { newsId: item.id, tags: item.tags, sourceName: item.sourceName },
+      title: `📰 今日行业资讯 ${total} 条，${list[0].title.slice(0, 28)}${total > 1 ? ' 等' : ''}`,
+      body: `${lines}${total > list.length ? `\n…共 ${total} 条` : ''}\n\n点击查看全部资讯`,
+      link: '#/news',
+      meta: { digest: true, total, shown: list.length, matched: mine.length },
     });
-    sent += targets.length;
-
-    store.update(item.id, { pushedAt: new Date().toISOString() });
+    sent++;
   }
+
+  // 整批标记为已推送（不是逐条推，所以统一打标记）
+  const now = new Date().toISOString();
+  for (const n of pending) store.update(n.id, { pushedAt: now });
+
+  // 记下本次摘要时间，供下次节流判断
+  if (sent > 0) {
+    const next = { id: DIGEST_STATE_ID, lastAt: now, sent, total: pending.length };
+    if (settings.get(DIGEST_STATE_ID)) settings.update(DIGEST_STATE_ID, next);
+    else settings.insert(next);
+  }
+
   return sent;
+}
+
+/** 向后兼容：老的调用方还在用 pushLatest */
+export async function pushLatest(opts = {}) {
+  return pushDigest(opts);
 }
 
 /* ------------------------------------------------------------------ */
@@ -690,6 +734,7 @@ export { cleanTitle, dateFromUrl };
 
 export default {
   refresh,
+  pushDigest,
   pushLatest,
   listNews,
   getNews,

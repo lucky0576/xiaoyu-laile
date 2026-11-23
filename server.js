@@ -71,7 +71,7 @@ function startJobs() {
     const t = setInterval(() => {
       try {
         const r = fn();
-        if (r && (r.expired || r.reminded)) console.log(`[job:${name}]`, r);
+        if (r && (r.expired || r.reminded || r.removed || r.digestSent)) console.log(`[job:${name}]`, r);
       } catch (err) {
         console.warn(`[job:${name}] 失败:`, err.message);
       }
@@ -96,6 +96,17 @@ function startJobs() {
   };
   setTimeout(pruneOnce, 5 * 60_000).unref?.();
   run('prune-notify', pruneOnce, 6 * 60 * 60_000);
+
+  // 新项目周报：给「没设兴趣」的用户，一周一条（函数内部自己节流）
+  run('listing-digest', () => {
+    try {
+      const sent = notifySvc.pushListingDigest({ days: 7, topN: 6 });
+      return { digestSent: sent };
+    } catch (err) {
+      console.warn('[job:listing-digest] 失败:', err.message);
+      return {};
+    }
+  }, 6 * 60 * 60_000);
 
   // 招投标邮箱提醒：每 10 分钟扫描一次到期提醒
   run('bid-reminder', () => {

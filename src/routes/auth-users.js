@@ -780,6 +780,7 @@ export default function registerAuthUserRoutes(app) {
     if (b.logo !== undefined) patch.logo = str(b.logo, 500);
     if (b.avatar !== undefined) patch.avatar = str(b.avatar, 500);
     if (b.industryIds !== undefined) patch.industryIds = list(b.industryIds).slice(0, 10);
+    if (b.cityIds !== undefined) patch.cityIds = list(b.cityIds).slice(0, 20);
     if (b.settings !== undefined && typeof b.settings === 'object') {
       patch.settings = { ...user.settings, ...b.settings };
     }

@@ -204,6 +204,42 @@ export function wantsFollowNotice(u) {
  *   - 全体会员：平台所有正常账号（会员可在设置里关闭）
  * 两者取并集，同一个人只收到一条，避免重复打扰。
  */
+/**
+ * 用户设过的兴趣：行业 id + 城市 id。
+ * 兼容两套字段名（industryIds 是资料页的，followTags 是早期版本用过的）。
+ */
+function userInterests(u) {
+  const inds = new Set([...(u.industryIds || []), ...(u.followTags || [])]);
+  const cities = new Set([...(u.cityIds || []), ...(u.followCities || [])]);
+  return { inds, cities };
+}
+
+/**
+ * 这条信息是否命中用户的兴趣。
+ * 行业命中或城市命中任意一个就算命中。
+ */
+function listingMatchesInterests(u, listing) {
+  const { inds, cities } = userInterests(u);
+  if (!inds.size && !cities.size) return false; // 没设兴趣 → 不推（避免全员轰炸）
+  const lInds = (listing.industries || []).map((i) => i && i.id).filter(Boolean);
+  const lCities = (listing.cities || []).map((c) => c && c.id).filter(Boolean);
+  if (lInds.some((id) => inds.has(id))) return true;
+  if (lCities.some((id) => cities.has(id))) return true;
+  return false;
+}
+
+/**
+ * 新信息上线时应该收到通知的人。
+ *
+ * 2026-11 改造前：精准关注者 ∪ **全体会员**
+ *   → 919 条信息 × 329 用户，30 天产生 235,130 条通知。
+ *
+ * 改造后：精准关注者 ∪ 兴趣匹配的会员
+ *   - 关注者：关注了该信息 / 发布者 / 行业 / 城市的人（明确表达过兴趣）
+ *   - 兴趣会员：profile 里设了行业或城市的，且与本条信息匹配
+ *   - 没设兴趣的会员：不再收到单条项目推送（可去「项目」页浏览，
+ *     或在资料页设置关注的行业/地区）
+ */
 export function newListingAudience(listing) {
   const followers = new Set();
   for (const f of follows().all()) {
@@ -215,7 +251,6 @@ export function newListingAudience(listing) {
       followers.add(f.userId);
   }
   followers.delete(listing.ownerId);
-  // 尊重「关注动态」开关：关掉的人不再收到关注类推送
   for (const uid of [...followers]) {
     if (!wantsFollowNotice(users().get(uid))) followers.delete(uid);
   }
@@ -224,8 +259,12 @@ export function newListingAudience(listing) {
   for (const u of users().all()) {
     if (!u || !wantsNewProjectNotice(u)) continue;
     if (u.id === listing.ownerId) continue;
+    if (!listingMatchesInterests(u, listing)) continue;
     members.add(u.id);
   }
+
+  // 关注者已经在 followers 里了，members 去掉重复
+  for (const uid of followers) members.delete(uid);
 
   return { followers, members, all: new Set([...followers, ...members]) };
 }
@@ -421,6 +460,66 @@ export function notificationStats(userId) {
   };
 }
 
+/**
+ * 给「没设置兴趣」的用户发新项目周报
+ *
+ * 为什么需要它：改成按兴趣过滤后，没设兴趣的用户会完全收不到新项目推送
+ * （实测 330 个用户里 0 个设过兴趣，等于新项目通知直接断掉）。
+ * 所以给这部分人一周发一条精选摘要，既不轰炸也不失联。
+ *
+ * 已经设了兴趣的人不在这里发 —— 他们走 fanOutListing 的精确推送。
+ */
+export function pushListingDigest({ days = 7, topN = 6, minGapHours = 160 } = {}) {
+  const settings = db.collection('settings');
+  const STATE_ID = 'listing_digest';
+  const state = settings.get(STATE_ID);
+  if (state && state.lastAt) {
+    const gap = Date.now() - Date.parse(state.lastAt);
+    if (gap < minGapHours * 3600_000) return 0; // 还没到一周
+  }
+
+  const since = Date.now() - days * 86400_000;
+  const recent = listings()
+    .all()
+    .filter((l) => l.status === 'published')
+    .filter((l) => {
+      const t = Date.parse(l.publishedAt || l.createdAt || 0) || 0;
+      return t >= since;
+    })
+    .sort((a, b) => (Date.parse(b.publishedAt || b.createdAt || 0) || 0) - (Date.parse(a.publishedAt || a.createdAt || 0) || 0));
+
+  if (!recent.length) return 0;
+
+  const list = recent.slice(0, topN);
+
+  // 只发给「没设兴趣」的正常用户
+  const targets = [];
+  for (const u of users().all()) {
+    if (!u || u.disabled || u.banned) continue;
+    if (!wantsNewProjectNotice(u)) continue;
+    const has = (u.industryIds || []).length || (u.followTags || []).length
+      || (u.cityIds || []).length || (u.followCities || []).length;
+    if (has) continue; // 设了兴趣的人走精确推送
+    targets.push(u.id);
+  }
+  if (!targets.length) return 0;
+
+  const lines = list.map((l, i) => `${i + 1}. ${String(l.title || '').slice(0, 50)}`).join('\n');
+  notifyMany(targets, {
+    type: 'listing_new',
+    title: `📌 本周新增 ${recent.length} 个项目，${String(list[0].title || '').slice(0, 24)} 等`,
+    body: `${lines}${recent.length > list.length ? `\n…共 ${recent.length} 个` : ''}\n\n点进去看看有没有适合你的`,
+    link: '#/list?category=project',
+    meta: { digest: true, total: recent.length, shown: list.length },
+  });
+
+  const next = { id: STATE_ID, lastAt: new Date().toISOString(), total: recent.length, sent: targets.length };
+  if (settings.get(STATE_ID)) settings.update(STATE_ID, next);
+  else settings.insert(next);
+
+  return targets.length;
+}
+
 export default {
   follow,
   unfollow,
@@ -439,6 +538,7 @@ export default {
   unreadCount,
   markRead,
   pruneNotifications,
+  pushListingDigest,
   remindExpiring,
   expireListings,
   notificationStats,
