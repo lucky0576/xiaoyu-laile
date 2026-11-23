@@ -55,3 +55,6 @@ data-scratch/
 # Word / Office 临时锁文件
 soft-copyright/~$*
 ~$*
+
+# 服务器备份拉取到本机（体积大，不入库）
+server-backups/

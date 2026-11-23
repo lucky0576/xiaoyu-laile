@@ -373,6 +373,46 @@ export function expireListings() {
   return n;
 }
 
+/**
+ * 清理旧通知 —— 防止无界增长。
+ *
+ * 背景：2026-11 发现 notifications.json 涨到 268MB / 50.7 万条，
+ * Node 常驻内存 462MB，服务被 OOM 反复杀掉重启（7 天 32 次）。
+ * 根因是「每条新闻 / 每个新项目都推给全体 322 个用户」，且没有任何保留策略。
+ *
+ * 策略：保留最近 keepDays 天，且每个用户最多 perUser 条（默认 30 天 / 200 条）。
+ * 每天跑一次，内存占用就有上界了。
+ */
+export function pruneNotifications({ keepDays = 30, perUser = 200 } = {}) {
+  const all = notifications().all();
+  if (!all.length) return { before: 0, after: 0, removed: 0 };
+
+  const cutoff = Date.now() - keepDays * 86400_000;
+
+  // 先按时间过滤，再按用户截断，最后得到要保留的 id 集合
+  const grouped = new Map();
+  for (const n of all) {
+    const t = Date.parse(n.createdAt || 0) || 0;
+    if (t < cutoff) continue;
+    if (!grouped.has(n.userId)) grouped.set(n.userId, []);
+    grouped.get(n.userId).push(n);
+  }
+
+  const keep = new Set();
+  for (const arr of grouped.values()) {
+    arr.sort((a, b) => (Date.parse(b.createdAt || 0) || 0) - (Date.parse(a.createdAt || 0) || 0));
+    for (const n of arr.slice(0, perUser)) keep.add(n.id);
+  }
+
+  // 先收集再删除，避免边遍历边改数组
+  const doomed = all.filter((n) => !keep.has(n.id)).map((n) => n.id);
+  for (const id of doomed) {
+    try { notifications().remove(id); } catch { /* 单条失败不影响整体 */ }
+  }
+
+  return { before: all.length, after: all.length - doomed.length, removed: doomed.length };
+}
+
 export function notificationStats(userId) {
   const all = notifications().where('userId', userId);
   return {
@@ -398,6 +438,7 @@ export default {
   listNotifications,
   unreadCount,
   markRead,
+  pruneNotifications,
   remindExpiring,
   expireListings,
   notificationStats,

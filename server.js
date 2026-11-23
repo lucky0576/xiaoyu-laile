@@ -83,6 +83,20 @@ function startJobs() {
   run('remind', () => ({ reminded: notifySvc.remindExpiring() }), 30 * 60_000);
   run('otp-sweep', () => ({ swept: sweepOtps() }), 60 * 60_000);
 
+  // 通知清理：每 6 小时一次（首次在启动后 5 分钟跑，把历史积压先削掉）
+  const pruneOnce = () => {
+    try {
+      const r = notifySvc.pruneNotifications({ keepDays: 30, perUser: 200 });
+      if (r.removed) console.log('[job:prune-notify]', r);
+      return r;
+    } catch (err) {
+      console.warn('[job:prune-notify] 失败:', err.message);
+      return {};
+    }
+  };
+  setTimeout(pruneOnce, 5 * 60_000).unref?.();
+  run('prune-notify', pruneOnce, 6 * 60 * 60_000);
+
   // 招投标邮箱提醒：每 10 分钟扫描一次到期提醒
   run('bid-reminder', () => {
     bidReminders
