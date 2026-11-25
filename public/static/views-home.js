@@ -5,7 +5,7 @@ import { api, service, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import {
   itemHtml, aiCardHtml, filesHtml, fileCardHtml, pipelineHtml, commentHtml, userCardHtml,
-  sortBarHtml, categoryIcon, categoryName, thumbUrl,
+  sortBarHtml, categoryIcon, categoryName, thumbUrl, cardShareHtml,
 } from './components.js';
 import { openShareSheet, setupWechatShare } from './share.js';
 import { applyAutoCover, drawProjectCover } from './cover.js';
@@ -518,6 +518,7 @@ export async function renderHome(ctx, query) {
   const itemCard = (l) => {
     const hasImg = Boolean(l.coverUrl);
     return `<a class="home-item" href="#/detail/${ui.esc(l.id)}">
+      ${cardShareHtml(l)}
       <div class="cover">
         ${hasImg
           ? `<img src="${ui.esc(ui.safeUrl(thumbUrl(l.coverUrl, 400)))}" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
@@ -710,10 +711,21 @@ export async function renderHome(ctx, query) {
   const honorBarHtml = `<a class="honor-home-bar" href="#/about">
     <div class="honor-home-mark">AWARD</div>
     <div class="honor-home-body">
-      <b>2026 杭州市电子商务创新创业大赛 · 三等奖</b>
+      <div class="honor-home-brandline"><span class="honor-home-con">恭喜！</span></div>
+      <b>荣获 2026 杭州市电子商务创新创业大赛 · 三等奖</b>
       <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
     </div>
-    <div class="honor-home-cta">查看荣誉 ›</div>
+    <img class="honor-home-logo-right" src="/static/logo-white@2x.png" alt="小鱼来了">
+  </a>`;
+
+  const opcBarHtml = `<a class="opc-home-bar" href="#/opc">
+    <div class="opc-home-copy">
+      <div class="opc-home-badge">OPC 服务专区 · 独立入口</div>
+      <div class="opc-home-t">OPC服务，让 OPC 获得更多的扶持和发展</div>
+      <div class="opc-home-d">短视频 / AI 工具 / 数据标注 / 3D / 光伏储能 / 投标服务 · 真实项目，先选方向再接单</div>
+      <div class="opc-home-cta">进入 OPC 服务专区 ›</div>
+    </div>
+    <div class="opc-home-art" aria-hidden="true"><b>OPC</b><i>社区</i></div>
   </a>`;
 
   const SECTIONS = {
@@ -725,7 +737,7 @@ export async function renderHome(ctx, query) {
     tajian: tajianBarHtml,
     projects: projectBarHtml,
     bidding: biddingBarHtml,
-    honor: honorBarHtml,
+    opc: opcBarHtml,
     ecom: ecomBarHtml,
     promos: promoHtml,
     rec: `${loginStrip}${recHtml}`,
@@ -736,8 +748,13 @@ export async function renderHome(ctx, query) {
     stats: statsHtml,
   };
   const DEFAULT_ORDER = [
-    'publish', 'grid', 'honor', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'bidding', 'ecom',
-    'promos', 'rec', 'industries', 'latest', 'cases', 'stats',
+    /*
+     * 「最新发布」放第一位：AI 搜索横栏是独立渲染的（在 sections 之前），
+     * 所以 latest 排第一就等于「紧跟在 AI 搜索下面」。
+     */
+    'latest',
+    'publish', 'grid', 'brainco', 'topic', 'tajian', 'events', 'metaverse', 'projects', 'bidding', 'ecom', 'opc',
+    'promos', 'rec', 'industries', 'cases', 'stats',
   ];
   const order = (homeLayoutOrder && homeLayoutOrder.length ? homeLayoutOrder : DEFAULT_ORDER).filter(
     (id) => SECTIONS[id],
@@ -749,15 +766,35 @@ export async function renderHome(ctx, query) {
     const at = pi >= 0 ? pi + 1 : ei >= 0 ? ei : order.length;
     order.splice(at, 0, 'bidding');
   }
-  if (!order.includes('honor')) {
-    const gi = order.indexOf('grid');
-    order.splice(gi >= 0 ? gi + 1 : 0, 0, 'honor');
+  if (!order.includes('ecom')) {
+    const bi = order.indexOf('bidding');
+    const oi = order.indexOf('opc');
+    const at = oi >= 0 ? oi : (bi >= 0 ? bi + 1 : order.length);
+    order.splice(at, 0, 'ecom');
   }
+  if (!order.includes('opc')) {
+    const ei = order.indexOf('ecom');
+    order.splice(ei >= 0 ? ei + 1 : order.length, 0, 'opc');
+  }
+  /*
+   * 「最新发布」固定放最上面（紧跟 AI 搜索）。
+   * 后台可能存过旧的自定义排序，这里强制把它提到第一位，
+   * 避免老配置的人看不到这次调整。
+   */
+  {
+    const li = order.indexOf('latest');
+    if (li > 0) {
+      order.splice(li, 1);
+      order.unshift('latest');
+    }
+  }
+
   const orderedSections = order.map((id) => SECTIONS[id]).join('\n');
 
   const html = `<div class="home-wrap">
     ${noticeHtml}
     ${shortHtml}
+    ${honorBarHtml}
     ${aiBarHtml}
 
     ${orderedSections}
@@ -774,7 +811,7 @@ export async function renderHome(ctx, query) {
       <div class="site-foot-meta">
         联系与举报：13456693544 · service@xiaoyulaile.online<br>
         <span class="tiny">本站信息来自用户发布与公开渠道整理，仅供参考，不构成交易或投资建议</span>
-        <div class="site-foot-org">运营主体：小鱼来了科技有限公司</div>
+        <div class="site-foot-org">运营主体：杭州硕鱼科技有限公司</div>
       </div>
     </div>
   </div>`;
