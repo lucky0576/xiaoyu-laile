@@ -30,7 +30,7 @@ export async function renderLatest(ctx) {
   const html = `<div class="page lt-page">
     <div class="lt-head">
       <div>
-        <div class="lt-t">🔥 最新发布</div>
+        <div class="lt-t">🔥 需求广场</div>
         <div class="lt-d">项目 · 贸易 · 活动 · 科技 · 招投标，按发布时间倒序</div>
       </div>
       <span class="tiny dim">共 ${total} 条</span>
@@ -41,7 +41,7 @@ export async function renderLatest(ctx) {
     ${total > items.length ? `<div class="tiny dim center mt16">仅展示最近 ${items.length} 条，更多请按分类浏览</div>` : ''}
   </div>`;
 
-  return { title: '最新发布', content: html, activeTab: 'home', showBack: true };
+  return { title: '需求广场', content: html, activeTab: 'home', showBack: true };
 }
 
 export default { renderLatest };

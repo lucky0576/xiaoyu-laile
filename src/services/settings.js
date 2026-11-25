@@ -442,7 +442,7 @@ export default {
 /* ------------------------------------------------------------------ */
 
 export const HOME_SECTIONS = [
-  { id: 'latest', name: '最新发布', desc: '最新发布（两列卡片）' },
+  { id: 'latest', name: '需求广场', desc: '需求广场（两列卡片）' },
   { id: 'publish', name: '发布信息横栏', desc: '蓝色「发布信息」横栏' },
   { id: 'grid', name: '主入口宫格', desc: '活动赛事 / 贸易采供 / 会议 / 元宇宙展厅 / 出海…' },
   { id: 'brainco', name: 'BrainCo 横栏', desc: '战略合作伙伴 · 强脑科技' },

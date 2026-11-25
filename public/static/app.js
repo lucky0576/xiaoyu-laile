@@ -857,7 +857,7 @@ const TOPIC_SHARE = {
   opc: { title: 'OPC 服务专区 · 需求广场与扶持', desc: '真实产业需求 + 合作社区政策、算力、订单资源，让 OPC 获得更多扶持和发展。', image: '/static/logo@2x.png' },
   funds: { title: '小鱼来了 · 融资项目', desc: '真实项目融资需求与投资机构。', image: '/static/logo@2x.png' },
   services: { title: '小鱼来了 · 企业服务', desc: 'AI 尽调报告、区域数据库、信息代运营、私有化部署，明码标价。', image: '/static/logo@2x.png' },
-  latest: { title: '小鱼来了 · 最新发布', desc: '项目、贸易、活动、招投标最新信息。', image: '/static/logo@2x.png' },
+  latest: { title: '小鱼来了 · 需求广场', desc: '项目、贸易、活动、招投标最新需求。', image: '/static/logo@2x.png' },
   cases: { title: '小鱼来了 · 客户案例', desc: '塔建集团、强脑科技等产业方专题与项目案例。', image: '/static/logo@2x.png' },
 };
 

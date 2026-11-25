@@ -148,6 +148,7 @@ const PHRASES = {
   成果信息: 'Tech listings',
   招投标信息: 'Tender listings',
   最新发布: 'Newest',
+  需求广场: 'Demand Board',
   热门优先: 'Popular',
   暂无信息: 'No listings yet',
   '暂无数据': 'No data',
@@ -248,7 +249,7 @@ const PHRASES = {
   用户协议: 'Terms',
   免责声明: 'Disclaimer',
   开放接口: 'API',
-  '运营主体：小鱼来了科技有限公司': 'Operated by Xiaoyu Laile Technology Co., Ltd.',
+  '运营主体：杭州硕鱼科技有限公司': 'Operated by Hangzhou Shuoyu Technology Co., Ltd.',
 };
 
 /* 数字/动态文案：正则替换（英文侧用 $1 引用数字） */
