@@ -99,10 +99,21 @@ export const config = {
 
   /*
    * ICP 备案进度提示：会出现在「转发分享的文案」和「微信转发卡片描述」里。
-   * 备案通过后把 .env 里的 ICP_NOTICE 改成空字符串即可关掉，不用改代码：
-   *   ICP_NOTICE=
+   *
+   * 注意这里不能直接用 env()：env() 把空字符串当成「没配置」并回退到默认值，
+   * 那样 ICP_NOTICE= 就关不掉提示了。这里区分三种状态：
+   *   .env 里没有这一项        -> 用默认文案（默认是显示）
+   *   ICP_NOTICE=              -> 空，表示关掉
+   *   ICP_NOTICE=off / 0 / false / none -> 也当关掉（手滑写成这些词也能关）
+   *   ICP_NOTICE=别的文案      -> 用这条文案
    */
-  icpNotice: env('ICP_NOTICE', '小鱼来了正在办理 ICP 备案，预计月底前完成'),
+  icpNotice: (() => {
+    const raw = process.env.ICP_NOTICE;
+    if (raw === undefined) return '小鱼来了正在办理 ICP 备案，预计月底前完成';
+    const t = String(raw).trim();
+    if (!t || ['off', '0', 'false', 'none', 'no'].includes(t.toLowerCase())) return '';
+    return t;
+  })(),
 
   host: env('HOST', '0.0.0.0'),
   port: num('PORT', 8787),
