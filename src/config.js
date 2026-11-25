@@ -97,6 +97,13 @@ export const config = {
   appName: env('APP_NAME', '小鱼来了'),
   appSlogan: env('APP_SLOGAN', '小鱼来了 · AI 驱动的产业互联网 B2B B2G平台｜让每一条好项目，都被对的人看见'),
 
+  /*
+   * ICP 备案进度提示：会出现在「转发分享的文案」和「微信转发卡片描述」里。
+   * 备案通过后把 .env 里的 ICP_NOTICE 改成空字符串即可关掉，不用改代码：
+   *   ICP_NOTICE=
+   */
+  icpNotice: env('ICP_NOTICE', '小鱼来了正在办理 ICP 备案，预计月底前完成'),
+
   host: env('HOST', '0.0.0.0'),
   port: num('PORT', 8787),
   /** 对外可访问的根地址，用于生成分享链接与二维码。留空则用请求头推断。 */

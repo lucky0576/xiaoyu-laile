@@ -4,7 +4,7 @@
 import { service, store, isLoggedIn } from './api.js';
 import * as ui from './ui.js';
 import { installErrorReport } from './error-report.js';
-import { withSlogan } from './slogan.js';
+import { withSlogan, setIcpNotice } from './slogan.js';
 import * as i18n from './i18n.js';
 /*
  * 视图模块全部改成「按需加载」。
@@ -40,6 +40,33 @@ function installNativeShareSlogan() {
   } catch { /* 浏览器不允许改写时忽略 */ }
 }
 installNativeShareSlogan();
+
+/*
+ * 全站项目卡片分享：一个 document 级处理器，避免每个页面各写一套。
+ * 卡片只需用 components.js 的 cardShareHtml(l)，即可获得：
+ *   1. 文字 + 图片（海报）
+ *   2. 文字 + 链接
+ */
+function installCardShareHandler() {
+  document.addEventListener('click', (e) => {
+    const el = e.target?.closest?.('[data-card-share]');
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const d = el.dataset || {};
+    import('./share.js')
+      .then((m) => m.openQuickShare({
+        title: d.shareTitle || '',
+        desc: d.shareDesc || '',
+        url: d.shareUrl || location.href,
+        image: d.shareImage || '',
+        tag: d.shareTag || '小鱼来了',
+      }))
+      .catch(() => ui.toast('分享内容生成失败', 'err'));
+  });
+}
+installCardShareHandler();
+
 
 const lazyView = (loader) =>
   new Proxy(
@@ -492,6 +519,8 @@ async function resolveView({ segs, query }) {
     case 'card':
       return viewsCard.renderCard(ctx, query);
     case 'opc':
+      if (p1 === 'p' && p2) return viewsOpc.renderOpcDetail(ctx, 'policy', p2);
+      if (p1 === 's' && p2) return viewsOpc.renderOpcDetail(ctx, 'step', p2);
       return viewsOpc.renderOpc(ctx, query);
     case 'latest':
       return viewsLatest.renderLatest(ctx, query);
@@ -823,7 +852,7 @@ const TOPIC_SHARE = {
   startup: { title: '创业服务专区 · 补贴/辅导/赛事', desc: '创业补贴、创业辅导、创业赛事一站看全，按分类查找与发布。', image: '/static/logo@2x.png' },
   'bid-assistant': { title: 'AI自动化招投标助手 · 仅限杭州 · 10,000 元/年', desc: '仅限杭州、400 万以下小额交易：自动寻标、读标、做标、核查与 CA 投标操作。', image: '/static/logo@2x.png' },
   card: { title: '卢云 · 小鱼来了', desc: '小鱼来了创始人兼 CEO 卢云的电子名片。', image: '/static/logo@2x.png' },
-  opc: { title: 'OPC 商机专区 · 真实项目拆解', desc: '把真实产业项目拆成 OPC/超级个体可接的服务包，先选方向，再看项目。', image: '/static/logo@2x.png' },
+  opc: { title: 'OPC 服务专区 · 需求广场与扶持', desc: '真实产业需求 + 合作社区政策、算力、订单资源，让 OPC 获得更多扶持和发展。', image: '/static/logo@2x.png' },
   funds: { title: '小鱼来了 · 融资项目', desc: '真实项目融资需求与投资机构。', image: '/static/logo@2x.png' },
   services: { title: '小鱼来了 · 企业服务', desc: 'AI 尽调报告、区域数据库、信息代运营、私有化部署，明码标价。', image: '/static/logo@2x.png' },
   latest: { title: '小鱼来了 · 最新发布', desc: '项目、贸易、活动、招投标最新信息。', image: '/static/logo@2x.png' },
@@ -995,6 +1024,10 @@ async function boot() {
   setupErrorReporting();
   try {
     const [site, taxonomy] = await Promise.all([service.site(), service.taxonomy()]);
+    // 分享文案里的 ICP 备案提示以服务端为准（备案完成后置空即可）
+    try {
+      if (site && typeof site.icpNotice === 'string') setIcpNotice(site.icpNotice);
+    } catch { /* 不影响启动 */ }
     state.site = site;
     state.taxonomy = taxonomy;
     // 把版本号记下来，排查「浏览器用的是不是旧版前端」时一眼可见

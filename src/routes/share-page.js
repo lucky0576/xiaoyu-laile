@@ -20,7 +20,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { PUBLIC_DIR } from '../config.js';
+import { PUBLIC_DIR, config } from '../config.js';
 import listingsSvc from '../services/listings.js';
 import feedsSvc from '../services/feeds.js';
 import referralSvc from '../services/referral.js';
@@ -61,6 +61,7 @@ function renderMeta({ title, desc, image, url, redirectHash }) {
   if (!html) return '';
 
   const fullTitle = `${esc(title)} · 小鱼来了`;
+
   const d = esc(clip(desc, 200));
   const img = esc(image || '');
   const absUrl = esc(url || '');
@@ -102,7 +103,15 @@ function renderMeta({ title, desc, image, url, redirectHash }) {
 
 function renderLanding({ title, desc, image, ctaHref, ctaText = '打开详情', tag = '' }) {
   const t = esc(title);
-  const d = esc(clip(desc, 220));
+
+  /*
+   * 转发分享时带一句 ICP 备案进度。
+   * 内容来自 config.icpNotice（.env 的 ICP_NOTICE），
+   * 备案通过后把 .env 里那一项置空即可，不用改代码。
+   */
+  const icpNotice = String(config.icpNotice || '').trim();
+  const descBody = clip(desc, icpNotice ? 150 : 220);
+  const d = esc(icpNotice ? `${descBody}｜${icpNotice}` : descBody);
   const img = esc(image || '');
   const cta = esc(ctaHref || '/');
   return `<!doctype html>
@@ -149,7 +158,7 @@ h1{font-size:20px;line-height:1.45;margin:0 0 10px;font-weight:800;word-break:br
     <a class="cta" href="${cta}">${esc(ctaText)} ›</a>
     <a class="sub" href="/">打开小鱼来了首页</a>
   </div>
-  <div class="foot">小鱼来了 · AI 驱动的产业互联网 B2B B2G平台｜让每一条好项目，都被对的人看见</div>
+  <div class="foot">小鱼来了 · AI 驱动的产业互联网 B2B B2G平台｜让每一条好项目，都被对的人看见${icpNotice ? `<br>${esc(icpNotice)}` : ''}</div>
 </div>
 </body>
 </html>`;

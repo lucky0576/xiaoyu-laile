@@ -1101,6 +1101,7 @@ export default function registerCoreRoutes(app) {
     data(res, {
       name: config.appName,
       slogan: config.appSlogan,
+      icpNotice: config.icpNotice || '',
       categories: CATEGORIES.map((c) => ({ id: c.id, name: c.name, icon: c.icon, types: c.types })),
       durations: listingsSvc.DURATION_OPTIONS,
       ai: ai.aiStatus(),
