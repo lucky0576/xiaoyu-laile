@@ -61,6 +61,8 @@ function installCardShareHandler() {
         url: d.shareUrl || location.href,
         image: d.shareImage || '',
         tag: d.shareTag || '小鱼来了',
+        contactName: d.shareContact || '',
+        contactCompany: d.shareCompany || '',
       }))
       .catch(() => ui.toast('分享内容生成失败', 'err'));
   });

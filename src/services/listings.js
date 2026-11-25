@@ -308,6 +308,24 @@ export function listingBrief(l) {
      * 对读者没有意义 —— 大家关心的是「跟谁对接」，所以优先展示发布时填的联系人。
      */
     contactName: maskContacts(String(l.contact?.name || '')).text,
+    /*
+     * 联系人所在公司。海报上要显示「姓名 + 公司」，
+     * 数据来源按完整度依次回退：contact.company(62 条) -> ownerSnapshot.company(25 条)。
+     * 公司名不含电话/微信，但仍过一遍 maskContacts 保持口径一致。
+     */
+    contactCompany: maskContacts(
+      String(
+        l.contact?.company ||
+          l.ownerSnapshot?.company ||
+          /*
+           * 兜底：发的是一条旧信息时，ownerSnapshot 是当时的快照，
+           * 用户后来在资料里补了公司名，快照不会自动更新 ——
+           * 所以这里再查一次账号当前的公司，让「填了资料就生效」。
+           */
+          users().get(l.ownerId)?.company ||
+          '',
+      ),
+    ).text,
     status: l.status,
     sourceName: l.sourceName || '',
     shortVideoUrl: l.shortVideoUrl || '',

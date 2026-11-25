@@ -6,6 +6,46 @@ import {
   KIND_ICON, KIND_LABEL, reliabilityColor, nl2br, initials,
 } from './ui.js';
 
+/*
+ * 所有项目卡片的统一分享入口。
+ * 由 app.js 中的 document 级 [data-card-share] 处理器调用 share.js 的 openQuickShare，
+ * 这样新卡片只要加一个 cardShareHtml(l) 就有「文字+图片 / 文字+链接」两种分享。
+ */
+export function cardShareHtml(l) {
+  if (!l || !l.id) return '';
+  const title = String(l.title || '').trim();
+  const desc = String(l.subtitle || l.summary || l.ai?.summary || '').trim();
+  const image = l.coverUrl ? thumbUrl(safeUrl(l.coverUrl), 900) : '';
+  const url = `${location.origin}/#/detail/${encodeURIComponent(l.id)}`;
+  /*
+   * 联系人：海报上要显示「姓名 + 公司」，对方扫码前就知道找谁、哪家公司。
+   *
+   * 注意数据来源：列表接口出于隐私**不返回 contact / ownerSnapshot**，
+   * 但会返回 contactName（发布方填的联系人）和 owner{nickname,company}。
+   * 详情接口才可能有 contact/ownerSnapshot，所以这里按可用性依次回退。
+   */
+  const contactName = String(
+    l.contact?.name || l.contactName || l.ownerSnapshot?.nickname || l.owner?.nickname || '',
+  ).trim();
+  const contactCompany = String(
+    l.contactCompany ||
+      l.contact?.company ||
+      l.owner?.company ||
+      l.ownerSnapshot?.company ||
+      l.company ||
+      '',
+  ).trim();
+  return `<span class="card-share" role="button" tabindex="0" title="分享项目"
+    data-card-share="1"
+    data-share-title="${esc(title)}"
+    data-share-desc="${esc(desc)}"
+    data-share-image="${esc(image)}"
+    data-share-url="${esc(url)}"
+    data-share-tag="${esc(l.categoryName || '小鱼来了')}"
+    data-share-contact="${esc(contactName)}"
+    data-share-company="${esc(contactCompany)}">分享</span>`;
+}
+
 /* ---------------- 信息列表项 ---------------- */
 export function itemHtml(l) {
   if (!l) return '';
@@ -31,6 +71,7 @@ export function itemHtml(l) {
   const expiry = l.expiresAt ? (left > 0 ? `剩 ${left} 天` : '已到期') : '';
 
   return `<a class="item" href="#/detail/${esc(l.id)}">
+    ${cardShareHtml(l)}
     ${cover
       ? `<img class="item-thumb" src="${esc(cover)}" alt="" loading="lazy">`
       : `<div class="item-thumb" style="display:grid;place-items:center;font-size:26px">${esc(categoryIcon(l.category))}</div>`}

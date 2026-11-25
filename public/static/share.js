@@ -168,6 +168,25 @@ function wrapText(ctx, text, maxWidth, maxLines = 3) {
   return out;
 }
 
+/**
+ * 按像素宽度裁文字，超出加省略号。
+ * 胶囊里的公司名可能很长（「山东鲁能新能源工程有限公司」），
+ * 直接 fillText 会画出胶囊外，所以要按实际测量宽度截。
+ */
+function clipToWidth(ctx, text, maxWidth) {
+  const t = String(text || '');
+  if (!t) return '';
+  if (ctx.measureText(t).width <= maxWidth) return t;
+  let lo = 0;
+  let hi = t.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(`${t.slice(0, mid)}…`).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? `${t.slice(0, lo)}…` : '';
+}
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -181,7 +200,7 @@ function roundRect(ctx, x, y, w, h, r) {
 /**
  * 生成分享海报。尺寸 750 × 1050。
  */
-export async function renderPoster({ title, subtitle, summary, qrText, coverUrl, meta = [], sharerName = '', avatarUrl = '', coverHeight = 0 }) {
+export async function renderPoster({ title, subtitle, summary, qrText, coverUrl, meta = [], sharerName = '', sharerCompany = '', avatarUrl = '', coverHeight = 0, nameSuffix = '邀请你' }) {
   const W = 750;
   const H = 1050;
   const canvas = document.createElement('canvas');
@@ -261,24 +280,44 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
   }
 
   /*
-   * 分享者胶囊：「[头像] 张工 邀请你」
-   * 放在封面右上角。带上具体的人比纯品牌更容易被点开。
+   * 分享者胶囊：左上角是品牌，右上角是「谁发的」。
+   *   [头像] 张工
+   *          山东鲁能新能源工程有限公司
+   *
+   * 之前只有昵称 + 「邀请你」，转发出去对方不知道这个人是哪家公司的。
+   * 现在两行显示：姓名 + 公司名。公司名按像素宽度自动截断加省略号。
    */
-  if (sharerName) {
-    const nameTxt = String(sharerName).slice(0, 8);
-    const label = nameTxt.length > 5 ? `${nameTxt.slice(0, 5)}… 邀请你` : `${nameTxt} 邀请你`;
-    ctx.font = 'bold 24px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-    const labelW = ctx.measureText(label).width;
-    const avSize = 40;
+  if (sharerName || sharerCompany) {
+    const nameTxt = String(sharerName || '').slice(0, 12);
+    const compTxt = String(sharerCompany || '').slice(0, 18);
+    const suffix = sharerName && compTxt ? '' : (nameTxt ? nameSuffix : '');
+    const line1 = nameTxt ? (suffix && nameTxt.length <= 5 ? `${nameTxt} ${suffix}` : nameTxt) : '';
+    const hasTwo = Boolean(line1 && compTxt);
+
+    const nameFont = 'bold 24px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+    const compFont = '18px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+
+    ctx.font = nameFont;
+    const w1 = line1 ? ctx.measureText(line1).width : 0;
+    ctx.font = compFont;
+    const w2 = compTxt ? ctx.measureText(compTxt).width : 0;
+
+    const avSize = hasTwo ? 44 : 40;
     const padL = 8;
     const padR = 18;
-    const pillH = 56;
-    const pillW = padL + avSize + 10 + labelW + padR;
+    const pillH = hasTwo ? 72 : 56;
+    const textW = Math.max(w1, w2);
+    let pillW = padL + avSize + 10 + textW + padR;
+
+    // 别把左边的品牌胶囊挤掉
+    const maxPillW = W - 30 - (30 + 208) - 16;
+    if (pillW > maxPillW) pillW = maxPillW;
+
     const pillX = W - 30 - pillW;
     const pillY = 30 + 14;
 
-    ctx.fillStyle = 'rgba(0,0,0,.42)';
-    roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2);
+    ctx.fillStyle = 'rgba(0,0,0,.46)';
+    roundRect(ctx, pillX, pillY, pillW, pillH, 16);
     ctx.fill();
 
     // 头像
@@ -291,29 +330,42 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
     ctx.closePath();
     ctx.clip();
     if (avImg) {
-      const s = Math.max(avSize / avImg.width, avSize / avImg.height);
-      const dw = avImg.width * s;
-      const dh = avImg.height * s;
+      const sc = Math.max(avSize / avImg.width, avSize / avImg.height);
+      const dw = avImg.width * sc;
+      const dh = avImg.height * sc;
       ctx.drawImage(avImg, avX - dw / 2, avY - dh / 2, dw, dh);
     } else {
       ctx.fillStyle = '#0b74ff';
       ctx.fillRect(avX - avSize / 2, avY - avSize / 2, avSize, avSize);
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 22px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.font = `bold ${Math.round(avSize * 0.45)}px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(nameTxt.slice(0, 1) || '小', avX, avY + 1);
+      ctx.fillText(String(line1 || compTxt || '小').slice(0, 1), avX, avY + 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
     }
     ctx.restore();
 
-    // 文字
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 24px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, pillX + padL + avSize + 10, avY + 1);
-    ctx.textBaseline = 'alphabetic';
+    const textX = pillX + padL + avSize + 10;
+    const maxTextW = pillW - padL - avSize - 10 - padR;
+
+    if (hasTwo) {
+      ctx.fillStyle = '#fff';
+      ctx.font = nameFont;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(clipToWidth(ctx, line1, maxTextW), textX, pillY + 30);
+      ctx.fillStyle = 'rgba(255,255,255,.82)';
+      ctx.font = compFont;
+      ctx.fillText(clipToWidth(ctx, compTxt, maxTextW), textX, pillY + 56);
+    } else {
+      const only = line1 || compTxt;
+      ctx.fillStyle = line1 ? '#fff' : 'rgba(255,255,255,.9)';
+      ctx.font = line1 ? nameFont : compFont;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(clipToWidth(ctx, only, maxTextW), textX, pillY + pillH / 2);
+      ctx.textBaseline = 'alphabetic';
+    }
   }
 
   // 正文卡片
@@ -386,12 +438,31 @@ export async function renderPoster({ title, subtitle, summary, qrText, coverUrl,
   ctx.stroke();
   y += 34;
 
-  // 摘要
+  /*
+   * 摘要。
+   *
+   * 二维码在卡片右下角，摘要原来按整行宽（maxW）换行，
+   * 文字会直接压到二维码上（实测 2~3 行的摘要必压）。
+   * 这里把摘要的可用宽度扣掉二维码那一块，让它绕开。
+   */
   const text = summary || '';
   if (text) {
+    const QRS = 176;
+    const summaryW = maxW - QRS - 24;
     ctx.fillStyle = '#5a6b82';
     ctx.font = '25px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
-    for (const line of wrapText(ctx, text, maxW, 3)) {
+
+    /*
+     * 宽度变窄后会出现「最后一行只剩一个句号」的孤儿标点，
+     * 读起来很怪。这里把只有标点的末行并回上一行。
+     */
+    let lines = wrapText(ctx, text, summaryW, 3);
+    const PUNCT_ONLY = /^[。，、；：！？…—·）】》,.;:!?]+$/;
+    if (lines.length > 1 && PUNCT_ONLY.test(lines[lines.length - 1].trim())) {
+      const tail = lines.pop();
+      lines[lines.length - 1] += tail.trim();
+    }
+    for (const line of lines) {
       ctx.fillText(line, padX, y);
       y += 38;
     }
@@ -802,6 +873,7 @@ export async function openInviteShare() {
   let link = location.origin;
   let code = '';
   let sharerName = '';
+  let sharerCompany = '';
   let avatarUrl = '';
   try {
     const [r, me] = await Promise.all([
@@ -812,6 +884,7 @@ export async function openInviteShare() {
     if (u) {
       sharerName = u.nickname || '';
       avatarUrl = u.avatar || '';
+      sharerCompany = u.company || '';
     }
     // 接口字段是 url（形如 https://域名/#/register?ref=XXXX），不是 link
     if (r?.url) link = r.url;
@@ -843,6 +916,7 @@ export async function openInviteShare() {
       coverUrl: '',
       meta: ['小鱼来了 · xiaoyulaile.online'],
       sharerName,
+      sharerCompany,
       avatarUrl,
     });
   } catch {
@@ -1072,7 +1146,7 @@ export async function openInvestShare(plan = {}, quota = {}) {
 /* ------------------------------------------------------------------ */
 /* 通用分享：任意页面/内容都能用「图片+文字」或「链接+文字」           */
 /* ------------------------------------------------------------------ */
-export async function openQuickShare({ title = '小鱼来了', desc = '', url = '', image = '', tag = '' } = {}) {
+export async function openQuickShare({ title = '小鱼来了', desc = '', url = '', image = '', tag = '', contactName = '', contactCompany = '' } = {}) {
   const shareUrl = url || location.href;
   let shareText = String(desc || '').trim();
   const plainText = () => withSlogan([title, shareText, shareUrl].filter(Boolean).join('\n'));
@@ -1134,6 +1208,10 @@ export async function openQuickShare({ title = '小鱼来了', desc = '', url = 
                 qrText: service.qrUrl(shareUrl, 360),
                 coverUrl: image,
                 meta: [tag || '小鱼来了'],
+                // 海报右上角显示「联系人姓名 + 公司」，对方扫码前就知道找谁
+                sharerName: contactName,
+                sharerCompany: contactCompany,
+                nameSuffix: '',
               });
               holder.innerHTML = '';
               holder.appendChild(posterCanvas);
