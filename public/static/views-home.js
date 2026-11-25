@@ -728,6 +728,7 @@ export async function renderHome(ctx, query) {
     <div class="honor-home-body">
       <div class="honor-home-brandline"><span class="honor-home-con">恭喜！</span></div>
       <b>荣获 2026 杭州市电子商务创新创业大赛 · 三等奖</b>
+      <b style="display:block;margin-top:4px">成为华为官方服务商和经销商（浙江）</b>
       <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
     </div>
     <img class="honor-home-logo-right" src="/static/logo-white@2x.png" alt="小鱼来了">

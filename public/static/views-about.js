@@ -90,8 +90,9 @@ export function renderAbout(ctx, query) {
           <img class="about-honor-trophy" src="/static/honor/trophy.jpg" alt="2026 杭州市电子商务创新创业大赛奖杯" loading="lazy">
         </div>
         <div class="about-honor-body">
-          <div class="about-honor-date">2026.11</div>
-          <div class="about-honor-title">2026 年杭州市电子商务创新创业大赛</div>
+          <div class="about-honor-brand"><img src="/static/logo-fish.png" alt=""> 小鱼来了</div>
+          <div class="about-honor-date">2026.11 · 恭喜</div>
+          <div class="about-honor-title">恭喜！荣获 2026 年杭州市电子商务创新创业大赛</div>
           <div class="about-honor-prize">总决赛 三等奖</div>
           <div class="about-honor-sub">“最具发展潜力项目”三等奖</div>
           <div class="about-honor-meta">指导单位：浙江省商务厅　·　主办单位：杭州市商务局</div>
@@ -99,7 +100,18 @@ export function renderAbout(ctx, query) {
         </div>
       </div>
       <div class="tiny dim mt10">证书与奖杯实拍；获奖主体为「小鱼来了」。</div>
-    </div>
+
+      <div class="about-honor" style="margin-top:16px;padding-top:16px;border-top:1px dashed #e2e8f0">
+        <div class="about-honor-body" style="flex:1">
+          <div class="about-honor-brand"><img src="/static/logo-fish.png" alt=""> 小鱼来了</div>
+          <div class="about-honor-date">2026.11 · 官方授权</div>
+          <div class="about-honor-title">杭州硕鱼科技有限公司（小鱼来了）成为</div>
+          <div class="about-honor-prize">华为官方服务商 · 经销商（浙江）</div>
+          <div class="about-honor-sub">华为云 / 华为终端 · 浙江省区域授权</div>
+          <div class="about-honor-meta">授权主体：杭州硕鱼科技有限公司</div>
+          <div class="about-honor-chip">可承接华为云方案咨询、采购与本地化交付</div>
+        </div>
+      </div>
 
     <div class="card card-pad mt12">
       <div class="strong mb8">🧩 合作方式</div>
