@@ -84,7 +84,7 @@ export function itemHtml(l) {
     <div class="item-body">
       <div class="item-title clamp2">${
         l.category === 'bidding'
-          ? '<span style="display:inline-block;font-size:11px;font-weight:700;line-height:1.5;color:#fff;background:#0b74ff;border-radius:4px;padding:0 5px;margin-right:6px;vertical-align:1px;white-space:nowrap">招投标</span>'
+          ? '<span style="color:#0b74ff;font-weight:700">招投标</span>| '
           : ''
       }${esc(l.title)}</div>
       <div class="item-sub clamp2">${esc(l.subtitle || l.summary || '')}</div>

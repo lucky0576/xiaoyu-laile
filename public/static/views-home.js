@@ -526,7 +526,11 @@ export async function renderHome(ctx, query) {
         ${l.reliability?.score >= 80 ? '<span class="badge2">AI 优质</span>' : ''}
       </div>
       <div class="body">
-        <div class="t">${ui.esc(l.title)}</div>
+        <div class="t">${
+          l.category === 'bidding'
+            ? '<span style="color:#0b74ff;font-weight:700">招投标</span>| '
+            : ''
+        }${ui.esc(l.title)}</div>
         <div class="m">
           <span>${ui.esc(l.cities?.[0]?.name || l.categoryName || '')}</span>
           <span>${ui.esc(l.contactName || (l.typeName || '') || ui.fmtRelative(l.publishedAt))}</span>
