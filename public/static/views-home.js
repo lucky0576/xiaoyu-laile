@@ -48,7 +48,7 @@ export async function renderHome(ctx, query) {
   void query;
   const [stats, latest, hotProjects, hotEvents, hotTrades, cases, feedsRes, newsRes, forumOv, providerRes] = await Promise.all([
     service.stats().catch(() => ({})),
-    service.listings({ status: 'published', pageSize: 8, sort: 'latest' }).catch(() => ({ items: [] })),
+    service.listings({ status: 'published', pageSize: 12, sort: 'latest' }).catch(() => ({ items: [] })),
     service.listings({ category: 'project', status: 'published', pageSize: 8, sort: 'hot' }).catch(() => ({ items: [] })),
     service.listings({ category: 'event', status: 'published', pageSize: 8, sort: 'hot' }).catch(() => ({ items: [] })),
     service.listings({ category: 'trade', status: 'published', pageSize: 8, sort: 'hot' }).catch(() => ({ items: [] })),
@@ -536,7 +536,7 @@ export async function renderHome(ctx, query) {
   };
   const latestHtml = `<div class="home-sec-head"><h2>最新发布</h2><a href="#/latest">更多 ›</a></div>
     <div class="home-list2">
-      ${recent.slice(0, 6).map(itemCard).join('') || ui.emptyState('📭', '还没有发布的信息')}
+      ${recent.slice(0, 10).map(itemCard).join('') || ui.emptyState('📭', '还没有发布的信息')}
     </div>`;
 
   /* ---------------- 项目案例 ---------------- */
