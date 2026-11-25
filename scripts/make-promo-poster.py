@@ -101,6 +101,18 @@ def wrap_text(draw, text, fnt, max_width):
     return lines
 
 
+
+def text_tracked(draw, xy, text, fnt, fill, tracking=0, anchor_right=None):
+    """逐字绘制，支持字间距；anchor_right 给定时按右边界对齐。"""
+    widths = [draw.textlength(ch, font=fnt) for ch in text]
+    total = sum(widths) + tracking * (len(text) - 1)
+    x = (anchor_right - total) if anchor_right is not None else xy[0]
+    y = xy[1]
+    for ch, cw in zip(text, widths):
+        draw.text((x, y), ch, font=fnt, fill=fill)
+        x += cw + tracking
+    return total
+
 def build(scale_label):
     S = SCALE
     w, h = W * S, H * S
@@ -122,13 +134,13 @@ def build(scale_label):
     # 斜向色带
     stripe = Image.new('RGBA', (1600 * S, 240 * S), (0, 214, 196, 30))
     stripe = stripe.rotate(-8, expand=False, resample=Image.BICUBIC)
-    bg.alpha_composite(stripe, (-140 * S, 430 * S))
+    bg.alpha_composite(stripe, (int(-140 * S), int(430 * S)))
 
     # 左下柔光
     glow = Image.new('RGBA', (900 * S, 900 * S), (0, 0, 0, 0))
     ImageDraw.Draw(glow).ellipse([0, 0, 900 * S, 900 * S], fill=(0, 190, 200, 40))
     glow = glow.filter(ImageFilter.GaussianBlur(80 * S))
-    bg.alpha_composite(glow, (-300 * S, 820 * S))
+    bg.alpha_composite(glow, (int(-300 * S), int(820 * S)))
 
     d = ImageDraw.Draw(bg)
 
@@ -137,26 +149,43 @@ def build(scale_label):
     logo_h = 58 * S
     logo_w = int(logo.width * logo_h / logo.height)
     logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-    bg.alpha_composite(logo, (PAD * S, 84 * S))
+    bg.alpha_composite(logo, (int(PAD * S), int(84 * S)))
 
     f_tag = font(23, bold=True)
     d.text((PAD * S + logo_w + 24 * S, 84 * S + 14 * S), 'AI 产业信息平台', font=f_tag, fill=(159, 208, 238))
 
-    # ---------- 右上角资质 ----------
-    f_b1 = font(21, bold=True)
-    badge1 = '华为官方服务商'
+    # ---------- 右上角：华为 LOGO + 授权信息 ----------
+    right = w - PAD * S
+
+    # 华为花瓣标（矢量光栅化出来的白色版）
+    hw_path = os.path.join(ASSETS, 'huawei-flower.png')
+    if os.path.exists(hw_path):
+        flower_h = 46 * S
+        fl = Image.open(hw_path).convert('RGBA')
+        fl = fl.crop(fl.getbbox()) if fl.getbbox() else fl
+        fw = int(fl.width * flower_h / fl.height)
+        fl = fl.resize((fw, flower_h), Image.LANCZOS)
+        # 先算 HUAWEI 字宽，好整体右对齐
+        f_word = font(25, bold=True)
+        word = 'HUAWEI'
+        word_w = sum(d.textlength(ch, font=f_word) for ch in word) + 3 * S * (len(word) - 1)
+        lockup_w = fw + 14 * S + word_w
+        lx = int(right - lockup_w)
+        ly = int(84 * S)
+        bg.alpha_composite(fl, (lx, ly + int(2 * S)))
+        text_tracked(d, (lx + fw + 14 * S, ly + 4 * S), word, f_word,
+                     (255, 255, 255), tracking=3 * S)
+
+    # 金色授权徽标
+    f_b1 = font(20, bold=True)
+    badge1 = '官方服务商 · 经销商（浙江）'
     b1w = d.textlength(badge1, font=f_b1)
     pad_x, pad_y = 18 * S, 9 * S
-    bx1 = w - PAD * S - b1w - pad_x * 2
-    by1 = 86 * S
-    d.rounded_rectangle([bx1, by1, bx1 + b1w + pad_x * 2, by1 + 21 * S + pad_y * 2],
+    bx1 = right - b1w - pad_x * 2
+    by1 = 84 * S + 62 * S
+    d.rounded_rectangle([bx1, by1, bx1 + b1w + pad_x * 2, by1 + 20 * S + pad_y * 2],
                         radius=9 * S, fill=(255, 214, 110))
     d.text((bx1 + pad_x, by1 + pad_y - 1 * S), badge1, font=f_b1, fill=C_BADGE_TXT)
-
-    f_b2 = font(20, bold=True)
-    badge2 = '经销商（浙江）'
-    b2w = d.textlength(badge2, font=f_b2)
-    d.text((w - PAD * S - b2w, by1 + 21 * S + pad_y * 2 + 12 * S), badge2, font=f_b2, fill=(168, 205, 232))
 
     # ---------- 主标题 ----------
     f_h1 = font(88, bold=True)
@@ -193,7 +222,7 @@ def build(scale_label):
         cd.text((ix, ty), ln, font=f_body, fill=(232, 244, 255))
         ty += int(31 * 1.72) * S
 
-    bg.alpha_composite(card, (card_x, card_y))
+    bg.alpha_composite(card, (int(card_x), int(card_y)))
 
     # ---------- 能力标签（两行，避开底部） ----------
     chips = [('项目投资', True), ('AI 招投标', True), ('活动赛事', False),
@@ -225,7 +254,7 @@ def build(scale_label):
     qr = Image.open(os.path.join(ASSETS, 'qr.png')).convert('RGB').resize(
         (qr_size - qr_pad * 2, qr_size - qr_pad * 2), Image.LANCZOS)
     qr_box.paste(qr, (qr_pad, qr_pad))
-    bg.alpha_composite(qr_box, (PAD * S, qr_y))
+    bg.alpha_composite(qr_box, (int(PAD * S), int(qr_y)))
 
     tx = PAD * S + qr_size + 34 * S
     f_cta = font(42, bold=True)
