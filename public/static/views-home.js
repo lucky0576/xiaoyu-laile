@@ -728,8 +728,16 @@ export async function renderHome(ctx, query) {
     <div class="honor-home-body">
       <div class="honor-home-brandline"><span class="honor-home-con">恭喜！</span></div>
       <b>荣获 2026 杭州市电子商务创新创业大赛 · 三等奖</b>
-      <b style="display:block;margin-top:4px">成为华为官方服务商和经销商（浙江）</b>
       <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
+      <!--
+        华为资质单独一行。
+        之前把它插在获奖标题和主办单位之间，把「获奖」这一块读散了，
+        现在用一条分隔线隔开，作为并列的第二项荣誉。
+      -->
+      <div class="honor-home-sub">
+        <img class="honor-home-hw" src="/static/huawei-flower.png" alt="HUAWEI">
+        <b>成为华为官方服务商和经销商（浙江）</b>
+      </div>
     </div>
     <img class="honor-home-logo-right" src="/static/logo-white@2x.png" alt="小鱼来了">
   </a>`;
