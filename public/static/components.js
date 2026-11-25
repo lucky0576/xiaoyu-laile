@@ -59,7 +59,13 @@ export function itemHtml(l) {
     const t = String(v || '').trim();
     return t && !/^[a-z_]+$/.test(t) ? t : '';
   };
-  if (cn(l.categoryName)) badges.push(`<span class="badge">${esc(cn(l.categoryName))}</span>`);
+  /*
+   * 招投标信息在标题前单独加了「招投标」前缀（见下面 item-title），
+   * 这里就不再重复放一个同样的角标，避免一行里出现两次「招投标」。
+   */
+  if (cn(l.categoryName) && l.category !== 'bidding') {
+    badges.push(`<span class="badge">${esc(cn(l.categoryName))}</span>`);
+  }
   if (cn(l.typeName)) badges.push(`<span class="badge gray">${esc(cn(l.typeName))}</span>`);
   if (l.reliability && l.reliability.score != null) {
     badges.push(`<span class="badge ${l.reliability.level === 'high' ? 'ok' : l.reliability.level === 'low' ? 'danger' : 'accent'}">AI ${l.reliability.score}分</span>`);
@@ -76,7 +82,11 @@ export function itemHtml(l) {
       ? `<img class="item-thumb" src="${esc(cover)}" alt="" loading="lazy">`
       : `<div class="item-thumb" style="display:grid;place-items:center;font-size:26px">${esc(categoryIcon(l.category))}</div>`}
     <div class="item-body">
-      <div class="item-title clamp2">${esc(l.title)}</div>
+      <div class="item-title clamp2">${
+        l.category === 'bidding'
+          ? '<span style="display:inline-block;font-size:11px;font-weight:700;line-height:1.5;color:#fff;background:#0b74ff;border-radius:4px;padding:0 5px;margin-right:6px;vertical-align:1px;white-space:nowrap">招投标</span>'
+          : ''
+      }${esc(l.title)}</div>
       <div class="item-sub clamp2">${esc(l.subtitle || l.summary || '')}</div>
       <div class="item-meta">
         ${badges.join('')}

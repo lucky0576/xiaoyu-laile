@@ -297,7 +297,7 @@ function cardHtml(x) {
   const deadline = b.bidDeadline || '';
   return `<a class="bz-card" href="#/detail/${ui.esc(x.id)}">
     <div class="bz-card-top">
-      <span class="bz-tag">${ui.esc(type)}</span>
+      <span class="bz-tag">招投标 · ${ui.esc(type)}</span>
       ${region ? `<span class="bz-region">${ui.esc(region)}</span>` : ''}
       <span class="bz-date">${ui.esc(fmtShort(date))}</span>
       <span class="bz-card-share" role="button" tabindex="0" data-share-id="${ui.esc(x.id)}" title="分享这条公告到微信" aria-label="分享到微信"><span class="wx-ic" aria-hidden="true"><i></i><i></i><i></i></span>微信</span>
