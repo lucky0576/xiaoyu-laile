@@ -2444,7 +2444,7 @@ export async function renderAdminAi(ctx) {
 
     <div class="card card-pad mt12">
       <div class="small muted">
-        <div>· Key 只保存在这台服务器的 <code>data/</code> 目录，不进发布包，也不同步到坚果云</div>
+        <div>· Key 只保存在这台服务器的 <code>data/</code> 目录，不进发布包，也不上传到任何第三方网盘</div>
         <div>· 「测试连接」只发一个极小的请求，几乎不产生费用</div>
         <div>· DeepSeek 参考价：约 1 元 / 百万 token，一份 50 页文档汇总约 0.03 元</div>
       </div>
