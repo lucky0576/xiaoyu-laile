@@ -291,7 +291,18 @@ export async function renderHome(ctx, query) {
 
   const newsItems = (newsRes?.items || []).slice(0, 5).map((n) => ({
     href: `#/news/${n.id}`,
-    title: n.title || '',
+    /*
+     * 官方政策文件加「政策｜」前缀。
+     * 判断看来源站点（发改委 / 能源局 等政府官网），不能用 policy 标签 ——
+     * 那个标签被 IT之家 / cnBeta 这类科技媒体污染了。
+     * 这里是纯文本，promoItems 会再 escape。
+     */
+    title:
+      (/(发展改革委|发改委|能源局|工业和信息化部|工信部|国务院|财政部|住房城乡建设部|住建部|科技部|市场监管总局|商务部|人民政府)/.test(
+        String(n.sourceName || ''),
+      )
+        ? '政策｜'
+        : '') + (n.title || ''),
     meta: relT(n.publishedAt || n.createdAt),
   }));
 

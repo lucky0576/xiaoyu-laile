@@ -44,10 +44,28 @@ function tagsHtml(tags = []) {
     .join('');
 }
 
+/*
+ * 官方政策文件前缀。
+ *
+ * 判断依据不能用 policy 标签 —— 实测 622 条 policy 标签里，
+ * 515 条来自 IT之家 / cnBeta / 爱范儿 这类科技媒体（标签规则里有「标准」「方案」
+ * 「意见」这种泛词，手机评测、AI 新闻也会命中），只有 18 条是真的官方文件。
+ *
+ * 所以改成看**来源站点**：发改委、能源局、工信部等政府官网发的才算官方政策文件。
+ * 目前命中的是「发改委 · 通知」(13) 和「国家能源局」(5)。
+ */
+const OFFICIAL_SOURCE = /(发展改革委|发改委|能源局|工业和信息化部|工信部|国务院|财政部|住房城乡建设部|住建部|科技部|市场监管总局|商务部|人民政府)/;
+
+function isPolicyNews(n) {
+  return OFFICIAL_SOURCE.test(String((n && n.sourceName) || ''));
+}
+const POLICY_PREFIX_HTML = '<span style="color:#0b74ff;font-weight:700">政策</span>｜';
+
+
 function newsCard(n) {
   return `<a class="news-card" href="#/news/${ui.esc(n.id)}">
     <div class="news-card-main">
-      <div class="news-card-title">${ui.esc(n.title)}</div>
+      <div class="news-card-title">${isPolicyNews(n) ? POLICY_PREFIX_HTML : ''}${ui.esc(n.title)}</div>
       ${n.summary ? `<div class="news-card-sum">${ui.esc(n.summary)}</div>` : ''}
       <div class="news-card-foot">
         <span class="news-src">${ui.esc(n.sourceName || '')}</span>
@@ -392,7 +410,7 @@ export async function renderNewsDetail(ctx, { id }) {
     showBack: true,
     content: `<div class="page news-detail">
       <div class="card card-pad">
-        <h1 class="news-detail-t">${ui.esc(n.title)}</h1>
+        <h1 class="news-detail-t">${isPolicyNews(n) ? POLICY_PREFIX_HTML : ''}${ui.esc(n.title)}</h1>
         <div class="news-detail-meta">
           <span class="news-src">${ui.esc(n.sourceName || '')}</span>
           <span class="news-dot">·</span>
