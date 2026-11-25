@@ -157,24 +157,27 @@ def build(scale_label):
     # ---------- 右上角：华为 LOGO + 授权信息 ----------
     right = w - PAD * S
 
-    # 华为花瓣标（矢量光栅化出来的白色版）
-    hw_path = os.path.join(ASSETS, 'huawei-flower.png')
-    if os.path.exists(hw_path):
-        flower_h = 46 * S
-        fl = Image.open(hw_path).convert('RGBA')
-        fl = fl.crop(fl.getbbox()) if fl.getbbox() else fl
-        fw = int(fl.width * flower_h / fl.height)
-        fl = fl.resize((fw, flower_h), Image.LANCZOS)
-        # 先算 HUAWEI 字宽，好整体右对齐
-        f_word = font(25, bold=True)
-        word = 'HUAWEI'
-        word_w = sum(d.textlength(ch, font=f_word) for ch in word) + 3 * S * (len(word) - 1)
-        lockup_w = fw + 14 * S + word_w
-        lx = int(right - lockup_w)
-        ly = int(84 * S)
-        bg.alpha_composite(fl, (lx, ly + int(2 * S)))
-        text_tracked(d, (lx + fw + 14 * S, ly + 4 * S), word, f_word,
-                     (255, 255, 255), tracking=3 * S)
+    # 华为彩色官方 LOGO —— 深色背景上放白色圆角底承托
+    hw_logo_path = os.path.join(ASSETS, 'huawei-logo-color.png')
+    if os.path.exists(hw_logo_path):
+        logo_h = 30 * S
+        lg = Image.open(hw_logo_path).convert('RGBA')
+        lg = lg.crop(lg.getbbox()) if lg.getbbox() else lg
+        lw = int(lg.width * logo_h / lg.height)
+        lg = lg.resize((lw, logo_h), Image.LANCZOS)
+
+        pill_pad_x, pill_pad_y = 14 * S, 9 * S
+        pill_w = lw + pill_pad_x * 2
+        pill_h = logo_h + pill_pad_y * 2
+        lx = int(right - pill_w)
+        ly = int(78 * S)
+
+        pill = Image.new('RGBA', (pill_w, pill_h), (0, 0, 0, 0))
+        ImageDraw.Draw(pill).rounded_rectangle(
+            [0, 0, pill_w - 1, pill_h - 1], radius=int(9 * S), fill=(255, 255, 255, 255)
+        )
+        pill.alpha_composite(lg, (pill_pad_x, pill_pad_y))
+        bg.alpha_composite(pill, (lx, ly))
 
     # 金色授权徽标
     f_b1 = font(20, bold=True)
@@ -182,7 +185,7 @@ def build(scale_label):
     b1w = d.textlength(badge1, font=f_b1)
     pad_x, pad_y = 18 * S, 9 * S
     bx1 = right - b1w - pad_x * 2
-    by1 = 84 * S + 62 * S
+    by1 = 78 * S + 30 * S + 18 * S + 22 * S
     d.rounded_rectangle([bx1, by1, bx1 + b1w + pad_x * 2, by1 + 20 * S + pad_y * 2],
                         radius=9 * S, fill=(255, 214, 110))
     d.text((bx1 + pad_x, by1 + pad_y - 1 * S), badge1, font=f_b1, fill=C_BADGE_TXT)

@@ -735,7 +735,8 @@ export async function renderHome(ctx, query) {
         现在用一条分隔线隔开，作为并列的第二项荣誉。
       -->
       <div class="honor-home-sub">
-        <img class="honor-home-hw" src="/static/huawei-flower.png" alt="HUAWEI">
+        <!-- 彩色官方 LOGO：深蓝横栏上用白色小底承托，红色花瓣才看得清 -->
+        <span class="honor-home-hw-pill"><img src="/static/huawei-logo-color.png" alt="HUAWEI"></span>
         <b>成为华为官方服务商和经销商（浙江）</b>
       </div>
     </div>

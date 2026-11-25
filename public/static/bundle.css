@@ -10220,3 +10220,19 @@ a.opc-district-card:hover { border-color: #9CC8FF; background: #F1F8FF; transfor
   font-weight: 800;
   line-height: 1.35;
 }
+
+/* 荣誉横栏：华为彩色 LOGO 的白色小底（深色背景下保证品牌色可辨） */
+.honor-home-sub .honor-home-hw-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: #fff;
+  border-radius: 5px;
+  padding: 3px 7px;
+}
+.honor-home-sub .honor-home-hw-pill img {
+  height: 13px;
+  width: auto;
+  display: block;
+}

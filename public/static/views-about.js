@@ -106,8 +106,8 @@ export function renderAbout(ctx, query) {
           <div class="about-honor-brand"><img src="/static/logo-fish.png" alt=""> 小鱼来了</div>
           <div class="about-honor-date">2026.11 · 官方授权</div>
           <div class="about-honor-title">
-            <img src="/static/huawei-flower.png" alt="HUAWEI"
-              style="width:15px;height:15px;vertical-align:-2px;margin-right:5px;filter:brightness(0.55) sepia(1) saturate(6) hue-rotate(320deg)">华为授权 ·
+            <img src="/static/huawei-logo-color.png" alt="HUAWEI"
+              style="height:15px;width:auto;vertical-align:-3px;margin-right:6px">华为授权 ·
             杭州硕鱼科技有限公司（小鱼来了）成为
           </div>
           <div class="about-honor-prize">华为官方服务商 · 经销商（浙江）</div>
