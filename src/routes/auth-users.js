@@ -9,7 +9,7 @@ import {
   setAuthCookie, clearAuthCookie, rateLimit, clientIp, queryOf,
 } from './_util.js';
 import {
-  createUser, findByPhone, findByEmail, findByWechat, findByPhone as byPhone,
+  createUser, findByPhone, findByEmail, findByWechat, findByDouyin, findByPhone as byPhone,
   hashPassword, verifyPassword, issueOtp, verifyOtp, touchLogin, selfUser, publicUser,
   normalizePhone, ensureNicknameUnique, signToken, currentUser,
 } from '../services/auth.js';
@@ -17,6 +17,7 @@ import { saveUploads, filePublic } from '../services/files.js';
 import notifySvc from '../services/notify.js';
 import chatSvc from '../services/chat.js';
 import wechat from '../services/wechat.js';
+import douyin from '../services/douyin.js';
 import listingsSvc from '../services/listings.js';
 import verifySvc from '../services/verification.js';
 import captchaSvc from '../services/captcha.js';
@@ -450,6 +451,98 @@ export default function registerAuthUserRoutes(app) {
       city: str(req.body?.city, 60),
     });
     users().update(user.id, { settings: { ...user.settings, wechatBind: true } });
+    return issueLogin(res, users().get(user.id), { created: true, demo: true });
+  });
+
+  /* ================================================================ */
+  /* 抖音登录 / 注册                                                   */
+  /* ================================================================ */
+
+  /** 授权跳转地址 + 配置状态（前端拿 url 直接跳，或据此显示演示入口） */
+  app.get('/api/auth/douyin/url', (req, res) => {
+    const redirect = String(
+      req.query.redirect || config.douyin?.redirectUri || `${baseUrl(req)}/api/douyin/callback`,
+    );
+    const state = String(req.query.state || Math.random().toString(36).slice(2));
+    const url = douyin.oauthUrl(redirect, state);
+    return data(res, {
+      url,
+      ready: Boolean(url),
+      redirect,
+      state,
+      status: douyin.status(),
+      demoAvailable: Boolean(config.douyin?.demoMode),
+      hint: url ? '' : '未配置抖音开放平台应用（DOUYIN_CLIENT_KEY / SECRET），可使用「演示登录」体验完整流程',
+    });
+  });
+
+  /** code 换登录态；抖音没注册过的手机号会自动建号 */
+  app.post('/api/auth/douyin/login', async (req, res) => {
+    const code = String(req.body?.code || '');
+    if (!code) return fail(res, '缺少抖音授权 code');
+
+    let info;
+    try {
+      const tk = await douyin.exchangeCode(code);
+      const profile = await douyin.fetchUser(tk.accessToken, tk.openId).catch(() => null);
+      info = { ...tk, ...(profile || {}) };
+    } catch (err) {
+      return fail(res, err.message || '抖音授权失败', 400, 'douyin_failed');
+    }
+
+    let user = findByDouyin(info.openId, info.unionId);
+    let created = false;
+    if (!user) {
+      user = createUser({
+        douyinOpenId: info.openId,
+        douyinUnionId: info.unionId || '',
+        douyinNickname: info.nickname || '',
+        nickname: ensureNicknameUnique(info.nickname || '抖音用户'),
+        avatar: info.avatar || '',
+        city: info.city || '',
+        company: str(req.body?.company, 100),
+        profession: str(req.body?.profession, 60),
+        industry: str(req.body?.industry, 60),
+        accountType: str(req.body?.accountType, 20),
+      });
+      created = true;
+      applyInvite(user, req.body?.ref || req.body?.invite);
+    } else {
+      const patch = {};
+      if (info.avatar && !user.avatar) patch.avatar = info.avatar;
+      if (info.nickname && !user.nickname) patch.nickname = info.nickname;
+      if (info.nickname) patch.douyinNickname = info.nickname;
+      if (Object.keys(patch).length) users().update(user.id, patch);
+    }
+
+    const fresh = users().get(user.id);
+    users().update(user.id, {
+      douyinBoundAt: new Date().toISOString(),
+      settings: { ...(fresh?.settings || {}), douyinBind: true },
+    });
+    return issueLogin(res, users().get(user.id), { created });
+  });
+
+  /** 演示登录：未配置抖音应用时用来完整体验流程（与微信演示一致） */
+  app.post('/api/auth/douyin/demo', (req, res) => {
+    if (!config.douyin?.demoMode) return fail(res, '演示登录已关闭', 403, 'disabled');
+    const nickname =
+      String(req.body?.nickname || '').trim() || `抖音演示用户${Math.floor(Math.random() * 9000 + 1000)}`;
+    const fakeOpenId = `demo_dy_${Date.now().toString(36)}`;
+    const user = createUser({
+      douyinOpenId: fakeOpenId,
+      douyinNickname: nickname,
+      nickname: ensureNicknameUnique(nickname),
+      avatar: '',
+      company: str(req.body?.company, 100),
+      profession: str(req.body?.profession, 60),
+      industry: str(req.body?.industry, 60),
+      city: str(req.body?.city, 60),
+    });
+    users().update(user.id, {
+      douyinBoundAt: new Date().toISOString(),
+      settings: { ...user.settings, douyinBind: true },
+    });
     return issueLogin(res, users().get(user.id), { created: true, demo: true });
   });
 

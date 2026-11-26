@@ -489,6 +489,23 @@ export default function registerCoreRoutes(app) {
     return res.redirect(`/#/login?wechat_code=${encodeURIComponent(code)}&state=${encodeURIComponent(req.query.state || '')}`);
   });
 
+  /**
+   * 抖音 OAuth 回跳。
+   * 抖音授权成功后带 ?code=&state= 回到这里，再交给前端换登录态。
+   * （redirect_uri 在抖音开放平台后台配置，必须与这里一致）
+   */
+  app.get('/api/douyin/callback', (req, res) => {
+    const code = req.query.code;
+    const err = req.query.error || req.query.error_code;
+    if (err) {
+      return res.redirect(`/#/login?douyin=denied&reason=${encodeURIComponent(String(req.query.error_description || err))}`);
+    }
+    if (!code) return res.redirect('/#/login?douyin=missing_code');
+    return res.redirect(
+      `/#/login?douyin_code=${encodeURIComponent(code)}&state=${encodeURIComponent(req.query.state || '')}`,
+    );
+  });
+
   /* ---------------------------------------------------------------- */
   /* AI 预览（发布前的标题生成 + 可靠性解析）                            */
   /* ---------------------------------------------------------------- */

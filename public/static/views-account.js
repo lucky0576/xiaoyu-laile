@@ -34,6 +34,36 @@ export async function renderLogin(ctx, query) {
     }
   }
 
+  // 抖音 OAuth 回跳（/api/douyin/callback 把 code 带到 #/login）
+  if (query.douyin_code) {
+    try {
+      ui.showLoading('抖音授权登录中…');
+      const res = await service.douyinLogin({ code: query.douyin_code });
+      store.token = res.token;
+      store.user = res.user;
+      try {
+        localStorage.removeItem('xyl_pending_ref');
+        localStorage.removeItem('xyl_pending_ref_skip');
+        localStorage.removeItem('xyl_pending_ref_skip_code');
+      } catch {
+        /* ignore */
+      }
+      await ctx.refreshMe();
+      ui.hideLoading();
+      ui.toast(res.created ? '抖音账号已注册并登录' : '抖音登录成功', 'ok');
+      ctx.nav(query.redirect || '#/home');
+      return { title: '登录', content: '<div class="page"></div>', noTab: true };
+    } catch (err) {
+      ui.hideLoading();
+      ui.toast(err.message, 'err');
+    }
+  }
+  if (query.douyin === 'denied') {
+    ui.toast('你取消了抖音授权', 'err');
+  } else if (query.douyin === 'missing_code') {
+    ui.toast('抖音未返回授权码，请重试', 'err');
+  }
+
   const wx = ctx.state.site?.wechat || {};
   /*
    * 推荐码：优先用 URL 里的；没有就取 /r/CODE 存下来的那张。
@@ -64,7 +94,8 @@ export async function renderLogin(ctx, query) {
       <div class="chips mb12" id="login-tabs">
         <a class="chip active" data-tab="phone">手机登录</a>
         <a class="chip" data-tab="email">邮箱登录</a>
-        <a class="chip" data-tab="wechat">微信开发中</a>
+        <a class="chip" data-tab="wechat">微信登录</a>
+        <a class="chip" data-tab="douyin">抖音登录</a>
       </div>
 
       <!-- 登录失败一次后才需要图形验证码（保护「账号是否注册」的探测接口） -->
@@ -124,6 +155,14 @@ export async function renderLogin(ctx, query) {
           : `<button class="btn btn-primary btn-block" id="lg-wx-demo">微信一键登录（演示）</button>
              <div class="tiny dim mt8 center">当前为演示模式：点一下直接用演示账号登录（功能都能体验）；<br>配置 WECHAT_APP_ID / WECHAT_APP_SECRET 后自动走真实微信授权。</div>`}
         ${wx.open ? `<button class="btn btn-block mt8" id="lg-wx-qr">PC 扫码登录</button>` : ''}
+      </div>
+
+      <div id="pane-douyin" class="hide">
+        <button class="btn btn-primary btn-block" id="lg-dy">抖音授权登录</button>
+        <div class="tiny dim mt8 center">
+          已配置抖音开放平台应用时跳转授权页；未配置时点一下用演示账号登录（功能都能体验）。<br>
+          抖音登录后自动建号，昵称和头像取自抖音授权信息。
+        </div>
       </div>
     </div>
 
@@ -394,6 +433,34 @@ export async function renderLogin(ctx, query) {
           else ui.toast(res.hint || '微信登录未配置', 'err');
         } catch (err) {
           ui.toast(err.message, 'err');
+        }
+      });
+
+      /* 抖音登录：已配置就走真实授权，未配置就用演示账号（与微信同样口径） */
+      root.querySelector('#lg-dy')?.addEventListener('click', async (ev) => {
+        const dyBtn = ev.currentTarget;
+        if (dyBtn && !dyBtn.disabled) {
+          dyBtn.disabled = true;
+          dyBtn.textContent = '抖音授权中…';
+        }
+        try {
+          const info = await service.douyinUrl();
+          if (info?.ready && info.url) {
+            // 整页跳到抖音授权页；回来时 URL 带 ?douyin_code，由 renderLogin 开头接手
+            location.href = info.url;
+            return;
+          }
+          if (!info?.demoAvailable) {
+            throw new Error(info?.hint || '抖音登录未配置');
+          }
+          const res = await service.douyinDemo({ invite: query.invite });
+          await done(res, '抖音登录成功（演示）');
+        } catch (err) {
+          ui.toast(err.message || '抖音登录失败', 'err');
+          if (dyBtn) {
+            dyBtn.disabled = false;
+            dyBtn.textContent = '抖音授权登录';
+          }
         }
       });
 

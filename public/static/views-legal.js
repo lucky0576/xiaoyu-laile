@@ -9,11 +9,13 @@
  */
 
 import * as ui from './ui.js';
+import { COMPANY } from './company.js';
 
-const OPERATOR = '杭州硕鱼科技有限公司';
-const CONTACT = '13456693544';
-const EMAIL = 'service@xiaoyulaile.online';
-const UPDATED = '2026-11-01';
+// 主体信息统一从 company.js 取（营业执照是唯一事实来源）
+const OPERATOR = COMPANY.name;
+const CONTACT = COMPANY.contact.phone;
+const EMAIL = COMPANY.contact.email;
+const UPDATED = '2026-11-27';
 
 const PRIVACY = {
   title: '隐私政策',
@@ -63,7 +65,14 @@ const PRIVACY = {
     },
     {
       h: '六、联系我们',
-      p: [`运营主体：${OPERATOR}`, `联系电话：${CONTACT}`, `邮箱：${EMAIL}`],
+      p: [
+        `运营主体：${OPERATOR}`,
+        `统一社会信用代码：${COMPANY.creditCode}`,
+        `注册地址：${COMPANY.address}`,
+        `法定代表人：${COMPANY.legalPerson}`,
+        `联系电话：${CONTACT}`,
+        `邮箱：${EMAIL}`,
+      ],
     },
   ],
 };
@@ -117,7 +126,14 @@ const TERMS = {
     },
     {
       h: '七、联系我们',
-      p: [`运营主体：${OPERATOR}`, `联系电话：${CONTACT}`, `邮箱：${EMAIL}`],
+      p: [
+        `运营主体：${OPERATOR}`,
+        `统一社会信用代码：${COMPANY.creditCode}`,
+        `注册地址：${COMPANY.address}`,
+        `法定代表人：${COMPANY.legalPerson}`,
+        `联系电话：${CONTACT}`,
+        `邮箱：${EMAIL}`,
+      ],
     },
   ],
 };
@@ -163,7 +179,7 @@ function renderDoc(key) {
     <div class="legal-head">
       <div class="legal-title">${ui.esc(doc.title)}</div>
       <div class="legal-sub">${ui.esc(doc.intro)}</div>
-      <div class="legal-meta">更新日期：${UPDATED} · 运营主体：${ui.esc(OPERATOR)}</div>
+      <div class="legal-meta">更新日期：${UPDATED} · 运营主体：${ui.esc(OPERATOR)} · 统一社会信用代码：${ui.esc(COMPANY.creditCode)}</div>
     </div>
     ${doc.sections
       .map(

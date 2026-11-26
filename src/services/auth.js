@@ -171,6 +171,12 @@ export function findByWechat(openid, unionid) {
   );
 }
 
+export function findByDouyin(openId, unionId) {
+  return users().findOne(
+    (u) => (openId && u.douyinOpenId === openId) || (unionId && u.douyinUnionId && u.douyinUnionId === unionId),
+  );
+}
+
 export function normalizePhone(phone) {
   return String(phone || '').replace(/[^\d+]/g, '').replace(/^\+?86/, '');
 }
@@ -196,6 +202,10 @@ export function createUser(data) {
     wechatOpenId: data.wechatOpenId || '',
     wechatUnionId: data.wechatUnionId || '',
     wechatId: data.wechatId || '',
+    // 抖音登录身份（openId 用于查重与登录，nickname 仅作展示兜底）
+    douyinOpenId: data.douyinOpenId || '',
+    douyinUnionId: data.douyinUnionId || '',
+    douyinNickname: data.douyinNickname || '',
     passwordHash: data.password || data.passwordHash ? hashPassword(data.password || data.passwordHash) : '',
     company: data.company || '',
     profession: data.profession || '',

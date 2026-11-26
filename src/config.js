@@ -186,6 +186,8 @@ export const config = {
     clientKey: env('DOUYIN_CLIENT_KEY', ''),
     clientSecret: env('DOUYIN_CLIENT_SECRET', ''),
     redirectUri: env('DOUYIN_REDIRECT_URI', ''),
+    /** 允许在未配置抖音应用时使用一键演示登录（与微信一致） */
+    demoMode: bool('DOUYIN_DEMO_MODE', true),
   },
 
   /* ---------------------------------------------------------------- */

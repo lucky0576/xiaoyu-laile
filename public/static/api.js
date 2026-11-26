@@ -414,6 +414,11 @@ export const service = {
   wechatLogin: (body) => api.post('/api/auth/wechat/login', body),
   wechatDemo: (body) => api.post('/api/auth/wechat/demo', body),
 
+  /* 抖音登录 / 注册：未配置开放平台应用时走 demo */
+  douyinUrl: (redirect) => api.get('/api/auth/douyin/url', redirect ? { redirect } : undefined),
+  douyinLogin: (body) => api.post('/api/auth/douyin/login', body),
+  douyinDemo: (body) => api.post('/api/auth/douyin/demo', body),
+
   // 绑定微信（已有账号挂上微信，不用重新注册）
   wechatBindStatus: () => api.get('/api/users/me/wechat'),
   wechatBindUrl: (mode, redirect) => api.get('/api/auth/wechat/bind/url', { mode, redirect }),

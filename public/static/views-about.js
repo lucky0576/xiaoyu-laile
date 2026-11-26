@@ -117,6 +117,22 @@ export function renderAbout(ctx, query) {
         </div>
       </div>
 
+      <div class="about-honor" style="margin-top:16px;padding-top:16px;border-top:1px dashed #e2e8f0">
+        <div class="about-honor-body" style="flex:1">
+          <div class="about-honor-brand"><img src="/static/logo-fish.png" alt=""> 小鱼来了</div>
+          <div class="about-honor-date">2026.11 · 官方指定合作伙伴</div>
+          <div class="about-honor-title">
+            <img src="/static/brainco/brainco-logo.png" alt="BrainCo 强脑科技"
+              style="height:15px;width:auto;vertical-align:-3px;margin-right:6px">强脑科技官方指定合作伙伴 ·
+            杭州硕鱼科技有限公司（小鱼来了）成为
+          </div>
+          <div class="about-honor-prize">强脑科技 BrainCo · 官方指定合作伙伴</div>
+          <div class="about-honor-sub">脑机接口 / 具身智能 · 产品与解决方案合作</div>
+          <div class="about-honor-meta">合作主体：杭州硕鱼科技有限公司</div>
+          <div class="about-honor-chip">可承接脑机接口与具身智能产品的方案咨询、采购与本地化交付</div>
+        </div>
+      </div>
+
     <div class="card card-pad mt12">
       <div class="strong mb8">🧩 合作方式</div>
       <div class="small muted" style="line-height:1.8">

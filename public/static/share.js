@@ -681,6 +681,13 @@ export async function openShareSheet(listing) {
         <div class="tiny dim">生成海报，适合发朋友圈、微信群；对方扫码即可查看</div>
       </div>
     </div>
+    <div class="share-mode" data-mode="douyin">
+      <div class="ico">🎵</div>
+      <div class="grow">
+        <div class="strong">分享到抖音</div>
+        <div class="tiny dim">复制文案后到抖音粘贴，或直接唤起抖音 App</div>
+      </div>
+    </div>
     <div class="share-mode" data-mode="link">
       <div class="ico">🔗</div>
       <div class="grow">
@@ -691,7 +698,7 @@ export async function openShareSheet(listing) {
     <div id="share-panel" class="mt12"></div>`;
 
   openSheet({
-    title: '分享到微信 / 朋友圈',
+    title: '分享（微信 / 朋友圈 / 抖音）',
     content,
     async onMount(sheet, close) {
       const panel = sheet.querySelector('#share-panel');
@@ -786,6 +793,39 @@ export async function openShareSheet(listing) {
             shareDesc = String(e.target.value || '').trim();
             clearTimeout(posterTimer);
             posterTimer = setTimeout(drawPoster, 600);
+          });
+        } else if (mode === 'douyin') {
+          /*
+           * 抖音没有网页版分享接口（没有 window.douyin.share 这类东西），
+           * 网页里唯一稳的办法是「复制文案 + 唤起 App 让用户自己粘贴」。
+           * 不要假装能一键发抖音 —— 那样只会让用户反复点没反应。
+           */
+          panel.innerHTML = `<div class="field"><label>抖音文案 <span class="tiny dim">（可修改，复制后到抖音粘贴）</span></label>
+              <textarea class="textarea" id="share-dy-text" rows="6">${esc(
+                withSlogan(`${payload.title}\n${shareDesc}\n${payload.url}`),
+              )}</textarea>
+            </div>
+            <div class="row gap8 mt12">
+              <button class="btn btn-primary grow" id="btn-dy-copy">复制文案 + 链接</button>
+              <button class="btn grow" id="btn-dy-open">唤起抖音</button>
+            </div>
+            <div class="tiny dim center mt8">
+              抖音没有网页分享接口：复制后到抖音「+ 发布」或评论区粘贴即可。<br>
+              抖音内不能直接跳转微信，跨平台请用「复制链接」。
+            </div>`;
+
+          panel.querySelector('#btn-dy-copy')?.addEventListener('click', async () => {
+            const t = panel.querySelector('#share-dy-text')?.value || '';
+            const ok = await copyText(t);
+            toast(ok ? '已复制抖音文案，去抖音粘贴吧' : '复制失败，请手动长按选择', ok ? 'ok' : 'err');
+          });
+          panel.querySelector('#btn-dy-open')?.addEventListener('click', () => {
+            // 抖音 App scheme。桌面端打不开是正常现象，所以不当作错误处理。
+            try {
+              location.href = 'snssdk1128://';
+            } catch {
+              toast('当前设备可能没有安装抖音', 'err');
+            }
           });
         } else {
           panel.innerHTML = `<div class="field"><label>文字 + 链接 <span class="tiny dim">（可直接修改）</span></label>
