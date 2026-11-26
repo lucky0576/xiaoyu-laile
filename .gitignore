@@ -62,3 +62,6 @@ server-backups/
 # Python 缓存（工具脚本产生的）
 __pycache__/
 *.pyc
+
+# npm 缓存（沙箱内必须指到工作区）
+.npm-cache/
