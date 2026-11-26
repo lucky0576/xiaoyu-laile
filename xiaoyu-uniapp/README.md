@@ -6,8 +6,8 @@
 
 | 目标 | 命令 | 状态 |
 |---|---|---|
-| H5 | `npm run build:h5` | ✅ 构建通过（9 页） |
-| 抖音小程序 | `npm run build:mp-toutiao` | ✅ 构建通过（9 页 / 240 KB，产物在 `dist/build/mp-toutiao`） |
+| H5 | `npm run build:h5` | ✅ 构建通过（42 页） |
+| 抖音小程序 | `npm run build:mp-toutiao` | ✅ 构建通过（42 页 / 808 KB，产物在 `dist/build/mp-toutiao`） |
 | 微信小程序 | `npm run build:mp-weixin` | 未验证 |
 
 > 构建已验证，**运行未验证**：本机没有抖音开发者工具，且小程序请求需要已备案的域名（当前备案中）。
@@ -109,27 +109,64 @@ HTTP 状态码仍是 200，所以后端按 `error_code` 判错，不能只看状
 npm install --ignore-scripts
 ```
 
-## 迁移进度
+## 迁移进度（42 页已全部迁移）
 
-已完成 5 个核心页面。主站还有大量页面待迁移：
+### 核心流程
+| 主站模块 | uni-app 页面 |
+|---|---|
+| `views-home.js` | `pages/home` |
+| 搜索 | `pages/search` |
+| 详情 | `pages/detail` |
+| `views-publish.js` | `pages/publish`（文件上传待接） |
+| `views-account.js` 登录 | `pages/login` |
+| `views-account.js` 我的 | `pages/account` |
+| 消息通知 | `pages/notifications` |
+| 我的发布 | `pages/mylistings` |
+| 收藏 | `pages/favorites` |
+| 通讯录 | `pages/contacts` |
+| 兴趣标签 | `pages/tags` |
+| 账号绑定 | `pages/bindings` |
+| 会员权益 | `pages/membership` |
+| 推广有礼 | `pages/referral` |
+| 反馈 | `pages/feedback` |
 
-| 主站模块 | uni-app 页面 | 状态 |
+### 业务专区
+| 主站模块 | uni-app 页面 |
+|---|---|
+| `views-opc.js` | `pages/opc` |
+| `views-brainco.js` | `pages/brainco` |
+| `views-invest.js` | `pages/invest` |
+| `views-bidding.js` | `pages/bidding` |
+| `views-provider.js` | `pages/provider` |
+| `views-services.js` | `pages/services` |
+| `views-funds.js` | `pages/funds` |
+| `views-topic.js` 创业大赛 | `pages/topic` |
+| `views-startup.js` | `pages/startup` |
+| `views-estate.js` | `pages/estate` |
+| `views-overseas.js` | `pages/overseas` |
+| `views-metaverse.js` | `pages/metaverse` |
+| `views-steward.js` | `pages/steward` |
+
+### 内容
+| 主站模块 | uni-app 页面 |
+|---|---|
+| `views-news.js` | `pages/news` + `pages/news/detail` |
+| `views-drama.js` | `pages/drama` |
+| `views-shorts.js` | `pages/shorts` |
+| `views-forum.js` | `pages/forum` + `pages/forum/posts` |
+
+### 实时（列表版，能力受限）
+| 主站模块 | uni-app 页面 | 说明 |
 |---|---|---|
-| `views-home.js` | `pages/home` | ✅ |
-| `views-account.js`(登录) | `pages/login` | ✅ |
-| 详情页 | `pages/detail` | ✅ |
-| `views-publish.js` | `pages/publish` | ✅（文件上传待接） |
-| `views-account.js`(我的) | `pages/account` | ✅ |
-| 搜索 | `pages/search` | ✅ |
-| 消息通知 | `pages/notifications` | ✅ |
-| 我的发布 | `pages/mylistings` | ✅ |
-| `views-opc.js` OPC 服务专区 | `pages/opc` | ✅ |
-| `views-brainco.js` 强脑专题 | 待建 | ⬜ |
-| `views-bid*.js` 招投标 | 待建 | ⬜ |
-| 群聊 / 会议 | 待建 | ⬜（小程序端需另接实时能力） |
-| AI 解析上传流程 | 待建 | ⬜ |
-| 支付 | 待建 | ⬜（需抖音支付资质） |
+| `views-chat.js` | `pages/chat` | 仅房间列表；实时消息需接 WebSocket/SSE 或云开发实时库 |
+| `views-meeting.js` | `pages/meeting` | 仅会议列表；参会需 WebRTC 或第三方会议 SDK |
+| `views-live.js` | `pages/live` | 仅直播列表；播放需配 video 合法域名 |
 
+### 静态
+`pages/about`、`pages/legal`（隐私/协议/免责，按 `?kind=` 切换）、`pages/api`、`pages/card`、`pages/welcome`
+
+### 未迁移（有意不迁）
+管理后台（`admin-*` 系列）—— 小程序面向 C 端用户，管理操作仍在网页端。
 ## 上线前必须完成
 
 1. **ICP 备案**（进行中）—— 没有备案，小程序无法配置合法域名

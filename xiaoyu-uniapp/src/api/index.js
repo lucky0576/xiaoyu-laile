@@ -6,6 +6,15 @@
  */
 import { request, uploadFile } from './client.js';
 
+/** 把对象转成 query string，自动丢掉空值 */
+function qs(obj = {}) {
+  const s = Object.entries(obj)
+    .filter(([, v]) => v !== '' && v !== undefined && v !== null)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return s ? `?${s}` : '';
+}
+
 export const api = {
   /* ---------------- 公共 ---------------- */
   health: () => request('/api/health'),
@@ -43,6 +52,38 @@ export const api = {
   emailSendCode: (body) => request('/api/auth/email/send-code', { method: 'POST', data: body }),
   emailLogin: (body) => request('/api/auth/email/login', { method: 'POST', data: body }),
   me: () => request('/api/auth/me'),
+
+  /* ---------------- 资讯 / 短剧 / 短视频 / 资金 / 大赛 ---------------- */
+  news: (query = {}) => request(`/api/news${qs(query)}`),
+  newsMeta: () => request('/api/news/meta'),
+  newsDetail: (id) => request(`/api/news/${encodeURIComponent(id)}`),
+  dramas: (query = {}) => request(`/api/dramas${qs(query)}`),
+  dramaMeta: () => request('/api/dramas/meta'),
+  feeds: (query = {}) => request(`/api/feeds${qs(query)}`),
+  feed: (id) => request(`/api/feeds/${encodeURIComponent(id)}`),
+  fundsList: (query = {}) => request(`/api/funds/list${qs(query)}`),
+  contestList: () => request('/api/contest/list'),
+
+  /* ---------------- 我的 / 业务 ---------------- */
+  favorites: (query = {}) => request(`/api/favorites${qs(query)}`),
+  contacts: (query = {}) => request(`/api/contacts${qs(query)}`),
+  myTags: () => request('/api/users/me/tags'),
+  levels: () => request('/api/levels'),
+  referralMe: () => request('/api/referral/me'),
+  investPlan: (query = {}) => request(`/api/invest/plan${qs(query)}`),
+  forums: () => request('/api/forums'),
+  forumOverview: () => request('/api/forums/overview'),
+  forumPosts: (slug, query = {}) => request(`/api/forums/${encodeURIComponent(slug)}/posts${qs(query)}`),
+  providers: (query = {}) => request(`/api/providers${qs(query)}`),
+  providersMeta: () => request('/api/providers/meta'),
+  stewardMeta: () => request('/api/stewards/meta'),
+  stewards: (query = {}) => request(`/api/stewards${qs(query)}`),
+  feedbackTopics: () => request('/api/feedback/topics'),
+  feedbackSubmit: (body) => request('/api/feedback', { method: 'POST', data: body }),
+
+  bindings: () => request('/api/users/me/bindings'),
+  chatRooms: () => request('/api/chat/rooms'),
+  meetings: (query = {}) => request(`/api/meetings${qs(query)}`),
 
   /* ---------------- 通知 ---------------- */
   notifications: (query = {}) => {

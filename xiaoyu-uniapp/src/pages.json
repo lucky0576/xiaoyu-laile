@@ -56,6 +56,208 @@
       "style": {
         "navigationBarTitleText": "我的"
       }
+    },
+    {
+      "path": "pages/about/about",
+      "style": {
+        "navigationBarTitleText": "关于我们"
+      }
+    },
+    {
+      "path": "pages/api/api",
+      "style": {
+        "navigationBarTitleText": "开放接口"
+      }
+    },
+    {
+      "path": "pages/bidding/bidding",
+      "style": {
+        "navigationBarTitleText": "招投标"
+      }
+    },
+    {
+      "path": "pages/bindings/bindings",
+      "style": {
+        "navigationBarTitleText": "账号绑定"
+      }
+    },
+    {
+      "path": "pages/brainco/brainco",
+      "style": {
+        "navigationBarTitleText": "强脑科技 BrainCo"
+      }
+    },
+    {
+      "path": "pages/card/card",
+      "style": {
+        "navigationBarTitleText": "电子名片"
+      }
+    },
+    {
+      "path": "pages/chat/chat",
+      "style": {
+        "navigationBarTitleText": "群聊"
+      }
+    },
+    {
+      "path": "pages/contacts/contacts",
+      "style": {
+        "navigationBarTitleText": "通讯录",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/drama/drama",
+      "style": {
+        "navigationBarTitleText": "短剧"
+      }
+    },
+    {
+      "path": "pages/estate/estate",
+      "style": {
+        "navigationBarTitleText": "地产"
+      }
+    },
+    {
+      "path": "pages/favorites/favorites",
+      "style": {
+        "navigationBarTitleText": "我的收藏",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/feedback/feedback",
+      "style": {
+        "navigationBarTitleText": "反馈"
+      }
+    },
+    {
+      "path": "pages/forum/forum",
+      "style": {
+        "navigationBarTitleText": "交流区"
+      }
+    },
+    {
+      "path": "pages/forum/posts",
+      "style": {
+        "navigationBarTitleText": "帖子列表"
+      }
+    },
+    {
+      "path": "pages/funds/funds",
+      "style": {
+        "navigationBarTitleText": "产业基金"
+      }
+    },
+    {
+      "path": "pages/invest/invest",
+      "style": {
+        "navigationBarTitleText": "投资专区"
+      }
+    },
+    {
+      "path": "pages/legal/legal",
+      "style": {
+        "navigationBarTitleText": "法律条款"
+      }
+    },
+    {
+      "path": "pages/live/live",
+      "style": {
+        "navigationBarTitleText": "直播"
+      }
+    },
+    {
+      "path": "pages/meeting/meeting",
+      "style": {
+        "navigationBarTitleText": "会议"
+      }
+    },
+    {
+      "path": "pages/membership/membership",
+      "style": {
+        "navigationBarTitleText": "会员权益"
+      }
+    },
+    {
+      "path": "pages/metaverse/metaverse",
+      "style": {
+        "navigationBarTitleText": "数字空间"
+      }
+    },
+    {
+      "path": "pages/news/detail",
+      "style": {
+        "navigationBarTitleText": "详情",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/news/news",
+      "style": {
+        "navigationBarTitleText": "资讯",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/overseas/overseas",
+      "style": {
+        "navigationBarTitleText": "出海 / 海外"
+      }
+    },
+    {
+      "path": "pages/provider/provider",
+      "style": {
+        "navigationBarTitleText": "服务商"
+      }
+    },
+    {
+      "path": "pages/referral/referral",
+      "style": {
+        "navigationBarTitleText": "推广有礼"
+      }
+    },
+    {
+      "path": "pages/services/services",
+      "style": {
+        "navigationBarTitleText": "企业服务"
+      }
+    },
+    {
+      "path": "pages/shorts/shorts",
+      "style": {
+        "navigationBarTitleText": "短视频"
+      }
+    },
+    {
+      "path": "pages/startup/startup",
+      "style": {
+        "navigationBarTitleText": "创业服务"
+      }
+    },
+    {
+      "path": "pages/steward/steward",
+      "style": {
+        "navigationBarTitleText": "主理人"
+      }
+    },
+    {
+      "path": "pages/tags/tags",
+      "style": {
+        "navigationBarTitleText": "兴趣标签"
+      }
+    },
+    {
+      "path": "pages/topic/topic",
+      "style": {
+        "navigationBarTitleText": "创业大赛"
+      }
+    },
+    {
+      "path": "pages/welcome/welcome",
+      "style": {
+        "navigationBarTitleText": "欢迎"
+      }
     }
   ],
   "globalStyle": {
