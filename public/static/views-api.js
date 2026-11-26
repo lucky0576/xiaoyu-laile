@@ -275,7 +275,7 @@ export async function renderApiDoc() {
     </div>
 
     <div class="tiny dim center mt16" style="padding-bottom:24px">
-      运营主体：小鱼来了科技有限公司
+      运营主体：杭州硕鱼科技有限公司
     </div>
   </div>`;
 

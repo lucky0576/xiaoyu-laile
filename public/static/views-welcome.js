@@ -40,6 +40,14 @@ export async function renderWelcome(ctx) {
   } catch {
     bids = [];
   }
+  let ecom = [];
+  try {
+    const r = await service.listings({ category: 'ecommerce', pageSize: 8, sort: 'latest' });
+    ecom = (r.items || []).filter((x) => x && x.id).slice(0, 4);
+  } catch {
+    ecom = [];
+  }
+
   const lead = shorts[0];
   const leadVideo = lead && (lead.videoUrl || (lead.video && lead.video.url));
   const leadCover = lead && (lead.coverUrl || (lead.cover && lead.cover.url));
@@ -62,15 +70,6 @@ export async function renderWelcome(ctx) {
     <p class="aw-lead aw-rise" style="--d:140ms">
       让每一条好项目，都被对的人看见。
     </p>
-
-    <a class="honor-home-bar aw-rise" style="--d:160ms" href="#/about">
-      <div class="honor-home-mark">AWARD</div>
-      <div class="honor-home-body">
-        <b>2026 杭州市电子商务创新创业大赛 · 三等奖</b>
-        <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
-      </div>
-      <div class="honor-home-cta">查看荣誉 ›</div>
-    </a>
 
     <!-- ① 短视频：5 秒预览 -->
     <section class="aw-video aw-rise" style="--d:180ms">
@@ -112,6 +111,16 @@ export async function renderWelcome(ctx) {
       </div>
     </section>
 
+    <a class="honor-home-bar aw-rise" style="--d:220ms" href="#/about">
+      <div class="honor-home-mark">AWARD</div>
+      <div class="honor-home-body">
+        <div class="honor-home-brandline"><span class="honor-home-con">恭喜！</span></div>
+        <b>荣获 2026 杭州市电子商务创新创业大赛 · 三等奖</b>
+        <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
+      </div>
+      <img class="honor-home-logo-right" src="/static/logo-white@2x.png" alt="小鱼来了">
+    </a>
+
     <!-- ② AI 搜索 -->
     <section class="aw-card aw-rise" style="--d:240ms">
       <div class="aw-card-head">
@@ -152,6 +161,31 @@ export async function renderWelcome(ctx) {
         }
       </div>
     </section>
+
+    <section class="aw-card aw-ecom aw-rise" style="--d:282ms">
+      <div class="aw-card-head">
+        <span class="aw-card-title">电商</span>
+        <a class="aw-bidding-more" href="#/list/ecommerce">全部 ›</a>
+      </div>
+      ${
+        ecom.length
+          ? `<div class="aw-ecom-list">${ecom.map((x) => `<a class="aw-ecom-item" href="#/detail/${ui.esc(x.id)}">
+              <span class="aw-ecom-title">${ui.esc(x.title || '电商信息')}</span>
+              <span class="aw-ecom-meta">${ui.esc(x.type === 'supply' ? '供货' : x.type === 'acquisition' ? '求购' : '转让')} · ${ui.esc(x.trade?.price || (x.trade?.items && x.trade.items[0]?.price) || '价格面议')}</span>
+            </a>`).join('')}</div>`
+          : `<a class="aw-ecom-empty" href="#/publish?category=trade">还没有电商信息，去发布一条 ›</a>`
+      }
+    </section>
+
+    <a class="opc-home-bar aw-rise" style="--d:285ms" href="#/opc">
+      <div class="opc-home-copy">
+        <div class="opc-home-badge">OPC 服务专区 · 独立入口</div>
+        <div class="opc-home-t">OPC服务，让 OPC 获得更多的扶持和发展</div>
+        <div class="opc-home-d">短视频 / AI 工具 / 数据标注 / 3D / 光伏储能 / 投标服务 · 真实项目，先选方向再接单</div>
+        <div class="opc-home-cta">进入 OPC 服务专区 ›</div>
+      </div>
+      <div class="opc-home-art" aria-hidden="true"><b>OPC</b><i>社区</i></div>
+    </a>
 
     <!-- ③ 发布信息 -->
     <a class="aw-row aw-rise" style="--d:300ms" href="#/publish">
@@ -198,7 +232,7 @@ export async function renderWelcome(ctx) {
         进入小鱼来了
       </button>
       <div class="aw-count" id="wl-count-line">${WAIT_SECONDS} 秒后自动进入</div>
-      <div class="aw-legal">小鱼来了科技有限公司 · xiaoyulaile.online</div>
+      <div class="aw-legal">杭州硕鱼科技有限公司 · xiaoyulaile.online</div>
     </footer>
   </div>`;
 

@@ -509,9 +509,34 @@ async function renderPublishMedia(ctx, type, taxonomy) {
           autoCover = first?.cover || null;
           const hint = $('#pm-video-hint');
           if (hint) {
-            hint.innerHTML = videoFiles.length
-              ? `已选择 <b>${videoFiles.length}</b> 个视频`
-              : '把短视频拖到这里，或点下面选择';
+            /*
+             * 手机上（尤其微信内置浏览器、iOS Safari）<input multiple> 会被忽略，
+             * 一次只能选一条。所以这里必须明确告诉用户「还能再加几条、点按钮继续」，
+             * 否则用户以为只能发一条就走了。
+             */
+            if (!videoFiles.length) {
+              hint.innerHTML = '把短视频拖到这里，或点下面选择';
+            } else if (videoFiles.length < MAX_VIDEOS) {
+              const left = MAX_VIDEOS - videoFiles.length;
+              hint.innerHTML =
+                `已选择 <b>${videoFiles.length}</b> / ${MAX_VIDEOS} 条` +
+                `<br><span class="tiny" style="color:#0b74ff">还能再加 ${left} 条 —— 点下面「选择视频」继续选</span>`;
+            } else {
+              hint.innerHTML =
+                `已选择 <b>${videoFiles.length}</b> / ${MAX_VIDEOS} 条` +
+                `<br><span class="tiny dim">已达上限，发布时会逐条上传</span>`;
+            }
+          }
+
+          // 按钮文案也跟着变，让「还能加」这件事更显眼
+          const vbtn = $('#pm-video-btn');
+          if (vbtn) {
+            const left = MAX_VIDEOS - videoFiles.length;
+            vbtn.textContent = left > 0
+              ? `📎 ${videoFiles.length ? `再加一条（还差 ${left} 条）` : `选择视频（最多 ${MAX_VIDEOS} 条）`}`
+              : `✅ 已选满 ${MAX_VIDEOS} 条`;
+            vbtn.disabled = left <= 0;
+            vbtn.style.opacity = left <= 0 ? '.55' : '';
           }
         };
 

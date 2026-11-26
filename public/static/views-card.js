@@ -15,7 +15,7 @@ function vcardText() {
     'VERSION:3.0',
     'N:卢;云;;;',
     'FN:卢云',
-    'ORG:杭州小鱼来了科技有限公司',
+    'ORG:杭州硕鱼科技有限公司',
     'TITLE:创始人兼 CEO',
     `TEL;TYPE=CELL:${TEL}`,
     `EMAIL;TYPE=WORK:${EMAIL}`,
@@ -83,7 +83,7 @@ export async function renderCard() {
           <div class="bc-person-info">
             <div class="bc-name">卢云</div>
             <div class="bc-role">创始人兼 CEO</div>
-            <div class="bc-company">杭州小鱼来了科技有限公司</div>
+            <div class="bc-company">杭州硕鱼科技有限公司</div>
           </div>
         </div>
         <div class="bc-tagline">AI 驱动的产业互联网 B2B / B2G 平台</div>
