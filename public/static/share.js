@@ -54,6 +54,35 @@ export function isWechatBrowser() {
 }
 
 /**
+ * 是否在抖音内嵌浏览器里打开。
+ *
+ * 抖音 WebView 的 UA 常见标记：aweme / BytedanceWebview / douyin / musical_ly。
+ * 抖音里的分享入口和微信完全不同，不能套用微信那套「右上角···」的提示。
+ */
+export function isDouyinBrowser() {
+  return /aweme|bytedancewebview|douyin|musical_ly/i.test(navigator.userAgent || '');
+}
+
+/**
+ * 按当前环境返回分享引导文案。
+ *
+ * 各平台 WebView 的分享入口位置不一样，说错用户就找不到：
+ *   微信  右上角「···」→ 发送给朋友 / 分享到朋友圈
+ *   抖音  右上角「···」或「分享」按钮 → 发送朋友 / 复制链接
+ *          （抖音内不能直接跳微信，跨平台要复制链接）
+ *   其它  走系统分享或复制链接
+ */
+export function shareEnvTip() {
+  if (isWechatBrowser()) {
+    return '<div class="wx-tip">💚 <b>你在微信里</b>：选好形态后，点右上角「···」即可<b>发送给朋友</b>或<b>分享到朋友圈</b>，链接会自动带上标题、摘要和封面图。</div>';
+  }
+  if (isDouyinBrowser()) {
+    return '<div class="wx-tip">🎵 <b>你在抖音里</b>：点右上角「···」（部分版本是「分享」按钮）即可<b>发送给朋友</b>或<b>复制链接</b>。抖音内不能直接跳转微信，跨平台请先用「复制链接」。</div>';
+  }
+  return '';
+}
+
+/**
  * 配置微信内分享。未配置公众号时静默跳过，不影响其它分享方式。
  */
 export async function setupWechatShare(listing) {
@@ -626,7 +655,7 @@ export async function openShareSheet(listing) {
   };
 
   const content = `
-    ${isWechatBrowser() ? `<div class="wx-tip">💚 <b>你在微信里</b>：选好形态后，点右上角「···」即可<b>发送给朋友</b>或<b>分享到朋友圈</b>，链接会自动带上标题、摘要和封面图。</div>` : ''}
+    ${shareEnvTip()}
     <div class="field" style="margin-bottom:10px">
       <label>分享文字 <span class="tiny dim">（完整文案，可修改）</span></label>
       <textarea class="textarea" id="share-edit-desc" rows="4" maxlength="2000">${esc(shareDesc)}</textarea>
@@ -766,7 +795,11 @@ export async function openShareSheet(listing) {
               <button class="btn btn-primary grow" id="btn-copy-link">复制文字与链接</button>
               <button class="btn grow" id="btn-native">系统分享</button>
             </div>
-            ${isWechatBrowser() ? '<div class="tiny dim center mt8">在微信内点击右上角「···」即可转发给好友或分享到朋友圈</div>' : '<div class="tiny dim center mt8">可粘贴到微信聊天窗口，或复制后在微信中发送</div>'}`;
+            ${isWechatBrowser()
+              ? '<div class="tiny dim center mt8">在微信内点击右上角「···」即可转发给好友或分享到朋友圈</div>'
+              : isDouyinBrowser()
+                ? '<div class="tiny dim center mt8">在抖音内点右上角「···」→「复制链接」，再粘贴给对方</div>'
+                : '<div class="tiny dim center mt8">可粘贴到微信聊天窗口，或复制后在微信中发送</div>'}`;
         }
       };
 
@@ -1288,4 +1321,6 @@ export default {
   renderPoster,
   downloadCanvas,
   isWechatBrowser,
+  isDouyinBrowser,
+  shareEnvTip,
 };
