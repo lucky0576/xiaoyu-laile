@@ -478,6 +478,9 @@ export async function seedIfEmpty(force = false) {
   let created = 0;
   for (const spec of DEMO_LISTINGS) {
     const owner = createdUsers[spec.owner] || createdUsers[0];
+    // 活动时间必填（createListing 会校验 startAt），所以必须在创建时带上，
+    // 不能等创建后再 patch —— 否则首次启动灌演示数据会直接抛 400。
+    const eventStart = new Date(Date.now() + 30 * 86400_000).toISOString();
     const doc = await listingsSvc.createListing({
       user: owner,
       body: {
@@ -486,6 +489,7 @@ export async function seedIfEmpty(force = false) {
         text: spec.text,
         durationDays: spec.days || 30,
         hideContact: false,
+        ...(spec.category === 'event' ? { startAt: eventStart } : {}),
       },
       files: [],
     });

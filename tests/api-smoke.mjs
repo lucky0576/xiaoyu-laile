@@ -252,8 +252,16 @@ async function main() {
   txtFd.append('file', new Blob([`设备采购清单\n序号\t名称\t数量\n1\t逆变器\t20\n2\t光伏组件\t4000\n总金额 3600 万元\n联系人 李工 13700009999`], { type: 'text/plain' }), '采购清单.txt');
   const up = await call('POST', '/api/files', { token: tokenA, form: txtFd });
   check('文件上传', up.status === 201 && (up.data?.files || []).length === 1, JSON.stringify(up.json).slice(0, 300));
-  const uploadedFile = up.data?.files?.[0];
+  // 正文解析已改为异步（记录上带 parsing 标记），必须等它完成再断言，
+  // 否则拿到的永远是空 text。
+  let uploadedFile = up.data?.files?.[0];
+  for (let i = 0; i < 40 && uploadedFile && uploadedFile.parsing; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    const again = await call('GET', `/api/files/${uploadedFile.id}`, { token: tokenA });
+    if (again.data?.id) uploadedFile = again.data;
+  }
   check('文本型文件解析出内容', Boolean(uploadedFile?.text && uploadedFile.text.includes('逆变器')), JSON.stringify(uploadedFile?.text || '').slice(0, 120));
+  check('解析完成后不再标记 parsing', uploadedFile?.parsing === false, String(uploadedFile?.parsing));
   check('文件 URL 可构造', Boolean(uploadedFile?.url && uploadedFile.url.startsWith('/files/')));
 
   const fileFetch = await fetch(BASE + uploadedFile.url);

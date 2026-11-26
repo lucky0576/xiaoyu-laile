@@ -3918,7 +3918,7 @@ ${rows}
         try {
           let filledText = 0;
           for (const f of list) {
-            const rec = await service.uploadFile(f);
+            const rec = await api.uploadFile(f);
             // /api/files 返回 { files: [...] }，兼容单文件写法
             const file = rec?.files?.[0] || rec?.file || rec;
             if (!file || !file.id) continue;

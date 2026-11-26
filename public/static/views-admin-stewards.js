@@ -80,7 +80,6 @@ export async function renderAdminStewards(ctx, params = {}) {
 
   const res = await service.adminStewards({ status: tab }).catch(() => null);
   const items = res?.items || [];
-  const raw = await service.stewardMineProbe?.();
 
   const tabs = [
     { id: 'pending', name: '待审核' },

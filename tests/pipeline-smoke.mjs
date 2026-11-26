@@ -784,7 +784,13 @@ async function main() {
     `实际 ${(viewerFiles.data.listing.fileList || []).length}`);
 
   const guestFiles = await call('GET', `/api/listings/${fid2}`);
-  check('未登录看不到项目文件', (guestFiles.data.listing.fileList || []).length === 0);
+  // 设计变更（提交 dfa961b）：预览与下载分离 —— 文件列表谁都能看，
+  // 但下载需要发布方授权。所以访客看到列表、拿不到下载权限。
+  check('未登录能看到文件列表（预览）', (guestFiles.data.listing.fileList || []).length === 1,
+    `实际 ${(guestFiles.data.listing.fileList || []).length}`);
+  check('未登录不能下载文件', guestFiles.data.listing.fileDownloadable === false,
+    String(guestFiles.data.listing.fileDownloadable));
+  check('未登录时附件标记为锁定', guestFiles.data.listing.fileLocked === true);
   check('未登录标记为需登录', guestFiles.data.listing.gated === true);
 
   const dl = await fetch(BASE + newFileUrl);

@@ -4,7 +4,7 @@
  * 背景：用户上传 3 个 12MB 的 PDF 全部失败，报 HTTP 524。
  * 524 是 Cloudflare 的单请求 100 秒超时，不是解析慢（实测解析只要 1 秒）——
  * 是 12MB 在慢速上行下传输本身就超时了。
- * 解法是切成 2MB 一块逐个传，再合并。
+ * 解法是切成 1MB 一块逐个传，再合并（块越小，慢速上行下每次越安全）。
  *
  * 这里锁住分片的关键性质：
  *   · 合并后的字节与源文件**完全一致**
@@ -63,7 +63,7 @@ async function expectThrow(fn) {
 
 /* ---------------- 常量 ---------------- */
 console.log('\n=== 分片参数 ===');
-check('分片大小 2MB', CHUNK === 2 * 1024 * 1024, String(CHUNK));
+check('分片大小 1MB', CHUNK === 1024 * 1024, String(CHUNK));
 check('分片远小于 Cloudflare 100 秒上限对应的体积', CHUNK <= 8 * 1024 * 1024);
 check('阈值大于分片', chunksSvc.CHUNK_THRESHOLD > CHUNK, String(chunksSvc.CHUNK_THRESHOLD));
 

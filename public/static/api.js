@@ -378,6 +378,9 @@ export const service = {
   cases: () => api.get('/api/cases'),
 
   me: () => api.get('/api/auth/me'),
+  // 本地缓存的当前用户（不发请求）。用于渲染时判断「这条内容是不是我发的」，
+  // 需要最新资料时用 me()/myProfile() 重新拉。
+  meCached: () => store.user,
   myProfile: () => api.get('/api/users/me'),
   updateProfile: (body) => api.put('/api/users/me', body),
   user: (id) => api.get(`/api/users/${encodeURIComponent(id)}`),
