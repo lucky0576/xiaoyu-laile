@@ -15,11 +15,15 @@
     </view>
 
     <view class="mine" v-else>
-      <view class="item" @tap="goMine('project')">
+      <view class="item" @tap="goMyListings">
         <text>我发布的信息</text><text class="arrow">›</text>
       </view>
-      <view class="item" @tap="goMine('followed')">
-        <text>我的关注</text><text class="arrow">›</text>
+      <view class="item" @tap="goNotifications">
+        <text>消息</text>
+        <text class="arrow">{{ unread ? `${unread} 条未读` : '›' }}</text>
+      </view>
+      <view class="item" @tap="goOpc">
+        <text>OPC 服务专区</text><text class="arrow">›</text>
       </view>
       <view class="item" v-if="user.isAdmin">
         <text>管理后台</text><text class="arrow">仅网页端</text>
@@ -42,6 +46,7 @@ import api from '../../api/index.js';
 import { userStore, logout } from '../../store/user.js';
 
 const user = ref(userStore.user);
+const unread = ref(0);
 
 const initial = computed(() => {
   const n = (user.value && user.value.nickname) || '鱼';
@@ -54,6 +59,8 @@ onMounted(async () => {
     const r = await api.me();
     user.value = (r && (r.user || r)) || user.value;
     userStore.user = user.value;
+    const u = await api.notificationsUnread().catch(() => null);
+    unread.value = (u && (u.unread ?? u.count)) || 0;
   } catch {
     /* 登录态过期就保持现状 */
   }
@@ -63,8 +70,16 @@ function goLogin() {
   uni.navigateTo({ url: '/pages/login/login' });
 }
 
-function goMine(kind) {
-  uni.showToast({ title: '该页面待迁移', icon: 'none' });
+function goMyListings() {
+  uni.navigateTo({ url: '/pages/mylistings/mylistings' });
+}
+
+function goNotifications() {
+  uni.navigateTo({ url: '/pages/notifications/notifications' });
+}
+
+function goOpc() {
+  uni.navigateTo({ url: '/pages/opc/opc' });
 }
 
 function doLogout() {

@@ -5,6 +5,21 @@
       <view class="hero-sub">找项目 · 投资 · 产业</view>
     </view>
 
+    <view class="quick">
+      <view class="search-bar" @tap="goSearch">
+        <text class="search-ico">🔍</text>
+        <text class="search-ph">搜项目 / 城市 / 行业</text>
+      </view>
+      <view class="opc-entry" @tap="goOpc">
+        <text class="opc-ico">🤝</text>
+        <view class="opc-txt">
+          <view class="opc-name">OPC 服务专区</view>
+          <view class="opc-sub">把项目拆成你能接的服务包</view>
+        </view>
+        <text class="opc-arrow">›</text>
+      </view>
+    </view>
+
     <scroll-view class="tabs" scroll-x>
       <view
         v-for="c in cats"
@@ -89,6 +104,14 @@ function pickCategory(id) {
   load(true);
 }
 
+function goSearch() {
+  uni.navigateTo({ url: '/pages/search/search' });
+}
+
+function goOpc() {
+  uni.navigateTo({ url: '/pages/opc/opc' });
+}
+
 function openDetail(it) {
   uni.navigateTo({ url: `/pages/detail/detail?id=${encodeURIComponent(it.id)}` });
 }
@@ -129,10 +152,60 @@ onReachBottom(() => {
   font-size: 26rpx;
   opacity: 0.85;
 }
+.quick {
+  padding: 20rpx 24rpx 0;
+}
+.search-bar {
+  display: flex;
+  align-items: center;
+  height: 80rpx;
+  padding: 0 24rpx;
+  background: #fff;
+  border-radius: 12rpx;
+  border: 1px solid #dce3ef;
+}
+.search-ico {
+  font-size: 26rpx;
+  margin-right: 12rpx;
+}
+.search-ph {
+  font-size: 27rpx;
+  color: #a8b3c4;
+}
+.opc-entry {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+  padding: 22rpx 24rpx;
+  background: linear-gradient(120deg, #eef4ff, #f7faff);
+  border: 1px solid #dbe8ff;
+  border-radius: 14rpx;
+}
+.opc-ico {
+  font-size: 34rpx;
+  margin-right: 16rpx;
+}
+.opc-txt {
+  flex: 1;
+}
+.opc-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1a4fa8;
+}
+.opc-sub {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #7d93b5;
+}
+.opc-arrow {
+  color: #9db3d4;
+  font-size: 30rpx;
+}
 .tabs {
   white-space: nowrap;
   padding: 20rpx 24rpx;
-  background: #fff;
+  background: transparent;
 }
 .tab {
   display: inline-block;

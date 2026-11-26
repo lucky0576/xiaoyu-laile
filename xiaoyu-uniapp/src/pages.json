@@ -8,15 +8,41 @@
       }
     },
     {
-      "path": "pages/login/login",
+      "path": "pages/search/search",
       "style": {
-        "navigationBarTitleText": "登录 / 注册"
+        "navigationBarTitleText": "搜索"
       }
     },
     {
       "path": "pages/detail/detail",
       "style": {
         "navigationBarTitleText": "详情"
+      }
+    },
+    {
+      "path": "pages/opc/opc",
+      "style": {
+        "navigationBarTitleText": "OPC 服务专区"
+      }
+    },
+    {
+      "path": "pages/notifications/notifications",
+      "style": {
+        "navigationBarTitleText": "消息",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/mylistings/mylistings",
+      "style": {
+        "navigationBarTitleText": "我发布的",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录 / 注册"
       }
     },
     {

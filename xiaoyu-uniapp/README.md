@@ -6,8 +6,8 @@
 
 | 目标 | 命令 | 状态 |
 |---|---|---|
-| H5 | `npm run build:h5` | ✅ 构建通过（292 KB） |
-| 抖音小程序 | `npm run build:mp-toutiao` | ✅ 构建通过（176 KB，产物在 `dist/build/mp-toutiao`） |
+| H5 | `npm run build:h5` | ✅ 构建通过（9 页） |
+| 抖音小程序 | `npm run build:mp-toutiao` | ✅ 构建通过（9 页 / 240 KB，产物在 `dist/build/mp-toutiao`） |
 | 微信小程序 | `npm run build:mp-weixin` | 未验证 |
 
 > 构建已验证，**运行未验证**：本机没有抖音开发者工具，且小程序请求需要已备案的域名（当前备案中）。
@@ -40,11 +40,15 @@ src/
 ├── store/
 │   └── user.js          登录态（token + 用户，存 storage）
 └── pages/
-    ├── home/            首页：分类切换 + 列表 + 下拉刷新 + 触底加载
+    ├── home/            首页：搜索入口 + OPC 入口 + 分类 + 列表 + 下拉刷新 + 触底加载
+    ├── search/          搜索：输入防抖 + 联想建议 + 结果列表
+    ├── detail/          详情：正文 + AI 解读 + 原生分享
+    ├── opc/             OPC 服务专区：7 个服务方向 + 可接真实项目 + 入驻 CTA
+    ├── notifications/   消息：未读角标 + 全部已读 + 点击跳转
+    ├── mylistings/      我发布的：按状态筛选（全部/已发布/草稿）
     ├── login/           登录：手机验证码 / 抖音授权
-    ├── detail/          详情：正文 + AI 解读 + 分享
     ├── publish/         发布：分类 / 标题 / 正文 / 城市行业
-    └── account/         我的：资料 + 退出
+    └── account/         我的：资料 + 消息未读 + 我的发布 + OPC + 退出
 ```
 
 ## 跑起来
@@ -59,6 +63,17 @@ npm run dev:h5         # http://localhost:5178
 # 抖音小程序：构建后用「抖音开发者工具」导入 dist/build/mp-toutiao
 npm run build:mp-toutiao
 ```
+
+## H5 部署与 API 地址
+
+H5 默认 **同源** 访问 `/api`（`apiBase = ''`）。两种部署方式：
+
+1. **推荐**：把 `dist/build/h5` 的内容放进主站 `public/` 的某个子目录，
+   由同一个后端提供，天然同源，无需改代码。
+2. 独立域名：页面加载后调 `setApiBase('https://api.example.com')`，
+   并确保后端开了 CORS。
+
+小程序端没有同源概念，必须显式配置 `MP_DEFAULT_BASE`（已备案 https 域名）。
 
 ## 关键约束（踩过的坑）
 
@@ -105,7 +120,10 @@ npm install --ignore-scripts
 | 详情页 | `pages/detail` | ✅ |
 | `views-publish.js` | `pages/publish` | ✅（文件上传待接） |
 | `views-account.js`(我的) | `pages/account` | ✅ |
-| `views-opc.js` OPC 服务专区 | 待建 | ⬜ |
+| 搜索 | `pages/search` | ✅ |
+| 消息通知 | `pages/notifications` | ✅ |
+| 我的发布 | `pages/mylistings` | ✅ |
+| `views-opc.js` OPC 服务专区 | `pages/opc` | ✅ |
 | `views-brainco.js` 强脑专题 | 待建 | ⬜ |
 | `views-bid*.js` 招投标 | 待建 | ⬜ |
 | 群聊 / 会议 | 待建 | ⬜（小程序端需另接实时能力） |

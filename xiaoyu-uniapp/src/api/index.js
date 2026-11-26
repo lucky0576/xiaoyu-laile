@@ -26,6 +26,16 @@ export const api = {
   listing: (id) => request(`/api/listings/${encodeURIComponent(id)}`),
   comments: (id) => request(`/api/listings/${encodeURIComponent(id)}/comments`),
   share: (id) => request(`/api/listings/${encodeURIComponent(id)}/share`),
+  /** 我的发布：ownerId 用当前登录用户 id */
+  myListings: (ownerId, query = {}) => {
+    const merged = { ownerId, status: 'all', sort: 'latest', pageSize: 20, ...query };
+    const qs = Object.entries(merged)
+      .filter(([, v]) => v !== '' && v !== undefined && v !== null)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      .join('&');
+    return request(`/api/listings?${qs}`);
+  },
+  searchSuggest: (q) => request(`/api/search/suggest?q=${encodeURIComponent(q)}`),
 
   /* ---------------- 登录 / 注册 ---------------- */
   smsSend: (body) => request('/api/auth/sms/send', { method: 'POST', data: body }),
@@ -33,6 +43,17 @@ export const api = {
   emailSendCode: (body) => request('/api/auth/email/send-code', { method: 'POST', data: body }),
   emailLogin: (body) => request('/api/auth/email/login', { method: 'POST', data: body }),
   me: () => request('/api/auth/me'),
+
+  /* ---------------- 通知 ---------------- */
+  notifications: (query = {}) => {
+    const qs = Object.entries(query)
+      .filter(([, v]) => v !== '' && v !== undefined && v !== null)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+      .join('&');
+    return request(`/api/notifications${qs ? `?${qs}` : ''}`);
+  },
+  notificationsUnread: () => request('/api/notifications/unread'),
+  notificationsRead: (ids) => request('/api/notifications/read', { method: 'POST', data: { ids: ids || [] } }),
 
   /* ---------------- 抖音登录 ---------------- */
   douyinUrl: () => request('/api/auth/douyin/url'),
