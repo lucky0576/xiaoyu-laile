@@ -118,7 +118,7 @@ export async function renderWelcome(ctx) {
         <b>荣获 2026 杭州市电子商务创新创业大赛 · 三等奖</b>
         <span>“最具发展潜力项目” · 浙江省商务厅指导 / 杭州市商务局主办</span>
       </div>
-      <img class="honor-home-logo-right" src="/static/logo-white@2x.png" alt="小鱼来了">
+      <img class="honor-home-logo-right" src="/static/logo@2x.png" alt="小鱼来了">
     </a>
 
     <!-- ② AI 搜索 -->

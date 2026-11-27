@@ -740,7 +740,7 @@ export async function renderHome(ctx, query) {
         <b>成为华为官方服务商和经销商（浙江）</b>
       </div>
     </div>
-    <img class="honor-home-logo-right" src="/static/logo-white@2x.png" alt="小鱼来了">
+    <img class="honor-home-logo-right" src="/static/logo@2x.png" alt="小鱼来了">
   </a>`;
 
   const opcBarHtml = `<a class="opc-home-bar" href="#/opc">
