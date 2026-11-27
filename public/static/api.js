@@ -595,6 +595,17 @@ export const service = {
   contestFollows: () => api.get('/api/contest/follows'),
   contestFollow: (id, on) => api.post('/api/contest/follow', { id, on }),
 
+  /* ---------------- 杭州 AI+X 场景供需对接 ---------------- */
+  hangzhouMeta: () => api.get('/api/hangzhou/meta'),
+  hangzhouNeeds: (query) => api.get('/api/hangzhou/needs', query),
+  hangzhouNeed: (id) => api.get(`/api/hangzhou/needs/${encodeURIComponent(id)}`),
+  hangzhouNeedMatch: (id) => api.get(`/api/hangzhou/needs/${encodeURIComponent(id)}/match`),
+  hangzhouCaps: (query) => api.get('/api/hangzhou/caps', query),
+  hangzhouCap: (id) => api.get(`/api/hangzhou/caps/${encodeURIComponent(id)}`),
+  hangzhouCapMatch: (id) => api.get(`/api/hangzhou/caps/${encodeURIComponent(id)}/match`),
+  hangzhouIntent: (body) => api.post('/api/hangzhou/intent', body),
+  hangzhouMyIntents: () => api.get('/api/hangzhou/my-intents'),
+
   /* ---------------- 浙江省政策申报 ---------------- */
   zhejiangMeta: () => api.get('/api/zhejiang/meta'),
   zhejiangPolicies: (query) => api.get('/api/zhejiang/policies', query),

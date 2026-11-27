@@ -141,6 +141,7 @@ export default function registerCoreRoutes(app) {
       'invest.css',
       'tags.css',
       'zhejiang.css',
+      'hangzhou.css',
     ];
     let etag = '';
     const parts = [];

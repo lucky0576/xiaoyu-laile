@@ -28,6 +28,7 @@ const ORDER = [
   'invest.css',
   'tags.css',
   'zhejiang.css',
+  'hangzhou.css',
   'welcome-apple.css',
 ];
 
