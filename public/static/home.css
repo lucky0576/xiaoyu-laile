@@ -146,6 +146,13 @@
   min-width: 0;
   box-sizing: border-box;
   border-radius: 50%;
+  /*
+   * overflow:hidden 是「不变椭圆」的关键。
+   * aspect-ratio 只是建议值：一旦内容高度超过宽度，盒子会被内容撑高，
+   * 宽高不再相等，border-radius:50% 就画成椭圆了。
+   * 裁掉溢出内容，形状永远是正圆。
+   */
+  overflow: hidden;
   display: flex;
   flex-direction: column-reverse;
   align-items: center;
@@ -153,8 +160,11 @@
   gap: 4px;
   /* 水平内边距要比方形卡片大：圆的上下区域会收窄，留够余量文字才不会顶出圆边 */
   padding: 9px 17px;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(24, 60, 120, .07);
+  /* 背景色与文字色由 JS 按入口序号内联写入（每张卡片不同颜色，文字自动取反差色） */
+  background: #2f7bff;
+  color: #fff;
+  /* 彩色圆需要一层柔和投影才有立体感（原来白卡片是靠边框和背景色差） */
+  box-shadow: 0 3px 10px rgba(24, 60, 120, .13);
   text-align: center;
   transition: .15s;
 }
@@ -164,13 +174,14 @@
 .home-card .t {
   font-size: 11px;
   font-weight: 800;
-  color: #16202e;
+  color: inherit;
   letter-spacing: 0;
   line-height: 1.25;
 }
 .home-card .d {
   font-size: 8px;
-  color: #8a9bb5;
+  color: inherit;
+  opacity: .78;
   margin: 2px auto 0;
   line-height: 1.3;
   /* 限宽：圆的下半部弦宽变窄，超过这个宽度会被圆形边缘"切"到 */
@@ -190,10 +201,9 @@
   font-size: 18px;
   line-height: 1;
   flex: none;
-  /* 只留极轻顶部高光 + 一圈柔和外阴影，避免底部被洗白看不出圆形 */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, .35),
-    0 2px 6px rgba(24, 60, 120, .13);
+  /* 半透明白气泡：深底上提亮、浅底上不抢色，一张样式适配全部配色 */
+  background: rgba(255, 255, 255, .34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
   transition: transform .15s;
 }
 .home-card:active .art { transform: scale(.92); }
@@ -373,7 +383,7 @@
   .home-card { max-width: 132px; padding: 11px 20px; }
   .home-card .t { font-size: 12px; }
   .home-card .d { font-size: 8.5px; max-width: 74px; }
-  .home-card .art { width: 38px; height: 38px; font-size: 21px; }
+  .home-card .art { width: 38px; height: 38px; font-size: 21px; background: rgba(255, 255, 255, .34); }
   .home-grid { grid-template-columns: repeat(3, 1fr); }
   .home-list2 { grid-template-columns: repeat(4, 1fr); }
   .home-banner { height: 220px; }

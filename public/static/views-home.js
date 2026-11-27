@@ -103,6 +103,40 @@ export async function renderHome(ctx, query) {
   ];
   const SOLID = ['#2f7bff', '#f08a2d', '#12a05a', '#7c5cf0', '#0ea5b7', '#e0518f'];
 
+  /*
+   * 圆形宫格配色：10 个入口各一色。
+   * 深浅交错排列（深→浅→深→浅），既不会一片同色，
+   * 也让下面「文字自动取反差色」真正有意义（深底白字 / 浅底深字）。
+   */
+  const CARD_COLORS = [
+    '#2f7bff', // 1  活动赛事  蓝
+    '#fde68a', // 2  贸易采供  浅琥珀
+    '#12a05a', // 3  群聊      绿
+    '#ddd6fe', // 4  会议      浅紫
+    '#0ea5b7', // 5  科技成果  青
+    '#fbcfe8', // 6  招投标    浅粉
+    '#7c5cf0', // 7  元宇宙    紫
+    '#bbf7d0', // 8  出海      浅绿
+    '#e0518f', // 9  创业服务  玫红
+    '#fed7aa', // 10 场景广场  浅橙
+  ];
+
+  /**
+   * 按背景色亮度自动选文字颜色（深底白字 / 浅底深字）。
+   * 用 sRGB 加权亮度（人眼对绿色最敏感、蓝色最不敏感），
+   * 阈值 0.62 是深浅两档的分界，实测这 10 个色都落在两端、没有中间灰。
+   */
+  const textOn = (hex) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+    if (!m) return '#16202e';
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16) & 255;
+    const g = (n >> 8) & 255;
+    const b = n & 255;
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.62 ? '#16202e' : '#ffffff';
+  };
+
   /* ---------------- 顶部消息条 ---------------- */
   const notice = recent[0];
   const noticeHtml = `<a class="home-notice" href="${notice ? `#/detail/${ui.esc(notice.id)}` : '#/list/project'}">
@@ -462,10 +496,15 @@ export async function renderHome(ctx, query) {
   </a>`;
 
   const gridHtml = `<div class="home-grid">
-    ${entries.map((e) => `<a class="home-card" href="${e.href}" data-auth="${e.auth ? '1' : ''}">
-      <div class="txt"><div class="t">${e.t}</div><div class="d">${ui.esc(e.d)}</div></div>
-      <div class="art" style="background:${GRAD[e.i % GRAD.length]}">${e.art}</div>
-    </a>`).join('')}
+    ${entries.map((e, idx) => {
+      // 颜色按入口顺序取，超出色板长度就循环
+      const bg = CARD_COLORS[idx % CARD_COLORS.length];
+      const fg = textOn(bg);
+      return `<a class="home-card" href="${e.href}" data-auth="${e.auth ? '1' : ''}" style="background:${bg};color:${fg}">
+        <div class="txt"><div class="t">${e.t}</div><div class="d">${ui.esc(e.d)}</div></div>
+        <div class="art">${e.art}</div>
+      </a>`;
+    }).join('')}
   </div>`;
 
   /* ---------------- 推荐 Tab ---------------- */
