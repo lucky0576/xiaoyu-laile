@@ -15,7 +15,7 @@ Remove-Item $log -Force -ErrorAction SilentlyContinue
 Log '=== 开始批量生成封面 ==='
 
 # 登录拿 token
-$body = @{ account = '13456693544'; password = 'weilan0576' } | ConvertTo-Json
+$body = @{ account = '13456693544'; password = $env:XYL_ADMIN_PASSWORD } | ConvertTo-Json
 $login = Invoke-RestMethod "$base/api/auth/login" -Method POST -ContentType 'application/json' -Body $body -TimeoutSec 30
 $token = $login.data.token
 $hdr = @{ Authorization = "Bearer $token" }

@@ -46,7 +46,7 @@ def load_json(name):
 
 
 def main():
-    login, _code = api('/api/auth/login', 'POST', {'account': '13456693544', 'password': 'weilan0576'})
+    login, _code = api('/api/auth/login', 'POST', {'account': '13456693544', 'password': os.environ.get('XYL_ADMIN_PASSWORD', '')})
     token = (login.get('data') or {}).get('token')
     feeds = [f for f in load_json('feeds.json') if f.get('type') == 'short']
     auto = [f for f in feeds if f.get('autoMade') or any('AI生成' in str(t) for t in (f.get('tags') or []))]

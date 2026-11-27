@@ -27,7 +27,7 @@ const ROOT = '/opt/xiaoyu-laile';
 const FONT = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc';
 const API = 'http://127.0.0.1:8787';
 const ADMIN_PHONE = '13456693544';
-const ADMIN_PWD = 'weilan0576';
+const ADMIN_PWD = (process.env.XYL_ADMIN_PASSWORD || '');
 
 const W = 720;
 const H = 1280;

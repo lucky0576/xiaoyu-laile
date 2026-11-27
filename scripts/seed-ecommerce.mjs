@@ -2,7 +2,7 @@
 // 用 Node 跑，避免 PowerShell 的编码问题：node scripts/seed-ecommerce.mjs
 const BASE = 'https://xiaoyulaile.online';
 const ACCOUNT = '13456693544';
-const PASSWORD = 'weilan0576';
+const PASSWORD = (process.env.XYL_ADMIN_PASSWORD || '');
 
 const NE = [{ id: 'new-energy', name: '新能源' }];
 const city = (id, name, province) => [{ id, name, province }];

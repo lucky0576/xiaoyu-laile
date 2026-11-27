@@ -34,7 +34,7 @@ def load_json(name):
 
 
 def main():
-    login = post('/api/auth/login', {'account': '13456693544', 'password': 'weilan0576'})
+    login = post('/api/auth/login', {'account': '13456693544', 'password': os.environ.get('XYL_ADMIN_PASSWORD', '')})
     token = (login.get('data') or {}).get('token')
 
     listings = [l for l in load_json('listings.json') if l.get('status') == 'published']

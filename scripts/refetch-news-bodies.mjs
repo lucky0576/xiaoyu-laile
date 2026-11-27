@@ -14,7 +14,7 @@ const BASE = (process.argv[2] || 'https://xiaoyulaile.online').replace(/\/$/, ''
 const FORCE = process.argv.includes('--force');
 
 const ADMIN_ACCOUNT = '13456693544';
-const ADMIN_PASSWORD = 'weilan0576';
+const ADMIN_PASSWORD = (process.env.XYL_ADMIN_PASSWORD || '');
 
 let token = '';
 

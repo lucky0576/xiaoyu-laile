@@ -35,7 +35,7 @@ def load(p):
 
 
 def main():
-    login, _ = req('/api/auth/login', 'POST', {'account': '13456693544', 'password': 'weilan0576'})
+    login, _ = req('/api/auth/login', 'POST', {'account': '13456693544', 'password': os.environ.get('XYL_ADMIN_PASSWORD', '')})
     token = (login.get('data') or {}).get('token')
     drid = open('/tmp/drid').read().strip()
     print('  drama:', drid)

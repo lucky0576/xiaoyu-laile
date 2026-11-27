@@ -1,5 +1,5 @@
 const BASE = 'http://127.0.0.1:8787';
-const ADMIN = { account: '13456693544', password: 'weilan0576' };
+const ADMIN = { account: '13456693544', password: (process.env.XYL_ADMIN_PASSWORD || '') };
 const api = async (path, { method = 'GET', body, token } = {}) => {
   const res = await fetch(BASE + path, {
     method,

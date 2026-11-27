@@ -14,7 +14,7 @@ const ROOT = process.cwd();
 const DRY = process.argv.includes('--dry-run');
 const BASE = process.env.API_BASE || 'http://127.0.0.1:8787';
 const ACCOUNT = process.env.RETITLE_ACCOUNT || '13456693544';
-const PASSWORD = process.env.RETITLE_PASSWORD || 'weilan0576';
+const PASSWORD = process.env.RETITLE_PASSWORD || (process.env.XYL_ADMIN_PASSWORD || '');
 
 function latestBackup() {
   const dir = path.join(ROOT, 'data', 'backups');

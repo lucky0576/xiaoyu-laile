@@ -61,7 +61,7 @@ if ($All -or -not $AsAdmin) {
 }
 
 if ($All -or $AsAdmin) {
-  $t = Login '13456693544' 'weilan0576'
+  $t = Login '13456693544' $env:XYL_ADMIN_PASSWORD
   $fail += Sweep 'ADMIN' $t ($Common + $AdminExtra)
 }
 

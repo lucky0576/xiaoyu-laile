@@ -11,7 +11,7 @@
  * 用法：node scripts/backfill-event-time.mjs
  */
 const BASE = process.env.XYL_BASE || 'http://127.0.0.1:8787';
-const ADMIN = { account: '13456693544', password: 'weilan0576' };
+const ADMIN = { account: '13456693544', password: (process.env.XYL_ADMIN_PASSWORD || '') };
 
 async function req(path, { method = 'GET', body, token } = {}) {
   const res = await fetch(BASE + path, {

@@ -55,7 +55,7 @@ def find_video(file_id):
 
 
 def main():
-    token = (post('/api/auth/login', {'account': '13456693544', 'password': 'weilan0576'}).get('data') or {}).get('token')
+    token = (post('/api/auth/login', {'account': '13456693544', 'password': os.environ.get('XYL_ADMIN_PASSWORD', '')}).get('data') or {}).get('token')
     cases = [
         ('male', '男声验证｜安徽合肥 300MW 分布式光伏整县推进项目'),
         ('female', '女声验证｜福建泉州 50 万平米产业园屋顶光伏 EMC'),

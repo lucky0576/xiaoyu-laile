@@ -24,8 +24,11 @@ $Tools = 'C:\Users\Administrator\Documents\deepseek-harness\default-workspace\.t
 $Pscp = Join-Path $Tools 'pscp.exe'
 $Plink = Join-Path $Tools 'plink.exe'
 $HostKey = 'SHA256:3+ADpEr03S1a26kdUYIkKBrxJID6hIQ8F7X9bal00Ks'
-$Ip = 'root@154.221.23.7'
-$Pw = 'Weilan0576'
+. "$PSScriptRoot\_secrets.ps1"
+$Ip = if ($env:XYL_SERVER_HOST) { $env:XYL_SERVER_HOST } else { 'root@154.221.23.7' }
+# 密码不再硬编码（仓库公开）：从 .secrets.env 或环境变量读取
+$Pw = $env:XYL_SERVER_PASSWORD
+if (-not $Pw) { throw 'Missing XYL_SERVER_PASSWORD - see scripts/SECRETS.md' }
 $RemoteRoot = '/opt/xiaoyu-laile'
 
 function Say($msg) { Write-Host "  $msg" }

@@ -9,7 +9,7 @@
  */
 
 const BASE = process.argv.find((x) => x.startsWith('http')) || 'https://xiaoyulaile.online';
-const ADMIN = { account: '13456693544', password: 'weilan0576' };
+const ADMIN = { account: '13456693544', password: (process.env.XYL_ADMIN_PASSWORD || '') };
 const WECOM_WEBHOOK = process.env.WECOM_WEBHOOK || '';
 
 async function req(path, { method = 'GET', body, token } = {}) {

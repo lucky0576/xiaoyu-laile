@@ -65,3 +65,7 @@ __pycache__/
 
 # npm 缓存（沙箱内必须指到工作区）
 .npm-cache/
+
+# 本地凭据（服务器/管理员密码）——绝不入库
+.secrets.env
+.secrets.local

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """更新已发布的强脑合作项目：加入产教联合；并冒烟测试「寻求合作」需求发布"""
 
+import os
 import json
 import urllib.request
 
@@ -26,7 +27,7 @@ def req(path, method='GET', body=None, token=None):
             return {'error': str(e)}, e.code
 
 
-login, _ = req('/api/auth/login', 'POST', {'account': '13456693544', 'password': 'weilan0576'})
+login, _ = req('/api/auth/login', 'POST', {'account': '13456693544', 'password': os.environ.get('XYL_ADMIN_PASSWORD', '')})
 token = (login.get('data') or {}).get('token')
 mine, _ = req('/api/my/listings', token=token)
 items = (mine.get('data') or {}).get('items') or []
