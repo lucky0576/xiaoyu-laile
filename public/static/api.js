@@ -601,6 +601,17 @@ export const service = {
   zhejiangPolicy: (id) => api.get(`/api/zhejiang/policies/${encodeURIComponent(id)}`),
   zhejiangApply: (body) => api.post('/api/zhejiang/apply', body),
   zhejiangMyApplications: () => api.get('/api/zhejiang/my-applications'),
+  zhejiangMatch: (body) => api.post('/api/zhejiang/match', body),
+
+  /* 管理端：政策 CRUD */
+  adminZhejiangPolicies: (query) => api.get('/api/admin/zhejiang/policies', query),
+  adminZhejiangPolicy: (id) => api.get(`/api/admin/zhejiang/policies/${encodeURIComponent(id)}`),
+  adminZhejiangCreate: (body) => api.post('/api/admin/zhejiang/policies', body),
+  adminZhejiangUpdate: (id, body) => api.put(`/api/admin/zhejiang/policies/${encodeURIComponent(id)}`, body),
+  adminZhejiangDelete: (id) => api.del(`/api/admin/zhejiang/policies/${encodeURIComponent(id)}`),
+  adminZhejiangToggle: (id, enabled) => api.post(`/api/admin/zhejiang/policies/${encodeURIComponent(id)}/toggle`, { enabled }),
+  adminZhejiangReset: () => api.post('/api/admin/zhejiang/reset', {}),
+  adminZhejiangApplications: (query) => api.get('/api/admin/zhejiang/applications', query),
   broadcastSavedSave: (list) => api.put('/api/broadcast/saved', { list }),
   docPreview: (fileId) => api.get(`/api/preview/${fileId}`),
   /*

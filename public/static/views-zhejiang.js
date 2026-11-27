@@ -94,7 +94,10 @@ export async function renderZhejiang(ctx, params) {
     </div>
 
     <div class="zj-filters">
-      <input class="input zj-search" id="zj-q" placeholder="搜政策名称 / 主管部门 / 关键词" autocomplete="off">
+      <div class="zj-search-row">
+        <input class="input zj-search" id="zj-q" placeholder="搜政策名称 / 主管部门 / 关键词" autocomplete="off">
+        <button class="zj-match-btn" id="zj-match-btn">🎯 资格自测</button>
+      </div>
       <div class="zj-chips" id="zj-cats">${catChips}</div>
       <div class="zj-chips" id="zj-levels">${levelChips}</div>
     </div>
@@ -184,6 +187,71 @@ export async function renderZhejiang(ctx, params) {
       root.querySelector('#zj-q').addEventListener('input', onSearch);
 
       renderList();
+
+      /* 资格自测：填企业情况 → 匹配政策 */
+      let matchResult = null;
+
+      const renderMatch = (res) => {
+        matchResult = res;
+        countEl.textContent = `匹配到 ${res.total} 个项目，其中高匹配 ${res.high} 个`;
+        if (!res.items.length) {
+          listEl.innerHTML = ui.emptyState('🎯', '暂时没有匹配的项目', '试试放宽成立年限，或直接浏览全部政策');
+          return;
+        }
+        listEl.innerHTML = res.items
+          .map((p) => {
+            const tone = CAT_TONE[p.category] || CAT_TONE.other;
+            const lvName = LEVEL_NAME[p.level] || '';
+            const lvCls = LEVEL_CLASS[p.level] || '';
+            const badge =
+              p.matchLevel === 'high'
+                ? '<span class="zj-match-badge high">高匹配</span>'
+                : p.matchLevel === 'medium'
+                  ? '<span class="zj-match-badge medium">较匹配</span>'
+                  : '<span class="zj-match-badge low">可关注</span>';
+            const reasons = (p.reasons || []).length
+              ? `<div class="zj-reasons">${p.reasons.map((r) => `<span>✓ ${ui.esc(r)}</span>`).join('')}</div>`
+              : '';
+            const warns = (p.warnings || []).length
+              ? `<div class="zj-warns">${p.warnings.map((w) => `<span>! ${ui.esc(w)}</span>`).join('')}</div>`
+              : '';
+            return `<a class="zj-card zj-card-match" href="#/zhejiang/${ui.esc(p.id)}">
+              <div class="zj-card-top">
+                <span class="zj-lv ${lvCls}">${ui.esc(lvName)}</span>
+                <span class="zj-dept">${ui.esc(p.dept || '')}</span>
+                ${badge}
+              </div>
+              <div class="zj-card-name">
+                <span class="zj-seq" style="background:${tone}">${p.seq}</span>
+                ${ui.esc(p.name)}
+              </div>
+              <div class="zj-card-meta">
+                <span class="zj-cycle">🗓 ${ui.esc((p.cycle || '').replace(/\n/g, ' / '))}</span>
+                <span class="zj-amount">💰 ${ui.esc((p.amount || '').split('\n')[0].slice(0, 40) || '以正式通知为准')}</span>
+              </div>
+              ${reasons}
+              ${warns}
+            </a>`;
+          })
+          .join('');
+      };
+
+      root.querySelector('#zj-match-btn')?.addEventListener('click', () => {
+        openMatchSheet((profile) => {
+          const btn = root.querySelector('#zj-match-btn');
+          btn.textContent = '匹配中…';
+          service
+            .zhejiangMatch(profile)
+            .then((res) => {
+              renderMatch(res);
+              btn.textContent = '🎯 重新自测';
+            })
+            .catch((err) => {
+              btn.textContent = '🎯 资格自测';
+              ui.toast(err.message || '匹配失败', 'err');
+            });
+        });
+      });
 
       /* 我的申报：登录后才显示 */
       if (isLoggedIn()) {
@@ -290,6 +358,10 @@ export async function renderZhejiangDetail(ctx, params) {
       <div class="zj-portal-note">
         正式申报须在主管部门系统完成。下面是该政策对应的官方门户，可先查看当年的申报通知。
       </div>
+      ${policy.noticeUrl ? `<a class="zj-portal-item zj-portal-notice-item" href="${ui.esc(policy.noticeUrl)}" target="_blank" rel="noopener">
+          <span class="zj-portal-name">📢 查看本年申报通知</span>
+          <span class="zj-portal-arrow">↗</span>
+        </a>` : ''}
       <div class="zj-portal-list">
         <a class="zj-portal-item" href="${ui.esc(policy.portalUrl)}" target="_blank" rel="noopener">
           <span class="zj-portal-name">${ui.esc(policy.portalName || '主管部门官网')}</span>
@@ -404,6 +476,92 @@ function openApplySheet(policy) {
           btn.textContent = '提交申报意向';
           ui.toast(err.message || '提交失败', 'err');
         }
+      });
+    },
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* 资格自测表单                                                         */
+/* ------------------------------------------------------------------ */
+function openMatchSheet(onSubmit) {
+  const content = `
+    <div class="zj-match-form">
+      <div class="zj-match-intro">
+        填写企业基本情况，系统按各政策的硬条件匹配出你能申报的项目。
+        匹配结果会说明推荐理由，条件不够的也会提示还差什么。
+      </div>
+
+      <div class="field mt12">
+        <label>企业成立年限</label>
+        <div class="zj-match-years">
+          <input class="input" id="zj-m-age" type="number" min="0" max="30" placeholder="如：2" inputmode="numeric">
+          <span class="zj-unit">年</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>是否高层次人才 / 人才项目负责人</label>
+        <div class="zj-switch-row" id="zj-m-talent">
+          <button class="zj-opt" data-v="0">不是</button>
+          <button class="zj-opt active" data-v="1">是</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>是否已有专利 / 软著 / 知识产权</label>
+        <div class="zj-switch-row" id="zj-m-ip">
+          <button class="zj-opt active" data-v="0">没有</button>
+          <button class="zj-opt" data-v="1">已有</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>所属行业</label>
+        <input class="input" id="zj-m-industry" placeholder="如：人工智能、新能源、新材料">
+      </div>
+
+      <div class="field">
+        <label>所在城市 / 区县</label>
+        <input class="input" id="zj-m-city" placeholder="如：杭州市余杭区">
+      </div>
+
+      <button class="btn btn-primary btn-block" id="zj-m-go">开始匹配</button>
+      <div class="tiny dim center mt8">只做条件匹配，不代表最终审核结论</div>
+    </div>`;
+
+  ui.openSheet({
+    title: '资格自测',
+    content,
+    onMount(sheet, close) {
+      const state = { isTalent: true, hasIp: false };
+
+      const bindSwitch = (id, key) => {
+        const wrap = sheet.querySelector(id);
+        wrap?.addEventListener('click', (e) => {
+          const b = e.target.closest('[data-v]');
+          if (!b) return;
+          state[key] = b.dataset.v === '1';
+          [...wrap.querySelectorAll('.zj-opt')].forEach((el) => el.classList.toggle('active', el === b));
+        });
+      };
+      bindSwitch('#zj-m-talent', 'isTalent');
+      bindSwitch('#zj-m-ip', 'hasIp');
+
+      sheet.querySelector('#zj-m-go')?.addEventListener('click', () => {
+        const ageRaw = sheet.querySelector('#zj-m-age')?.value || '';
+        const age = ageRaw === '' ? NaN : Number(ageRaw);
+        if (Number.isNaN(age) || age < 0) {
+          return ui.toast('请填写企业成立年限', 'err');
+        }
+        close();
+        onSubmit({
+          companyAge: age,
+          isTalent: state.isTalent,
+          hasIp: state.hasIp,
+          industry: (sheet.querySelector('#zj-m-industry')?.value || '').trim(),
+          city: (sheet.querySelector('#zj-m-city')?.value || '').trim(),
+        });
       });
     },
   });
