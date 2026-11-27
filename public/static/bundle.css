@@ -3780,6 +3780,11 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .home-tile .art { height: 96px; font-size: 36px; }
 }
 
+@media (min-width: 1024px) {
+  /* 宫格有 10 个入口：1024px 起用 5 列，正好 2 行 × 5，不会剩孤卡 */
+  .home-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
 /* AI 自动补充信息要素 */
 .auto-hl { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .auto-hl-item {

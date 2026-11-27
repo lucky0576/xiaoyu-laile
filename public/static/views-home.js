@@ -244,7 +244,7 @@ export async function renderHome(ctx, query) {
     }
   </div>`;
 
-  /* ---------------- 2×3 主入口 ---------------- */
+  /* ---------------- 主入口宫格（手机 2 列 × 5 行，桌面 3 列） ---------------- */
   const entries = [
     { t: '活动赛事', d: '报名 · 赛事 · 课程', art: '🎪', href: '#/list/event', i: 1 },
     { t: '贸易采供', d: '采购 · 供应 · 租赁 · 委托加工', art: '🤝', href: '#/list/trade', i: 2 },
@@ -255,6 +255,7 @@ export async function renderHome(ctx, query) {
     { t: '元宇宙展厅', d: '3D 看项目 · 强脑科技展位', art: '🌐', href: '#/metaverse', i: 7 },
     { t: '出海 / 海外', d: '海外项目 · 跨境贸易 · 出海服务', art: '🌏', href: '#/overseas', i: 8 },
     { t: '创业服务', d: '创业补贴 · 辅导 · OPC · 赛事', art: '🚀', href: '#/startup', i: 9 },
+    { t: '场景需求', d: '杭州 AI+X 官方场景 · 供需对接', art: '🎯', href: '#/hangzhou', i: 10 },
   ];
   /* ---------------- 横栏：每条下面挂 5 条最新 ---------------- */
   /** 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前 */
