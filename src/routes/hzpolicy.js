@@ -173,11 +173,18 @@ export default function registerHzPolicyRoutes(app) {
     return data(res, { last: last || null, sites: crawl.CRAWL_SITES.map((s) => ({ id: s.id, name: s.name })) });
   });
 
+  /** 抓取日志（管理员） */
+  app.get('/api/admin/hz-policy/crawl-logs', (req, res) => {
+    mustAdmin(req);
+    const items = crawl.listLogs(num(req.query.limit, 30));
+    return data(res, { items, total: items.length });
+  });
+
   /** 立即抓取一次（管理员） */
   app.post('/api/admin/hz-policy/crawl', (req, res) => {
     mustAdmin(req);
     crawl
-      .crawlAndSave({ keepDays: 180 })
+      .crawlAndSave({ keepDays: 180, trigger: 'manual' })
       .then((r) => {
         try {
           crawl.markRun({ okCount: r.okCount, failCount: r.failCount, added: r.added });

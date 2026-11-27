@@ -616,6 +616,16 @@ export const service = {
   adminHzPolicyPolicies: (query) => api.get('/api/admin/hz-policy/policies', query),
   adminHzPolicyNotices: (query) => api.get('/api/admin/hz-policy/notices', query),
   adminHzPolicyImport: (kind, text) => api.post('/api/admin/hz-policy/import', { kind, text }),
+  adminHzPolicyClearImported: (kind) => api.post('/api/admin/hz-policy/clear-imported', { kind }),
+  adminHzPolicyCreate: (body) => api.post('/api/admin/hz-policy/policies', body),
+  adminHzPolicyUpdate: (id, body) => api.put(`/api/admin/hz-policy/policies/${encodeURIComponent(id)}`, body),
+  adminHzPolicyDelete: (id) => api.del(`/api/admin/hz-policy/policies/${encodeURIComponent(id)}`),
+  adminHzNoticeCreate: (body) => api.post('/api/admin/hz-policy/notices', body),
+  adminHzNoticeUpdate: (id, body) => api.put(`/api/admin/hz-policy/notices/${encodeURIComponent(id)}`, body),
+  adminHzNoticeDelete: (id) => api.del(`/api/admin/hz-policy/notices/${encodeURIComponent(id)}`),
+  adminHzCrawlLogs: (query) => api.get('/api/admin/hz-policy/crawl-logs', query),
+  adminHzCrawlNow: () => api.post('/api/admin/hz-policy/crawl', {}),
+  hzPolicyCrawlStatus: () => api.get('/api/hz-policy/crawl-status'),
 
   /* 管理端：场景广场交易 */
   adminHzNeeds: (query) => api.get('/api/admin/hangzhou/needs', query),

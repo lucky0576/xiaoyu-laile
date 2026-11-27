@@ -306,15 +306,54 @@ export async function crawlAndSave(opts = {}) {
   }
   if (added) db.flush();
 
-  return {
+  const summary = {
     sites: results.map((r) => ({
-      id: r.id, name: r.name, ok: r.ok, picked: r.picked || 0, error: r.error || '', ms: r.ms,
+      id: r.id, name: r.name, ok: r.ok, picked: r.picked || 0, error: r.error || '', ms: r.ms, total: r.total || 0,
     })),
     okCount: results.filter((r) => r.ok).length,
     failCount: results.filter((r) => !r.ok).length,
     added,
-    addedItems: addedItems.slice(0, 60),
+    totalPicked: results.reduce((n, r) => n + (r.picked || 0), 0),
   };
+
+  // 记日志：手动触发和定时任务都走这里
+  appendLog({
+    trigger: opts.trigger || 'auto',
+    okCount: summary.okCount,
+    failCount: summary.failCount,
+    added: summary.added,
+    totalPicked: summary.totalPicked,
+    sites: summary.sites,
+  });
+
+  return { ...summary, addedItems: addedItems.slice(0, 60) };
+}
+
+/* ------------------------------------------------------------------ */
+/* 抓取日志                                                            */
+/* ------------------------------------------------------------------ */
+
+const logCol = () => db.collection('hz_crawl_log');
+const LOG_KEEP = 50;
+
+/** 记一条抓取日志（只保留最近 50 次） */
+export function appendLog(entry) {
+  try {
+    const col = logCol();
+    col.insert({ id: newId('hzcl'), at: new Date().toISOString(), ...entry });
+    const all = col.all().sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    for (const x of all.slice(LOG_KEEP)) col.remove(x.id);
+    db.flush();
+  } catch {
+    /* 日志失败不影响主流程 */
+  }
+}
+
+/** 读取抓取日志（按时间倒序） */
+export function listLogs(limit = 30) {
+  let list = logCol().all();
+  list.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  return list.slice(0, Math.max(1, Math.min(limit, LOG_KEEP)));
 }
 
 /** 上次抓取时间存在 notices 集合里不合适，单独用一条 meta 记录 */
@@ -351,4 +390,6 @@ export default {
   getLastRun,
   markRun,
   isDue,
+  appendLog,
+  listLogs,
 };
