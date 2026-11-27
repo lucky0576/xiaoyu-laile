@@ -11026,6 +11026,74 @@ a.opc-district-card:hover { border-color: #9CC8FF; background: #F1F8FF; transfor
   }
 }
 
+/* ================================================================== */
+/* 需求广场 · 分类 Tab                                                 */
+/* ================================================================== */
+.lt-cats {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.lt-cats::-webkit-scrollbar {
+  display: none;
+}
+.lt-cat-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e2e9f4;
+  color: #51617a;
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: .15s;
+}
+.lt-cat-tab:active {
+  transform: scale(.97);
+}
+.lt-cat-tab.active {
+  background: #12558f;
+  border-color: #12558f;
+  color: #fff;
+  font-weight: 700;
+}
+.lt-cat-tab i {
+  font-style: normal;
+  opacity: .68;
+  font-size: 11px;
+}
+.lt-cat-tab.active i {
+  opacity: .85;
+}
+.lt-cat-ico {
+  font-size: 13px;
+  line-height: 1;
+}
+
+@media (max-width: 430px) {
+  .lt-cat-tab {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+}
+
+/* 0 条的分类：仍然显示，但弱化，避免视觉上太"空" */
+.lt-cat-tab.zero {
+  opacity: .48;
+}
+.lt-cat-tab.zero.active {
+  opacity: 1;
+}
+
 /* ==== welcome-apple.css ==== */
 /* ================================================================== */
 /* 引导页（Apple 风格：浅色、大字、克制、毛玻璃）                        */

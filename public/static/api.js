@@ -372,6 +372,7 @@ export const service = {
   health: () => api.get('/api/health'),
   site: () => api.get('/api/site'),
   stats: () => api.get('/api/stats'),
+  listingsCategoryCounts: () => api.get('/api/listings/category-counts'),
   taxonomy: () => api.get('/api/taxonomy'),
   taxonomySearch: (q) => api.get('/api/taxonomy/search', { q }),
   suggest: (q) => api.get('/api/search/suggest', { q }),

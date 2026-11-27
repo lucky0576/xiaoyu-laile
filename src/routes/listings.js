@@ -107,6 +107,29 @@ export default function registerListingRoutes(app) {
   });
 
   /**
+   * 各分类的信息数量（需求广场分类 Tab 用）
+   *
+   * GET /api/listings/category-counts
+   *
+   * 为什么单独做接口：前台要显示 9 个分类各有多少条，
+   * 让前端发 9 次 /api/listings?pageSize=1 能拿到一样的结果，
+   * 但那要 9 个请求；这里一次返回，页面加载快很多。
+   *
+   * 注意：必须注册在 /api/listings/:id 之前，否则会被当成 id 匹配掉。
+   */
+  app.get('/api/listings/category-counts', (req, res) => {
+    const byCategory = {};
+    let total = 0;
+    for (const c of CATEGORY_IDS) {
+      // 复用同一套查询逻辑，保证数量口径和列表一致（只算已发布、算上可见性）
+      const r = listingsSvc.queryListings({ category: c, status: 'published', pageSize: 1 });
+      byCategory[c] = r.total || 0;
+      total += byCategory[c];
+    }
+    return data(res, { byCategory, total });
+  });
+
+  /**
    * 一键把信息做成短视频（图文也能做）
    * POST /api/listings/:id/make-short
    */
