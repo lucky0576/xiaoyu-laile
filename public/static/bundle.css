@@ -3565,44 +3565,76 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .home-banner .dots i.on { width: 18px; border-radius: 3px; background: #fff; }
 
 /* ---------------- 2×3 入口网格 ---------------- */
-.home-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+  justify-items: center;
+}
+
+/*
+ * 圆形宫格卡片
+ *
+ * HTML 结构是 <a class="home-card"><div class="txt">标题+描述</div><div class="art">图标</div></a>
+ * 默认是横排（文字左、图标右）。改用 column-reverse 把图标翻到上方、文字放到下方，
+ * 再配 aspect-ratio:1/1 + border-radius:50%，整张卡片就是一个正圆。
+ *
+ * 注意：不能只写 border-radius:50%——宽高不等会变成椭圆，必须锁成正方形。
+ */
 .home-card {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  max-width: 176px;
+  box-sizing: border-box;
+  border-radius: 50%;
   display: flex;
+  flex-direction: column-reverse;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
+  /* 水平内边距要比方形卡片大：圆的上下区域会收窄，留够余量文字才不会顶出圆边 */
+  padding: 18px 22px;
   background: #fff;
-  border-radius: 16px;
-  padding: 13px 14px;
   box-shadow: 0 2px 10px rgba(24, 60, 120, .07);
-  min-height: 84px;
+  text-align: center;
   transition: .15s;
 }
-.home-card:active { transform: scale(.98); }
-.home-card .txt { flex: 1; min-width: 0; }
-.home-card .t { font-size: 16.5px; font-weight: 800; color: #16202e; letter-spacing: .3px; }
-.home-card .d { font-size: 12px; color: #8a9bb5; margin-top: 5px; line-height: 1.4; }
+.home-card:active { transform: scale(.96); }
+
+.home-card .txt { flex: none; min-width: 0; width: 100%; }
+.home-card .t {
+  font-size: 15px;
+  font-weight: 800;
+  color: #16202e;
+  letter-spacing: .2px;
+  line-height: 1.25;
+}
+.home-card .d {
+  font-size: 10.5px;
+  color: #8a9bb5;
+  margin: 3px auto 0;
+  line-height: 1.35;
+  /* 限宽：圆的下半部弦宽变窄，超过这个宽度会被圆形边缘"切"到 */
+  max-width: 122px;
+}
+
 .home-card .art {
-  /*
-   * 圆形图标。
-   * 之前用了 box-shadow: inset 0 -6px 14px rgba(255,255,255,.55) 做底部高光，
-   * 结果把圆的下半部分洗成白色，肉眼看上去像被切平了 —— 不像完整圆形。
-   * 现在只保留极轻的顶部高光 + 一圈柔和外阴影，圆的边界清晰完整。
-   */
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 30px;
+  font-size: 27px;
   line-height: 1;
   flex: none;
+  /* 只留极轻顶部高光 + 一圈柔和外阴影，避免底部被洗白看不出圆形 */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, .35),
     0 2px 6px rgba(24, 60, 120, .13);
   transition: transform .15s;
 }
-.home-card:active .art { transform: scale(.94); }
+.home-card:active .art { transform: scale(.92); }
 
 /* ---------------- 推荐 Tab + 横滑 ---------------- */
 .home-panel {
@@ -3764,12 +3796,12 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .home-banner .slide { padding: 16px; }
   .home-banner .slide h2 { font-size: 23px; }
   .home-banner .slide .art { font-size: 52px; }
-  /* 窄屏两列很挤：标题缩到 14px、圆收到 46px，
-     让「科技成果转化」这类 6 字标题也能单行放下，卡片高度才整齐 */
-  .home-card { padding: 11px 12px; min-height: 76px; gap: 8px; }
-  .home-card .t { font-size: 14px; letter-spacing: .2px; }
-  .home-card .d { font-size: 10.5px; }
-  .home-card .art { width: 46px; height: 46px; font-size: 24px; border-radius: 50%; }
+  /* 窄屏两列：圆形卡片边距收紧、图标略小 */
+  /* 圆形宫格在窄屏：边距收紧、图标略小，保证 2 列圆仍然饱满 */
+  .home-card { padding: 15px 16px; gap: 6px; max-width: none; }
+  .home-card .t { font-size: 14px; letter-spacing: .1px; }
+  .home-card .d { font-size: 10px; margin: 2px auto 0; max-width: 108px; }
+  .home-card .art { width: 48px; height: 48px; font-size: 25px; border-radius: 50%; }
   .home-tile { width: 92px; }
   .home-tile .art { height: 68px; font-size: 26px; }
 }
