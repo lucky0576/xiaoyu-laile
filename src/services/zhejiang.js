@@ -22,11 +22,12 @@ import {
   POLICY_MAP,
   POLICY_CATEGORIES,
   POLICY_LEVELS,
+  OFFICIAL_PORTALS,
 } from '../data/zhejiang-policies.js';
 
 const applications = () => db.collection('zhejiang_applications');
 
-export { POLICY_CATEGORIES, POLICY_LEVELS };
+export { POLICY_CATEGORIES, POLICY_LEVELS, OFFICIAL_PORTALS };
 
 /** 允许的申报状态 */
 export const APPLY_STATUS = {
@@ -47,6 +48,8 @@ function brief(p) {
     category: p.category,
     level: p.level,
     amount: p.amount,
+    portalName: p.portalName,
+    portalUrl: p.portalUrl,
   };
 }
 

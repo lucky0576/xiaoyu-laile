@@ -4400,3 +4400,101 @@ a.opc-district-card:hover { border-color: #9CC8FF; background: #F1F8FF; transfor
 
 .opc2-guest-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #EAF2FF; color: #0B4FA8; font-size: 15px; font-weight: 900; }
 .opc2-legal { margin: 20px 0 6px; padding-top: 10px; border-top: 1px solid #E1EAF4; color: #8A94A6; font-size: 7.5px; text-align: center; }
+
+/* ---------------- 创业服务专区 · 政策申报区块 ---------------- */
+.startup-policy {
+  margin: 14px 0;
+  padding: 18px 20px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff8ec, #fff2e0);
+  border: 1px solid #ffe3bd;
+}
+.startup-policy-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.startup-policy-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .8);
+  color: #b45309;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.startup-policy-t {
+  margin-top: 9px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #2b1a05;
+  line-height: 1.5;
+}
+.startup-policy-more {
+  flex: none;
+  font-size: 12.5px;
+  color: #b45309;
+  text-decoration: none;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+.startup-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+.startup-policy-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #ffeed6;
+  text-decoration: none;
+  transition: .15s;
+}
+.startup-policy-cell:active {
+  transform: scale(.97);
+}
+.startup-policy-ico {
+  font-size: 20px;
+  line-height: 1;
+}
+.startup-policy-n {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2b1a05;
+  text-align: center;
+}
+.startup-policy-c {
+  font-size: 10.5px;
+  color: #b89a6e;
+}
+.startup-policy-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px dashed #ffe3bd;
+  font-size: 11.5px;
+  color: #a8845a;
+}
+.startup-policy-go {
+  flex: none;
+  color: #b45309;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (max-width: 430px) {
+  .startup-policy { padding: 14px 14px 12px; }
+  .startup-policy-t { font-size: 14px; }
+  .startup-policy-grid { gap: 6px; }
+  .startup-policy-n { font-size: 11.5px; }
+}

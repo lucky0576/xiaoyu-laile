@@ -91,6 +91,11 @@ export async function renderStartup(ctx, query = {}) {
     ),
   );
 
+  // 政策申报数据（整合进创业服务专区）
+  const zjMeta = await service.zhejiangMeta().catch(() => null);
+  const zjStats = (zjMeta && zjMeta.stats) || { total: 0, byCategory: {}, byLevel: {} };
+  const zjCats = (zjMeta && zjMeta.categories) || [];
+
   // 归集 OPC / 创业相关资讯（之前散落在新闻里的内容）
   const opcNewsRes = await service.newsList({ q: 'OPC', size: 6 }).catch(() => ({ items: [] }));
   let opcNews = (opcNewsRes.items || []).filter((n) => n && n.id);
@@ -168,6 +173,33 @@ export async function renderStartup(ctx, query = {}) {
       </div>
       <div class="startup-hero-actions">
         ${CATS.map((c) => `<a class="startup-pub" href="#/publish?category=${c.id}">＋ 发布${c.name}</a>`).join('')}
+      </div>
+    </section>
+
+    <section class="startup-policy">
+      <div class="startup-policy-head">
+        <div>
+          <div class="startup-policy-badge">📋 浙江省政策项目申报</div>
+          <div class="startup-policy-t">
+            收录 ${zjStats.total || 0} 个省级 / 市级 / 区县政策项目，按条件匹配后一键提交申报意向
+          </div>
+        </div>
+        <a class="startup-policy-more" href="#/zhejiang">全部 ${zjStats.total || 0} 个 ›</a>
+      </div>
+      <div class="startup-policy-grid">
+        ${zjCats
+          .map(
+            (c) => `<a class="startup-policy-cell" href="#/zhejiang?cat=${encodeURIComponent(c.id)}">
+              <span class="startup-policy-ico">${c.icon || '📋'}</span>
+              <span class="startup-policy-n">${ui.esc(c.name)}</span>
+              <span class="startup-policy-c">${(zjStats.byCategory || {})[c.id] || 0} 个</span>
+            </a>`,
+          )
+          .join('')}
+      </div>
+      <div class="startup-policy-foot">
+        <span>省级 ${(zjStats.byLevel || {}).province || 0} · 市级 ${(zjStats.byLevel || {}).city || 0} · 区县级 ${(zjStats.byLevel || {}).district || 0} · 国家级 ${(zjStats.byLevel || {}).national || 0}</span>
+        <a class="startup-policy-go" href="#/zhejiang">去匹配申报 ›</a>
       </div>
     </section>
 

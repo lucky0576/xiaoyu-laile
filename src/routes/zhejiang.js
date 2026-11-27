@@ -18,7 +18,7 @@ import { httpError } from '../http/app.js';
 import {
   data, fail, str, num, mustAuth, clientIp, rateLimit,
 } from './_util.js';
-import zjSvc, { POLICY_CATEGORIES, POLICY_LEVELS, APPLY_STATUS } from '../services/zhejiang.js';
+import zjSvc, { POLICY_CATEGORIES, POLICY_LEVELS, APPLY_STATUS, OFFICIAL_PORTALS } from '../services/zhejiang.js';
 
 function mustAdmin(req) {
   const user = mustAuth(req);
@@ -33,6 +33,7 @@ export default function registerZhejiangRoutes(app) {
       categories: POLICY_CATEGORIES,
       levels: POLICY_LEVELS,
       statuses: Object.entries(APPLY_STATUS).map(([id, name]) => ({ id, name })),
+      portals: OFFICIAL_PORTALS,
       stats: zjSvc.policyStats(),
     });
   });

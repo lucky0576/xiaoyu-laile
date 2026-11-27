@@ -51,8 +51,9 @@ export async function renderZhejiang(ctx, params) {
   const meta = metaRes || { categories: [], levels: [], stats: { total: 0, byCategory: {}, byLevel: {} } };
   const items = listRes?.items || [];
 
-  let activeCat = '';
-  let activeLevel = '';
+  // 支持从创业服务专区深链过来：#/zhejiang?cat=talent&level=province
+  let activeCat = String(params?.cat || '').trim();
+  let activeLevel = String(params?.level || '').trim();
   let keyword = '';
   let current = items;
 
@@ -61,18 +62,18 @@ export async function renderZhejiang(ctx, params) {
   const stats = meta.stats || { total: 0, byLevel: {} };
 
   const catChips = [
-    `<a class="zj-chip active" data-cat="">全部 ${stats.total || items.length}</a>`,
+    `<a class="zj-chip ${!activeCat ? 'active' : ''}" data-cat="">全部 ${stats.total || items.length}</a>`,
     ...cats.map((c) => {
       const n = (stats.byCategory || {})[c.id] || 0;
-      return `<a class="zj-chip" data-cat="${ui.esc(c.id)}">${c.icon || ''} ${ui.esc(c.name)} ${n}</a>`;
+      return `<a class="zj-chip ${activeCat === c.id ? 'active' : ''}" data-cat="${ui.esc(c.id)}">${c.icon || ''} ${ui.esc(c.name)} ${n}</a>`;
     }),
   ].join('');
 
   const levelChips = [
-    `<a class="zj-chip zj-chip-sm active" data-level="">不限层级</a>`,
+    `<a class="zj-chip zj-chip-sm ${!activeLevel ? 'active' : ''}" data-level="">不限层级</a>`,
     ...levels.map((l) => {
       const n = (stats.byLevel || {})[l.id] || 0;
-      return `<a class="zj-chip zj-chip-sm" data-level="${ui.esc(l.id)}">${ui.esc(l.name)} ${n}</a>`;
+      return `<a class="zj-chip zj-chip-sm ${activeLevel === l.id ? 'active' : ''}" data-level="${ui.esc(l.id)}">${ui.esc(l.name)} ${n}</a>`;
     }),
   ].join('');
 
@@ -153,6 +154,7 @@ export async function renderZhejiang(ctx, params) {
               <div class="zj-card-meta">
                 <span class="zj-cycle">🗓 ${ui.esc((p.cycle || '').replace(/\n/g, ' / '))}</span>
                 <span class="zj-amount">💰 ${ui.esc(amount || '以正式通知为准')}</span>
+                <span class="zj-portal-mini">🏛 ${ui.esc(p.portalName || '')}</span>
               </div>
             </a>`;
           })
@@ -281,6 +283,26 @@ export async function renderZhejiangDetail(ctx, params) {
     <div class="card card-pad mt12">
       <div class="strong mb8">📎 申报材料</div>
       <div class="zj-pre">${renderBlocks(policy.materials) || '<div class="zj-line dim">暂无</div>'}</div>
+    </div>
+
+    <div class="card card-pad mt12 zj-portal">
+      <div class="strong mb8">🔗 官方申报入口</div>
+      <div class="zj-portal-note">
+        正式申报须在主管部门系统完成。下面是该政策对应的官方门户，可先查看当年的申报通知。
+      </div>
+      <div class="zj-portal-list">
+        <a class="zj-portal-item" href="${ui.esc(policy.portalUrl)}" target="_blank" rel="noopener">
+          <span class="zj-portal-name">${ui.esc(policy.portalName || '主管部门官网')}</span>
+          <span class="zj-portal-arrow">↗</span>
+        </a>
+        <a class="zj-portal-item" href="https://www.zjzwfw.gov.cn" target="_blank" rel="noopener">
+          <span class="zj-portal-name">浙江政务服务网（统一办事入口）</span>
+          <span class="zj-portal-arrow">↗</span>
+        </a>
+      </div>
+      <div class="zj-portal-tip">
+        提示：在官方平台搜索「${ui.esc(policy.name)}」可找到最新申报通知。
+      </div>
     </div>
 
     <div class="zj-apply-bar">
