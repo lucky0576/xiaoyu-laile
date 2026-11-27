@@ -22,6 +22,8 @@ const CAT_ICON = {
   subsidy: '💰',
   rent: '🏢',
   employ: '👥',
+  talent: '🎓',
+  tax: '📊',
   other: '📌',
 };
 

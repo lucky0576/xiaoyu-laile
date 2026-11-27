@@ -17,6 +17,7 @@
 
 import { httpError } from '../http/app.js';
 import { data, fail, str, num, mustAuth } from './_util.js';
+import crawl from '../services/hz-crawl.js';
 import svc, {
   HZ_PORTALS,
   HZ_POLICY_CATEGORIES,
@@ -160,6 +161,31 @@ export default function registerHzPolicyRoutes(app) {
     } catch (err) {
       return bizFail(res, err, '导入失败');
     }
+  });
+
+  /* ================================================================ */
+  /* 管理端：通知自动抓取                                              */
+  /* ================================================================ */
+
+  /** 抓取状态（上次抓取时间与结果） */
+  app.get('/api/hz-policy/crawl-status', (req, res) => {
+    const last = crawl.getLastRun();
+    return data(res, { last: last || null, sites: crawl.CRAWL_SITES.map((s) => ({ id: s.id, name: s.name })) });
+  });
+
+  /** 立即抓取一次（管理员） */
+  app.post('/api/admin/hz-policy/crawl', (req, res) => {
+    mustAdmin(req);
+    crawl
+      .crawlAndSave({ keepDays: 180 })
+      .then((r) => {
+        try {
+          crawl.markRun({ okCount: r.okCount, failCount: r.failCount, added: r.added });
+        } catch { /* ignore */ }
+        console.log('[hz-crawl] 手动触发完成', { ok: r.okCount, fail: r.failCount, added: r.added });
+      })
+      .catch((err) => console.warn('[hz-crawl] 手动触发失败', err.message));
+    return data(res, { started: true, message: '抓取已在后台启动，约 10 秒后可刷新查看结果' });
   });
 
   app.post('/api/admin/hz-policy/clear-imported', (req, res) => {

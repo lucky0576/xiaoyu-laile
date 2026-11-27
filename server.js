@@ -21,6 +21,7 @@ import fileCleanupSvc from './src/services/file-cleanup.js';
 import backupSvc from './src/services/backup.js';
 import bidReminders from './src/services/bid-reminders.js';
 import biddingZj from './src/services/bidding-zj.js';
+import hzCrawl from './src/services/hz-crawl.js';
 import { seedIfEmpty } from './scripts/seed.js';
 
 /*
@@ -135,6 +136,24 @@ function startJobs() {
       .refresh({ maxPerSource: 4, maxTotal: 12 })
       .catch((err) => console.warn('[job:news] 首次抓取失败:', err.message));
   }, 90_000).unref?.();
+
+  /* 杭州政策通：每天自动抓取 8 个政府官网的最新通知
+   *   首页是服务端渲染，直接 GET 就能拿到通知列表（零依赖，不需要浏览器）。
+   *   每 2 小时检查一次是否到点（默认间隔 20 小时），避免重启后立刻跑。
+   */
+  run('hz-crawl', () => {
+    if (!hzCrawl.isDue(20)) return {};
+    hzCrawl
+      .crawlAndSave({ keepDays: 180 })
+      .then((r) => {
+        try {
+          hzCrawl.markRun({ okCount: r.okCount, failCount: r.failCount, added: r.added });
+        } catch { /* ignore */ }
+        console.log('[job:hz-crawl]', { ok: r.okCount, fail: r.failCount, added: r.added });
+      })
+      .catch((err) => console.warn('[job:hz-crawl] 失败:', err.message));
+    return {};
+  }, 2 * 60 * 60_000);
 
   run('news', () => {
     newsSvc

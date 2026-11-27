@@ -38,15 +38,21 @@ export function ensureSeeded() {
   seeded = true;
   try {
     const now = new Date().toISOString();
-    if (policiesCol().count() === 0) {
-      for (const p of HZ_POLICIES) {
-        policiesCol().insert({ ...p, enabled: true, source: SOURCE.seed, createdAt: now, updatedAt: now });
-      }
+    /*
+     * 增量播种：不只判断「集合为空」，而是逐条比对 id。
+     * 原因是静态数据会随版本增加（比如政策从 6 条扩到 26 条），
+     * 如果只在空集合时播种，老环境的库里永远只有最初那几条。
+     * 逐条补缺能保证升级后自动补齐，且不覆盖用户在后台改过的数据。
+     */
+    const existP = new Set(policiesCol().all().map((x) => x.id));
+    for (const p of HZ_POLICIES) {
+      if (existP.has(p.id)) continue;
+      policiesCol().insert({ ...p, enabled: true, source: SOURCE.seed, createdAt: now, updatedAt: now });
     }
-    if (noticesCol().count() === 0) {
-      for (const n of HZ_NOTICES) {
-        noticesCol().insert({ ...n, enabled: true, source: SOURCE.seed, createdAt: now, updatedAt: now });
-      }
+    const existN = new Set(noticesCol().all().map((x) => x.id));
+    for (const n of HZ_NOTICES) {
+      if (existN.has(n.id)) continue;
+      noticesCol().insert({ ...n, enabled: true, source: SOURCE.seed, createdAt: now, updatedAt: now });
     }
     db.flush();
   } catch {
