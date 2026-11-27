@@ -607,6 +607,18 @@ export const service = {
   hangzhouIntent: (body) => api.post('/api/hangzhou/intent', body),
   hangzhouMyIntents: () => api.get('/api/hangzhou/my-intents'),
 
+  /* 管理端：场景广场交易 */
+  adminHzNeeds: (query) => api.get('/api/admin/hangzhou/needs', query),
+  adminHzNeedCreate: (body) => api.post('/api/admin/hangzhou/needs', body),
+  adminHzNeedUpdate: (id, body) => api.put(`/api/admin/hangzhou/needs/${encodeURIComponent(id)}`, body),
+  adminHzNeedDelete: (id) => api.del(`/api/admin/hangzhou/needs/${encodeURIComponent(id)}`),
+  adminHzCaps: (query) => api.get('/api/admin/hangzhou/caps', query),
+  adminHzCapCreate: (body) => api.post('/api/admin/hangzhou/caps', body),
+  adminHzCapUpdate: (id, body) => api.put(`/api/admin/hangzhou/caps/${encodeURIComponent(id)}`, body),
+  adminHzCapDelete: (id) => api.del(`/api/admin/hangzhou/caps/${encodeURIComponent(id)}`),
+  adminHzImport: (kind, text) => api.post('/api/admin/hangzhou/import', { kind, text }),
+  adminHzClearImported: (kind) => api.post('/api/admin/hangzhou/clear-imported', { kind }),
+
   /* ---------------- 浙江省政策申报 ---------------- */
   zhejiangMeta: () => api.get('/api/zhejiang/meta'),
   zhejiangPolicies: (query) => api.get('/api/zhejiang/policies', query),

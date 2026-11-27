@@ -117,6 +117,103 @@ export default function registerHangzhouRoutes(app) {
     return data(res, { items, total: items.length });
   });
 
+  /* ================================================================ */
+  /* 管理端：需求 / 能力 CRUD                                          */
+  /* ================================================================ */
+
+  app.get('/api/admin/hangzhou/needs', (req, res) => {
+    mustAdmin(req);
+    const items = hzSvc.listNeedsAdmin({ q: String(req.query.q || '').trim().slice(0, 60) });
+    return data(res, { items, total: items.length });
+  });
+
+  app.post('/api/admin/hangzhou/needs', (req, res) => {
+    mustAdmin(req);
+    try {
+      return data(res, { need: hzSvc.createNeed(req.body || {}) }, 201);
+    } catch (err) {
+      return bizFail(res, err, '创建失败');
+    }
+  });
+
+  app.put('/api/admin/hangzhou/needs/:id', (req, res) => {
+    mustAdmin(req);
+    try {
+      return data(res, { need: hzSvc.updateNeed(req.params.id, req.body || {}) });
+    } catch (err) {
+      return bizFail(res, err, '修改失败');
+    }
+  });
+
+  app.delete('/api/admin/hangzhou/needs/:id', (req, res) => {
+    mustAdmin(req);
+    const ok = hzSvc.deleteNeed(req.params.id);
+    if (!ok) return fail(res, '需求不存在', 404, 'not_found');
+    return data(res, { deleted: true });
+  });
+
+  app.get('/api/admin/hangzhou/caps', (req, res) => {
+    mustAdmin(req);
+    const items = hzSvc.listCapsAdmin({
+      q: String(req.query.q || '').trim().slice(0, 60),
+      category: String(req.query.category || '').trim(),
+    });
+    return data(res, { items, total: items.length });
+  });
+
+  app.post('/api/admin/hangzhou/caps', (req, res) => {
+    mustAdmin(req);
+    try {
+      return data(res, { cap: hzSvc.createCap(req.body || {}) }, 201);
+    } catch (err) {
+      return bizFail(res, err, '创建失败');
+    }
+  });
+
+  app.put('/api/admin/hangzhou/caps/:id', (req, res) => {
+    mustAdmin(req);
+    try {
+      return data(res, { cap: hzSvc.updateCap(req.params.id, req.body || {}) });
+    } catch (err) {
+      return bizFail(res, err, '修改失败');
+    }
+  });
+
+  app.delete('/api/admin/hangzhou/caps/:id', (req, res) => {
+    mustAdmin(req);
+    const ok = hzSvc.deleteCap(req.params.id);
+    if (!ok) return fail(res, '能力方不存在', 404, 'not_found');
+    return data(res, { deleted: true });
+  });
+
+  /* ================================================================ */
+  /* 管理端：批量导入                                                  */
+  /* ================================================================ */
+
+  /**
+   * POST /api/admin/hangzhou/import
+   * body: { kind: 'needs' | 'caps', text: 'JSON 或 TSV' }
+   */
+  app.post('/api/admin/hangzhou/import', (req, res) => {
+    mustAdmin(req);
+    const kind = str(req.body?.kind, 10) === 'caps' ? 'caps' : 'needs';
+    const text = String(req.body?.text || '');
+    if (text.length > 400_000) return fail(res, '导入内容过大，请分批导入', 413, 'too_large');
+    try {
+      return data(res, hzSvc.importBatch(kind, text));
+    } catch (err) {
+      return bizFail(res, err, '导入失败');
+    }
+  });
+
+  /** POST /api/admin/hangzhou/clear-imported  { kind } */
+  app.post('/api/admin/hangzhou/clear-imported', (req, res) => {
+    mustAdmin(req);
+    const kind = str(req.body?.kind, 10) === 'caps' ? 'caps' : 'needs';
+    const removed = hzSvc.clearImported(kind);
+    return data(res, { removed });
+  });
+
   /* ---------------- 管理端 ---------------- */
   app.get('/api/admin/hangzhou/intents', (req, res) => {
     mustAdmin(req);
