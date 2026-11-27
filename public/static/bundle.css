@@ -9723,6 +9723,369 @@ a.opc-district-card:hover { border-color: #9CC8FF; background: #F1F8FF; transfor
   .lv-price { text-align: left; }
 }
 
+/* ==== zhejiang.css ==== */
+/* ================================================================== */
+/* 浙江省政策项目申报                                                  */
+/*   #/zhejiang        列表                                          */
+/*   #/zhejiang/:id    详情                                          */
+/* ================================================================== */
+
+.zj-page {
+  padding-bottom: 40px;
+}
+
+/* ---------- 顶部 ---------- */
+.zj-hero {
+  padding: 22px 18px 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0b1f3a 0%, #1a4fa8 100%);
+  color: #fff;
+}
+.zj-hero-t {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: .4px;
+}
+.zj-hero-s {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  opacity: .86;
+}
+.zj-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+.zj-hero-stats > div {
+  text-align: center;
+  padding: 8px 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .12);
+}
+.zj-hero-stats b {
+  display: block;
+  font-size: 19px;
+  font-weight: 800;
+}
+.zj-hero-stats span {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  opacity: .8;
+}
+
+/* ---------- 筛选 ---------- */
+.zj-filters {
+  margin-top: 14px;
+}
+.zj-search {
+  width: 100%;
+  box-sizing: border-box;
+}
+.zj-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.zj-chips::-webkit-scrollbar {
+  display: none;
+}
+.zj-chip {
+  flex: none;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e2e9f4;
+  color: #51617a;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: .15s;
+}
+.zj-chip-sm {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+.zj-chip.active {
+  background: #1a6dff;
+  border-color: #1a6dff;
+  color: #fff;
+  font-weight: 600;
+}
+.zj-count {
+  margin: 12px 2px 6px;
+  font-size: 12px;
+  color: #8a9bb5;
+}
+
+/* ---------- 卡片列表 ---------- */
+.zj-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.zj-card {
+  display: block;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #eef2f9;
+  box-shadow: 0 2px 8px rgba(24, 60, 120, .05);
+  text-decoration: none;
+  color: inherit;
+  transition: .15s;
+}
+.zj-card:active {
+  transform: scale(.99);
+}
+.zj-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+.zj-lv {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.lv-national {
+  background: #fde8e8;
+  color: #c92a2a;
+}
+.lv-province {
+  background: #e7f0ff;
+  color: #1a6dff;
+}
+.lv-city {
+  background: #e6f7ee;
+  color: #1f8a4c;
+}
+.lv-district {
+  background: #f1f0ff;
+  color: #6b4fd8;
+}
+.zj-dept {
+  font-size: 11.5px;
+  color: #93a3bb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zj-card-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #16202e;
+  line-height: 1.45;
+}
+.zj-seq {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  margin-top: 1px;
+}
+.zj-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 9px;
+}
+.zj-cycle,
+.zj-amount {
+  font-size: 11.5px;
+  color: #7b8aa5;
+  line-height: 1.5;
+}
+.zj-amount {
+  color: #c2721a;
+}
+
+/* ---------- 我的申报 ---------- */
+.zj-mine-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #f2f5fa;
+}
+.zj-mine-row:first-of-type {
+  border-top: none;
+}
+.zj-mine-name {
+  font-size: 13px;
+  color: #16202e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zj-mine-meta {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.zj-mine-status {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #e7f0ff;
+  color: #1a6dff;
+}
+
+.zj-foot {
+  margin-top: 20px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #a8b4c8;
+  line-height: 1.7;
+}
+
+/* ---------- 详情 ---------- */
+.zj-detail-head {
+  padding: 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0b1f3a 0%, #1a4fa8 100%);
+  color: #fff;
+}
+.zj-detail-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.zj-detail-badges .zj-lv {
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+}
+.zj-detail-title {
+  margin: 12px 0 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+.zj-detail-meta {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+.zj-detail-meta > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.zj-detail-meta span {
+  flex: none;
+  width: 62px;
+  opacity: .7;
+}
+.zj-detail-meta b {
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* 正文：保留原始换行与编号结构 */
+.zj-pre {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #3d4d66;
+}
+.zj-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.zj-line + .zj-line {
+  margin-top: 2px;
+}
+.zj-line-strong {
+  font-weight: 700;
+  color: #16202e;
+  margin-top: 10px;
+}
+.zj-line-strong:first-child {
+  margin-top: 0;
+}
+
+/* 底部申报按钮 */
+.zj-apply-bar {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #eef2f9;
+}
+.zj-apply-hint {
+  margin-top: 9px;
+  font-size: 11.5px;
+  color: #93a3bb;
+  line-height: 1.65;
+  text-align: center;
+}
+
+/* ---------- 申报表单 ---------- */
+.zj-apply-target {
+  font-size: 14px;
+  font-weight: 700;
+  color: #16202e;
+  line-height: 1.5;
+}
+.zj-apply-dept {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: #93a3bb;
+}
+.zj-apply-form .field {
+  margin-top: 12px;
+}
+.zj-apply-form .field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: #51617a;
+}
+.zj-apply-form .input,
+.zj-apply-form .textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 430px) {
+  .zj-hero-t {
+    font-size: 20px;
+  }
+  .zj-hero-stats b {
+    font-size: 17px;
+  }
+  .zj-detail-title {
+    font-size: 18px;
+  }
+  .zj-pre {
+    font-size: 12.5px;
+  }
+  .zj-card-name {
+    font-size: 14px;
+  }
+}
+
 /* ==== welcome-apple.css ==== */
 /* ================================================================== */
 /* 引导页（Apple 风格：浅色、大字、克制、毛玻璃）                        */

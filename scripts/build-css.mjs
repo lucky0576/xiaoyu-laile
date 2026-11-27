@@ -27,6 +27,7 @@ const ORDER = [
   'bindings.css',
   'invest.css',
   'tags.css',
+  'zhejiang.css',
   'welcome-apple.css',
 ];
 

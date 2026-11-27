@@ -255,6 +255,7 @@ export async function renderHome(ctx, query) {
     { t: '元宇宙展厅', d: '3D 看项目 · 强脑科技展位', art: '🌐', href: '#/metaverse', i: 7 },
     { t: '出海 / 海外', d: '海外项目 · 跨境贸易 · 出海服务', art: '🌏', href: '#/overseas', i: 8 },
     { t: '创业服务', d: '创业补贴 · 辅导 · OPC · 赛事', art: '🚀', href: '#/startup', i: 9 },
+    { t: '浙江政策申报', d: '40 个政策项目 · 补贴匹配 · 一键申报', art: '📋', href: '#/zhejiang', i: 10 },
   ];
   /* ---------------- 横栏：每条下面挂 5 条最新 ---------------- */
   /** 相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前 */

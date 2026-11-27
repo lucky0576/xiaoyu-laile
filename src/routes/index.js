@@ -18,6 +18,7 @@ import registerBroadcastRoutes from './broadcast.js';
 import registerContestRoutes from './contest.js';
 import registerStewardRoutes from './stewards.js';
 import registerDramaRoutes from './dramas.js';
+import registerZhejiangRoutes from './zhejiang.js';
 
 export default function registerRoutes(app) {
   registerCoreRoutes(app);
@@ -37,5 +38,6 @@ export default function registerRoutes(app) {
   registerContestRoutes(app);
   registerStewardRoutes(app);
   registerDramaRoutes(app);
+  registerZhejiangRoutes(app);
   return app;
 }

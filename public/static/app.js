@@ -87,6 +87,7 @@ const lazyView = (loader) =>
   );
 
 import * as viewsHome from './views-home.js';
+const viewsZhejiang = lazyView(() => import('./views-zhejiang.js'));
 const viewsPublish = lazyView(() => import('./views-publish.js'));
 const viewsAccount = lazyView(() => import('./views-account.js'));
 const viewsChat = lazyView(() => import('./views-chat.js'));
@@ -520,6 +521,11 @@ async function resolveView({ segs, query }) {
       return viewsBidAssistant.renderBidAssistant(ctx, query);
     case 'card':
       return viewsCard.renderCard(ctx, query);
+    case 'zhejiang':
+      // #/zhejiang        列表
+      // #/zhejiang/zj-01  单个政策详情
+      if (p1) return viewsZhejiang.renderZhejiangDetail(ctx, { id: p1, ...query });
+      return viewsZhejiang.renderZhejiang(ctx, query);
     case 'opc':
       if (p1 === 'p' && p2) return viewsOpc.renderOpcDetail(ctx, 'policy', p2);
       if (p1 === 's' && p2) return viewsOpc.renderOpcDetail(ctx, 'step', p2);

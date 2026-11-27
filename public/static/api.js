@@ -594,6 +594,13 @@ export const service = {
   fundsList: () => api.get('/api/funds/list'),
   contestFollows: () => api.get('/api/contest/follows'),
   contestFollow: (id, on) => api.post('/api/contest/follow', { id, on }),
+
+  /* ---------------- 浙江省政策申报 ---------------- */
+  zhejiangMeta: () => api.get('/api/zhejiang/meta'),
+  zhejiangPolicies: (query) => api.get('/api/zhejiang/policies', query),
+  zhejiangPolicy: (id) => api.get(`/api/zhejiang/policies/${encodeURIComponent(id)}`),
+  zhejiangApply: (body) => api.post('/api/zhejiang/apply', body),
+  zhejiangMyApplications: () => api.get('/api/zhejiang/my-applications'),
   broadcastSavedSave: (list) => api.put('/api/broadcast/saved', { list }),
   docPreview: (fileId) => api.get(`/api/preview/${fileId}`),
   /*

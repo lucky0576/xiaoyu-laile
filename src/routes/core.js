@@ -140,6 +140,7 @@ export default function registerCoreRoutes(app) {
       'bindings.css',
       'invest.css',
       'tags.css',
+      'zhejiang.css',
     ];
     let etag = '';
     const parts = [];
