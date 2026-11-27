@@ -3570,12 +3570,12 @@ html, body { max-width: 100%; overflow-x: hidden; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   background: #fff;
   border-radius: 16px;
-  padding: 14px 14px;
+  padding: 13px 14px;
   box-shadow: 0 2px 10px rgba(24, 60, 120, .07);
-  min-height: 88px;
+  min-height: 84px;
   transition: .15s;
 }
 .home-card:active { transform: scale(.98); }
@@ -3583,15 +3583,21 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .home-card .t { font-size: 16.5px; font-weight: 800; color: #16202e; letter-spacing: .3px; }
 .home-card .d { font-size: 12px; color: #8a9bb5; margin-top: 5px; line-height: 1.4; }
 .home-card .art {
+  /* 圆形图标：内切圆看着比圆角方块小，所以尺寸略收、字号略提 */
   width: 58px;
   height: 58px;
-  border-radius: 18px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   font-size: 30px;
+  line-height: 1;
   flex: none;
-  box-shadow: inset 0 -6px 14px rgba(255, 255, 255, .55);
+  box-shadow:
+    inset 0 -6px 14px rgba(255, 255, 255, .55),
+    0 3px 8px rgba(24, 60, 120, .10);
+  transition: transform .15s;
 }
+.home-card:active .art { transform: scale(.94); }
 
 /* ---------------- 推荐 Tab + 横滑 ---------------- */
 .home-panel {
@@ -3753,10 +3759,12 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .home-banner .slide { padding: 16px; }
   .home-banner .slide h2 { font-size: 23px; }
   .home-banner .slide .art { font-size: 52px; }
-  .home-card { padding: 12px; min-height: 80px; }
-  .home-card .t { font-size: 15px; }
-  .home-card .d { font-size: 11px; }
-  .home-card .art { width: 50px; height: 50px; font-size: 26px; border-radius: 15px; }
+  /* 窄屏两列很挤：标题缩到 14px、圆收到 46px，
+     让「科技成果转化」这类 6 字标题也能单行放下，卡片高度才整齐 */
+  .home-card { padding: 11px 12px; min-height: 76px; gap: 8px; }
+  .home-card .t { font-size: 14px; letter-spacing: .2px; }
+  .home-card .d { font-size: 10.5px; }
+  .home-card .art { width: 46px; height: 46px; font-size: 24px; border-radius: 50%; }
   .home-tile { width: 92px; }
   .home-tile .art { height: 68px; font-size: 26px; }
 }
@@ -10194,45 +10202,4 @@ a.opc-district-card:hover { border-color: #9CC8FF; background: #F1F8FF; transfor
 .aw-bid-m { font-size: 11px; color: var(--aw-ink-3); }
 @media (prefers-color-scheme: dark) {
   .aw-bid { border-top-color: rgba(255,255,255,.08); }
-}
-
-
-/* 荣誉横栏：华为资质单独一行（与获奖信息之间加分隔线） */
-.honor-home-sub {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 7px;
-  padding-top: 7px;
-  border-top: 1px dashed rgba(255, 255, 255, .18);
-}
-.honor-home-sub .honor-home-hw {
-  width: 17px;
-  height: 17px;
-  flex: none;
-  display: block;
-  opacity: .95;
-}
-.honor-home-sub b {
-  margin-top: 0;
-  color: #FFE08A;
-  font-size: 12.5px;
-  font-weight: 800;
-  line-height: 1.35;
-}
-
-/* 荣誉横栏：华为彩色 LOGO 的白色小底（深色背景下保证品牌色可辨） */
-.honor-home-sub .honor-home-hw-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  background: #fff;
-  border-radius: 5px;
-  padding: 3px 7px;
-}
-.honor-home-sub .honor-home-hw-pill img {
-  height: 13px;
-  width: auto;
-  display: block;
 }
