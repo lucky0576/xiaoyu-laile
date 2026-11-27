@@ -607,6 +607,16 @@ export const service = {
   hangzhouIntent: (body) => api.post('/api/hangzhou/intent', body),
   hangzhouMyIntents: () => api.get('/api/hangzhou/my-intents'),
 
+  /* ---------------- 杭州政策通 ---------------- */
+  hzPolicyMeta: () => api.get('/api/hz-policy/meta'),
+  hzPolicyPortals: () => api.get('/api/hz-policy/portals'),
+  hzPolicyPolicies: (query) => api.get('/api/hz-policy/policies', query),
+  hzPolicyPolicy: (id) => api.get(`/api/hz-policy/policies/${encodeURIComponent(id)}`),
+  hzPolicyNotices: (query) => api.get('/api/hz-policy/notices', query),
+  adminHzPolicyPolicies: (query) => api.get('/api/admin/hz-policy/policies', query),
+  adminHzPolicyNotices: (query) => api.get('/api/admin/hz-policy/notices', query),
+  adminHzPolicyImport: (kind, text) => api.post('/api/admin/hz-policy/import', { kind, text }),
+
   /* 管理端：场景广场交易 */
   adminHzNeeds: (query) => api.get('/api/admin/hangzhou/needs', query),
   adminHzNeedCreate: (body) => api.post('/api/admin/hangzhou/needs', body),

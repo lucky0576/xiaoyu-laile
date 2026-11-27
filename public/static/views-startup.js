@@ -201,6 +201,10 @@ export async function renderStartup(ctx, query = {}) {
         <span>省级 ${(zjStats.byLevel || {}).province || 0} · 市级 ${(zjStats.byLevel || {}).city || 0} · 区县级 ${(zjStats.byLevel || {}).district || 0} · 国家级 ${(zjStats.byLevel || {}).national || 0}</span>
         <a class="startup-policy-go" href="#/zhejiang">去匹配申报 ›</a>
       </div>
+      <div class="startup-policy-links">
+        <a href="#/zhejiang">📋 浙江政策项目申报</a>
+        <a href="#/hz-policy">🏛 杭州政策通（官网直达 · 最新通知）</a>
+      </div>
     </section>
 
     <section class="startup-opc">

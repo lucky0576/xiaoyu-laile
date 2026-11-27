@@ -91,6 +91,7 @@ const viewsZhejiang = lazyView(() => import('./views-zhejiang.js'));
 const viewsZhejiangAdmin = lazyView(() => import('./views-zhejiang-admin.js'));
 const viewsHangzhou = lazyView(() => import('./views-hangzhou.js'));
 const viewsHangzhouAdmin = lazyView(() => import('./views-hangzhou-admin.js'));
+const viewsHzPolicy = lazyView(() => import('./views-hz-policy.js'));
 const viewsPublish = lazyView(() => import('./views-publish.js'));
 const viewsAccount = lazyView(() => import('./views-account.js'));
 const viewsChat = lazyView(() => import('./views-chat.js'));
@@ -524,6 +525,8 @@ async function resolveView({ segs, query }) {
       return viewsBidAssistant.renderBidAssistant(ctx, query);
     case 'card':
       return viewsCard.renderCard(ctx, query);
+    case 'hz-policy':
+      return viewsHzPolicy.renderHzPolicy(ctx, query);
     case 'admin-hangzhou':
       return viewsHangzhouAdmin.renderAdminHangzhou(ctx, query);
     case 'hangzhou':

@@ -20,6 +20,7 @@ import registerStewardRoutes from './stewards.js';
 import registerDramaRoutes from './dramas.js';
 import registerZhejiangRoutes from './zhejiang.js';
 import registerHangzhouRoutes from './hangzhou.js';
+import registerHzPolicyRoutes from './hzpolicy.js';
 
 export default function registerRoutes(app) {
   registerCoreRoutes(app);
@@ -41,5 +42,6 @@ export default function registerRoutes(app) {
   registerDramaRoutes(app);
   registerZhejiangRoutes(app);
   registerHangzhouRoutes(app);
+  registerHzPolicyRoutes(app);
   return app;
 }
